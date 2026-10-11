@@ -433,6 +433,7 @@ export function WarehouseLayoutPage({ warehouseId }: WarehouseLayoutPageProps) {
         canGenerateBarcode={capabilities.canGenerateLocationBarcode}
         isWarehouseActive={isWarehouseActive}
         onCreateZone={() => setZoneFormTarget({ mode: 'create' })}
+        onImport={() => router.push(APP_ROUTES.warehouseLocationImport(warehouseId))}
         onCreateRack={(zone) => setRackFormTarget({ mode: 'create', zone })}
         onCreateSlot={(rack) => setSlotFormTarget({ mode: 'create', rack })}
         onEditZone={(zone) => setZoneFormTarget({ mode: 'update', zone })}

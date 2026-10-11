@@ -34,7 +34,7 @@ export function TransferConfirmDialog({
 }: TransferConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <AlertDialogContent>
+      <AlertDialogContent size="lg">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription asChild>
@@ -42,8 +42,11 @@ export function TransferConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Đóng</AlertDialogCancel>
+          <AlertDialogCancel size="lg" disabled={isPending}>
+            Đóng
+          </AlertDialogCancel>
           <AlertDialogAction
+            size="lg"
             disabled={isPending}
             onClick={(event) => {
               event.preventDefault()

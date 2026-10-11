@@ -10,6 +10,18 @@ import {
 afterEach(cleanup)
 
 describe('shared catalog import presentation', () => {
+  it.each([0, 1, 2, 3])('keeps bottom breathing room inside the scroll area at step %s', (step) => {
+    const view = render(
+      <BulkImportWorkspace header={<h1>Nhập dữ liệu</h1>} step={step} activity="idle">
+        <button type="button">Thao tác cuối trang</button>
+      </BulkImportWorkspace>
+    )
+    expect(view.container.firstChild).toHaveClass('overflow-y-auto', 'pb-3', 'sm:pb-4', 'lg:pb-5')
+    expect(view.container.firstChild).toContainElement(
+      screen.getByRole('button', { name: 'Thao tác cuối trang' })
+    )
+  })
+
   it.each(['reading', 'checking', 'importing', 'template'] as const)(
     'announces %s without replacing existing content',
     (activity) => {

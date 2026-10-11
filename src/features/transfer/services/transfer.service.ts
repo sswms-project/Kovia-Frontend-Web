@@ -12,6 +12,8 @@ import type {
   CompleteTransferPickingRequest,
   DispatchTransferShipmentRequest,
   ReopenTransferPickingRequest,
+  SetTransferPutAwaySlotsRequest,
+  TransferPutAwayItemSuggestions,
   EscalateTransferPickRequest,
   ReceiveTransferShipmentRequest,
   RecordTransferPickRequest,
@@ -86,6 +88,13 @@ export const transferService = {
       .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.receivableSlots, {
         params,
       })
+      .then(unwrap),
+
+  getPutAwaySuggestions: (transferId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferPutAwayItemSuggestions[]>
+      >(API_ENDPOINTS.transfers.putAwaySuggestions(transferId))
       .then(unwrap),
 
   getSourceLocations: (params: TransferSourceLocationsQuery) =>
@@ -245,6 +254,11 @@ export const transferService = {
       .post<
         ApiResponse<unknown>
       >(API_ENDPOINTS.transfers.completePicking(transferId, shipmentId), request)
+      .then(unwrap),
+
+  setPutAwaySlots: (transferId: string, request: SetTransferPutAwaySlotsRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwaySlots(transferId), request)
       .then(unwrap),
 
   reopenPicking: (transferId: string, shipmentId: string, request: ReopenTransferPickingRequest) =>

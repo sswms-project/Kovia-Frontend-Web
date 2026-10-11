@@ -48,7 +48,7 @@ export function ResolveDiscrepancyDialog({
   const remaining = discrepancy ? discrepancy.quantity - discrepancy.resolvedQuantity : 0
   return (
     <Dialog open={Boolean(discrepancy)} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent>
+      <DialogContent size="lg" className="sm:max-w-lg">
         {discrepancy ? (
           <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>

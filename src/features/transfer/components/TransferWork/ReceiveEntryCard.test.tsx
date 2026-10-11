@@ -8,10 +8,12 @@ afterEach(cleanup)
 
 function Harness({
   suggestedSlotLabel,
+  suggestedSlotId,
   slotLabel,
   destinationSlotId = '',
 }: {
   suggestedSlotLabel?: string
+  suggestedSlotId?: string
   slotLabel?: string
   destinationSlotId?: string
 }) {
@@ -45,6 +47,7 @@ function Harness({
       canRemove={false}
       slotLabel={slotLabel}
       suggestedSlotLabel={suggestedSlotLabel}
+      suggestedSlotId={suggestedSlotId}
       disabled={false}
       isFindingSlot={false}
       onScanSlot={vi.fn()}
@@ -56,15 +59,38 @@ function Harness({
 }
 
 describe('ReceiveEntryCard', () => {
-  it('shows where the requester suggested putting the goods away', () => {
+  it('shows where the warehouse manager wants the goods put away', () => {
     render(<Harness suggestedSlotLabel="Khu K01 / Kệ A07" />)
-    expect(screen.getByText('Gợi ý cất tại')).toBeInTheDocument()
+    expect(screen.getByText('Cất vào')).toBeInTheDocument()
     expect(screen.getByText('Khu K01 / Kệ A07')).toBeInTheDocument()
   })
 
   it('shows no hint when nothing was suggested', () => {
     render(<Harness />)
-    expect(screen.queryByText('Gợi ý cất tại')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cất vào')).not.toBeInTheDocument()
+  })
+
+  it('warns, without blocking, when a different slot than the suggested one was scanned', () => {
+    const first = render(
+      <Harness
+        suggestedSlotLabel="Khu K01 / Kệ A07"
+        suggestedSlotId="slot-1"
+        destinationSlotId="slot-1"
+        slotLabel="Khu K01 / Kệ A07"
+      />
+    )
+    expect(screen.queryByText(/khác ô quản lý chọn/)).not.toBeInTheDocument()
+
+    first.unmount()
+    render(
+      <Harness
+        suggestedSlotLabel="Khu K01 / Kệ A07"
+        suggestedSlotId="slot-1"
+        destinationSlotId="slot-2"
+        slotLabel="Khu K02 / Kệ B01"
+      />
+    )
+    expect(screen.getByText(/khác ô quản lý chọn/)).toBeInTheDocument()
   })
 
   it('shows the full location once the slot has been scanned', () => {

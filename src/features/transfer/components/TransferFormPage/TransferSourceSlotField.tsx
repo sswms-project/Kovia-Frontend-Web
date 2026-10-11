@@ -1,5 +1,5 @@
-import { X } from 'lucide-react'
-import { useMemo } from 'react'
+import { Map as MapIcon, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
@@ -8,6 +8,7 @@ import type { LookupOption } from '@/features/inbound-request/types/inbound-requ
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import { useTransferSourceLocationsQuery } from '../../hooks/use-transfers'
 import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
+import { TransferSlotMapDialog } from './TransferSlotMapDialog'
 
 interface TransferSourceSlotFieldProps {
   readonly index: number
@@ -43,6 +44,11 @@ export function TransferSourceSlotField({
     [query.data]
   )
   const inputId = `transfer-source-slot-${index}`
+  const [isMapOpen, setIsMapOpen] = useState(false)
+  const allowedLocations = useMemo(
+    () => options.map((option) => ({ slotId: option.value, label: option.label })),
+    [options]
+  )
 
   return (
     <Field data-invalid={Boolean(error)}>
@@ -65,6 +71,11 @@ export function TransferSourceSlotField({
               isLoading={query.isFetching}
               isInvalid={Boolean(error)}
               disabled={locked || !productId}
+              footerAction={{
+                label: 'Chọn trong sơ đồ kho',
+                icon: <MapIcon aria-hidden="true" />,
+                onClick: () => setIsMapOpen(true),
+              }}
               onSearchChange={() => undefined}
               onChange={(value) =>
                 form.setValue(`lines.${index}.sourceSlotId`, value, {
@@ -90,6 +101,20 @@ export function TransferSourceSlotField({
         </div>
       )}
       <FieldError>{error?.message}</FieldError>
+      <TransferSlotMapDialog
+        open={isMapOpen}
+        onOpenChange={setIsMapOpen}
+        title="Chọn vị trí đi trên sơ đồ kho xuất"
+        description="Chỉ chọn được các ô còn tồn của sản phẩm này. Hệ thống sẽ lấy ở ô đã chọn trước, phần còn lại theo FEFO."
+        warehouseId={sourceWarehouseId}
+        allowedLocations={allowedLocations}
+        onConfirm={({ slotId: pickedSlotId }) =>
+          form.setValue(`lines.${index}.sourceSlotId`, pickedSlotId, {
+            shouldDirty: true,
+            shouldValidate: true,
+          })
+        }
+      />
     </Field>
   )
 }

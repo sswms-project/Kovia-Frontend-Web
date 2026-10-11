@@ -219,6 +219,20 @@ export interface TransferSourceLocationsQuery {
   productId: string
 }
 
+export interface TransferPutAwaySlotSuggestion {
+  slotId: string
+  path: string
+  reason: string
+  /** Số lượng còn nhận được (đơn vị chính); null khi vị trí không giới hạn sức chứa. */
+  available: number | null
+  warnings: string[]
+}
+
+export interface TransferPutAwayItemSuggestions {
+  itemId: string
+  suggestions: TransferPutAwaySlotSuggestion[]
+}
+
 export interface TransferReceivableSlotOption {
   id: string
   code: string
@@ -265,6 +279,8 @@ export interface TransferShipment {
   lines: TransferShipmentLine[]
   pickTaskVersion: string | null
   receiveTaskVersion: string | null
+  pickAssigneeName?: string | null
+  receiveAssigneeName?: string | null
 }
 
 export interface TransferDiscrepancy {
@@ -509,6 +525,11 @@ export interface AdjustTransferAllocationRequest {
   moves: TransferAllocationMove[]
   reason: string | null
   commandId: string
+}
+
+export interface SetTransferPutAwaySlotsRequest {
+  expectedVersion: string
+  slots: { itemId: string; destinationSlotId: string | null }[]
 }
 
 export interface ReopenTransferPickingRequest {

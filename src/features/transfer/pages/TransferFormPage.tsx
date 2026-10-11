@@ -54,6 +54,7 @@ import {
   EMPTY_TRANSFER_LINE,
   dispatchedInEnteredUnit,
   emptyTransferForm,
+  findWarehouseName,
   visibleTransferItems,
 } from '../utils/transfer-form'
 import { canSeeWarehouse } from '../utils/transfer-capabilities'
@@ -470,11 +471,36 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
         open={actions.isConfirmOpen}
         title="Tạo yêu cầu điều chuyển?"
         description={
-          <p>
-            Hệ thống sẽ kiểm tồn khả dụng và giữ chỗ ngay <strong>{lines.length} dòng hàng</strong>{' '}
-            (tổng {formatQuantity(totalBaseQuantity)} theo đơn vị chính) ở kho xuất. Nếu thiếu tồn,
-            toàn bộ yêu cầu sẽ bị chặn và bản nháp được giữ lại.
-          </p>
+          <div className="grid gap-3">
+            <dl className="bg-muted/50 text-foreground grid gap-1.5 rounded-md border p-3">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Kho xuất</dt>
+                <dd className="text-right font-medium">
+                  {findWarehouseName(sourceOptions, sourceWarehouseId)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Kho nhập</dt>
+                <dd className="text-right font-medium">
+                  {findWarehouseName(destinationOptions, destinationWarehouseId)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Số dòng hàng</dt>
+                <dd className="text-right font-medium tabular-nums">{lines.length}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Tổng số lượng</dt>
+                <dd className="text-right font-medium tabular-nums">
+                  {formatQuantity(totalBaseQuantity)} theo đơn vị chính
+                </dd>
+              </div>
+            </dl>
+            <p>
+              Hệ thống kiểm tồn khả dụng và <strong>giữ chỗ ngay</strong> ở kho xuất. Nếu thiếu tồn,
+              toàn bộ yêu cầu bị chặn và bản nháp được giữ lại.
+            </p>
+          </div>
         }
         confirmLabel="Tạo yêu cầu"
         pendingLabel="Đang tạo…"

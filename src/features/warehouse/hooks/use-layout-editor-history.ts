@@ -76,7 +76,7 @@ function updateGeometry(
     return {
       ...scene,
       zones: scene.zones.map((zone) =>
-        zone.id === id ? { ...zone, ...normalizedGeometry } : zone
+        zone.id === id ? { ...zone, ...normalizedGeometry, placementPending: false } : zone
       ),
     }
   }
@@ -85,7 +85,12 @@ function updateGeometry(
       ...scene,
       racks: scene.racks.map((rack) =>
         rack.id === id
-          ? { ...rack, ...normalizedGeometry, ...(rackShape ? { layoutShape: rackShape } : {}) }
+          ? {
+              ...rack,
+              ...normalizedGeometry,
+              placementPending: false,
+              ...(rackShape ? { layoutShape: rackShape } : {}),
+            }
           : rack
       ),
     }
@@ -167,6 +172,7 @@ function reconcileServerScene(
             rotation: draftZone.rotation,
             zIndex: draftZone.zIndex,
             color: draftZone.color ?? null,
+            placementPending: draftZone.placementPending,
           }
         : serverZone
     }),
@@ -182,6 +188,7 @@ function reconcileServerScene(
             rotation: draftRack.rotation,
             zIndex: draftRack.zIndex,
             color: draftRack.color ?? null,
+            placementPending: draftRack.placementPending,
             layoutShape: draftRack.layoutShape ?? serverRack.layoutShape ?? 'Standard',
           }
         : serverRack

@@ -3,6 +3,7 @@ import type {
   TransferDetail,
   TransferDiscrepancy,
   TransferFeedback,
+  TransferItem,
   TransferShipment,
 } from '../types/transfer.types'
 
@@ -32,6 +33,8 @@ export interface TransferCapabilities {
   readonly canResolveDiscrepancy: boolean
   /** Chủ và quản lý kho xuất đổi nơi lấy hàng của các dòng đang giữ chỗ. */
   readonly canAdjustAllocation: boolean
+  /** Quản lý kho nhập (và chủ) chọn vị trí cất hàng cho các dòng chưa bắt đầu nhận. */
+  readonly canSetPutAwaySlots: boolean
   /** UI chỉ hiện một nút: Hủy phiếu khi chưa xuất đợt nào, Dừng phần còn lại khi đã xuất. */
   readonly closingAction: TransferClosingAction
 }
@@ -59,6 +62,7 @@ const NONE: TransferCapabilities = {
   canCreateShipment: false,
   canResolveDiscrepancy: false,
   canAdjustAllocation: false,
+  canSetPutAwaySlots: false,
   closingAction: null,
 }
 
@@ -147,8 +151,18 @@ export function getTransferCapabilities(
       manages(viewer, transfer.sourceWarehouseId) &&
       isInProgress &&
       transfer.items.some((item) => (item.allocations ?? []).length > 0),
+    canSetPutAwaySlots:
+      has(viewer, P.TRANSFERS_RECEIVE) &&
+      manages(viewer, transfer.destinationWarehouseId) &&
+      isInProgress &&
+      transfer.items.some(canChoosePutAwaySlot),
     closingAction,
   }
+}
+
+/** Dòng chưa có khai báo nhận mới đổi được vị trí cất hàng (cùng quy tắc khóa với BE). */
+export function canChoosePutAwaySlot(item: TransferItem) {
+  return item.receivedQuantity === 0 && item.damagedQuantity === 0 && item.missingQuantity === 0
 }
 
 export function getShipmentCapabilities(

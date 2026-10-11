@@ -60,7 +60,7 @@ function renderDialog(scan: PickScanState, handlers = { slot: vi.fn(), product: 
 describe('PickEntryDialog camera', () => {
   it('sends camera codes to the location step first, then to the product step', async () => {
     const handlers = renderDialog(INITIAL_PICK_SCAN_STATE)
-    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét liên tục/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
     expect(screen.getByTestId('camera')).toBeInTheDocument()
 
     act(() => reportCode?.('A07'))
@@ -70,7 +70,7 @@ describe('PickEntryDialog camera', () => {
 
   it('routes camera codes to the product step once the location is confirmed', async () => {
     const handlers = renderDialog({ ...INITIAL_PICK_SCAN_STATE, step: 'product' })
-    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét liên tục/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
 
     act(() => reportCode?.('SKU-1'))
     expect(handlers.product).toHaveBeenCalledWith('SKU-1')
@@ -79,7 +79,7 @@ describe('PickEntryDialog camera', () => {
 
   it('pauses the camera when both codes are scanned so the quantity can be entered', async () => {
     renderDialog({ ...INITIAL_PICK_SCAN_STATE, step: 'ready', productCode: 'SKU-1' })
-    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét liên tục/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
     expect(cameraActive).toBe(false)
     expect(screen.getByText(/Camera tạm dừng/)).toBeInTheDocument()
   })

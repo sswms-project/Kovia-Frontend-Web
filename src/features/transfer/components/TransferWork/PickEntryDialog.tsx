@@ -96,7 +96,7 @@ export function PickEntryDialog({
   }, [isReady, eachUnit])
   return (
     <Dialog open={Boolean(line)} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="lg" className="sm:max-w-lg">
         {line ? (
           <div className="grid gap-4">
             <DialogHeader>
@@ -122,7 +122,7 @@ export function PickEntryDialog({
                   onClick={() => setCameraOn((current) => !current)}
                 >
                   {cameraOn ? <CameraOff aria-hidden="true" /> : <Camera aria-hidden="true" />}
-                  {cameraOn ? 'Tắt camera quét' : 'Bật camera quét liên tục'}
+                  {cameraOn ? 'Tắt camera quét' : 'Bật camera quét'}
                 </Button>
                 <InlineCameraScanner
                   active={cameraActive}

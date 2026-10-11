@@ -154,7 +154,7 @@ export default function TransferReceiveTaskPage({
                   onClick={() => setCameraOn((current) => !current)}
                 >
                   {cameraOn ? <CameraOff aria-hidden="true" /> : <Camera aria-hidden="true" />}
-                  {cameraOn ? 'Tắt camera quét' : 'Bật camera quét liên tục'}
+                  {cameraOn ? 'Tắt camera quét' : 'Bật camera quét'}
                 </Button>
                 <InlineCameraScanner active={cameraActive} onCode={handleCameraCode} />
                 {cameraOn ? (
@@ -186,6 +186,7 @@ export default function TransferReceiveTaskPage({
                   baseUnitName={line.baseUnitName}
                   canRemove={receive.countEntriesOf(index) > 1}
                   slotLabel={receive.slotPathById[entry.destinationSlotId]}
+                  suggestedSlotId={line.suggestedSlotId ?? undefined}
                   suggestedSlotLabel={
                     line.suggestedSlotCode
                       ? formatTransferLocation({

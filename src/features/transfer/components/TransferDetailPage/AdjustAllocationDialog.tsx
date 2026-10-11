@@ -73,7 +73,7 @@ export function AdjustAllocationDialog({
     .join(',')}`
   return (
     <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent size="lg" className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Điều chỉnh nơi lấy hàng</DialogTitle>
           <DialogDescription>

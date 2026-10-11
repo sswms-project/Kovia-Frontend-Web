@@ -56,6 +56,7 @@ export const APP_ROUTES = {
   warehouseLayoutDesigner: (warehouseId: string): Route =>
     `/warehouse-layouts/${warehouseId}/designer` as Route,
   warehouseLocations: (warehouseId: string) => `/warehouses/${warehouseId}/locations`,
+  warehouseLocationImport: (warehouseId: string): Route => `/warehouses/${warehouseId}/locations/import` as Route,
   warehouseLocationBarcode: (warehouseId: string, locationType: string, locationId: string) =>
     `/warehouses/${warehouseId}/locations/${locationType.toLowerCase()}/${locationId}/barcode`,
   inventory: '/inventory',

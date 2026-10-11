@@ -127,7 +127,9 @@ function NotificationRowContent({ notification }: { readonly notification: Notif
           </span>
           <Badge variant="outline">{TYPE_LABELS[notification.type]}</Badge>
         </span>
-        <span className="text-muted-foreground text-sm break-words">{notification.message}</span>
+        <span className="text-muted-foreground text-sm break-words whitespace-pre-line">
+          {notification.message}
+        </span>
         <span className="text-muted-foreground text-xs">
           {formatNotificationTime(notification.createdAt)}
         </span>

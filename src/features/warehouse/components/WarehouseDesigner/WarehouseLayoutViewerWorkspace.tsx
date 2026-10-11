@@ -8,6 +8,7 @@ import {
   Check,
   CircleSlash2,
   HelpCircle,
+  MapPin,
   Maximize,
   PencilRuler,
   Search,
@@ -63,9 +64,24 @@ const WarehouseCanvas = dynamic(
   { ssr: false, loading: () => <Skeleton className="h-full min-h-[28rem] w-full" /> }
 )
 
+/** Dùng sơ đồ kho để chọn một vị trí cho màn khác: thêm thanh xác nhận và gợi ý các ô nên chọn. */
+export interface WarehouseLayoutPicker {
+  readonly description: string
+  readonly quickPicksTitle?: string
+  readonly quickPicks?: readonly { readonly slotId: string; readonly label: string }[]
+  /** Nội dung tóm tắt ô đang chọn và việc có bấm Chọn được hay không. */
+  readonly evaluate: (selection: WarehouseLayoutSelection | null) => {
+    readonly summary: React.ReactNode
+    readonly canConfirm: boolean
+  }
+  readonly onConfirm: (selection: WarehouseLayoutSelection) => void
+}
+
 interface WarehouseLayoutViewerWorkspaceProps {
   readonly warehouseId: string
   readonly warehouseName: string
+  readonly title?: string
+  readonly picker?: WarehouseLayoutPicker
   readonly scene: WarehouseLayoutEditorScene
   readonly canConfigure: boolean
   readonly isClosing: boolean
@@ -97,6 +113,8 @@ function ViewerIconButton({
 export function WarehouseLayoutViewerWorkspace({
   warehouseId,
   warehouseName,
+  title,
+  picker,
   scene,
   canConfigure,
   isClosing,
@@ -105,6 +123,7 @@ export function WarehouseLayoutViewerWorkspace({
 }: WarehouseLayoutViewerWorkspaceProps) {
   const isCompact = useLayoutDesignerCompact()
   const canvasRef = useRef<WarehouseCanvasHandle>(null)
+  const pendingUnplacedSelection = useRef<WarehouseLayoutSelection | null>(null)
   const [selection, setSelection] = useState<WarehouseLayoutSelection | null>(null)
   const [zoomPercent, setZoomPercent] = useState(100)
   const [isLocationSheetOpen, setIsLocationSheetOpen] = useState(false)
@@ -136,7 +155,7 @@ export function WarehouseLayoutViewerWorkspace({
     setPageNumber(1)
   }
 
-  const tree = (
+  const toolbox = (
     <DesignerToolbox
       scene={scene}
       selection={selection}
@@ -146,8 +165,56 @@ export function WarehouseLayoutViewerWorkspace({
       onCreateRack={() => undefined}
       onCreateDecoration={() => undefined}
       onSelect={handleSelectionChange}
+      onSelectUnplaced={(nextSelection) => {
+        handleSelectionChange(nextSelection)
+        if (isCompact) {
+          pendingUnplacedSelection.current = nextSelection
+          setIsLocationSheetOpen(false)
+        } else {
+          canvasRef.current?.revealSelection(nextSelection)
+        }
+      }}
     />
   )
+  const tree = picker?.quickPicks ? (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1">{toolbox}</div>
+      <section
+        aria-label={picker.quickPicksTitle}
+        className="max-h-40 shrink-0 overflow-auto border-t p-2"
+      >
+        <h3 className="text-muted-foreground px-1 pb-1 text-xs font-medium">
+          {picker.quickPicksTitle}
+        </h3>
+        {picker.quickPicks.length === 0 ? (
+          <p className="text-muted-foreground px-1 text-xs">Không có vị trí nào.</p>
+        ) : (
+          <ul className="grid gap-1">
+            {picker.quickPicks.map((location) => (
+              <li key={location.slotId}>
+                <button
+                  type="button"
+                  className={cn(
+                    'hover:bg-accent flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs',
+                    selection?.kind === 'slot' &&
+                      selection.id === location.slotId &&
+                      'bg-accent font-medium'
+                  )}
+                  onClick={() => handleSelectionChange({ kind: 'slot', id: location.slotId })}
+                >
+                  <MapPin aria-hidden="true" className="size-3 shrink-0" />
+                  <span className="min-w-0 break-words">{location.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  ) : (
+    toolbox
+  )
+  const pickerState = picker?.evaluate(selection)
 
   const inventory = (
     <section
@@ -326,7 +393,10 @@ export function WarehouseLayoutViewerWorkspace({
     >
       <header className="flex min-h-16 shrink-0 items-center gap-3 border-b px-5 py-2">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold">Sơ đồ {warehouseName}</h1>
+          <h1 className="truncate text-xl font-semibold">{title ?? `Sơ đồ ${warehouseName}`}</h1>
+          {picker ? (
+            <p className="text-muted-foreground truncate text-xs">{picker.description}</p>
+          ) : null}
         </div>
         {canConfigure ? (
           onEdit ? (
@@ -400,6 +470,25 @@ export function WarehouseLayoutViewerWorkspace({
         )}
       </div>
 
+      {picker && pickerState ? (
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t px-5 py-3">
+          <div className="min-w-0 text-sm">{pickerState.summary}</div>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="lg" onClick={onClose}>
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              disabled={!pickerState.canConfirm || !selection}
+              onClick={() => selection && picker.onConfirm(selection)}
+            >
+              Chọn
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <footer className="bg-surface-container-lowest flex min-h-11 shrink-0 items-center border-t px-3 py-1.5">
         <div className="text-muted-foreground flex items-center gap-4 text-xs">
           <span className="inline-flex items-center gap-1.5">
@@ -432,7 +521,17 @@ export function WarehouseLayoutViewerWorkspace({
       </footer>
 
       <Sheet open={isLocationSheetOpen} onOpenChange={setIsLocationSheetOpen}>
-        <SheetContent side="left" className="w-[min(92vw,28rem)] gap-0 p-0 sm:max-w-md">
+        <SheetContent
+          side="left"
+          className="w-[min(92vw,28rem)] gap-0 p-0 sm:max-w-md"
+          onCloseAutoFocus={(event) => {
+            const nextSelection = pendingUnplacedSelection.current
+            if (!nextSelection) return
+            event.preventDefault()
+            pendingUnplacedSelection.current = null
+            canvasRef.current?.revealSelection(nextSelection)
+          }}
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>Vị trí và hàng hóa</SheetTitle>
             <SheetDescription>Chọn vị trí và xem hàng hóa trong kho.</SheetDescription>

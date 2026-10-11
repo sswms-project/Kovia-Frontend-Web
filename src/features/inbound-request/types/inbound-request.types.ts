@@ -226,6 +226,8 @@ export interface LookupListResponse<T> {
 export interface LookupOption {
   value: string
   label: string
+  /** Dòng phụ nhỏ dưới nhãn trong danh sách thả xuống (ví dụ lý do gợi ý). */
+  description?: string
 }
 
 export interface ProductSearchState {

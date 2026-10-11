@@ -31,6 +31,7 @@ import {
   OperationalErrorState,
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
+import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -64,6 +65,7 @@ interface WarehouseTaskDirectoryProps {
   readonly canManage?: boolean
   readonly currentUserId?: string
   readonly headerAction?: ReactNode
+  readonly onPageSizeChange: (pageSize: number) => void
   readonly onPageChange: (page: number) => void
   readonly onRetry: () => void
   readonly onAction?: (task: MyWarehouseTask, action: 'Start' | 'Pause' | 'Return') => void
@@ -79,7 +81,7 @@ const executionLabel: Record<MyWarehouseTask['executionStatus'], string> = {
   Cancelled: 'Đã hủy',
 }
 
-const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
+export const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
   Receiving: 'Nhận hàng',
   PutAway: 'Cất hàng',
   CycleCount: 'Kiểm kê',
@@ -90,7 +92,7 @@ const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
   Picking: 'Lấy hàng xuất kho',
 }
 
-const taskTypeIcon: Record<MyWarehouseTask['taskType'], LucideIcon> = {
+export const taskTypeIcon: Record<MyWarehouseTask['taskType'], LucideIcon> = {
   Receiving: PackageOpen,
   PutAway: PackagePlus,
   CycleCount: ClipboardCheck,
@@ -131,6 +133,7 @@ export function WarehouseTaskDirectory({
   currentUserId,
   headerAction,
   onPageChange,
+  onPageSizeChange,
   onRetry,
   onAction,
   onOpenRelocation,
@@ -230,7 +233,7 @@ export function WarehouseTaskDirectory({
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-4">
+    <div className="flex h-full min-h-72 w-full min-w-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 flex-col items-start justify-between gap-3 sm:flex-row">
         <div>
           <h1 className="text-xl font-semibold">{title}</h1>
@@ -281,7 +284,10 @@ export function WarehouseTaskDirectory({
           />
         </dl>
       ) : null}
-      <section className="bg-card flex min-h-0 flex-1 flex-col border" aria-label={title}>
+      <OperationalListPanel
+        aria-label={title}
+        className="max-md:[&>[data-slot=table-container]]:hidden"
+      >
         {isLoading ? (
           <OperationalLoadingState />
         ) : isError ? (
@@ -293,68 +299,66 @@ export function WarehouseTaskDirectory({
           />
         ) : (
           <>
-            <div className="hidden min-h-0 flex-1 overflow-auto md:block">
-              <Table className="min-w-[820px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className={HEAD}>Công việc</TableHead>
-                    {showAssignee ? <TableHead className={HEAD}>Người phụ trách</TableHead> : null}
-                    <TableHead className={HEAD}>Trạng thái</TableHead>
-                    <TableHead className={cn(HEAD, 'w-44')}>Tiến độ</TableHead>
-                    <TableHead className={HEAD}>Hạn hoàn thành</TableHead>
-                    <TableHead className={cn(HEAD, 'text-right')}>Thao tác</TableHead>
+            <Table className="min-w-[820px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className={HEAD}>Công việc</TableHead>
+                  {showAssignee ? <TableHead className={HEAD}>Người phụ trách</TableHead> : null}
+                  <TableHead className={HEAD}>Trạng thái</TableHead>
+                  <TableHead className={cn(HEAD, 'w-44')}>Tiến độ</TableHead>
+                  <TableHead className={HEAD}>Hạn hoàn thành</TableHead>
+                  <TableHead className={cn(HEAD, 'text-right')}>Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item, index) => (
+                  <TableRow
+                    key={`${item.taskType}-${item.id}`}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`Mở công việc ${item.referenceCode}`}
+                    style={rowDelay(index)}
+                    className={cn(
+                      'group hover:bg-muted/60 cursor-pointer align-top transition-colors motion-reduce:transition-none',
+                      ROW_ENTER
+                    )}
+                    onClick={() => openTask(item)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') openTask(item)
+                    }}
+                  >
+                    <TableCell>
+                      <TaskIdentity task={item} />
+                    </TableCell>
+                    {showAssignee ? (
+                      <TableCell className="text-sm">
+                        {item.assignedToName ?? (
+                          <span className="text-muted-foreground">Chưa giao</span>
+                        )}
+                      </TableCell>
+                    ) : null}
+                    <TableCell>
+                      <TaskStatus task={item} />
+                    </TableCell>
+                    <TableCell>
+                      <TaskProgress task={item} />
+                    </TableCell>
+                    <TableCell>
+                      <TaskDeadlineBadge task={item} />
+                      <p className="text-muted-foreground mt-1 text-xs tabular-nums">
+                        Cập nhật {updatedFormat.format(new Date(item.updatedAt))}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                        {renderActions(item)}
+                        {renderScheduleButton(item)}
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item, index) => (
-                    <TableRow
-                      key={`${item.taskType}-${item.id}`}
-                      role="link"
-                      tabIndex={0}
-                      aria-label={`Mở công việc ${item.referenceCode}`}
-                      style={rowDelay(index)}
-                      className={cn(
-                        'group hover:bg-muted/60 cursor-pointer align-top transition-colors motion-reduce:transition-none',
-                        ROW_ENTER
-                      )}
-                      onClick={() => openTask(item)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') openTask(item)
-                      }}
-                    >
-                      <TableCell>
-                        <TaskIdentity task={item} />
-                      </TableCell>
-                      {showAssignee ? (
-                        <TableCell className="text-sm">
-                          {item.assignedToName ?? (
-                            <span className="text-muted-foreground">Chưa giao</span>
-                          )}
-                        </TableCell>
-                      ) : null}
-                      <TableCell>
-                        <TaskStatus task={item} />
-                      </TableCell>
-                      <TableCell>
-                        <TaskProgress task={item} />
-                      </TableCell>
-                      <TableCell>
-                        <TaskDeadlineBadge task={item} />
-                        <p className="text-muted-foreground mt-1 text-xs tabular-nums">
-                          Cập nhật {updatedFormat.format(new Date(item.updatedAt))}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1 whitespace-nowrap">
-                          {renderActions(item)}
-                          {renderScheduleButton(item)}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
             <div
               data-slot="operational-list-body"
               className="min-h-0 flex-1 divide-y overflow-auto md:hidden"
@@ -394,10 +398,11 @@ export function WarehouseTaskDirectory({
               totalCount={totalCount}
               isPending={isFetching}
               onPageChange={onPageChange}
+              onPageSizeChange={onPageSizeChange}
             />
           </>
         )}
-      </section>
+      </OperationalListPanel>
     </div>
   )
 }

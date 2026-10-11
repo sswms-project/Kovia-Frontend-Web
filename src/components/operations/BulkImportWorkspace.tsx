@@ -46,7 +46,7 @@ export function BulkImportWorkspace({
     <div
       data-slot="bulk-import-workspace"
       className={cn(
-        'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 sm:pr-4 lg:pr-5 [@media(max-height:600px)]:min-h-176',
+        'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 pb-3 sm:pr-4 sm:pb-4 lg:pr-5 lg:pb-5 [@media(max-height:600px)]:min-h-176',
         className
       )}
       aria-busy={activity !== 'idle'}
