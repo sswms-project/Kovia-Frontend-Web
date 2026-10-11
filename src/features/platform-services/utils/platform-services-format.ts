@@ -171,6 +171,18 @@ export const notificationActionRoutes: Record<string, NotificationActionRoute> =
   ViewWarehouses: { to: () => APP_ROUTES.warehouses },
   ViewStockTransfers: { to: () => APP_ROUTES.transfers },
   ViewStockTransfer: { to: APP_ROUTES.transferDetail, requiresId: true },
+  ViewStockTransferShipments: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=shipments`,
+    requiresId: true,
+  },
+  ViewStockTransferDiscrepancies: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=discrepancies`,
+    requiresId: true,
+  },
+  ViewStockTransferFeedback: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=feedback`,
+    requiresId: true,
+  },
   ViewMyWarehouseTasks: { to: () => APP_ROUTES.myTasks },
   ViewStockIssueRequests: { to: () => APP_ROUTES.stockIssueRequests },
   ViewGoodsReturnRequests: { to: () => APP_ROUTES.goodsReturnRequests },

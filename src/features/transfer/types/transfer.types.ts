@@ -513,6 +513,11 @@ export interface AdjustTransferAllocationRequest {
   commandId: string
 }
 
+export interface SetTransferPutAwaySlotsRequest {
+  expectedVersion: string
+  slots: { itemId: string; destinationSlotId: string | null }[]
+}
+
 export interface ReopenTransferPickingRequest {
   expectedVersion: string
   reason: string

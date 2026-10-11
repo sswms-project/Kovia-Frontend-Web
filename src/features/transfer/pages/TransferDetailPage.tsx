@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  MapPin,
   MapPinned,
   MessageSquareWarning,
   PencilLine,
@@ -9,7 +10,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useId, useMemo, useState } from 'react'
 import { LifecycleTimeline } from '@/components/operations/LifecycleTimeline'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
@@ -20,7 +21,9 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { TransferGoodsTable } from '../components/TransferGoods'
 import {
@@ -28,6 +31,7 @@ import {
   AdjustAllocationDialog,
   AssignTransferTaskDialog,
   CreateShipmentDialog,
+  PutAwaySlotsDialog,
   ReplyFeedbackDialog,
   ResolveDiscrepancyDialog,
   ResolveEscalationDialog,
@@ -40,12 +44,14 @@ import {
 import { TransferConfirmDialog, TransferReasonDialog } from '../components/TransferShared'
 import { TransferStatusBadge } from '../components/TransfersPage'
 import { useTransferAllocationActions } from '../hooks/use-transfer-allocation-actions'
+import { useTransferPutAwayActions } from '../hooks/use-transfer-put-away-actions'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferRequestActions } from '../hooks/use-transfer-request-actions'
 import { useTransferResolutionActions } from '../hooks/use-transfer-resolution-actions'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
-import { useTransferQuery } from '../hooks/use-transfers'
+import { useTransferQuery, useTransferReceivableSlotsQuery } from '../hooks/use-transfers'
 import {
+  canChoosePutAwaySlot,
   getShipmentCapabilities,
   getTransferCapabilities,
   hasOpenFeedback,
@@ -60,9 +66,29 @@ import { buildTransferHistory } from '../utils/transfer-history'
 
 type DetailTab = 'goods' | 'shipments' | 'discrepancies' | 'feedback' | 'history'
 
+const DETAIL_TABS: readonly DetailTab[] = [
+  'goods',
+  'shipments',
+  'discrepancies',
+  'feedback',
+  'history',
+]
+
+/** Tab được yêu cầu qua `?tab=` (từ thông báo); giá trị lạ thì bỏ qua. */
+function requestedTab(value: string | null): DetailTab | null {
+  return DETAIL_TABS.find((tab) => tab === value) ?? null
+}
+
 export default function TransferDetailPage({ transferId }: { readonly transferId: string }) {
   const router = useRouter()
-  const [tab, setTab] = useState<DetailTab>('goods')
+  const requested = requestedTab(useSearchParams().get('tab'))
+  const [tab, setTab] = useState<DetailTab>(requested ?? 'goods')
+  // Bấm thông báo khi đang ở đúng phiếu thì trang không dựng lại: đổi tab theo yêu cầu mới ngay khi render.
+  const [appliedRequest, setAppliedRequest] = useState(requested)
+  if (requested !== appliedRequest) {
+    setAppliedRequest(requested)
+    if (requested) setTab(requested)
+  }
   const tabIds = transferTabIds(useId(), tab)
   const { viewer } = useTransferViewer()
   const detailQuery = useTransferQuery(transferId)
@@ -72,6 +98,36 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   const requestActions = useTransferRequestActions(transfer)
   const resolutionActions = useTransferResolutionActions(transfer)
   const allocationActions = useTransferAllocationActions(transfer)
+  const putAwayActions = useTransferPutAwayActions(transfer)
+  const [slotSearch, setSlotSearch] = useState('')
+  const debouncedSlotSearch = useDebouncedValue(slotSearch.trim(), 300)
+  const receivableSlotsQuery = useTransferReceivableSlotsQuery(
+    {
+      warehouseId: transfer?.destinationWarehouseId ?? '',
+      top: 20,
+      ...(debouncedSlotSearch ? { search: debouncedSlotSearch } : {}),
+    },
+    putAwayActions.isOpen && Boolean(transfer?.destinationWarehouseId)
+  )
+  const putAwayRows = useMemo(
+    () =>
+      visibleTransferItems(transfer?.items ?? []).map((item) => ({
+        id: item.id,
+        label: `${item.sku} · ${item.productName}`,
+        slot: item.destinationSlotId
+          ? ({
+              value: item.destinationSlotId,
+              label: item.destinationSlotPath ?? item.destinationSlotCode ?? item.destinationSlotId,
+            } satisfies LookupOption)
+          : undefined,
+        locked: !canChoosePutAwaySlot(item),
+      })),
+    [transfer?.items]
+  )
+  const putAwaySlotOptions = useMemo<LookupOption[]>(
+    () => (receivableSlotsQuery.data ?? []).map((slot) => ({ value: slot.id, label: slot.path })),
+    [receivableSlotsQuery.data]
+  )
 
   const capabilities = getTransferCapabilities(viewer, transfer)
   const shipments = useMemo(() => transfer?.shipments ?? [], [transfer?.shipments])
@@ -96,9 +152,14 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   function runNextStep(action: TransferNextStepAction) {
     if (action.type === 'createShipment') requestActions.shipment.open()
     else if (action.type === 'adjustAllocation') allocationActions.open()
+    else if (action.type === 'setPutAwaySlots') putAwayActions.open()
     else if (action.type === 'assign') resolutionActions.assign.open(action.shipment, action.kind)
     else if (action.type === 'confirmDeparture') resolutionActions.departure.open(action.shipment)
     else if (action.type === 'resolveDiscrepancy') setTab('discrepancies')
+    else if (action.type === 'resolveEscalation') {
+      setTab('shipments')
+      resolutionActions.escalation.open(action.shipment)
+    }
   }
   const history = useMemo(() => (transfer ? buildTransferHistory(transfer) : []), [transfer])
   const rows = useMemo(() => transferGoodsRows(transfer), [transfer])
@@ -166,6 +227,12 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               >
                 <MessageSquareWarning aria-hidden="true" />
                 Phản hồi
+              </Button>
+            ) : null}
+            {capabilities.canSetPutAwaySlots ? (
+              <Button type="button" size="sm" variant="outline" onClick={putAwayActions.open}>
+                <MapPin aria-hidden="true" />
+                Chọn vị trí cất hàng
               </Button>
             ) : null}
             {capabilities.canAdjustAllocation ? (
@@ -346,6 +413,17 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onSelectItem={allocationActions.select}
         onOpenChange={allocationActions.onOpenChange}
         onSubmit={allocationActions.submit}
+      />
+      <PutAwaySlotsDialog
+        open={putAwayActions.isOpen}
+        warehouseId={transfer?.destinationWarehouseId ?? ''}
+        items={putAwayRows}
+        slotOptions={putAwaySlotOptions}
+        isLoadingSlots={receivableSlotsQuery.isFetching}
+        isPending={putAwayActions.isPending}
+        onSlotSearchChange={setSlotSearch}
+        onOpenChange={putAwayActions.onOpenChange}
+        onSubmit={(slots) => void putAwayActions.submit(slots)}
       />
       <AddFeedbackDialog
         open={requestActions.feedback.isOpen}

@@ -122,7 +122,7 @@ export function PickEntryDialog({
                   onClick={() => setCameraOn((current) => !current)}
                 >
                   {cameraOn ? <CameraOff aria-hidden="true" /> : <Camera aria-hidden="true" />}
-                  {cameraOn ? 'Tắt camera quét' : 'Bật camera quét liên tục'}
+                  {cameraOn ? 'Tắt camera quét' : 'Bật camera quét'}
                 </Button>
                 <InlineCameraScanner
                   active={cameraActive}

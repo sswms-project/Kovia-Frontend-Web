@@ -75,6 +75,23 @@ describe('getNotificationReferenceRoute', () => {
     ).toBe(APP_ROUTES.transfers)
   })
 
+  it('opens the tab of the transfer a notification is about', () => {
+    const open = (action: string) =>
+      getNotificationReferenceRoute({
+        type: 'TransferUpdate',
+        referenceType: 'StockTransfer',
+        referenceId: id,
+        action,
+      })
+    expect(open('ViewStockTransferShipments')).toBe(
+      `${APP_ROUTES.transferDetail(id)}?tab=shipments`
+    )
+    expect(open('ViewStockTransferDiscrepancies')).toBe(
+      `${APP_ROUTES.transferDetail(id)}?tab=discrepancies`
+    )
+    expect(open('ViewStockTransferFeedback')).toBe(`${APP_ROUTES.transferDetail(id)}?tab=feedback`)
+  })
+
   it('sends a task assignment to the my-tasks page', () => {
     expect(
       getNotificationReferenceRoute({

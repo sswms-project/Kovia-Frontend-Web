@@ -1,4 +1,4 @@
-import { Split, Trash2, MapPin } from 'lucide-react'
+import { Split, Trash2, MapPin, TriangleAlert } from 'lucide-react'
 import { useEffect } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,8 @@ interface ReceiveEntryCardProps {
   readonly slotLabel?: string
   /** Vị trí cất gợi ý do người tạo yêu cầu chọn ("Khu K01 / Kệ A07"); chỉ để tham khảo, vẫn phải quét xác nhận. */
   readonly suggestedSlotLabel?: string
+  /** Mã vị trí gợi ý, để cảnh báo khi quét sang ô khác (vẫn cho tiếp tục). */
+  readonly suggestedSlotId?: string
   readonly disabled: boolean
   readonly isFindingSlot: boolean
   readonly onScanSlot: (index: number, code: string) => ScanResult
@@ -48,6 +50,7 @@ export function ReceiveEntryCard({
   canRemove,
   slotLabel,
   suggestedSlotLabel,
+  suggestedSlotId,
   disabled,
   isFindingSlot,
   onScanSlot,
@@ -85,11 +88,11 @@ export function ReceiveEntryCard({
           <>
             {suggestedSlotLabel ? (
               <p
-                className="bg-muted flex flex-wrap items-center gap-1.5 border px-3 py-2 text-sm"
+                className="bg-primary/10 border-primary/40 flex flex-wrap items-center gap-2 border px-3 py-2.5 text-base"
                 role="note"
               >
-                <MapPin className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
-                <span className="text-muted-foreground">Gợi ý cất tại</span>
+                <MapPin className="text-primary size-5 shrink-0" aria-hidden="true" />
+                <span>Cất vào</span>
                 <strong className="font-mono" translate="no">
                   {suggestedSlotLabel}
                 </strong>
@@ -108,6 +111,14 @@ export function ReceiveEntryCard({
               pending={isFindingSlot}
               onScan={(code) => onScanSlot(index, code)}
             />
+            {suggestedSlotId &&
+            entry.destinationSlotId &&
+            entry.destinationSlotId !== suggestedSlotId ? (
+              <p className="text-warning flex items-center gap-1.5 text-sm" role="status">
+                <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />Ô vừa quét khác ô
+                quản lý chọn ({suggestedSlotLabel}). Bạn vẫn có thể tiếp tục nếu ô đó phù hợp hơn.
+              </p>
+            ) : null}
             <ScanInput
               id={`receive-product-${index}`}
               focusWhen={isSlotConfirmed && !isProductConfirmed}

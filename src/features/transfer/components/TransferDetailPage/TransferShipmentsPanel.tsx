@@ -33,18 +33,18 @@ interface TransferShipmentsPanelProps {
   readonly onResolveEscalation: (shipment: TransferShipment) => void
 }
 
+/** Mã công việc kho (TPK-…) chỉ dùng nội bộ nên không hiện; người xem cần biết việc đang ở đâu và giao cho ai. */
 function taskSummary(
   label: string,
-  code: string | null,
+  hasTask: boolean,
   status: string | null,
   assigneeId: string | null,
   assigneeName?: string | null
 ) {
-  if (!code) return null
+  if (!hasTask) return null
   return (
     <p className="text-xs">
       <span className="text-muted-foreground">{label}: </span>
-      <span className="font-mono">{code}</span> ·{' '}
       {status ? (TASK_EXECUTION_LABELS[status] ?? status) : '—'} ·{' '}
       {assigneeId ? `Giao cho ${assigneeName ?? 'nhân viên'}` : 'Chưa giao nhân viên'}
     </p>
@@ -137,14 +137,14 @@ export function TransferShipmentsPanel({
               <div className="flex flex-col gap-0.5">
                 {taskSummary(
                   'Lấy hàng',
-                  shipment.pickTaskCode,
+                  Boolean(shipment.pickTaskCode),
                   shipment.pickTaskStatus,
                   shipment.pickAssigneeId,
                   shipment.pickAssigneeName
                 )}
                 {taskSummary(
                   'Nhận hàng',
-                  shipment.receiveTaskCode,
+                  Boolean(shipment.receiveTaskCode),
                   shipment.receiveTaskStatus,
                   shipment.receiveAssigneeId,
                   shipment.receiveAssigneeName

@@ -17,7 +17,7 @@ const SOURCE = '70000000-0000-4000-8000-000000000001'
 const DESTINATION = '70000000-0000-4000-8000-000000000002'
 const STAFF_ID = '10000000-0000-4000-8000-000000000003'
 
-function stepsFor(viewer: TransferViewer, transfer = buildTransfer()) {
+function allStepsFor(viewer: TransferViewer, transfer = buildTransfer()) {
   const capabilities = getTransferCapabilities(viewer, transfer)
   const shipmentCapabilities = Object.fromEntries(
     (transfer.shipments ?? []).map((shipment) => [
@@ -28,6 +28,11 @@ function stepsFor(viewer: TransferViewer, transfer = buildTransfer()) {
   return getTransferNextSteps(viewer, transfer, capabilities, shipmentCapabilities).map(
     (step) => step.id
   )
+}
+
+/** Các bước của luồng đợt xuất; bước chọn vị trí cất có test riêng nên bỏ ra khỏi các so sánh còn lại. */
+function stepsFor(viewer: TransferViewer, transfer = buildTransfer()) {
+  return allStepsFor(viewer, transfer).filter((id) => id !== 'set-put-away')
 }
 
 const sourceManager: TransferViewer = {
@@ -105,6 +110,52 @@ describe('getTransferNextSteps', () => {
       ],
     })
     expect(stepsFor(destinationManager, received)).toEqual(['reassign-receive-s1'])
+  })
+
+  it('puts a pending pick report in front of the source manager first', () => {
+    const transfer = buildTransfer({
+      items: [buildTransferItem({ quantity: 10, batchedQuantity: 10, unbatchedQuantity: 0 })],
+      shipments: [
+        buildShipment({
+          id: 's1',
+          pickTaskId: 't1',
+          pickAssigneeId: STAFF_ID,
+          lines: [
+            {
+              id: 'l1',
+              itemId: 'i1',
+              productId: 'p1',
+              sku: 'SKU-1',
+              productName: 'Hàng',
+              plannedQuantity: 10,
+              pickedQuantity: 0,
+              dispatchedQuantity: 0,
+              status: 'PendingManager',
+              pendingReturnQuantity: 0,
+              openExceptionCount: 1,
+            },
+          ],
+        }),
+      ],
+    })
+    expect(stepsFor(sourceManager, transfer)).toContain('resolve-escalation-s1')
+    expect(stepsFor(destinationManager, transfer)).not.toContain('resolve-escalation-s1')
+  })
+
+  it('asks the destination manager to choose put-away slots while some lines have none', () => {
+    const transfer = buildTransfer({
+      items: [
+        buildTransferItem({ id: 'i1', quantity: 10, destinationSlotId: null }),
+        buildTransferItem({ id: 'i2', quantity: 5, destinationSlotId: 'slot-1' }),
+      ],
+    })
+    expect(allStepsFor(destinationManager, transfer)).toContain('set-put-away')
+    expect(allStepsFor(sourceManager, transfer)).not.toContain('set-put-away')
+
+    const allChosen = buildTransfer({
+      items: [buildTransferItem({ id: 'i1', quantity: 10, destinationSlotId: 'slot-1' })],
+    })
+    expect(allStepsFor(destinationManager, allChosen)).not.toContain('set-put-away')
   })
 
   it('points an assigned picker to the pick screen', () => {
