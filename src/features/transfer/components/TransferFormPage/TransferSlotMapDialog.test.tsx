@@ -1,39 +1,59 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { useState } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   WarehouseLayoutEditorScene,
   WarehouseLayoutSelection,
 } from '@/features/warehouse/types/warehouse-layout-scene.types'
+import type { WarehouseLayoutPicker } from '@/features/warehouse/components/WarehouseDesigner/WarehouseLayoutViewerWorkspace'
 import { TransferSlotMapDialog } from './TransferSlotMapDialog'
 
 const { sceneQueryMock } = vi.hoisted(() => ({
   sceneQueryMock: vi.fn(),
 }))
 
-vi.mock('next/dynamic', () => ({
-  default: () =>
-    function Canvas({ onSelect }: { onSelect: (value: WarehouseLayoutSelection) => void }) {
-      return <button onClick={() => onSelect({ kind: 'rack', id: 'rack' })}>Kệ trên sơ đồ</button>
-    },
-}))
 vi.mock('@/features/warehouse/components/WarehouseDesigner', () => ({
-  DesignerToolbox: ({
+  // Thay màn xem sơ đồ kho bằng bản đơn giản: vẫn dùng đúng hợp đồng `picker` mà hộp thoại truyền vào.
+  WarehouseLayoutViewerWorkspace: ({
     scene,
-    onSelect,
+    isClosing,
+    onClose,
+    picker,
   }: {
     scene: WarehouseLayoutEditorScene
-    onSelect: (value: WarehouseLayoutSelection) => void
-  }) => (
-    <ul>
-      {scene.slots.map((slot) => (
-        <li key={slot.id}>
+    isClosing: boolean
+    onClose: () => void
+    picker: WarehouseLayoutPicker
+  }) => {
+    const [selection, setSelection] = useState<WarehouseLayoutSelection | null>(null)
+    const state = picker.evaluate(selection)
+    return (
+      <section className={isClosing ? 'translate-y-full' : 'translate-y-0'} data-testid="viewer">
+        <button onClick={onClose}>Đóng sơ đồ kho</button>
+        <button onClick={() => setSelection({ kind: 'rack', id: 'rack' })}>Kệ trên sơ đồ</button>
+        {scene.slots.map((slot) => (
+          <button key={slot.id} onClick={() => setSelection({ kind: 'slot', id: slot.id })}>
+            {`Ô ${slot.slotCode}`}
+          </button>
+        ))}
+        {picker.quickPicks?.map((location) => (
           <button
-            onClick={() => onSelect({ kind: 'slot', id: slot.id })}
-          >{`Ô ${slot.slotCode}`}</button>
-        </li>
-      ))}
-    </ul>
-  ),
+            key={location.slotId}
+            onClick={() => setSelection({ kind: 'slot', id: location.slotId })}
+          >
+            {location.label}
+          </button>
+        ))}
+        <div>{state.summary}</div>
+        <button
+          disabled={!state.canConfirm}
+          onClick={() => selection && picker.onConfirm(selection)}
+        >
+          Chọn
+        </button>
+      </section>
+    )
+  },
 }))
 vi.mock('@/features/warehouse/hooks/use-warehouse-layout-scene', () => ({
   useWarehouseLayoutSceneQuery: sceneQueryMock,
@@ -42,10 +62,24 @@ vi.mock('@/features/warehouse/utils/layout-scene-mapper', () => ({
   mapWarehouseLayoutScene: (scene: WarehouseLayoutEditorScene) => ({ editorScene: scene }),
 }))
 
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.stubGlobal('matchMedia', () => ({ matches: false }))
+})
+
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
   sceneQueryMock.mockReset()
 })
+
+/** Chờ hết hiệu ứng trượt xuống trước khi hộp thoại báo đã đóng. */
+function finishClosingAnimation() {
+  act(() => {
+    vi.advanceTimersByTime(200)
+  })
+}
 
 function slot(id: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -105,6 +139,9 @@ describe('TransferSlotMapDialog', () => {
     expect(screen.getByText('Khu K01 / Kệ A07 / A-01')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
     expect(onConfirm).toHaveBeenCalledWith({ slotId: 'a-01', label: 'Khu K01 / Kệ A07 / A-01' })
+    expect(screen.getByTestId('viewer')).toHaveClass('translate-y-full')
+    expect(onOpenChange).not.toHaveBeenCalled()
+    finishClosingAnimation()
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
@@ -129,6 +166,17 @@ describe('TransferSlotMapDialog', () => {
       slotId: 'a-01',
       label: 'Khu K01 / Kệ A07 / A-01 · còn 12',
     })
+  })
+
+  it('opens as a full page and closes with Escape or the close button without confirming', () => {
+    const { onConfirm, onOpenChange } = renderDialog()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng sơ đồ kho' }))
+    finishClosingAnimation()
+    expect(onOpenChange).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onConfirm).not.toHaveBeenCalled()
   })
 
   it('shows the server message when the warehouse map cannot be loaded', () => {

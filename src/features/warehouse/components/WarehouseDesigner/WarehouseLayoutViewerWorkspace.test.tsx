@@ -146,6 +146,47 @@ describe('viewer capacity summary', () => {
     expect(inventorySearch).toHaveValue('')
   })
 
+  it('in picker mode confirms the selected location and offers quick picks', () => {
+    const onConfirm = vi.fn()
+    const onClose = vi.fn()
+    render(
+      <TooltipProvider>
+        <WarehouseLayoutViewerWorkspace
+          warehouseId="warehouse"
+          warehouseName="Kho"
+          title="Chọn vị trí đến"
+          scene={scene}
+          canConfigure={false}
+          isClosing={false}
+          onClose={onClose}
+          picker={{
+            description: 'Chọn ô cất hàng',
+            quickPicksTitle: 'Vị trí có tồn',
+            quickPicks: [{ slotId: 'slot-1', label: 'Khu K01 / Kệ A07 / A-01' }],
+            evaluate: (selection) => ({
+              summary: selection ? 'Đã chọn một vị trí' : 'Chưa chọn',
+              canConfirm: selection?.kind === 'rack',
+            }),
+            onConfirm,
+          }}
+        />
+      </TooltipProvider>
+    )
+
+    expect(screen.getByRole('heading', { name: 'Chọn vị trí đến' })).toBeInTheDocument()
+    expect(screen.getByText('Chọn ô cất hàng')).toBeInTheDocument()
+    expect(screen.getByText('Khu K01 / Kệ A07 / A-01')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Chọn' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn kệ canvas' }))
+    expect(screen.getByText('Đã chọn một vị trí')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
+    expect(onConfirm).toHaveBeenCalledWith({ kind: 'rack', id: 'rack' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('opens viewer guidance instead of the location sheet from the help button', () => {
     render(
       <TooltipProvider>

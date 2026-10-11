@@ -1,19 +1,11 @@
 'use client'
 
-import { MapPin } from 'lucide-react'
-import dynamic from 'next/dynamic'
-import { useMemo, useState } from 'react'
+import { X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DesignerToolbox } from '@/features/warehouse/components/WarehouseDesigner'
+import { WarehouseLayoutViewerWorkspace } from '@/features/warehouse/components/WarehouseDesigner'
 import { useWarehouseLayoutSceneQuery } from '@/features/warehouse/hooks/use-warehouse-layout-scene'
 import type { WarehouseLayoutSelection } from '@/features/warehouse/types/warehouse-layout-scene.types'
 import { mapWarehouseLayoutScene } from '@/features/warehouse/utils/layout-scene-mapper'
@@ -25,13 +17,7 @@ import {
   type TransferSlotPick,
 } from '../../utils/transfer-slot-pick'
 
-const WarehouseCanvas = dynamic(
-  () =>
-    import('@/features/warehouse/components/WarehouseDesigner/WarehouseCanvas').then(
-      (module) => module.WarehouseCanvas
-    ),
-  { ssr: false, loading: () => <Skeleton className="h-full min-h-[24rem] w-full" /> }
-)
+const CLOSE_DELAY_MS = 180
 
 interface TransferSlotMapDialogProps {
   readonly open: boolean
@@ -44,17 +30,15 @@ interface TransferSlotMapDialogProps {
   readonly onConfirm: (pick: { slotId: string; label: string }) => void
 }
 
-/** Chọn một ô bằng cách bấm trên sơ đồ kho hoặc trong cây Khu / Kệ / Ô, rồi bấm Chọn để điền vào dòng hàng. */
+/**
+ * Chọn một ô ngay trên màn xem sơ đồ kho đầy đủ (cây vị trí, sơ đồ, hàng hóa tại vị trí) rồi bấm Chọn để điền
+ * vào dòng hàng. Mở kín trang và trượt xuống khi đóng như màn xem sơ đồ kho.
+ */
 export function TransferSlotMapDialog({ open, onOpenChange, ...rest }: TransferSlotMapDialogProps) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        size="lg"
-        className="flex h-[88vh] max-h-[52rem] flex-col gap-0 p-0 sm:max-w-6xl"
-      >
-        {open ? <TransferSlotMapBody onClose={() => onOpenChange(false)} {...rest} /> : null}
-      </DialogContent>
-    </Dialog>
+  if (!open || typeof document === 'undefined') return null
+  return createPortal(
+    <TransferSlotMapBody onClose={() => onOpenChange(false)} {...rest} />,
+    document.body
   )
 }
 
@@ -62,7 +46,7 @@ type TransferSlotMapBodyProps = Omit<TransferSlotMapDialogProps, 'open' | 'onOpe
   readonly onClose: () => void
 }
 
-// Chỉ gắn khi hộp thoại mở: mỗi lần mở là một phiên chọn mới, và chỉ lúc đó mới tải sơ đồ kho.
+// Chỉ gắn khi mở: mỗi lần mở là một phiên chọn mới, và chỉ lúc đó mới tải sơ đồ kho.
 function TransferSlotMapBody({
   title,
   description,
@@ -76,85 +60,126 @@ function TransferSlotMapBody({
     () => (sceneQuery.data ? mapWarehouseLayoutScene(sceneQuery.data).editorScene : null),
     [sceneQuery.data]
   )
-  const [selection, setSelection] = useState<WarehouseLayoutSelection | null>(null)
-  const pick: TransferSlotPick | null =
-    scene && selection?.kind === 'slot'
+  const [isClosing, setIsClosing] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+  // Trượt xuống như màn xem sơ đồ kho rồi mới gỡ; người dùng chọn giảm chuyển động thì đóng ngay.
+  const requestClose = useCallback(() => {
+    if (closeTimerRef.current) return
+    setIsClosing(true)
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    closeTimerRef.current = setTimeout(
+      () => onCloseRef.current(),
+      reduceMotion ? 0 : CLOSE_DELAY_MS
+    )
+  }, [])
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') requestClose()
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape)
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [requestClose])
+
+  function pickOf(selection: WarehouseLayoutSelection | null): TransferSlotPick | null {
+    return scene && selection?.kind === 'slot'
       ? describeSlotPick(scene, selection.id, allowedLocations)
       : null
+  }
 
   return (
-    <>
-      <DialogHeader className="shrink-0 border-b px-5 py-3 pr-12">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        {sceneQuery.isError ? (
-          <p role="alert" className="text-destructive p-5 text-sm">
-            {getApiErrorMessage(sceneQuery.error, 'Không tải được sơ đồ kho. Hãy thử lại sau.')}
-          </p>
-        ) : !scene ? (
-          <Skeleton className="m-5 h-64 flex-1" />
-        ) : (
-          <>
-            <div className="flex max-h-60 min-h-0 shrink-0 flex-col overflow-hidden border-b md:max-h-none md:w-72 md:border-r md:border-b-0">
-              <div className="min-h-0 flex-1 overflow-auto">
-                <DesignerToolbox
-                  scene={scene}
-                  selection={selection}
-                  canConfigure={false}
-                  mode="viewer"
-                  onCreateZone={() => undefined}
-                  onCreateRack={() => undefined}
-                  onCreateDecoration={() => undefined}
-                  onSelect={setSelection}
-                />
-              </div>
-              {allowedLocations ? (
-                <AllowedLocationList
-                  locations={allowedLocations}
-                  selectedSlotId={selection?.kind === 'slot' ? selection.id : null}
-                  onSelect={(slotId) => setSelection({ kind: 'slot', id: slotId })}
-                />
-              ) : null}
-            </div>
-            <div className="relative min-h-[18rem] min-w-0 flex-1">
-              <WarehouseCanvas
-                scene={scene}
-                selection={selection}
-                mode="viewer"
-                canConfigure={false}
-                isGridVisible
-                onSelect={setSelection}
-                onGeometryChange={() => undefined}
-                onZoomChange={() => undefined}
-                onPaletteDrop={() => undefined}
-              />
-            </div>
-          </>
-        )}
-      </div>
-      <DialogFooter className="shrink-0 items-center gap-3 border-t px-5 py-3 sm:justify-between">
-        <SelectionSummary pick={pick} hasSelection={Boolean(selection)} />
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" size="lg" onClick={onClose}>
-            Hủy
-          </Button>
-          <Button
-            type="button"
-            size="lg"
-            disabled={!pick?.isValid}
-            onClick={() => {
+    <div role="dialog" aria-modal="true" aria-label={title}>
+      {scene ? (
+        <WarehouseLayoutViewerWorkspace
+          warehouseId={warehouseId}
+          warehouseName=""
+          title={title}
+          scene={scene}
+          canConfigure={false}
+          isClosing={isClosing}
+          onClose={requestClose}
+          picker={{
+            description,
+            quickPicksTitle: 'Vị trí có tồn',
+            quickPicks: allowedLocations?.map((location) => ({
+              slotId: location.slotId,
+              label: location.label,
+            })),
+            evaluate: (selection) => {
+              const pick = pickOf(selection)
+              return {
+                summary: <SelectionSummary pick={pick} hasSelection={Boolean(selection)} />,
+                canConfirm: Boolean(pick?.isValid),
+              }
+            },
+            onConfirm: (selection) => {
+              const pick = pickOf(selection)
               if (!pick?.isValid) return
               onConfirm({ slotId: pick.slotId, label: pick.label })
-              onClose()
-            }}
-          >
-            Chọn
-          </Button>
-        </div>
-      </DialogFooter>
-    </>
+              requestClose()
+            },
+          }}
+        />
+      ) : (
+        <LoadingOrError
+          title={title}
+          isClosing={isClosing}
+          errorMessage={
+            sceneQuery.isError
+              ? getApiErrorMessage(sceneQuery.error, 'Không tải được sơ đồ kho. Hãy thử lại sau.')
+              : null
+          }
+          onClose={requestClose}
+        />
+      )}
+    </div>
+  )
+}
+
+function LoadingOrError({
+  title,
+  isClosing,
+  errorMessage,
+  onClose,
+}: {
+  readonly title: string
+  readonly isClosing: boolean
+  readonly errorMessage: string | null
+  readonly onClose: () => void
+}) {
+  return (
+    <section
+      className={cn(
+        'bg-background fixed inset-0 z-40 flex min-h-0 flex-col overflow-hidden transition-transform duration-200 ease-in motion-reduce:duration-0',
+        isClosing ? 'pointer-events-none translate-y-full' : 'translate-y-0'
+      )}
+    >
+      <header className="flex min-h-16 shrink-0 items-center gap-3 border-b px-5 py-2">
+        <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">{title}</h1>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Đóng sơ đồ"
+          onClick={onClose}
+        >
+          <X aria-hidden="true" />
+        </Button>
+      </header>
+      {errorMessage ? (
+        <p role="alert" className="text-destructive p-5 text-sm">
+          {errorMessage}
+        </p>
+      ) : (
+        <Skeleton className="m-5 flex-1" />
+      )}
+    </section>
   )
 }
 
@@ -167,7 +192,7 @@ function SelectionSummary({
 }) {
   if (!pick) {
     return (
-      <p className="text-muted-foreground text-sm">
+      <p className="text-muted-foreground">
         {hasSelection
           ? 'Chọn một ô trong kệ ở danh sách bên trái.'
           : 'Bấm vào kệ trên sơ đồ hoặc chọn ô trong danh sách.'}
@@ -175,48 +200,11 @@ function SelectionSummary({
     )
   }
   return (
-    <div aria-live="polite" className="min-w-0 text-sm">
+    <div aria-live="polite" className="min-w-0">
       <p className="truncate">
         Đã chọn: <strong>{pick.label}</strong>
       </p>
       {pick.problem ? <p className="text-destructive text-xs">{pick.problem}</p> : null}
     </div>
-  )
-}
-
-function AllowedLocationList({
-  locations,
-  selectedSlotId,
-  onSelect,
-}: {
-  readonly locations: readonly TransferPickableLocation[]
-  readonly selectedSlotId: string | null
-  readonly onSelect: (slotId: string) => void
-}) {
-  return (
-    <section aria-label="Vị trí có tồn" className="max-h-44 shrink-0 overflow-auto border-t p-2">
-      <h3 className="text-muted-foreground px-1 pb-1 text-xs font-medium">Vị trí có tồn</h3>
-      {locations.length === 0 ? (
-        <p className="text-muted-foreground px-1 text-xs">Sản phẩm không còn tồn ở ô nào.</p>
-      ) : (
-        <ul className="grid gap-1">
-          {locations.map((location) => (
-            <li key={location.slotId}>
-              <button
-                type="button"
-                className={cn(
-                  'hover:bg-accent flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs',
-                  selectedSlotId === location.slotId && 'bg-accent font-medium'
-                )}
-                onClick={() => onSelect(location.slotId)}
-              >
-                <MapPin aria-hidden="true" className="size-3 shrink-0" />
-                <span className="min-w-0 break-words">{location.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   )
 }
