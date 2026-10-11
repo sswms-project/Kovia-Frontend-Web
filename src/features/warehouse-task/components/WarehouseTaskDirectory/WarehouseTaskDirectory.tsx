@@ -79,7 +79,7 @@ const executionLabel: Record<MyWarehouseTask['executionStatus'], string> = {
   Cancelled: 'Đã hủy',
 }
 
-const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
+export const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
   Receiving: 'Nhận hàng',
   PutAway: 'Cất hàng',
   CycleCount: 'Kiểm kê',
@@ -90,7 +90,7 @@ const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
   Picking: 'Lấy hàng xuất kho',
 }
 
-const taskTypeIcon: Record<MyWarehouseTask['taskType'], LucideIcon> = {
+export const taskTypeIcon: Record<MyWarehouseTask['taskType'], LucideIcon> = {
   Receiving: PackageOpen,
   PutAway: PackagePlus,
   CycleCount: ClipboardCheck,

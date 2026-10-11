@@ -46,7 +46,7 @@ export function PickSwitchDialog({
   const reasonCode = form.watch('reasonCode')
   return (
     <Dialog open={Boolean(line)} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="lg" className="sm:max-w-lg">
         {line ? (
           <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>

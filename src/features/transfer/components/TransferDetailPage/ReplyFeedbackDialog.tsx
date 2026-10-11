@@ -33,7 +33,7 @@ export function ReplyFeedbackDialog({
   const errors = form.formState.errors
   return (
     <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent>
+      <DialogContent size="lg" className="sm:max-w-lg">
         <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Trả lời phản hồi</DialogTitle>

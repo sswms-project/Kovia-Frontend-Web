@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { logApiError } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import type { ApiErrorResponse } from '@/types/api'
 import { warehouseTaskService } from '../services/warehouse-task.service'
@@ -18,12 +19,14 @@ import type { WarehouseTaskAction } from '../types/warehouse-task.types'
 
 export function useMyWarehouseTasksQuery(
   params: MyWarehouseTaskQuery,
-  scope: WarehouseTaskScope = 'mine'
+  scope: WarehouseTaskScope = 'mine',
+  enabled = true
 ) {
   return useQuery<MyWarehouseTaskListResponse, ApiErrorResponse>({
     queryKey: ['warehouse-tasks', scope, params],
     queryFn: () => warehouseTaskService.getCurrent(params, scope).then((response) => response.data),
     placeholderData: (previousData) => previousData,
+    enabled,
   })
 }
 
@@ -90,7 +93,7 @@ export function useAssignWarehouseTaskMutation(taskId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] })
       queryClient.invalidateQueries({ queryKey: ['warehouse-tasks', 'managed', 'detail', taskId] })
     },
-    onError: (error) => logger.error(error),
+    onError: logApiError,
   })
 }
 

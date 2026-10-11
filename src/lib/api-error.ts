@@ -1,4 +1,5 @@
 import type { ApiErrorResponse } from '@/types/api'
+import { logger } from './logger'
 
 const FALLBACK_MESSAGE = 'Đã xảy ra lỗi. Vui lòng thử lại.'
 
@@ -37,4 +38,16 @@ export function getApiErrorMessage(error: unknown, fallback = FALLBACK_MESSAGE):
 export function formatApiError(error: unknown): string {
   if (!isApiErrorResponse(error)) return String(error)
   return `[${error.statusCode}] ${getApiErrorMessage(error)}`
+}
+
+/**
+ * Lỗi 4xx là server từ chối có chủ đích (thiếu quyền, dữ liệu đã đổi, quét sai mã...) và đã báo cho người dùng,
+ * nên chỉ cảnh báo kèm nội dung; chỉ lỗi bất ngờ mới ghi ở mức lỗi (hiện overlay khi dev).
+ */
+export function logApiError(error: unknown) {
+  if (isApiErrorResponse(error) && error.statusCode >= 400 && error.statusCode < 500) {
+    logger.warn(`Yêu cầu bị từ chối (${error.statusCode}): ${error.message}`)
+    return
+  }
+  logger.error(error)
 }

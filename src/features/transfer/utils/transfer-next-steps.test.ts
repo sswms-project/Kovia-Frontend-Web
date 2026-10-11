@@ -79,6 +79,34 @@ describe('getTransferNextSteps', () => {
     expect(stepsFor(sourceManager, inTransit)).toEqual([])
   })
 
+  it('keeps a reassign step for the manager after the pick task has an assignee', () => {
+    const assigned = buildTransfer({
+      items: [buildTransferItem({ quantity: 10, batchedQuantity: 10, unbatchedQuantity: 0 })],
+      shipments: [
+        buildShipment({
+          id: 's1',
+          pickTaskId: 't1',
+          pickAssigneeId: STAFF_ID,
+          pickAssigneeName: 'Nguyễn Lấy',
+        }),
+      ],
+    })
+    expect(stepsFor(sourceManager, assigned)).toEqual(['reassign-pick-s1'])
+
+    const received = buildTransfer({
+      items: [buildTransferItem({ quantity: 10, batchedQuantity: 10, unbatchedQuantity: 0 })],
+      shipments: [
+        buildShipment({
+          id: 's1',
+          status: 'InTransit',
+          receiveTaskId: 'r1',
+          receiveAssigneeId: STAFF_ID,
+        }),
+      ],
+    })
+    expect(stepsFor(destinationManager, received)).toEqual(['reassign-receive-s1'])
+  })
+
   it('points an assigned picker to the pick screen', () => {
     const picker: TransferViewer = {
       permissions: [P.TRANSFERS_PICK],

@@ -41,7 +41,7 @@ export function TransferReasonDialog({
   const error = form.formState.errors.reason
   return (
     <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent>
+      <DialogContent size="lg" className="sm:max-w-lg">
         <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>

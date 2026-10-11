@@ -28,7 +28,7 @@ export function PickEscalateDialog({
   const errors = form.formState.errors
   return (
     <Dialog open={Boolean(line)} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent>
+      <DialogContent size="lg" className="sm:max-w-lg">
         {line ? (
           <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>

@@ -96,7 +96,7 @@ export function PickEntryDialog({
   }, [isReady, eachUnit])
   return (
     <Dialog open={Boolean(line)} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent size="lg" className="sm:max-w-lg">
         {line ? (
           <div className="grid gap-4">
             <DialogHeader>

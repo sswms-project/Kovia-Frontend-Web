@@ -39,7 +39,7 @@ export function CreateShipmentDialog({
   const canSubmit = selected.length > 0 && !hasInvalidQuantity
   return (
     <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent size="lg" className="sm:max-w-2xl">
         <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Tạo đợt xuất</DialogTitle>

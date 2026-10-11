@@ -37,7 +37,8 @@ function taskSummary(
   label: string,
   code: string | null,
   status: string | null,
-  assigneeId: string | null
+  assigneeId: string | null,
+  assigneeName?: string | null
 ) {
   if (!code) return null
   return (
@@ -45,7 +46,7 @@ function taskSummary(
       <span className="text-muted-foreground">{label}: </span>
       <span className="font-mono">{code}</span> ·{' '}
       {status ? (TASK_EXECUTION_LABELS[status] ?? status) : '—'} ·{' '}
-      {assigneeId ? 'Đã giao' : 'Chưa giao nhân viên'}
+      {assigneeId ? `Giao cho ${assigneeName ?? 'nhân viên'}` : 'Chưa giao nhân viên'}
     </p>
   )
 }
@@ -138,13 +139,15 @@ export function TransferShipmentsPanel({
                   'Lấy hàng',
                   shipment.pickTaskCode,
                   shipment.pickTaskStatus,
-                  shipment.pickAssigneeId
+                  shipment.pickAssigneeId,
+                  shipment.pickAssigneeName
                 )}
                 {taskSummary(
                   'Nhận hàng',
                   shipment.receiveTaskCode,
                   shipment.receiveTaskStatus,
-                  shipment.receiveAssigneeId
+                  shipment.receiveAssigneeId,
+                  shipment.receiveAssigneeName
                 )}
               </div>
               <div className="flex flex-wrap gap-2">

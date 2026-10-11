@@ -1,5 +1,4 @@
-import { getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error'
-import { logger } from '@/lib/logger'
+import { getApiErrorMessage, isApiErrorResponse, logApiError } from '@/lib/api-error'
 
 export type TransferErrorKind = 'conflict' | 'unknown-result' | 'rejected'
 
@@ -42,14 +41,5 @@ export function describeTransferError(error: unknown, fallback: string): Transfe
   return { kind: 'rejected', message: getApiErrorMessage(error, fallback) }
 }
 
-/**
- * Ghi log lỗi của lệnh điều chuyển. Lỗi 4xx là server từ chối có chủ đích (quét sai mã, vượt tồn...) và đã được
- * báo cho người dùng, nên chỉ cảnh báo kèm nội dung; chỉ lỗi bất ngờ mới ghi ở mức lỗi (hiện overlay khi dev).
- */
-export function logTransferError(error: unknown) {
-  if (isApiErrorResponse(error) && error.statusCode >= 400 && error.statusCode < 500) {
-    logger.warn(`Yêu cầu bị từ chối (${error.statusCode}): ${error.message}`)
-    return
-  }
-  logger.error(error)
-}
+/** Ghi log lỗi của lệnh điều chuyển theo cùng quy tắc lỗi 4xx của mọi lệnh ghi. */
+export const logTransferError = logApiError

@@ -265,6 +265,8 @@ export interface TransferShipment {
   lines: TransferShipmentLine[]
   pickTaskVersion: string | null
   receiveTaskVersion: string | null
+  pickAssigneeName?: string | null
+  receiveAssigneeName?: string | null
 }
 
 export interface TransferDiscrepancy {

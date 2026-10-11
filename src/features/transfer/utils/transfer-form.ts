@@ -131,3 +131,11 @@ export function toUpdateTransferRequest(
     items: toTransferLineInputs(values.lines),
   }
 }
+
+/** Tên kho đang chọn để hiện trong hộp xác nhận; '—' khi chưa chọn hoặc chưa tải xong danh sách. */
+export function findWarehouseName(
+  options: readonly { readonly id: string; readonly name: string }[],
+  warehouseId: string
+): string {
+  return options.find((option) => option.id === warehouseId)?.name ?? '—'
+}

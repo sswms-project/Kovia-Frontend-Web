@@ -24,7 +24,6 @@ import {
   useInventoryQuery,
   useInventoryWarehouseOptionsQuery,
 } from '@/features/inventory/hooks/use-inventory'
-import { StockIssuePickingQueue } from '@/features/stock-issue/components/StockIssuePickingQueue'
 import { useStaffListQuery } from '@/features/staff/hooks/use-staff'
 import { STAFF_DIRECTORY_KINDS } from '@/features/staff/types/staff.types'
 import { useTransferRealtime } from '@/features/transfer/hooks/use-transfer-realtime'
@@ -38,6 +37,7 @@ import {
   WarehouseTaskScheduleDialog,
   getTaskRoute,
 } from '../components/WarehouseTaskDirectory'
+import { MyWorkQueue } from '../components/MyWorkQueue'
 import {
   useAssignWarehouseTaskMutation,
   useCreateWarehouseTaskMutation,
@@ -151,6 +151,13 @@ export default function MyWarehouseTasksPage({
       deadlineStatus: deadlineFilter || undefined,
     },
     scope
+  )
+  const canSeeOwnWork = canManageOwnTasks || permissions.includes(P.STOCK_ISSUE_REQUESTS_PICK)
+  // Việc được giao riêng cho người dùng, không theo bộ lọc của danh sách chính bên dưới.
+  const ownWorkQuery = useMyWarehouseTasksQuery(
+    { pageNumber: 1, pageSize: 50 },
+    'mine',
+    canSeeOwnWork
   )
   const action = useManageMyWarehouseTaskMutation()
   const detailQuery = useWarehouseTaskDetailQuery(selectedTaskId, scope)
@@ -464,9 +471,9 @@ export default function MyWarehouseTasksPage({
           </Button>
         </div>
       ) : null}
-      <StockIssuePickingQueue
-        enabled={!managesWarehouseTasks && permissions.includes(P.STOCK_ISSUE_REQUESTS_PICK)}
-      />
+      {canSeeOwnWork ? (
+        <MyWorkQueue tasks={ownWorkQuery.data?.items ?? []} isLoading={ownWorkQuery.isLoading} />
+      ) : null}
       <WarehouseTaskDirectory
         title={managesWarehouseTasks ? 'Công việc kho' : 'Công việc của tôi'}
         description={

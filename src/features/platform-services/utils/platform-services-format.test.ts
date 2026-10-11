@@ -47,6 +47,52 @@ describe('getNotificationReferenceRoute', () => {
     ).toBe(APP_ROUTES.organization)
   })
 
+  it('opens the exact transfer for transfer notifications, old and new', () => {
+    expect(
+      getNotificationReferenceRoute({
+        type: 'TransferUpdate',
+        referenceType: 'StockTransfer',
+        referenceId: id,
+        action: 'ViewStockTransfer',
+      })
+    ).toBe(APP_ROUTES.transferDetail(id))
+    expect(
+      getNotificationReferenceRoute({
+        type: 'TransferUpdate',
+        referenceType: 'StockTransfer',
+        referenceId: id,
+        action: null,
+      })
+    ).toBe(APP_ROUTES.transferDetail(id))
+    // Thông báo cũ đã lưu hành động chung của danh sách vẫn mở được.
+    expect(
+      getNotificationReferenceRoute({
+        type: 'TransferUpdate',
+        referenceType: 'StockTransfer',
+        referenceId: id,
+        action: 'ViewStockTransfers',
+      })
+    ).toBe(APP_ROUTES.transfers)
+  })
+
+  it('sends a task assignment to the my-tasks page', () => {
+    expect(
+      getNotificationReferenceRoute({
+        type: 'TaskAssigned',
+        referenceType: 'WarehouseTask',
+        referenceId: id,
+        action: 'ViewMyWarehouseTasks',
+      })
+    ).toBe(APP_ROUTES.myTasks)
+    expect(
+      getNotificationReferenceRoute({
+        type: 'TaskAssigned',
+        referenceType: 'WarehouseTask',
+        referenceId: id,
+      })
+    ).toBe(APP_ROUTES.myTasks)
+  })
+
   it('routes every known action', () => {
     for (const [action, route] of Object.entries(notificationActionRoutes)) {
       expect(route.to(id), action).toBeTruthy()

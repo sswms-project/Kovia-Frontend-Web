@@ -62,7 +62,7 @@ export function ResolveEscalationDialog({
   const selected = escalations.find((entry) => entry.exception.id === selectedExceptionId)
   return (
     <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent size="lg" className="sm:max-w-xl">
         <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Xử lý báo cáo lấy hàng</DialogTitle>

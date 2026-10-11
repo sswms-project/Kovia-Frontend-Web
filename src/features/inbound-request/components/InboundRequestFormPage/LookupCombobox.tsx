@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Combobox,
   ComboboxContent,
@@ -28,6 +29,12 @@ interface LookupComboboxProps {
   readonly disabled?: boolean
   readonly onChange: (value: string, option?: LookupOption) => void
   readonly onSearchChange: (value: string) => void
+  /** Hành động đặt cuối danh sách thả xuống (ví dụ mở sơ đồ kho để chọn vị trí); bấm vào sẽ đóng danh sách. */
+  readonly footerAction?: {
+    readonly label: string
+    readonly icon?: ReactNode
+    readonly onClick: () => void
+  }
 }
 
 export function LookupCombobox({
@@ -43,7 +50,9 @@ export function LookupCombobox({
   disabled = false,
   onChange,
   onSearchChange,
+  footerAction,
 }: LookupComboboxProps) {
+  const [isOpen, setIsOpen] = useState(false)
   const [rememberedOption, setRememberedOption] = useState<LookupOption | undefined>(
     () => selectedOption ?? options.find((option) => option.value === value)
   )
@@ -82,7 +91,9 @@ export function LookupCombobox({
       onInputValueChange={(nextSearchValue, details) => {
         if (details.reason === 'input-change') onSearchChange(nextSearchValue)
       }}
+      open={isOpen}
       onOpenChange={(open) => {
+        setIsOpen(open)
         if (!open) onSearchChange('')
       }}
     >
@@ -114,6 +125,24 @@ export function LookupCombobox({
             )}
           </ComboboxEmpty>
         </ComboboxList>
+        {footerAction ? (
+          <div className="border-t p-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                setIsOpen(false)
+                onSearchChange('')
+                footerAction.onClick()
+              }}
+            >
+              {footerAction.icon}
+              {footerAction.label}
+            </Button>
+          </div>
+        ) : null}
       </ComboboxContent>
     </Combobox>
   )
