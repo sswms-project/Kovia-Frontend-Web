@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import {
+  createLayoutEditorHistory,
+  layoutEditorHistoryReducer,
+} from '../hooks/use-layout-editor-history'
 import type { WarehouseLayoutSceneResponse } from '../types/warehouse-layout-scene.types'
 import { getLayoutGeometryBounds } from './layout-grid'
 import { mapEditorSceneToSaveRequest, mapWarehouseLayoutScene } from './layout-scene-mapper'
@@ -56,6 +60,56 @@ const scene: WarehouseLayoutSceneResponse = {
 }
 
 describe('layout scene mapper', () => {
+  it('marks 500 imported racks as unplaced without changing existing geometry or serializing UI flags', () => {
+    const existing = { ...scene.racks[0]!, x: 120, y: 150, width: 160, height: 60 }
+    const source = {
+      ...scene,
+      canvas: { width: 1200, height: 800, gridSize: 20 },
+      zones: [{ ...scene.zones[0]!, x: 40, y: 40, width: 600, height: 400 }],
+      racks: [
+        existing,
+        ...Array.from({ length: 500 }, (_, index) => ({
+          ...existing,
+          id: `new-${index}`,
+          x: null,
+          y: null,
+          width: null,
+          height: null,
+        })),
+      ],
+      decorations: [],
+    }
+    const { editorScene, hasGeneratedGeometry } = mapWarehouseLayoutScene(source)
+    expect(hasGeneratedGeometry).toBe(false)
+    expect(editorScene.racks.filter((rack) => rack.placementPending)).toHaveLength(500)
+    expect(editorScene.racks[0]).toMatchObject({ ...existing, placementPending: false })
+    const request = mapEditorSceneToSaveRequest(source.warehouseId, source.version, editorScene)
+    expect(request.racks).toHaveLength(1)
+    expect(request.racks.every((rack) => !('placementPending' in rack))).toBe(true)
+    expect(source.racks[1]?.x).toBeNull()
+    const rack = editorScene.racks[1]!
+    const arranged = layoutEditorHistoryReducer(createLayoutEditorHistory(editorScene), {
+      type: 'update-geometry',
+      target: 'rack',
+      id: rack.id,
+      geometry: { ...rack, x: 300, y: 200 },
+    })
+    const saved = mapEditorSceneToSaveRequest(source.warehouseId, source.version, arranged.present)
+    expect(saved.racks).toHaveLength(2)
+    const reloaded = mapWarehouseLayoutScene({
+      ...source,
+      racks: source.racks.map((item) => {
+        const geometry = saved.racks.find((entry) => entry.entityId === item.id)
+        return geometry ? { ...item, ...geometry } : item
+      }),
+    }).editorScene
+    expect(reloaded.racks.filter((item) => item.placementPending)).toHaveLength(499)
+    expect(reloaded.racks[0]).toMatchObject(existing)
+    const undone = layoutEditorHistoryReducer(arranged, { type: 'undo' })
+    expect(mapEditorSceneToSaveRequest('w', 2, undone.present).racks).toHaveLength(1)
+    const redone = layoutEditorHistoryReducer(undone, { type: 'redo' })
+    expect(mapEditorSceneToSaveRequest('w', 2, redone.present).racks).toHaveLength(2)
+  })
   it('brings legacy geometry inside the fixed canvas before the next save', () => {
     const mapped = mapWarehouseLayoutScene(scene)
 
@@ -78,6 +132,40 @@ describe('layout scene mapper', () => {
     expect(request.racks[0]).toMatchObject({ x: 0, y: 40 })
     expect(request.racks[0]?.layoutShape).toBe('Pallet')
     expect(request.decorations[0]).toMatchObject({ x: 95, y: 95 })
+  })
+
+  it('leaves an untouched imported zone unplaced while allowing deliberate placement of its rack', () => {
+    const source = {
+      ...scene,
+      decorations: [],
+      zones: [{ ...scene.zones[0]!, x: null, y: null, width: null, height: null }],
+      racks: [{ ...scene.racks[0]!, x: null, y: null, width: null, height: null }],
+    }
+    const mapped = mapWarehouseLayoutScene(source)
+    expect(mapped.hasGeneratedGeometry).toBe(false)
+    expect(mapEditorSceneToSaveRequest('w', 1, mapped.editorScene)).toMatchObject({
+      zones: [],
+      racks: [],
+    })
+    const rack = mapped.editorScene.racks[0]!
+    const arranged = layoutEditorHistoryReducer(createLayoutEditorHistory(mapped.editorScene), {
+      type: 'update-geometry',
+      target: 'rack',
+      id: rack.id,
+      geometry: rack,
+    })
+    expect(mapEditorSceneToSaveRequest('w', 1, arranged.present)).toMatchObject({
+      zones: [],
+      racks: [{ entityId: rack.id }],
+    })
+    const zone = arranged.present.zones[0]!
+    const zoneArranged = layoutEditorHistoryReducer(arranged, {
+      type: 'update-geometry',
+      target: 'zone',
+      id: zone.id,
+      geometry: zone,
+    })
+    expect(mapEditorSceneToSaveRequest('w', 1, zoneArranged.present).zones).toHaveLength(1)
   })
 
   it('preserves the exact rotated door geometry through save and reload outside the blue wall', () => {

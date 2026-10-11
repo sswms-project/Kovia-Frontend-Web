@@ -133,12 +133,17 @@ export interface SaveWarehouseLayoutSceneRequest {
 export interface WarehouseLayoutEditorZone
   extends
     Omit<WarehouseLayoutZoneSceneResponse, keyof WarehouseLayoutGeometry>,
-    WarehouseLayoutGeometry {}
+    WarehouseLayoutGeometry {
+  /** Derived UI metadata only; never serialized as saved geometry. */
+  placementPending?: boolean
+}
 
 export interface WarehouseLayoutEditorRack
   extends
     Omit<WarehouseLayoutRackSceneResponse, keyof WarehouseLayoutGeometry>,
-    WarehouseLayoutGeometry {}
+    WarehouseLayoutGeometry {
+  placementPending?: boolean
+}
 
 export interface WarehouseLayoutEditorDecoration extends WarehouseLayoutDecorationResponse {
   clientKey: string
