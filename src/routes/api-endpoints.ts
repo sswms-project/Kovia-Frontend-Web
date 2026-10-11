@@ -409,6 +409,7 @@ export const API_ENDPOINTS = {
     completePicking: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/complete-picking`,
     setPutAwaySlots: (transferId: string) => `/transfers/${transferId}/putaway-slots`,
+    putAwaySuggestions: (transferId: string) => `/transfers/${transferId}/putaway-suggestions`,
     reopenPicking: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/reopen-picking`,
     dispatchShipment: (transferId: string, shipmentId: string) =>

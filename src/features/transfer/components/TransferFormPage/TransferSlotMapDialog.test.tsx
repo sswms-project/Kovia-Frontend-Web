@@ -30,7 +30,8 @@ vi.mock('@/features/warehouse/components/WarehouseDesigner', () => ({
     return (
       <section className={isClosing ? 'translate-y-full' : 'translate-y-0'} data-testid="viewer">
         <button onClick={onClose}>Đóng sơ đồ kho</button>
-        <button onClick={() => setSelection({ kind: 'rack', id: 'rack' })}>Kệ trên sơ đồ</button>
+        <button onClick={() => setSelection({ kind: 'rack', id: 'r1' })}>Kệ theo ô</button>
+        <button onClick={() => setSelection({ kind: 'rack', id: 'r2' })}>Kệ theo kệ</button>
         {scene.slots.map((slot) => (
           <button key={slot.id} onClick={() => setSelection({ kind: 'slot', id: slot.id })}>
             {`Ô ${slot.slotCode}`}
@@ -101,7 +102,17 @@ function slot(id: string, overrides: Record<string, unknown> = {}) {
 const scene = {
   canvas: { width: 100, height: 100, gridSize: 10 },
   zones: [{ id: 'z1', zoneCode: 'K01' }],
-  racks: [{ id: 'r1', rackCode: 'A07' }],
+  racks: [
+    { id: 'r1', rackCode: 'A07', zoneId: 'z1', storageMode: 'SlotLevel', status: 'Active' },
+    {
+      id: 'r2',
+      rackCode: 'C02',
+      zoneId: 'z1',
+      storageMode: 'RackLevel',
+      defaultSlotId: 'c-default',
+      status: 'Active',
+    },
+  ],
   decorations: [],
   slots: [slot('a-01'), slot('b-01', { isActive: false })],
 }
@@ -128,9 +139,18 @@ describe('TransferSlotMapDialog', () => {
   it('cannot confirm until a slot is selected, and a rack asks for a slot inside it', () => {
     renderDialog()
     expect(screen.getByRole('button', { name: 'Chọn' })).toBeDisabled()
-    fireEvent.click(screen.getByText('Kệ trên sơ đồ'))
-    expect(screen.getByText('Chọn một ô trong kệ ở danh sách bên trái.')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Kệ theo ô'))
+    expect(
+      screen.getByText('Kệ này quản lý theo từng ô. Hãy chọn một ô trong kệ.')
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Chọn' })).toBeDisabled()
+  })
+
+  it('confirms a whole rack when it is managed at rack level', () => {
+    const { onConfirm } = renderDialog()
+    fireEvent.click(screen.getByText('Kệ theo kệ'))
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
+    expect(onConfirm).toHaveBeenCalledWith({ slotId: 'c-default', label: 'Khu K01 / Kệ C02' })
   })
 
   it('confirms the slot picked in the tree with its Khu / Kệ / Ô label', () => {

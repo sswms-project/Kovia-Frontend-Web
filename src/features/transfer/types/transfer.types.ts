@@ -219,6 +219,20 @@ export interface TransferSourceLocationsQuery {
   productId: string
 }
 
+export interface TransferPutAwaySlotSuggestion {
+  slotId: string
+  path: string
+  reason: string
+  /** Số lượng còn nhận được (đơn vị chính); null khi vị trí không giới hạn sức chứa. */
+  available: number | null
+  warnings: string[]
+}
+
+export interface TransferPutAwayItemSuggestions {
+  itemId: string
+  suggestions: TransferPutAwaySlotSuggestion[]
+}
+
 export interface TransferReceivableSlotOption {
   id: string
   code: string

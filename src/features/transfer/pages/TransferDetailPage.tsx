@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from '@/lib/utils'
 import {
   ArrowLeft,
   MapPin,
@@ -49,7 +50,12 @@ import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferRequestActions } from '../hooks/use-transfer-request-actions'
 import { useTransferResolutionActions } from '../hooks/use-transfer-resolution-actions'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
-import { useTransferQuery, useTransferReceivableSlotsQuery } from '../hooks/use-transfers'
+import {
+  useTransferPutAwaySuggestionsQuery,
+  useTransferQuery,
+  useTransferReceivableSlotsQuery,
+} from '../hooks/use-transfers'
+import { suggestionToOption } from '../utils/transfer-put-away'
 import {
   canChoosePutAwaySlot,
   getShipmentCapabilities,
@@ -112,6 +118,21 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
     (putAwayActions.isOpen || (tab === 'shipments' && canSeeSetPutAway)) &&
       Boolean(transfer?.destinationWarehouseId)
   )
+  const suggestionsQuery = useTransferPutAwaySuggestionsQuery(
+    transferId,
+    canSeeSetPutAway && (putAwayActions.isOpen || tab === 'shipments')
+  )
+  const suggestionsByItem = useMemo(() => {
+    const term = slotSearch.trim().toLowerCase()
+    return Object.fromEntries(
+      (suggestionsQuery.data ?? []).map((entry) => [
+        entry.itemId,
+        entry.suggestions
+          .map(suggestionToOption)
+          .filter((option) => !term || option.label.toLowerCase().includes(term)),
+      ])
+    )
+  }, [suggestionsQuery.data, slotSearch])
   const putAwayRows = useMemo(
     () =>
       visibleTransferItems(transfer?.items ?? []).map((item) => ({
@@ -124,8 +145,9 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
             } satisfies LookupOption)
           : undefined,
         locked: !canChoosePutAwaySlot(item),
+        suggestions: suggestionsByItem[item.id] ?? [],
       })),
-    [transfer?.items]
+    [transfer?.items, suggestionsByItem]
   )
   const putAwaySlotOptions = useMemo<LookupOption[]>(
     () => (receivableSlotsQuery.data ?? []).map((slot) => ({ value: slot.id, label: slot.path })),
@@ -137,6 +159,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
     savedSlots: Object.fromEntries(putAwayRows.map((row) => [row.id, row.slot])),
     editableItemIds: new Set(putAwayRows.filter((row) => !row.locked).map((row) => row.id)),
     slotOptions: putAwaySlotOptions,
+    suggestionsByItem,
     isLoadingSlots: receivableSlotsQuery.isFetching,
     isPending: putAwayActions.isPending,
     onSlotSearchChange: setSlotSearch,
@@ -177,6 +200,9 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   const history = useMemo(() => (transfer ? buildTransferHistory(transfer) : []), [transfer])
   const rows = useMemo(() => transferGoodsRows(transfer), [transfer])
   const closing = requestActions.closing
+  const unitsByItem = Object.fromEntries(
+    rows.map((row) => [row.id, { unit: row.unit, conversion: row.conversion }])
+  )
 
   const tabs: ReadonlyArray<{ value: DetailTab; label: string }> = [
     { value: 'goods', label: 'Hàng hóa' },
@@ -312,7 +338,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               const next = tabs.find((candidate) => candidate.value === value)
               if (next) setTab(next.value)
             }}
-            className="min-h-0 flex-1 gap-2"
+            className={cn('gap-2', tab === 'goods' ? 'min-h-0 flex-1' : 'flex-none')}
           >
             <TabsList
               variant="workspace"
@@ -331,7 +357,16 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                 </TabsTrigger>
               ))}
             </TabsList>
-            <OperationalListPanel {...tabIds.panelProps}>
+            <OperationalListPanel
+              {...tabIds.panelProps}
+              // Các tab dạng thẻ (đợt xuất, chênh lệch…) chảy theo chiều cao nội dung và cuộn cùng trang,
+              // không bị nhốt trong một khung cố định nên vẫn xem được trên màn nhỏ và điện thoại.
+              className={
+                tab === 'goods'
+                  ? undefined
+                  : 'flex-none overflow-visible [&>[data-slot=operational-list-body]]:flex-none [&>[data-slot=operational-list-body]]:overflow-visible'
+              }
+            >
               {tab === 'goods' ? (
                 <TransferGoodsTable
                   key={transfer.id}
@@ -352,6 +387,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                       onReopenPicking={resolutionActions.reopen.open}
                       onAssignTask={resolutionActions.assign.open}
                       onResolveEscalation={resolutionActions.escalation.open}
+                      unitsByItem={unitsByItem}
                       putAway={capabilities.canSetPutAwaySlots ? putAwayShipmentColumn : undefined}
                     />
                   ) : tab === 'discrepancies' ? (

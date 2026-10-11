@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import { TransferSlotMapDialog } from '../TransferFormPage/TransferSlotMapDialog'
+import { mergePutAwayOptions } from '../../utils/transfer-put-away'
 import { ShipmentPutAwayCell } from './ShipmentPutAwayCell'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
@@ -35,12 +36,16 @@ interface TransferShipmentsPanelProps {
   readonly onReopenPicking: (shipment: TransferShipment) => void
   readonly onAssignTask: (shipment: TransferShipment, kind: TransferTaskKind) => void
   readonly onResolveEscalation: (shipment: TransferShipment) => void
+  /** ĐVT chính và quy đổi của từng dòng hàng theo mã dòng phiếu; số lượng trong bảng tính theo ĐVT chính. */
+  readonly unitsByItem: Readonly<Record<string, { unit: string; conversion: string | null }>>
   /** Chỉ có khi người xem là quản lý kho nhập được chọn vị trí cất; thêm cột "Cất vào" chọn ngay trong bảng. */
   readonly putAway?: {
     readonly warehouseId: string
     readonly savedSlots: Readonly<Record<string, LookupOption | undefined>>
     readonly editableItemIds: ReadonlySet<string>
     readonly slotOptions: readonly LookupOption[]
+    /** Gợi ý theo từng dòng hàng (mã dòng phiếu); đứng đầu danh sách chọn. */
+    readonly suggestionsByItem: Readonly<Record<string, readonly LookupOption[]>>
     readonly isLoadingSlots: boolean
     readonly isPending: boolean
     readonly onSlotSearchChange: (value: string) => void
@@ -75,6 +80,7 @@ export function TransferShipmentsPanel({
   onReopenPicking,
   onAssignTask,
   onResolveEscalation,
+  unitsByItem,
   putAway,
 }: TransferShipmentsPanelProps) {
   const [mapItemId, setMapItemId] = useState<string | null>(null)
@@ -92,11 +98,11 @@ export function TransferShipmentsPanel({
   }
   return (
     <>
-      <ul className="flex flex-col gap-4 p-3">
+      <ul className="divide-border flex flex-col divide-y">
         {shipments.map((shipment) => {
           const allowed = capabilities[shipment.id]
           return (
-            <li key={shipment.id} className="border">
+            <li key={shipment.id}>
               <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
                 <h3 className="text-sm font-semibold">Đợt {shipment.shipmentNumber}</h3>
                 <ShipmentStatusBadge status={shipment.status} />
@@ -114,12 +120,14 @@ export function TransferShipmentsPanel({
                   </span>
                 ) : null}
               </div>
-              <div className="overflow-x-auto">
-                <Table className="min-w-[640px]">
+              <div>
+                <Table className="min-w-[860px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Mã hàng</TableHead>
                       <TableHead>Tên hàng</TableHead>
+                      <TableHead>ĐVT</TableHead>
+                      <TableHead>ĐVQĐ</TableHead>
                       <TableHead className="text-right">Kế hoạch</TableHead>
                       <TableHead className="text-right">Đã lấy</TableHead>
                       <TableHead className="text-right">Đã xuất</TableHead>
@@ -136,6 +144,8 @@ export function TransferShipmentsPanel({
                         <TableRow key={line.id}>
                           <TableCell className="font-mono">{line.sku}</TableCell>
                           <TableCell className="whitespace-normal">{line.productName}</TableCell>
+                          <TableCell>{unitsByItem[line.itemId]?.unit ?? '—'}</TableCell>
+                          <TableCell>{unitsByItem[line.itemId]?.conversion ?? '—'}</TableCell>
                           <TableCell className="text-right tabular-nums">
                             {formatQuantity(line.plannedQuantity)}
                           </TableCell>
@@ -157,7 +167,10 @@ export function TransferShipmentsPanel({
                                 <ShipmentPutAwayCell
                                   label={line.sku}
                                   saved={saved}
-                                  options={putAway.slotOptions}
+                                  options={mergePutAwayOptions(
+                                    putAway.suggestionsByItem[line.itemId] ?? [],
+                                    putAway.slotOptions
+                                  )}
                                   isLoading={putAway.isLoadingSlots}
                                   isPending={putAway.isPending}
                                   onSearchChange={putAway.onSlotSearchChange}

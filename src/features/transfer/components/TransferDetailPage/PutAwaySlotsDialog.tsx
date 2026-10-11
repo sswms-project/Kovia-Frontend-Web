@@ -12,6 +12,7 @@ import {
 import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
 import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import type { PutAwaySlotChoice } from '../../hooks/use-transfer-put-away-actions'
+import { mergePutAwayOptions } from '../../utils/transfer-put-away'
 import { TransferSlotMapDialog } from '../TransferFormPage/TransferSlotMapDialog'
 
 export interface PutAwayItemRow {
@@ -21,6 +22,8 @@ export interface PutAwayItemRow {
   readonly slot?: LookupOption
   /** Dòng đã bắt đầu nhận hàng nên không đổi vị trí cất nữa. */
   readonly locked: boolean
+  /** Vị trí hệ thống gợi ý cho dòng này, đứng đầu danh sách chọn. */
+  readonly suggestions?: readonly LookupOption[]
 }
 
 interface PutAwaySlotsDialogProps {
@@ -111,7 +114,7 @@ function PutAwaySlotsSession({
                         <div className="min-w-0 flex-1">
                           <LookupCombobox
                             value={choice?.value ?? ''}
-                            options={slotOptions}
+                            options={mergePutAwayOptions(item.suggestions ?? [], slotOptions)}
                             selectedOption={choice}
                             placeholder="Chọn vị trí cất (có thể để trống)"
                             emptyMessage="Kho nhập chưa có vị trí phù hợp."

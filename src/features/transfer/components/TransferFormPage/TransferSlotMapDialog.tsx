@@ -12,6 +12,7 @@ import { mapWarehouseLayoutScene } from '@/features/warehouse/utils/layout-scene
 import { getApiErrorMessage } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
 import {
+  describeRackPick,
   describeSlotPick,
   type TransferPickableLocation,
   type TransferSlotPick,
@@ -88,9 +89,10 @@ function TransferSlotMapBody({
   }, [requestClose])
 
   function pickOf(selection: WarehouseLayoutSelection | null): TransferSlotPick | null {
-    return scene && selection?.kind === 'slot'
-      ? describeSlotPick(scene, selection.id, allowedLocations)
-      : null
+    if (!scene) return null
+    if (selection?.kind === 'slot') return describeSlotPick(scene, selection.id, allowedLocations)
+    if (selection?.kind === 'rack') return describeRackPick(scene, selection.id, allowedLocations)
+    return null
   }
 
   return (
@@ -194,7 +196,7 @@ function SelectionSummary({
     return (
       <p className="text-muted-foreground">
         {hasSelection
-          ? 'Chọn một ô trong kệ ở danh sách bên trái.'
+          ? 'Chọn một kệ hoặc một ô trong danh sách bên trái.'
           : 'Bấm vào kệ trên sơ đồ hoặc chọn ô trong danh sách.'}
       </p>
     )

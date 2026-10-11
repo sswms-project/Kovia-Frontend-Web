@@ -60,6 +60,8 @@ export interface WarehouseLayoutRackSceneResponse
   description: string | null
   status: string
   storageMode?: 'RackLevel' | 'SlotLevel'
+  /** Ô mặc định của kệ quản lý theo kệ; không nằm trong danh sách ô. */
+  defaultSlotId?: string | null
   layoutShape?: WarehouseLayoutRackShape | null
   allowsMixedProducts?: boolean
   capacity?: number | null

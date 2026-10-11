@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { WarehouseLayoutEditorScene } from '@/features/warehouse/types/warehouse-layout-scene.types'
-import { describeSlotPick } from './transfer-slot-pick'
+import { describeRackPick, describeSlotPick } from './transfer-slot-pick'
 
 function slot(id: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -22,7 +22,25 @@ function slot(id: string, overrides: Record<string, unknown> = {}) {
 const scene = {
   canvas: { width: 100, height: 100, gridSize: 10 },
   zones: [{ id: 'z1', zoneCode: 'K01' }],
-  racks: [{ id: 'r1', rackCode: 'A07' }],
+  racks: [
+    { id: 'r1', rackCode: 'A07', zoneId: 'z1', storageMode: 'SlotLevel', status: 'Active' },
+    {
+      id: 'rack-level',
+      rackCode: 'B01',
+      zoneId: 'z1',
+      storageMode: 'RackLevel',
+      defaultSlotId: 'default-slot',
+      status: 'Active',
+    },
+    {
+      id: 'rack-off',
+      rackCode: 'B02',
+      zoneId: 'z1',
+      storageMode: 'RackLevel',
+      defaultSlotId: 'off-default',
+      status: 'Inactive',
+    },
+  ],
   decorations: [],
   slots: [
     slot('ok'),
@@ -60,5 +78,32 @@ describe('describeSlotPick', () => {
 
   it('returns null for something that is not a slot of this warehouse', () => {
     expect(describeSlotPick(scene, 'missing')).toBeNull()
+  })
+})
+
+describe('describeRackPick', () => {
+  it('lets a rack-level rack be picked as a whole through its default slot', () => {
+    expect(describeRackPick(scene, 'rack-level')).toEqual({
+      slotId: 'default-slot',
+      label: 'Khu K01 / Kệ B01',
+      isValid: true,
+    })
+  })
+
+  it('asks for a slot when the rack is managed per slot', () => {
+    expect(describeRackPick(scene, 'r1')).toMatchObject({
+      isValid: false,
+      problem: 'Kệ này quản lý theo từng ô. Hãy chọn một ô trong kệ.',
+    })
+  })
+
+  it('rejects an inactive rack and respects the allowed source locations', () => {
+    expect(describeRackPick(scene, 'rack-off')).toMatchObject({ isValid: false })
+    expect(
+      describeRackPick(scene, 'rack-level', [
+        { slotId: 'default-slot', label: 'Khu K01 / Kệ B01 · còn 4' },
+      ])
+    ).toMatchObject({ isValid: true, label: 'Khu K01 / Kệ B01 · còn 4' })
+    expect(describeRackPick(scene, 'rack-level', [])).toMatchObject({ isValid: false })
   })
 })

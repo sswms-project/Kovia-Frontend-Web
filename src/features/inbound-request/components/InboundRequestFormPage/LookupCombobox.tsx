@@ -68,6 +68,10 @@ export function LookupCombobox({
     }
     return labels
   }, [options, resolvedSelectedOption])
+  const descriptions = useMemo(
+    () => new Map(options.map((option) => [option.value, option.description])),
+    [options]
+  )
   const itemValues = useMemo(() => Array.from(optionLabels.keys()), [optionLabels])
   const filteredItemValues = useMemo(() => options.map((option) => option.value), [options])
 
@@ -111,7 +115,14 @@ export function LookupCombobox({
           <ComboboxGroup>
             {filteredItemValues.map((itemValue) => (
               <ComboboxItem key={itemValue} value={itemValue}>
-                {optionLabels.get(itemValue)}
+                <span className="flex min-w-0 flex-col">
+                  <span>{optionLabels.get(itemValue)}</span>
+                  {descriptions.get(itemValue) ? (
+                    <span className="text-muted-foreground text-xs">
+                      {descriptions.get(itemValue)}
+                    </span>
+                  ) : null}
+                </span>
               </ComboboxItem>
             ))}
           </ComboboxGroup>
