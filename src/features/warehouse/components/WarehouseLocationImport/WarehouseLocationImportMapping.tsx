@@ -2,7 +2,8 @@ import { BulkImportMappingFields } from '@/components/operations/BulkImportWorks
 import { SpreadsheetImportColumnTable } from '@/components/operations/SpreadsheetImportColumnTable'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { WarehouseLocationImportTabs } from './WarehouseLocationImportTabs'
 import type {
   WarehouseLocationImportKind,
   WarehouseLocationImportOptions,
@@ -35,13 +36,7 @@ export function WarehouseLocationImportMapping({
     <fieldset disabled={busy} className="min-w-0">
       <legend className="sr-only">Ghép cột cấu trúc kho</legend>
       <Tabs defaultValue={kinds[0]}>
-        <TabsList aria-label="Bảng cấu trúc cần ghép" variant="workspace">
-          {kinds.map((kind) => (
-            <TabsTrigger key={kind} value={kind}>
-              {LOCATION_IMPORT_LABELS[kind]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <WarehouseLocationImportTabs kinds={kinds} label="Chọn bảng để ghép cột" />
         {kinds.map((kind) => {
           const table = options.tables.find((item) => item.kind === kind)
           const sheets = inspection.sheetsByKind[kind] ?? []

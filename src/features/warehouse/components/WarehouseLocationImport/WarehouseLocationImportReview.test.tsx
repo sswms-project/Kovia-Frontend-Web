@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { WarehouseLocationImportKind } from '../../schemas/warehouse-location-import.schema'
@@ -114,4 +114,65 @@ it('restores each tab search, action, expansion, page and page size without losi
   expect(screen.getByText('2 / 2')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Trang đầu' }))
   expect(screen.getByRole('checkbox', { name: 'Chọn Zone-1, dòng 3' })).toBeChecked()
+})
+
+it('shows row counts and counts invalid rows rather than individual issues on each tab', async () => {
+  const broken = preview.rows.map((row) =>
+    row.rowKey === 'Rack-1'
+      ? {
+          ...row,
+          action: 'Invalid' as const,
+          canSelect: false,
+          issues: ['Thiếu tên kệ', 'Thiếu kiểu quản lý'].map((message) => ({
+            code: 'REQUIRED',
+            severity: 'Error',
+            field: 'rackName',
+            message,
+            source: row.source,
+          })),
+        }
+      : row
+  )
+  const user = userEvent.setup()
+  render(
+    <WarehouseLocationImportReview
+      preview={{ ...preview, rows: broken }}
+      inspection={inspection}
+      selected={new Set(['Zone-1', 'Slot-1'])}
+      busy={false}
+      onSelect={vi.fn()}
+      onExport={vi.fn()}
+    />
+  )
+  const rack = screen.getByRole('tab', { name: 'Kệ' })
+  expect(within(rack).getByText('25 dòng')).toBeInTheDocument()
+  expect(within(rack).getByText('1 cần sửa')).toBeInTheDocument()
+  expect(screen.getByText('Đã chọn 1 dòng')).toBeInTheDocument()
+  await user.click(rack)
+  expect(screen.getByText('Đã chọn 0 dòng')).toBeInTheDocument()
+  expect(screen.getByText('1 dòng cần sửa')).toBeInTheDocument()
+  expect(screen.getByRole('tab', { name: 'Kệ', selected: true })).toBeInTheDocument()
+})
+
+it('supports arrow-key tab navigation and displays actual imported counts in the result', async () => {
+  const user = userEvent.setup()
+  render(
+    <WarehouseLocationImportReview
+      preview={preview}
+      inspection={inspection}
+      selected={new Set(['Zone-1', 'Zone-2'])}
+      imported={new Set(['Zone-1'])}
+      busy={false}
+      onSelect={vi.fn()}
+      onExport={vi.fn()}
+    />
+  )
+  expect(screen.getByText('Đã nhập 1 dòng')).toBeInTheDocument()
+  screen.getByRole('tab', { name: 'Khu vực' }).focus()
+  await user.keyboard('{ArrowRight}')
+  expect(screen.getByRole('tab', { name: 'Kệ', selected: true })).toHaveFocus()
+  expect(screen.getByText('Đã nhập 0 dòng')).toBeInTheDocument()
+  expect(
+    screen.queryByText('Chọn cả tệp áp dụng cho cả khu vực, kệ và vị trí.')
+  ).not.toBeInTheDocument()
 })

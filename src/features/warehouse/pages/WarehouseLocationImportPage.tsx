@@ -32,7 +32,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
@@ -42,6 +41,7 @@ import { getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { WarehouseLocationImportMapping } from '../components/WarehouseLocationImport/WarehouseLocationImportMapping'
 import { WarehouseLocationImportReview } from '../components/WarehouseLocationImport/WarehouseLocationImportReview'
+import { WarehouseLocationImportSummary } from '../components/WarehouseLocationImport/WarehouseLocationImportSummary'
 import { useWarehouseQuery } from '../hooks/use-warehouse'
 import { useWarehouseLocationImport } from '../hooks/use-warehouse-location-import'
 import {
@@ -59,6 +59,7 @@ import {
   initialLocationImportOptions,
   LOCATION_IMPORT_LABELS,
   LOCATION_IMPORT_MODES,
+  locationImportKinds,
   locationImportReport,
   locationImportSelectionCounts,
   missingLocationImportParents,
@@ -455,27 +456,11 @@ function WarehouseLocationImportSession({
             </Alert>
           ) : (
             <>
-              <section
-                className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4"
-                aria-label="Tổng quan bản xem trước"
-              >
-                {[
-                  ['Tổng số dòng', preview.summary.totalRows],
-                  ['Sẽ tạo mới', preview.summary.createRows],
-                  ['Đã có', preview.summary.referenceRows],
-                  ['Cần sửa', preview.summary.invalidRows],
-                ].map(([label, count]) => (
-                  <Card key={label} className="gap-0 border py-0">
-                    <CardContent className="flex min-h-14 items-center justify-between gap-2 px-3 py-2">
-                      <span className="text-muted-foreground text-xs">{label}</span>
-                      <strong className="tabular-nums">{count}</strong>
-                    </CardContent>
-                  </Card>
-                ))}
-              </section>
-              <p className="text-sm" aria-live="polite">
-                Đã chọn tạo {countLabel}.
-              </p>
+              <WarehouseLocationImportSummary
+                kinds={locationImportKinds(inspection.mode)}
+                rows={preview.rows}
+                selected={selected}
+              />
               {missingParents.length ? (
                 <Alert variant="destructive">
                   <AlertTitle>Cần chọn thêm {missingParents.length} dòng cha</AlertTitle>

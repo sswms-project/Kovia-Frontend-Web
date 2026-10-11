@@ -22,7 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import { WarehouseLocationImportTabs } from './WarehouseLocationImportTabs'
 import type { WarehouseLocationImportKind } from '../../schemas/warehouse-location-import.schema'
 import type {
   WarehouseLocationImportInspection,
@@ -111,6 +112,9 @@ export function WarehouseLocationImportReview({
     (field) => expanded || MAIN_FIELDS.has(field.field)
   )
   const valid = preview.rows.filter((row) => row.canSelect)
+  const kindRows = preview.rows.filter((row) => row.kind === kind)
+  const selectedKind = kindRows.filter((row) => selected.has(row.rowKey)).length
+  const invalidKind = kindRows.filter((row) => row.issues.length > 0).length
   const filtered = preview.rows.filter(
     (row) =>
       row.kind === kind &&
@@ -180,13 +184,11 @@ export function WarehouseLocationImportReview({
         setKind(value as WarehouseLocationImportKind)
       }}
     >
-      <TabsList aria-label="Loại cấu trúc trong bản xem trước" variant="workspace">
-        {kinds.map((item) => (
-          <TabsTrigger key={item} value={item}>
-            {LOCATION_IMPORT_LABELS[item]}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <WarehouseLocationImportTabs
+        kinds={kinds}
+        label="Chọn bảng để kiểm tra dữ liệu"
+        rows={preview.rows}
+      />
       <TabsContent value={kind}>
         <OperationalListPanel
           aria-label={imported ? 'Kết quả nhập cấu trúc kho' : 'Bản xem trước cấu trúc kho'}
@@ -252,6 +254,29 @@ export function WarehouseLocationImportReview({
               Xuất báo cáo
             </Button>
           </BulkImportReviewHeader>
+          <div
+            className="bg-muted/40 flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 text-xs"
+            aria-live="polite"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <strong className="text-sm">{LOCATION_IMPORT_LABELS[kind]}</strong>
+              {imported ? (
+                <Badge variant="outline">
+                  Đã nhập {kindRows.filter((row) => imported.has(row.rowKey)).length} dòng
+                </Badge>
+              ) : (
+                <Badge variant="outline">Đã chọn {selectedKind} dòng</Badge>
+              )}
+              {invalidKind > 0 ? (
+                <Badge variant="destructive">{invalidKind} dòng cần sửa</Badge>
+              ) : null}
+            </div>
+            {!imported ? (
+              <p className="text-muted-foreground">
+                Chọn cả tệp áp dụng cho cả khu vực, kệ và vị trí.
+              </p>
+            ) : null}
+          </div>
           <Table
             id="location-import-table"
             className="table-fixed"

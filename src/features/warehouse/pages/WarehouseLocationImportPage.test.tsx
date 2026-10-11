@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import WarehouseLocationImportPage from './WarehouseLocationImportPage'
@@ -128,6 +128,58 @@ async function upload(expectedSelection = 1) {
 }
 
 describe('warehouse import workflow', () => {
+  it('summarizes valid, existing and invalid rows per kind and updates selected counts', async () => {
+    mocks.inspect.mockResolvedValue({ ...inspection, mode: 'Structure' })
+    mocks.preview.mockResolvedValue({
+      ...preview,
+      rows: [
+        row,
+        { ...row, rowKey: 'r', kind: 'Rack', displayPath: 'R' },
+        { ...row, rowKey: 's', kind: 'Slot', displayPath: 'S' },
+        { ...row, rowKey: 'existing', action: 'Reference', canSelect: false },
+        {
+          ...row,
+          rowKey: 'invalid',
+          kind: 'Rack',
+          action: 'Invalid',
+          canSelect: false,
+          issues: ['first', 'second'].map((message) => ({
+            code: 'invalid',
+            severity: 'Error',
+            field: 'rackCode',
+            message,
+            source: row.source,
+          })),
+        },
+      ],
+      summary: { totalRows: 5, createRows: 3, referenceRows: 1, invalidRows: 1 },
+    })
+    render(<WarehouseLocationImportPage warehouseId="w" />)
+    await upload(3)
+    const zones = within(screen.getByRole('group', { name: 'Thống kê khu vực' }))
+    const racks = within(screen.getByRole('group', { name: 'Thống kê kệ' }))
+    const slots = within(screen.getByRole('group', { name: 'Thống kê vị trí' }))
+    expect(zones.getByText('Tổng 2 dòng')).toBeInTheDocument()
+    expect(zones.getByText('Đã chọn 1/1 dòng hợp lệ')).toBeInTheDocument()
+    expect(zones.getByText('Đã có').nextElementSibling).toHaveTextContent('1')
+    expect(racks.getByText('Tổng 2 dòng')).toBeInTheDocument()
+    expect(racks.getByText('Cần sửa').nextElementSibling).toHaveTextContent('1')
+    expect(slots.getByText('Tổng 1 dòng')).toBeInTheDocument()
+    expect(screen.queryByText(/^Đã chọn tạo/)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Bỏ chọn cả tệp' }))
+    expect(zones.getByText('Đã chọn 0/1 dòng hợp lệ')).toBeInTheDocument()
+    expect(racks.getByText('Đã chọn 0/1 dòng hợp lệ')).toBeInTheDocument()
+    expect(slots.getByText('Đã chọn 0/1 dòng hợp lệ')).toBeInTheDocument()
+    expect(screen.queryByText(/^Đã chọn tạo/)).not.toBeInTheDocument()
+    expect(mocks.commit).not.toHaveBeenCalled()
+  })
+  it('shows only the applicable summary for a single-kind CSV', async () => {
+    render(<WarehouseLocationImportPage warehouseId="w" />)
+    await upload()
+    expect(screen.getByRole('group', { name: 'Thống kê khu vực' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Thống kê kệ' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Thống kê vị trí' })).not.toBeInTheDocument()
+  })
   it('checks effective permission before offering upload', () => {
     mocks.permissions = ['warehouses:view']
     render(<WarehouseLocationImportPage warehouseId="w" />)
@@ -179,7 +231,10 @@ describe('warehouse import workflow', () => {
   it('requires an explicit choice when a selected child loses its new parent', async () => {
     mocks.preview.mockResolvedValue({
       ...preview,
-      rows: [row, { ...row, rowKey: 'r', kind: 'Rack', displayPath: 'Z / R', requiredParentRowKeys: ['z'] }],
+      rows: [
+        row,
+        { ...row, rowKey: 'r', kind: 'Rack', displayPath: 'Z / R', requiredParentRowKeys: ['z'] },
+      ],
       summary: { totalRows: 2, createRows: 2, referenceRows: 0, invalidRows: 0 },
     })
     render(<WarehouseLocationImportPage warehouseId="w" />)
