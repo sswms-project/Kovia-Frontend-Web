@@ -1,5 +1,6 @@
 'use client'
 
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import {
   CircleOff,
   Eye,
@@ -270,7 +271,7 @@ function SupplierDesktopTable({
         </TableHeader>
         <TableBody>
           {items.map((item) => (
-            <TableRow key={item.id}>
+            <ClickableTableRow key={item.id} href={APP_ROUTES.supplierDetail(item.id) as Route}>
               <TableCell className="truncate font-mono">{item.supplierCode}</TableCell>
               <TableCell className="min-w-0">
                 <Tooltip>
@@ -356,7 +357,7 @@ function SupplierDesktopTable({
                   ) : null}
                 </div>
               </TableCell>
-            </TableRow>
+            </ClickableTableRow>
           ))}
         </TableBody>
       </Table>

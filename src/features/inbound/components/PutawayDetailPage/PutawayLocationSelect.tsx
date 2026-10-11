@@ -21,6 +21,8 @@ interface PutawayLocationSelectProps {
   readonly slots: readonly SlotOption[]
   readonly invalid: boolean
   readonly disabled: boolean
+  /** Bảng nhiều dòng: sức chứa hiện ngay trong ô chọn thay vì thêm một hàng chữ bên dưới. */
+  readonly compact?: boolean
   readonly onChange: (slotId: string) => void
 }
 
@@ -38,6 +40,7 @@ export function PutawayLocationSelect({
   slots,
   invalid,
   disabled,
+  compact = false,
   onChange,
 }: PutawayLocationSelectProps) {
   const [open, setOpen] = useState(false)
@@ -73,6 +76,11 @@ export function PutawayLocationSelect({
                   ? 'Chọn kệ hoặc tìm vị trí...'
                   : 'Không có vị trí khả dụng'}
             </span>
+            {compact && selected ? (
+              <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">
+                {capacityLabel(selected)}
+              </span>
+            ) : null}
             <ChevronDown
               aria-hidden="true"
               className={cn(
@@ -148,7 +156,10 @@ export function PutawayLocationSelect({
         </PopoverContent>
       </Popover>
       {selected ? (
-        <p id={`${id}-description`} className="text-muted-foreground text-xs">
+        <p
+          id={`${id}-description`}
+          className={compact ? 'sr-only' : 'text-muted-foreground text-xs'}
+        >
           {selected.hierarchy} · {capacityLabel(selected)}
         </p>
       ) : null}

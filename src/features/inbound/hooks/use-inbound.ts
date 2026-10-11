@@ -4,6 +4,7 @@ import { formatApiError, isApiErrorResponse } from '@/lib/api-error'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
 import { inboundService } from '../services/inbound.service'
+import type { InventoryEvidence } from '@/features/inventory/types/inventory.types'
 import type {
   AssignableWarehouseStaff,
   AssignWarehouseTaskRequest,
@@ -14,7 +15,12 @@ import type {
   GoodsReceiptDetail,
   GoodsReceiptListResponse,
   PutawayRequest,
+  PutAwayDeviationReport,
+  PutAwayDeviationReportQuery,
+  PutAwayHeldSlot,
+  PutAwaySuggestionsResponse,
   PutawayTaskQuery,
+  SavePutAwayPlanRequest,
   ReceivingTaskListResponse,
   ReceivingTaskQuery,
   SaveGoodsReceiptRequest,
@@ -115,6 +121,39 @@ export function useGoodsReceiptQuery(receiptId: string) {
     queryKey: queryKeys.goodsReceipts.detail(receiptId),
     queryFn: () => inboundService.getReceipt(receiptId).then((response) => response.data),
     enabled: Boolean(receiptId) && receiptId !== NULL_GUID,
+  })
+}
+
+/** Vị trí đang chừa cho hàng sắp về trong kho của phiếu; chỉ để cảnh báo, không chặn. */
+export function usePutawayHeldSlotsQuery(receiptId: string, enabled = true) {
+  return useQuery<PutAwayHeldSlot[], ApiErrorResponse>({
+    queryKey: queryKeys.goodsReceipts.putawayHeldSlots(receiptId),
+    queryFn: () => inboundService.getPutawayHeldSlots(receiptId).then((response) => response.data),
+    enabled: enabled && Boolean(receiptId) && receiptId !== NULL_GUID,
+  })
+}
+
+/** Ảnh minh họa khi cất khác khuyến nghị; dùng quyền cất hàng, không cần quyền xem tồn kho. */
+export function useUploadPutawayEvidenceMutation() {
+  return useMutation<
+    ApiResponse<InventoryEvidence>,
+    ApiErrorResponse,
+    { warehouseId: string; file: File }
+  >({
+    mutationFn: ({ warehouseId, file }) => inboundService.uploadPutawayEvidence(warehouseId, file),
+    onError: (error) => logger.warn(formatApiError(error)),
+  })
+}
+
+export function usePutawayDeviationReportQuery(
+  params: PutAwayDeviationReportQuery,
+  enabled: boolean
+) {
+  return useQuery<PutAwayDeviationReport, ApiErrorResponse>({
+    queryKey: queryKeys.goodsReceipts.putawayDeviationReport(params),
+    queryFn: () =>
+      inboundService.getPutawayDeviationReport(params).then((response) => response.data),
+    enabled,
   })
 }
 
@@ -248,6 +287,33 @@ export function useRejectGoodsReceiptMutation() {
     mutationFn: ({ receiptId, reason }) => inboundService.rejectReceipt(receiptId, reason),
     onSuccess: (_, variables) => invalidate(variables.receiptId),
     onError: (error) => logger.error(error),
+  })
+}
+
+export function useSavePutawayPlanMutation() {
+  const invalidate = useInvalidateInbound()
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    { receiptId: string; request: SavePutAwayPlanRequest }
+  >({
+    mutationFn: ({ receiptId, request }) => inboundService.savePutawayPlan(receiptId, request),
+    onSuccess: (_, variables) => invalidate(variables.receiptId),
+    onError: (error) => logger.warn(formatApiError(error)),
+  })
+}
+
+export function usePutawaySuggestionsMutation() {
+  return useMutation<ApiResponse<PutAwaySuggestionsResponse>, ApiErrorResponse, string>({
+    mutationFn: inboundService.suggestPutawaySlots,
+    onError: (error) => logger.warn(formatApiError(error)),
+  })
+}
+
+export function usePutawayFormSuggestionsMutation() {
+  return useMutation<ApiResponse<PutAwaySuggestionsResponse>, ApiErrorResponse, string>({
+    mutationFn: inboundService.suggestPutawaySlotsForPutaway,
+    onError: (error) => logger.warn(formatApiError(error)),
   })
 }
 

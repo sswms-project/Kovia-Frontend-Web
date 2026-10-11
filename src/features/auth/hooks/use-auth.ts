@@ -120,9 +120,6 @@ export function useMeQuery() {
   return useQuery<UserProfileResponse, ApiErrorResponse>({
     queryKey: queryKeys.auth.me,
     queryFn: () => authService.getMe().then((r) => r.data),
-    staleTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
   })
 }
 

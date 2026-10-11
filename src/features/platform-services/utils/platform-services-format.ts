@@ -1,5 +1,6 @@
+import { queryKeys } from '@/lib/query-keys'
 import { APP_ROUTES } from '@/routes/app-routes'
-import type { NotificationItem } from '../types/platform-services.types'
+import type { NotificationItem, NotificationType } from '../types/platform-services.types'
 
 const TZ = 'Asia/Ho_Chi_Minh'
 
@@ -69,15 +70,77 @@ export function formatAuditValue(value: string | null): string {
   }
 }
 
+// Thông báo loại nào thì dữ liệu màn hình nào đã đổi: invalidate prefix để trang đang mở tự tải lại.
+const notificationTypeQueryRoots: Partial<
+  Record<NotificationType, readonly (readonly string[])[]>
+> = {
+  CycleCountUpdate: [queryKeys.cycleCounts.all],
+  StockAdjustmentUpdate: [
+    queryKeys.stockAdjustments.all,
+    queryKeys.cycleCounts.all,
+    queryKeys.inventory.all,
+  ],
+  InboundRequestUpdate: [queryKeys.inboundRequests.all],
+  GoodsReceiptUpdate: [queryKeys.goodsReceipts.all, queryKeys.inboundRequests.all],
+  TransferUpdate: [queryKeys.transfers.all],
+  StockIssueRequestUpdate: [queryKeys.stockIssueRequests.all],
+  GoodsReturnRequestUpdate: [queryKeys.goodsReturnRequests.all],
+  InventoryUpdate: [queryKeys.inventory.all],
+  OpeningStockUpdate: [queryKeys.inventory.all],
+  DamageCaseUpdate: [queryKeys.inventory.all],
+  StockDiscrepancyUpdate: [queryKeys.inventory.all],
+  LowStock: [queryKeys.inventory.all],
+  WarehouseUpdate: [queryKeys.warehouses.all],
+  TaskAssigned: [
+    queryKeys.cycleCounts.all,
+    queryKeys.inboundRequests.all,
+    queryKeys.goodsReceipts.all,
+    queryKeys.transfers.all,
+    ['warehouse-tasks'],
+  ],
+  StaffInvitationUpdate: [queryKeys.staff.all],
+  SubscriptionPlanUpdate: [queryKeys.subscription.all],
+  SubscriptionPaymentUpdate: [queryKeys.subscription.all, queryKeys.payments.all],
+}
+
+// Tham chiếu đến 1 phiếu cụ thể → key chi tiết (prefix phủ luôn allowed-actions).
+const notificationReferenceDetailKeys: Record<string, (id: string) => readonly string[]> = {
+  CycleCount: queryKeys.cycleCounts.detail,
+  StockAdjustment: queryKeys.stockAdjustments.detail,
+  StockAdjustmentVoucher: queryKeys.stockAdjustments.voucherDetail,
+  InboundRequest: queryKeys.inboundRequests.detail,
+  GoodsReceipt: queryKeys.goodsReceipts.detail,
+  Product: queryKeys.products.detail,
+}
+
+/**
+ * Query cần tải lại khi có thông báo. Có referenceId → chỉ chi tiết phiếu đó + các danh sách
+ * cùng nhóm; nhóm khác (vd. StockAdjustmentUpdate cũng đổi phiếu kiểm kê) tải lại cả nhóm.
+ */
+export function getNotificationQueryKeys(
+  notification: Pick<NotificationItem, 'type' | 'referenceType' | 'referenceId'>
+): readonly (readonly unknown[])[] {
+  const roots = notificationTypeQueryRoots[notification.type] ?? []
+  const { referenceType, referenceId } = notification
+  const detail =
+    referenceType && referenceId
+      ? notificationReferenceDetailKeys[referenceType]?.(referenceId)
+      : null
+  if (!detail) return roots
+  return roots.flatMap((root) => (root[0] === detail[0] ? [detail, [...root, 'list']] : [root]))
+}
+
 const notificationReferenceRoutes: Record<string, (id: string) => string> = {
   InboundRequest: APP_ROUTES.inboundRequestDetail,
   GoodsReceipt: APP_ROUTES.goodsReceiptDetail,
   StockAdjustment: APP_ROUTES.stockAdjustmentDetail,
   CycleCount: APP_ROUTES.cycleCountDetail,
+  StockAdjustmentVoucher: APP_ROUTES.stockAdjustmentVoucherDetail,
   Warehouse: APP_ROUTES.warehouseDetail,
   Product: APP_ROUTES.productDetail,
-  StockTransfer: () => APP_ROUTES.transfers,
-  StockIssueRequest: () => APP_ROUTES.stockIssueRequests,
+  StockTransfer: APP_ROUTES.transferDetail,
+  WarehouseTask: () => APP_ROUTES.myTasks,
+  StockIssueRequest: (id) => `${APP_ROUTES.stockIssueRequests}?id=${id}`,
   GoodsReturnRequest: () => APP_ROUTES.goodsReturnRequests,
   DamageCase: () => APP_ROUTES.inventoryDamageCases,
   OpeningStockRecord: () => APP_ROUTES.inventoryOpeningStocks,
@@ -107,6 +170,20 @@ export const notificationActionRoutes: Record<string, NotificationActionRoute> =
   ViewProduct: { to: APP_ROUTES.productDetail, requiresId: true },
   ViewWarehouses: { to: () => APP_ROUTES.warehouses },
   ViewStockTransfers: { to: () => APP_ROUTES.transfers },
+  ViewStockTransfer: { to: APP_ROUTES.transferDetail, requiresId: true },
+  ViewStockTransferShipments: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=shipments`,
+    requiresId: true,
+  },
+  ViewStockTransferDiscrepancies: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=discrepancies`,
+    requiresId: true,
+  },
+  ViewStockTransferFeedback: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=feedback`,
+    requiresId: true,
+  },
+  ViewMyWarehouseTasks: { to: () => APP_ROUTES.myTasks },
   ViewStockIssueRequests: { to: () => APP_ROUTES.stockIssueRequests },
   ViewGoodsReturnRequests: { to: () => APP_ROUTES.goodsReturnRequests },
   ViewDamageCases: { to: () => APP_ROUTES.inventoryDamageCases },

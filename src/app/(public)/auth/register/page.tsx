@@ -3,7 +3,7 @@ import { RegisterPage } from '@/features/auth/pages/RegisterPage'
 
 export const metadata: Metadata = {
   title: 'Đăng ký | KOVIA',
-  description: 'Đăng ký tenant owner cho Smart SaaS Warehouse Management System',
+  description: 'Đăng ký doanh nghiệp owner cho Smart SaaS Warehouse Management System',
 }
 
 export default async function Page({

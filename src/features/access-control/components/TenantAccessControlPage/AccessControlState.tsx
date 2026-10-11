@@ -32,7 +32,7 @@ const STATE_CONTENT = {
   },
   'empty-permissions': {
     title: 'Chưa có quyền có thể ủy quyền',
-    description: 'Danh mục quyền vận hành cho tenant hiện đang trống.',
+    description: 'Danh mục quyền vận hành cho doanh nghiệp hiện đang trống.',
   },
 } as const
 

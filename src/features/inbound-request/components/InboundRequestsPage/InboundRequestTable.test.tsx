@@ -7,6 +7,9 @@ import { InboundRequestTable } from './InboundRequestTable'
 import { InboundRequestDirectory } from './InboundRequestDirectory'
 import type { InboundRequestSummary } from '../../types/inbound-request.types'
 
+const push = vi.hoisted(() => vi.fn())
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
+
 const draft: InboundRequestSummary = {
   id: 'draft',
   inboundRequestCode: 'IR-001',
@@ -54,10 +57,12 @@ function props(): ComponentProps<typeof InboundRequestTable> {
     onApprove: vi.fn(),
     onDuplicate: vi.fn(),
     onSelectionChange: vi.fn(),
-    onPreview: vi.fn(),
   }
 }
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  push.mockClear()
+})
 
 function render(view: ReactElement) {
   return renderUI(<TooltipProvider>{view}</TooltipProvider>)
@@ -91,36 +96,35 @@ function directoryProps(): ComponentProps<typeof InboundRequestDirectory> {
   }
 }
 
-describe('inbound row preview and bulk checkboxes', () => {
-  it('previews a clicked row while only the code links to the detail page', async () => {
+describe('inbound row navigation and bulk checkboxes', () => {
+  it('opens the detail page when any plain cell of the row is clicked, not only the code link', async () => {
     const options = props()
-    render(<InboundRequestTable {...options} previewId="draft" />)
+    render(<InboundRequestTable {...options} />)
     const row = screen.getByRole('row', { name: /IR-001/ })
-    expect(row).toHaveAttribute('data-state', 'selected')
     expect(within(row).getAllByRole('link')).toHaveLength(1)
     const code = within(row).getByRole('link', { name: 'IR-001' })
     expect(code).toHaveAttribute('href', '/inbound-requests/draft')
     code.addEventListener('click', (event) => event.preventDefault())
     await userEvent.setup().click(code)
-    expect(options.onPreview).not.toHaveBeenCalled()
-    await userEvent.setup().click(within(row).getByText('Kho kiểm thử'))
-    expect(options.onPreview).toHaveBeenCalledExactlyOnceWith(draft)
+    expect(push).not.toHaveBeenCalled()
+    await userEvent.setup().click(within(row).getByText(/Kho kiểm thử/))
+    expect(push).toHaveBeenCalledExactlyOnceWith('/inbound-requests/draft')
   })
-  it('keeps checkbox, its cell and action controls independent from preview', async () => {
+  it('keeps checkbox, its cell and action controls independent from row navigation', async () => {
     const options = props()
     render(<InboundRequestTable {...options} />)
     const checkbox = screen.getByRole('checkbox', { name: 'Chọn IR-001' })
     await userEvent.setup().click(checkbox)
     expect(options.onSelectionChange).toHaveBeenCalledExactlyOnceWith(['draft'])
-    expect(options.onPreview).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
     fireEvent.click(checkbox.closest('td')!)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Thao tác cho IR-001' }))
-    expect(options.onPreview).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
     await userEvent.setup().click(screen.getByRole('menuitem', { name: 'Sao chép' }))
     expect(options.onDuplicate).toHaveBeenCalledExactlyOnceWith(draft)
-    expect(options.onPreview).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
   })
-  it('allows selecting an approved document without invoking an operation or preview', async () => {
+  it('allows selecting an approved document without invoking an operation or navigation', async () => {
     const options = props()
     render(<InboundRequestTable {...options} />)
     const checkbox = screen.getByRole('checkbox', { name: 'Chọn IR-002' })
@@ -132,7 +136,7 @@ describe('inbound row preview and bulk checkboxes', () => {
     expect(options.onApprove).not.toHaveBeenCalled()
     expect(options.onSubmit).not.toHaveBeenCalled()
     expect(options.onDelete).not.toHaveBeenCalled()
-    expect(options.onPreview).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
   })
   it('shows partial header selection and selects every document on the page', async () => {
     const options = props()
@@ -149,16 +153,6 @@ describe('inbound row preview and bulk checkboxes', () => {
     expect(header).toHaveAttribute('aria-checked', 'mixed')
     await userEvent.setup().click(header)
     expect(options.onSelectionChange).toHaveBeenCalledWith(['draft', 'draft-2', 'approved'])
-  })
-  it('previews on Enter or Space only when focus is on the row itself', () => {
-    const options = props()
-    render(<InboundRequestTable {...options} />)
-    const row = screen.getByRole('row', { name: /IR-001/ })
-    fireEvent.keyDown(row, { key: 'Enter' })
-    fireEvent.keyDown(row, { key: ' ' })
-    expect(options.onPreview).toHaveBeenCalledTimes(2)
-    fireEvent.keyDown(screen.getByRole('checkbox', { name: 'Chọn IR-001' }), { key: ' ' })
-    expect(options.onPreview).toHaveBeenCalledTimes(2)
   })
   it('does not offer bulk operations for mixed statuses or approved documents', async () => {
     const options = directoryProps()

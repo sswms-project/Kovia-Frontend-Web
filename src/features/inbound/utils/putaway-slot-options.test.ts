@@ -84,6 +84,7 @@ const item: GoodsReceiptItem = {
   remainingPutAwayQuantity: 240,
   exceptionReason: null,
   putAwayDetails: [],
+  putAwayPlan: [],
 }
 
 describe('putaway capacity units', () => {

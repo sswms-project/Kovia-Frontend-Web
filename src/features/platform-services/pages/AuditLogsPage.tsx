@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { USER_ROLES } from '@/config/roles'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { AuditLogDirectory, type AuditLogFilterValues } from '../components/AuditLogsPage'
@@ -21,6 +22,7 @@ export default function AuditLogsPage() {
   const queryParams = useMemo(() => buildAuditLogQuery(params), [params])
   const meQuery = useMeQuery()
   const hasAuditLogPermission = canViewAuditLogs(meQuery.data?.permissions ?? [])
+  const isWarehouseStaff = meQuery.data?.role === USER_ROLES.WarehouseStaff
   const auditLogsQuery = useAuditLogsQuery(queryParams, meQuery.isSuccess && hasAuditLogPermission)
 
   useEffect(() => {
@@ -72,6 +74,12 @@ export default function AuditLogsPage() {
 
   return (
     <AuditLogDirectory
+      title={isWarehouseStaff ? 'Hoạt động của tôi' : 'Nhật ký hoạt động'}
+      description={
+        isWarehouseStaff
+          ? 'Các thao tác do bạn thực hiện trong những kho được phân công.'
+          : 'Theo dõi các thay đổi nghiệp vụ trong phạm vi được phép.'
+      }
       items={auditLogsQuery.data?.items ?? []}
       totalCount={auditLogsQuery.data?.totalCount ?? 0}
       page={queryParams.pageNumber}

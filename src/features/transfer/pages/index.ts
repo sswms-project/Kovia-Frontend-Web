@@ -1,1 +1,5 @@
 export { default as TransferPage } from './TransferPage'
+export { default as TransferFormPage } from './TransferFormPage'
+export { default as TransferDetailPage } from './TransferDetailPage'
+export { default as TransferPickTaskPage } from './TransferPickTaskPage'
+export { default as TransferReceiveTaskPage } from './TransferReceiveTaskPage'

@@ -83,14 +83,27 @@ export function useImportStockRecipientsMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, ImportStockRecipientsRequest>({
     mutationFn: stockRecipientService.importStockRecipients,
+    retry: false,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.stockRecipients.all }),
     onError: logStockRecipientMutationError,
   })
 }
 
+export function useInspectStockRecipientImportMutation() {
+  return useMutation({
+    mutationFn: stockRecipientService.inspectImport,
+    retry: false,
+  })
+}
+
 export function usePreviewStockRecipientImportMutation() {
-  return useMutation<ApiResponse<StockRecipientImportPreview>, ApiErrorResponse, File>({
+  return useMutation<
+    ApiResponse<StockRecipientImportPreview>,
+    ApiErrorResponse,
+    Parameters<typeof stockRecipientService.previewImport>[0]
+  >({
     mutationFn: stockRecipientService.previewImport,
+    retry: false,
     onError: logStockRecipientMutationError,
   })
 }

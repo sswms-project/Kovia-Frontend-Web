@@ -1,4 +1,5 @@
 import { Eye, Pencil } from 'lucide-react'
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -46,7 +47,11 @@ export function ProductListTable({
       </TableHeader>
       <TableBody>
         {products.map((product) => (
-          <TableRow key={product.id} className="hover:bg-muted/30">
+          <ClickableTableRow
+            key={product.id}
+            className="hover:bg-muted/30"
+            onActivate={() => onView(product)}
+          >
             <TableCell className="text-muted-foreground pl-4 font-mono text-xs">
               {product.sku}
             </TableCell>
@@ -101,7 +106,7 @@ export function ProductListTable({
                 )}
               </div>
             </TableCell>
-          </TableRow>
+          </ClickableTableRow>
         ))}
       </TableBody>
     </Table>

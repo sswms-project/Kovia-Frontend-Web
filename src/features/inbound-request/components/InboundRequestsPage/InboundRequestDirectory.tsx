@@ -20,8 +20,6 @@ import { InboundRequestTable, InboundRequestTableSkeleton } from './InboundReque
 import { InboundRequestMobileList } from './InboundRequestMobileList'
 
 interface InboundRequestDirectoryProps {
-  readonly previewId?: string
-  readonly onPreview?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly totalCount: number
   readonly page: number
@@ -66,8 +64,6 @@ interface InboundRequestDirectoryProps {
 }
 
 export function InboundRequestDirectory({
-  previewId,
-  onPreview,
   items,
   totalCount,
   page,
@@ -204,8 +200,6 @@ export function InboundRequestDirectory({
           <>
             <div data-slot="operational-list-body" className="md:hidden">
               <InboundRequestMobileList
-                previewId={previewId}
-                onPreview={onPreview}
                 items={items}
                 canCreate={canCreate}
                 isDuplicating={isDuplicating}
@@ -213,8 +207,6 @@ export function InboundRequestDirectory({
               />
             </div>
             <InboundRequestTable
-              previewId={previewId}
-              onPreview={onPreview}
               items={items}
               canDelete={canDelete}
               canDeleteApproved={canDeleteApproved}

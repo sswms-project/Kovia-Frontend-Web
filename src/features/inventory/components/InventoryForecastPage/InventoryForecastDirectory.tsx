@@ -18,7 +18,6 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import type { InventoryFilterOption } from '../../types/inventory.types'
 import type { ForecastChartPoint } from '../../utils/forecast-chart'
 import { formatInventoryDateOnly, formatInventoryQuantity } from '../../utils/inventory-format'
-import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
 
 const HORIZON_OPTIONS = [7, 14, 30, 60, 90]
 
@@ -43,7 +42,6 @@ interface InventoryForecastDirectoryProps {
 }
 
 export function InventoryForecastDirectory({
-  permissions,
   productId,
   productOptions,
   warehouseId,
@@ -69,12 +67,11 @@ export function InventoryForecastDirectory({
             <TrendingUp aria-hidden="true" />
           </span>
           <div>
-            <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
+            <p className="text-primary text-xs font-medium">Báo cáo & phân tích</p>
             <h1 className="mt-0.5 text-xl font-semibold">Dự báo tồn kho</h1>
           </div>
         </div>
       </header>
-      <InventoryWorkspaceNavigation currentView="forecast" permissions={permissions} />
       <section
         className="bg-card flex min-h-0 flex-1 flex-col border"
         aria-labelledby="forecast-title"

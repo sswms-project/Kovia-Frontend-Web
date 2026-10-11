@@ -31,7 +31,7 @@ export function getTenantRoleContent(roleName: string) {
   return (
     ROLE_CONTENT[roleName] ?? {
       label: roleName,
-      description: 'Vai trò vận hành trong tenant hiện tại.',
+      description: 'Vai trò vận hành trong doanh nghiệp hiện tại.',
     }
   )
 }

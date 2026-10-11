@@ -75,11 +75,16 @@ export const putawayLineSchema = z.object({
     .positive('Số lượng cất phải lớn hơn 0.')
     .lt(1_000_000_000_000, 'Số lượng vượt giới hạn cho phép.')
     .multipleOf(0.000001, 'Số lượng chỉ được có tối đa sáu chữ số thập phân.'),
+  confirmedSlotCode: z.string().max(100).optional(),
 })
 
 export const putawaySchema = z
   .object({
     lines: z.array(putawayLineSchema).min(1, 'Vui lòng thêm ít nhất một phân bổ vị trí.'),
+    overrideReason: z.string().max(500, 'Lý do không được vượt quá 500 ký tự.').optional(),
+    overrideReasonCode: z
+      .enum(['', 'SlotFull', 'SlotBlocked', 'LabelMismatch', 'Consolidation', 'Other'])
+      .optional(),
   })
   .superRefine((values, context) => {
     const allocations = new Set<string>()

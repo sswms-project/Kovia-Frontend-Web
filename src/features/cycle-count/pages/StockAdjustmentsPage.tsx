@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { StockAdjustmentDirectory } from '../components/StockAdjustmentViews'
-import { useStockAdjustmentsQuery } from '../hooks/use-cycle-count'
+import { useStockAdjustmentVouchersQuery } from '../hooks/use-cycle-count'
 import type { StockAdjustmentStatus } from '../types/cycle-count.types'
 
 export default function StockAdjustmentsPage() {
@@ -22,7 +22,7 @@ export default function StockAdjustmentsPage() {
     }),
     [page, pageSize, warehouseId, status]
   )
-  const query = useStockAdjustmentsQuery(params)
+  const query = useStockAdjustmentVouchersQuery(params)
   const warehouses = useWarehousesQuery({ top: 100, skip: 0, needTotalCount: true, isActive: true })
   const options = useMemo(
     () =>

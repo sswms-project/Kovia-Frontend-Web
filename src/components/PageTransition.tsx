@@ -1,23 +1,12 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
-import { usePathname } from 'next/navigation'
+import type { ReactNode } from 'react'
 
-export function PageTransition({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
+interface PageTransitionProps {
+  readonly children: ReactNode
+}
 
-  return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        className="flex min-h-0 w-full min-w-0 flex-1 flex-col"
-        key={pathname}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={{ duration: 0.2, ease: 'easeInOut' }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
-  )
+export function PageTransition({ children }: PageTransitionProps) {
+  // App Router owns page lifecycles; a pathname key remounts its live router slot.
+  return <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col">{children}</div>
 }

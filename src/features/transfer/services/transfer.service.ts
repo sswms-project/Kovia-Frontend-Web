@@ -1,68 +1,308 @@
 import { axiosClient } from '@/lib/axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
-import type { ApiResponse } from '@/types/api'
-import type { QueryResult } from '@/types/api'
+import type { ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
-import type { InventoryStockListResponse } from '@/features/inventory/types/inventory.types'
 import type {
-  ApproveTransferRequest,
-  CreateTransferRequest,
-  ReceiveTransferRequest,
-  RejectTransferRequest,
+  AdjustTransferAllocationRequest,
+  TransferAllocationOption,
+  AddTransferFeedbackRequest,
+  CancelTransferRequest,
+  CancelTransferShipmentRequest,
+  CreateTransferShipmentRequest,
+  CompleteTransferPickingRequest,
+  DispatchTransferShipmentRequest,
+  ReopenTransferPickingRequest,
+  SetTransferPutAwaySlotsRequest,
+  TransferPutAwayItemSuggestions,
+  EscalateTransferPickRequest,
+  ReceiveTransferShipmentRequest,
+  RecordTransferPickRequest,
+  ReplyTransferFeedbackRequest,
+  ResolveTransferDiscrepancyRequest,
+  ResolveTransferEscalationRequest,
+  ReturnTransferPickRequest,
+  SaveTransferDraftRequest,
+  SubmitTransferRequest,
+  SwitchTransferPickRequest,
+  TransferAvailability,
+  TransferAvailabilityQuery,
+  TransferReceivableSlotOption,
+  TransferReceivableSlotsQuery,
+  TransferSourceLocation,
+  TransferSourceLocationsQuery,
+  TransferSourceProduct,
+  TransferSourceProductsQuery,
+  TransferDetail,
   TransferListQuery,
   TransferListResponse,
-  TransferSourceInventoryQuery,
+  TransferPickAlternative,
+  TransferPickSheet,
+  TransferReceiveSheet,
+  TransferRequesterOption,
   TransferSourceWarehouseQuery,
-  TransferSummary,
+  UpdateTransferRequest,
 } from '../types/transfer.types'
+import type { ReceivableSlot } from '../utils/transfer-receive'
+
+const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
 
 export const transferService = {
+  /**
+   * Tra vị trí cất hàng của kho nhận theo mã vừa quét; null nếu không có vị trí khớp. Server đối chiếu nhãn
+   * ghép khu, mã vạch riêng và mã ngắn, và từ chối (409) khi một mã ngắn trùng ở nhiều kệ.
+   */
+  findReceivableSlot: (warehouseId: string, scannedCode: string) =>
+    axiosClient
+      .get<ApiResponse<ReceivableSlot | null>>(API_ENDPOINTS.transfers.receivableSlot, {
+        params: { warehouseId, code: scannedCode.trim() },
+      })
+      .then((response) => response.data.data),
+
   getTransfers: (params: TransferListQuery) =>
     axiosClient
       .get<ApiResponse<TransferListResponse>>(API_ENDPOINTS.transfers.list, { params })
-      .then((response) => response.data),
+      .then(unwrap),
 
   getTransfer: (transferId: string) =>
     axiosClient
-      .get<ApiResponse<TransferSummary>>(API_ENDPOINTS.transfers.detail(transferId))
-      .then((response) => response.data),
+      .get<ApiResponse<TransferDetail>>(API_ENDPOINTS.transfers.detail(transferId))
+      .then(unwrap),
+
+  getNextCode: () =>
+    axiosClient.get<ApiResponse<string>>(API_ENDPOINTS.transfers.nextCode).then(unwrap),
+
+  getRequesterOptions: () =>
+    axiosClient
+      .get<ApiResponse<TransferRequesterOption[]>>(API_ENDPOINTS.transfers.requesterOptions)
+      .then(unwrap),
 
   getSourceWarehouses: (params: TransferSourceWarehouseQuery) =>
     axiosClient
       .get<ApiResponse<QueryResult<WarehouseResponse>>>(API_ENDPOINTS.transfers.sourceWarehouses, {
         params,
       })
-      .then((response) => response.data),
+      .then(unwrap),
 
-  getSourceInventory: (params: TransferSourceInventoryQuery) =>
+  getReceivableSlots: (params: TransferReceivableSlotsQuery) =>
     axiosClient
-      .get<ApiResponse<InventoryStockListResponse>>(API_ENDPOINTS.transfers.sourceInventory, {
+      .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.receivableSlots, {
         params,
       })
-      .then((response) => response.data),
+      .then(unwrap),
 
-  createTransfer: (request: CreateTransferRequest) =>
+  getPutAwaySuggestions: (transferId: string) =>
     axiosClient
-      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.create, request)
-      .then((response) => response.data),
+      .get<
+        ApiResponse<TransferPutAwayItemSuggestions[]>
+      >(API_ENDPOINTS.transfers.putAwaySuggestions(transferId))
+      .then(unwrap),
 
-  approveTransfer: (transferId: string, request?: ApproveTransferRequest) =>
+  getSourceLocations: (params: TransferSourceLocationsQuery) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.approve(transferId), request)
-      .then((response) => response.data),
+      .get<ApiResponse<TransferSourceLocation[]>>(API_ENDPOINTS.transfers.sourceLocations, {
+        params,
+      })
+      .then(unwrap),
 
-  rejectTransfer: (transferId: string, request: RejectTransferRequest) =>
+  getSourceProducts: (params: TransferSourceProductsQuery) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.reject(transferId), request)
-      .then((response) => response.data),
+      .get<ApiResponse<TransferSourceProduct[]>>(API_ENDPOINTS.transfers.sourceProducts, { params })
+      .then(unwrap),
 
-  dispatchTransfer: (transferId: string) =>
+  getAvailability: (query: TransferAvailabilityQuery) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.dispatch(transferId))
-      .then((response) => response.data),
+      .post<ApiResponse<TransferAvailability[]>>(API_ENDPOINTS.transfers.availability, query)
+      .then(unwrap),
 
-  receiveTransfer: (transferId: string, request?: ReceiveTransferRequest) =>
+  createDraft: (request: SaveTransferDraftRequest) =>
+    axiosClient.post<ApiResponse<string>>(API_ENDPOINTS.transfers.drafts, request).then(unwrap),
+
+  updateDraft: (transferId: string, request: SaveTransferDraftRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.receive(transferId), request)
-      .then((response) => response.data),
+      .put<ApiResponse<string>>(API_ENDPOINTS.transfers.draft(transferId), request)
+      .then(unwrap),
+
+  submitDraft: (transferId: string, request: SubmitTransferRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.submitDraft(transferId), request)
+      .then(unwrap),
+
+  updateTransfer: (transferId: string, request: UpdateTransferRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.update(transferId), request)
+      .then(unwrap),
+
+  cancelTransfer: (transferId: string, request: CancelTransferRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.cancel(transferId), request)
+      .then(unwrap),
+
+  stopRemaining: (transferId: string, request: CancelTransferRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.stopRemaining(transferId), request)
+      .then(unwrap),
+
+  addFeedback: (transferId: string, request: AddTransferFeedbackRequest) =>
+    axiosClient
+      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.feedback(transferId), request)
+      .then(unwrap),
+
+  replyFeedback: (transferId: string, feedbackId: string, request: ReplyTransferFeedbackRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.replyFeedback(transferId, feedbackId), request)
+      .then(unwrap),
+
+  createShipment: (transferId: string, request: CreateTransferShipmentRequest) =>
+    axiosClient
+      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.shipments(transferId), request)
+      .then(unwrap),
+
+  cancelShipment: (
+    transferId: string,
+    shipmentId: string,
+    request: CancelTransferShipmentRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.cancelShipment(transferId, shipmentId), request)
+      .then(unwrap),
+
+  getPickSheet: (transferId: string, shipmentId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferPickSheet>
+      >(API_ENDPOINTS.transfers.pickSheet(transferId, shipmentId))
+      .then(unwrap),
+
+  getPickAlternatives: (transferId: string, shipmentId: string, lineId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferPickAlternative[]>
+      >(API_ENDPOINTS.transfers.pickAlternatives(transferId, shipmentId, lineId))
+      .then(unwrap),
+
+  recordPick: (transferId: string, shipmentId: string, request: RecordTransferPickRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.picks(transferId, shipmentId), request)
+      .then(unwrap),
+
+  getAllocationOptions: (transferId: string, itemId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferAllocationOption[]>
+      >(API_ENDPOINTS.transfers.allocationOptions(transferId, itemId))
+      .then(unwrap),
+
+  adjustAllocation: (transferId: string, request: AdjustTransferAllocationRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.adjustAllocation(transferId), request)
+      .then(unwrap),
+
+  switchPick: (
+    transferId: string,
+    shipmentId: string,
+    lineId: string,
+    request: SwitchTransferPickRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.switchPick(transferId, shipmentId, lineId), request)
+      .then(unwrap),
+
+  escalatePick: (
+    transferId: string,
+    shipmentId: string,
+    lineId: string,
+    request: EscalateTransferPickRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<string>
+      >(API_ENDPOINTS.transfers.escalatePick(transferId, shipmentId, lineId), request)
+      .then(unwrap),
+
+  resolveEscalation: (
+    transferId: string,
+    shipmentId: string,
+    lineId: string,
+    exceptionId: string,
+    request: ResolveTransferEscalationRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.resolveEscalation(transferId, shipmentId, lineId, exceptionId), request)
+      .then(unwrap),
+
+  returnPick: (transferId: string, shipmentId: string, request: ReturnTransferPickRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.returnPick(transferId, shipmentId), request)
+      .then(unwrap),
+
+  completePicking: (
+    transferId: string,
+    shipmentId: string,
+    request: CompleteTransferPickingRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.completePicking(transferId, shipmentId), request)
+      .then(unwrap),
+
+  setPutAwaySlots: (transferId: string, request: SetTransferPutAwaySlotsRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwaySlots(transferId), request)
+      .then(unwrap),
+
+  reopenPicking: (transferId: string, shipmentId: string, request: ReopenTransferPickingRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.reopenPicking(transferId, shipmentId), request)
+      .then(unwrap),
+
+  dispatchShipment: (
+    transferId: string,
+    shipmentId: string,
+    request: DispatchTransferShipmentRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.dispatchShipment(transferId, shipmentId), request)
+      .then(unwrap),
+
+  getReceiveSheet: (transferId: string, shipmentId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferReceiveSheet>
+      >(API_ENDPOINTS.transfers.receiveSheet(transferId, shipmentId))
+      .then(unwrap),
+
+  receiveShipment: (
+    transferId: string,
+    shipmentId: string,
+    request: ReceiveTransferShipmentRequest
+  ) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.receipt(transferId, shipmentId), request)
+      .then(unwrap),
+
+  resolveDiscrepancy: (
+    transferId: string,
+    discrepancyId: string,
+    request: ResolveTransferDiscrepancyRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.resolveDiscrepancy(transferId, discrepancyId), request)
+      .then(unwrap),
 }

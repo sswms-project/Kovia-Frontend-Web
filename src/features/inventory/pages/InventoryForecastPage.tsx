@@ -1,99 +1,42 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
-import { useProductListQuery } from '@/features/product/hooks/use-products'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
-import { ForecastRunPanel, InventoryForecastDirectory } from '../components/InventoryForecastPage'
-import { useInventoryForecastQuery, useInventoryStockHistoryQuery } from '../hooks/use-inventory'
-import { mergeHistoryAndForecast } from '../utils/forecast-chart'
-
-const DEFAULT_HORIZON_DAYS = 14
+import { P } from '@/config/permissionCodes'
+import { ForecastRunPanel } from '../components/InventoryForecastPage'
+import { useForecastWorkspace } from '../hooks/use-forecast-workspace'
 
 export default function InventoryForecastPage() {
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
-  const [productId, setProductId] = useState('')
-  const [warehouseId, setWarehouseId] = useState('')
-  const [horizonDays, setHorizonDays] = useState(DEFAULT_HORIZON_DAYS)
-
-  const hasProduct = Boolean(productId)
-
-  const forecastParams = useMemo(
-    () => ({ productId, warehouseId: warehouseId || undefined, horizonDays }),
-    [productId, warehouseId, horizonDays]
-  )
-  const historyParams = useMemo(
-    () => ({ productId, warehouseId: warehouseId || undefined }),
-    [productId, warehouseId]
-  )
-
-  const forecastQuery = useInventoryForecastQuery(forecastParams, hasProduct)
-  const historyQuery = useInventoryStockHistoryQuery(historyParams, hasProduct)
-
-  const productsQuery = useProductListQuery({ pageSize: 200 })
   const warehousesQuery = useWarehousesQuery({
     top: 100,
     skip: 0,
     needTotalCount: true,
     isActive: true,
   })
-
-  const productOptions = useMemo(
-    () =>
-      (productsQuery.data?.items ?? []).map((product) => ({
-        value: product.id,
-        label: `${product.sku} · ${product.productName}`,
-      })),
-    [productsQuery.data?.items]
-  )
-  const warehouseOptions = useMemo(
-    () =>
-      (warehousesQuery.data?.items ?? []).map((warehouse) => ({
+  const workspace = useForecastWorkspace()
+  return (
+    <ForecastRunPanel
+      workspace={workspace}
+      warehouseOptions={(warehousesQuery.data?.items ?? []).map((warehouse) => ({
         value: warehouse.id,
         label: `${warehouse.warehouseCode} · ${warehouse.warehouseName}`,
-      })),
-    [warehousesQuery.data?.items]
-  )
-
-  const chartData = useMemo(
-    () =>
-      mergeHistoryAndForecast(historyQuery.data?.history ?? [], forecastQuery.data?.forecast ?? []),
-    [historyQuery.data?.history, forecastQuery.data?.forecast]
-  )
-
-  const isLoading = hasProduct && (forecastQuery.isLoading || historyQuery.isLoading)
-  const isFetching = forecastQuery.isFetching || historyQuery.isFetching
-  const isError = forecastQuery.isError || historyQuery.isError
-
-  return (
-    <div className="flex flex-col gap-4">
-      <InventoryForecastDirectory
-        permissions={permissions}
-        productId={productId}
-        productOptions={productOptions}
-        warehouseId={warehouseId}
-        warehouseOptions={warehouseOptions}
-        horizonDays={horizonDays}
-        chartData={chartData}
-        modelName={forecastQuery.data?.modelName}
-        isLoading={isLoading}
-        isFetching={isFetching}
-        isError={isError}
-        areProductsLoading={productsQuery.isLoading}
-        areWarehousesLoading={warehousesQuery.isLoading}
-        onProductChange={setProductId}
-        onWarehouseChange={setWarehouseId}
-        onHorizonChange={setHorizonDays}
-        onRetry={() => {
-          void forecastQuery.refetch()
-          void historyQuery.refetch()
-        }}
-      />
-      {permissions.includes(P.PRODUCTS_CONFIGURE_POLICY) ? (
-        <ForecastRunPanel warehouseOptions={warehouseOptions} permissions={permissions} />
-      ) : null}
-    </div>
+      }))}
+      warehousesLoading={warehousesQuery.isLoading}
+      warehousesError={warehousesQuery.isError}
+      retryWarehouses={() => void warehousesQuery.refetch()}
+      canRun={permissions.includes(P.PRODUCTS_CONFIGURE_POLICY)}
+      canReview={
+        permissions.includes(P.PRODUCTS_CONFIGURE_POLICY) &&
+        permissions.includes(P.INBOUND_REQUESTS_CREATE)
+      }
+      canViewInbound={
+        permissions.includes(P.INBOUND_REQUESTS_VIEW) &&
+        permissions.includes(P.INBOUND_REQUESTS_VIEW_DRAFT)
+      }
+      canCreateTransfer={permissions.includes(P.TRANSFERS_CREATE)}
+      permissions={permissions}
+    />
   )
 }

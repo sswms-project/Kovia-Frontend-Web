@@ -1,5 +1,6 @@
 'use client'
 
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import Link from 'next/link'
 import { CircleOff, Eye, Pencil, Plus, RotateCcw, Search, Upload, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -152,7 +153,10 @@ export function StockRecipientDirectory({
             </TableHeader>
             <TableBody>
               {items.map((stockRecipient) => (
-                <TableRow key={stockRecipient.id}>
+                <ClickableTableRow
+                  key={stockRecipient.id}
+                  href={APP_ROUTES.stockRecipientDetail(stockRecipient.id)}
+                >
                   <TableCell className="font-mono">{stockRecipient.recipientCode}</TableCell>
                   <TableCell>
                     <Link
@@ -231,7 +235,7 @@ export function StockRecipientDirectory({
                       ) : null}
                     </div>
                   </TableCell>
-                </TableRow>
+                </ClickableTableRow>
               ))}
             </TableBody>
           </Table>

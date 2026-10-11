@@ -264,7 +264,7 @@ export default function SubscriptionPlansPage() {
       logger.error(error)
       const message =
         isApiErrorResponse(error) && isPendingPlanReferenceError(error)
-          ? 'Không thể vô hiệu hóa vì đang có tenant chờ chuyển sang gói này.'
+          ? 'Không thể vô hiệu hóa vì đang có doanh nghiệp chờ chuyển sang gói này.'
           : isApiErrorResponse(error)
             ? error.message
             : 'Không thể vô hiệu hóa gói. Vui lòng thử lại.'

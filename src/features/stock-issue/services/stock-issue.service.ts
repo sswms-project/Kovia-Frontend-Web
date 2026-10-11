@@ -1,8 +1,16 @@
 import { axiosClient } from '@/lib/axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse } from '@/types/api'
+import type { AuditLogListResponse } from '@/features/platform-services/types/platform-services.types'
 import type {
+  AssignStockIssuePickerRequest,
+  CancelStockIssueRequestRequest,
+  ConfirmStockDispatchRequest,
+  ReportStockIssuePickIssueRequest,
+  StockIssueAuditLogQuery,
   CreateStockIssueRequestRequest,
+  StockIssueAttachment,
+  StockIssueImportPreview,
   RecordStockPickingRequest,
   StockIssueRequestListQuery,
   StockIssueRequestListResponse,
@@ -16,7 +24,58 @@ import type {
   RestockGoodsReturnRequest,
 } from '../types/stock-issue.types'
 
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 export const stockIssueService = {
+  downloadImportTemplate: async () => {
+    const response = await axiosClient.get<Blob>(API_ENDPOINTS.stockIssueRequests.importTemplate, {
+      responseType: 'blob',
+    })
+    downloadBlob(response.data, 'kovia-mau-nhap-phieu-xuat-kho.xlsx')
+  },
+
+  previewImport: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return axiosClient
+      .post<
+        ApiResponse<StockIssueImportPreview>
+      >(API_ENDPOINTS.stockIssueRequests.importPreview, form, { headers: { 'Content-Type': null } })
+      .then((response) => response.data)
+  },
+
+  uploadAttachment: (stockIssueRequestId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return axiosClient
+      .post<
+        ApiResponse<StockIssueAttachment>
+      >(API_ENDPOINTS.stockIssueRequests.attachments(stockIssueRequestId), form, { headers: { 'Content-Type': null } })
+      .then((response) => response.data)
+  },
+
+  downloadAttachment: async (stockIssueRequestId: string, attachment: StockIssueAttachment) => {
+    const response = await axiosClient.get<Blob>(
+      API_ENDPOINTS.stockIssueRequests.attachment(stockIssueRequestId, attachment.id),
+      { responseType: 'blob' }
+    )
+    downloadBlob(response.data, attachment.fileName)
+  },
+
+  deleteAttachment: (stockIssueRequestId: string, attachmentId: string) =>
+    axiosClient
+      .delete<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.stockIssueRequests.attachment(stockIssueRequestId, attachmentId))
+      .then((response) => response.data),
+
   getStockIssueRequests: (params: StockIssueRequestListQuery) =>
     axiosClient
       .get<
@@ -43,6 +102,27 @@ export const stockIssueService = {
       >(API_ENDPOINTS.stockIssueRequests.releaseForPicking(request.stockIssueRequestId), request)
       .then((response) => response.data),
 
+  assignPicker: (request: AssignStockIssuePickerRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.stockIssueRequests.assignPicker(request.stockIssueRequestId), request)
+      .then((response) => response.data),
+
+  cancelStockIssueRequest: (request: CancelStockIssueRequestRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.stockIssueRequests.cancel(request.stockIssueRequestId), request)
+      .then((response) => response.data),
+
+  getStockIssueRequestAuditLogs: (stockIssueRequestId: string, params: StockIssueAuditLogQuery) =>
+    axiosClient
+      .get<
+        ApiResponse<AuditLogListResponse>
+      >(API_ENDPOINTS.stockIssueRequests.auditLogs(stockIssueRequestId), { params })
+      .then((response) => response.data),
+
   recordStockPicking: (stockIssueRequestId: string, request: RecordStockPickingRequest) =>
     axiosClient
       .post<
@@ -50,9 +130,18 @@ export const stockIssueService = {
       >(API_ENDPOINTS.stockIssueRequests.picks(stockIssueRequestId), request)
       .then((response) => response.data),
 
-  confirmDispatch: (stockIssueRequestId: string) =>
+  confirmDispatch: (stockIssueRequestId: string, request?: ConfirmStockDispatchRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.stockIssueRequests.dispatch(stockIssueRequestId))
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.stockIssueRequests.dispatch(stockIssueRequestId), request ?? {})
+      .then((response) => response.data),
+
+  reportPickIssue: (request: ReportStockIssuePickIssueRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.stockIssueRequests.reportPickIssue(request.stockIssueRequestId), request)
       .then((response) => response.data),
 
   authorizeDispatch: (stockIssueRequestId: string) =>

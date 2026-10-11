@@ -2,12 +2,12 @@
 
 import { USER_ROLES } from '@/config/roles'
 import { RoleGuard } from '../components/shared/RoleGuard'
-import { TenantOwnerDashboard } from '../components/tenant/TenantOwnerDashboard'
+import WarehouseOverviewPage from './WarehouseOverviewPage'
 
 export function TenantOwnerDashboardPage() {
   return (
     <RoleGuard allowedRoles={[USER_ROLES.TenantOwner]}>
-      <TenantOwnerDashboard />
+      <WarehouseOverviewPage />
     </RoleGuard>
   )
 }

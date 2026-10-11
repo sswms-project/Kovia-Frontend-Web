@@ -1,0 +1,14 @@
+/* Short/zoomed viewports scroll the workspace rather than collapsing the table. */
+@media (max-height: 600px) {
+  .workspace {
+    min-height: 44rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirmation,
+  :global(body):has(.confirmation) :global([data-slot='alert-dialog-overlay']) {
+    animation: none;
+    transition: none;
+  }
+}

@@ -2,6 +2,7 @@ import type {
   LifecycleEvent,
   PagedResponse,
 } from '@/features/inbound-request/types/inbound-request.types'
+import type { InventoryEvidence } from '@/features/inventory/types/inventory.types'
 
 export const GOODS_RECEIPT_STATUSES = [
   'Draft',
@@ -20,6 +21,7 @@ export type GoodsReceiptAction =
   | 'Reject'
   | 'PutAway'
   | 'AssignPutAway'
+  | 'PlanPutAway'
 
 export type WarehouseTaskExecutionStatus = 'Queued' | 'InProgress' | 'Paused' | 'Completed'
 export type WarehouseTaskPriority = 'Normal' | 'Urgent'
@@ -158,6 +160,17 @@ export interface GoodsReceiptItem {
   remainingPutAwayQuantity: number
   exceptionReason: string | null
   putAwayDetails: PutAwayDetail[]
+  putAwayPlan: PutAwayPlanLine[]
+}
+
+/** Vị trí quản lý đã cấu hình; quantity là phần còn phải cất theo đơn vị gốc. */
+export interface PutAwayPlanLine {
+  id: string
+  slotId: string
+  slotCode: string
+  rackCode: string
+  isSystemDefaultSlot: boolean
+  quantity: number
 }
 
 export interface PutAwayUnit {
@@ -184,6 +197,52 @@ export interface PutAwayDetail {
   performedByName: string
   quantity: number
   putAwayAt: string
+  deviationId: string | null
+  isOffPlan: boolean
+  deviationReason: string | null
+  deviationReasonCode: PutAwayDeviationReasonCode | null
+  /** Lần cất đã lấn vào vị trí đang chừa cho hàng cùng sản phẩm khác sắp về. */
+  usedHeldSlot: boolean
+  /** Người cất đã quét hoặc nhập đúng mã vị trí để xác nhận. */
+  isSlotCodeConfirmed: boolean
+  deviationEvidence: InventoryEvidence[]
+}
+
+export type PutAwayDeviationReasonCode =
+  | 'SlotFull'
+  | 'SlotBlocked'
+  | 'LabelMismatch'
+  | 'Consolidation'
+  | 'Other'
+
+export interface PutAwayDeviationReport {
+  from: string
+  to: string
+  totalLines: number
+  deviatedLines: number
+  heldSlotLines: number
+  codeConfirmedLines: number
+  byReason: { reasonCode: PutAwayDeviationReasonCode | null; label: string; count: number }[]
+  byStaff: { userId: string; fullName: string; totalLines: number; deviatedLines: number }[]
+  bySlot: { slotId: string; slotCode: string; count: number }[]
+  recent: {
+    goodsReceiptId: string
+    receiptCode: string
+    sku: string
+    productName: string
+    slotCode: string
+    quantity: number
+    performedByName: string
+    putAwayAt: string
+    reasonCode: PutAwayDeviationReasonCode | null
+    reason: string
+    usedHeldSlot: boolean
+  }[]
+}
+
+export interface PutAwayDeviationReportQuery {
+  from: string
+  to: string
 }
 
 export interface GoodsReceiptDetail extends Omit<
@@ -214,6 +273,7 @@ export interface GoodsReceiptDetail extends Omit<
   putAwayTaskRequiresReconciliation: boolean
   putAwayTaskReconciledAt: string | null
   putAwayTaskReconciliationNote: string | null
+  putAwayPlanUpdatedAt: string | null
   version: string
   items: GoodsReceiptItem[]
   history: LifecycleEvent[]
@@ -241,6 +301,8 @@ export interface PutawayLineRequest {
   slotId: string
   enteredQuantity: number
   enteredUnitId: string
+  /** Mã vị trí người cất đã quét hoặc nhập; Backend đối chiếu với mã/mã vạch của vị trí. */
+  confirmedSlotCode?: string
 }
 
 export interface PutawayRequest {
@@ -248,6 +310,59 @@ export interface PutawayRequest {
   expectedVersion: string
   commandId: string
   overrideReason?: string | null
+  overrideReasonCode?: PutAwayDeviationReasonCode
+  evidenceIds?: string[]
+}
+
+export interface SavePutAwayPlanRequest {
+  expectedVersion: string
+  items: { goodsReceiptItemId: string; slots: { slotId: string; quantity: number }[] }[]
+}
+
+export interface PutAwaySlotSuggestion {
+  slotId: string
+  slotCode: string
+  rackCode: string
+  zoneName: string
+  score: number
+  reason: string
+  source: 'Ai' | 'Rules'
+  warnings: string[]
+  /** Số lượng đề xuất cất vào vị trí (đơn vị gốc); 0 nếu chỉ là vị trí thay thế. */
+  suggestedQuantity: number
+  /** Số lượng tối đa vị trí còn nhận được; null khi không giới hạn. */
+  availableQuantity: number | null
+}
+
+export interface PutAwayItemSuggestions {
+  goodsReceiptItemId: string
+  remainingQuantity: number
+  suggestions: PutAwaySlotSuggestion[]
+  /** Phần chưa tìm được vị trí đủ sức chứa (đơn vị gốc). */
+  unallocatedQuantity: number
+}
+
+/** Vị trí đang được chừa cho hàng cùng sản phẩm sắp về. */
+export interface PutAwayHeldSlot {
+  slotId: string
+  slotCode: string
+  productId: string
+  sku: string
+  productName: string
+  /** null khi cả vị trí dành riêng cho sản phẩm. */
+  heldQuantity: number | null
+  expectedDate: string
+  inboundRequestCode: string
+}
+
+export interface PutAwaySuggestionsResponse {
+  items: PutAwayItemSuggestions[]
+  isAiAssisted: boolean
+  aiNotice: string | null
+  heldSlots: PutAwayHeldSlot[]
+  /** Tóm tắt phương án: AI viết khi khả dụng, nếu không thì theo quy tắc kho. */
+  summary: string | null
+  risks: string[]
 }
 
 export interface ConfirmPhysicalArrivalRequest {

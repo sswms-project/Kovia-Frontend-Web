@@ -17,6 +17,7 @@ const RECEIPT_ACTION_LABELS: Readonly<Record<string, string>> = {
   ConfirmPhysicalArrival: 'Xác nhận hàng đến',
   SelfConfirmPhysicalArrival: 'Tự xác nhận hàng đến',
   AssignPutAwayTask: 'Phân công nhiệm vụ cất hàng',
+  SavePutAwayPlan: 'Cấu hình vị trí cất hàng',
   CancelPutAwayRemaining: 'Hủy phần cất hàng còn lại',
   CompletePutAwayCancellationReconciliation: 'Hoàn tất đối soát hủy cất hàng',
   Create: 'Tạo phiếu nhận hàng',

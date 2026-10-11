@@ -34,13 +34,14 @@ export function TaskDeadlineBadge({ task }: { readonly task: MyWarehouseTask }) 
         )}
         {label[task.deadlineStatus]}
       </Badge>
-      <span className="text-muted-foreground text-xs tabular-nums">
-        {task.dueAt
-          ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(
-              new Date(task.dueAt)
-            )
-          : 'Không giới hạn'}
-      </span>
+      {/* "Chưa đặt hạn" đã nói đủ; chỉ thêm dòng thứ hai khi thật sự có hạn. */}
+      {task.dueAt ? (
+        <span className="text-muted-foreground text-xs tabular-nums">
+          {new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(
+            new Date(task.dueAt)
+          )}
+        </span>
+      ) : null}
     </span>
   )
 }

@@ -3,6 +3,7 @@ import {
   Bell,
   Building2,
   ChartNoAxesCombined,
+  ClipboardCheck,
   ClipboardList,
   CreditCard,
   FileChartColumn,
@@ -38,6 +39,8 @@ export type NavItem = {
   readonly requiredPermission?: string
   readonly match?: 'exact' | 'prefix'
   readonly activePrefixes?: readonly string[]
+  // Đường dẫn con có mục menu riêng, không được làm sáng mục cha khớp theo tiền tố.
+  readonly excludedPrefixes?: readonly string[]
   readonly status?: 'planned'
 }
 
@@ -63,6 +66,23 @@ const tenantStaffSection: NavSection = {
       P.TENANT_ROLE_PERMISSIONS_VIEW
     ),
     requiredNavItem(APP_ROUTES.staff, 'Nhân viên', Users, P.STAFF_VIEW),
+  ],
+}
+
+const tenantReportsSection: NavSection = {
+  id: 'reports',
+  label: 'Báo cáo & phân tích',
+  icon: ChartNoAxesCombined,
+  collapsible: true,
+  separatorBefore: true,
+  items: [
+    requiredNavItem(APP_ROUTES.reports, 'Báo cáo kho', FileChartColumn, P.REPORTS_VIEW),
+    requiredNavItem(
+      APP_ROUTES.reportForecast,
+      'Dự báo & bổ sung hàng',
+      TrendingUp,
+      P.INVENTORY_VIEW
+    ),
   ],
 }
 
@@ -109,8 +129,12 @@ const tenantOperationsSection: NavSection = {
     requiredNavItem(APP_ROUTES.inbound, 'Nhập kho', PackageCheck, P.GOODS_RECEIPTS_VIEW, [
       APP_ROUTES.inboundRequests,
     ]),
-    requiredNavItem(APP_ROUTES.inventory, 'Tồn kho', PackageSearch, P.INVENTORY_VIEW),
+    {
+      ...requiredNavItem(APP_ROUTES.inventory, 'Tồn kho', PackageSearch, P.INVENTORY_VIEW),
+      excludedPrefixes: [APP_ROUTES.cycleCounts],
+    },
     requiredNavItem(APP_ROUTES.transfers, 'Điều chuyển kho', ArrowLeftRight, P.TRANSFERS_VIEW),
+    requiredNavItem(APP_ROUTES.cycleCounts, 'Kiểm kê', ClipboardCheck, P.CYCLE_COUNTS_VIEW),
     requiredNavItem(
       APP_ROUTES.stockIssueRequests,
       'Xuất kho & Trả hàng',
@@ -129,6 +153,16 @@ const tenantMemberSystemSection: NavSection = {
   items: [
     requiredNavItem(APP_ROUTES.notifications, 'Thông báo', Bell, P.NOTIFICATIONS_VIEW),
     requiredNavItem(APP_ROUTES.auditLogs, 'Nhật ký hoạt động', ScrollText, P.AUDIT_LOGS_VIEW),
+    { href: APP_ROUTES.settings.security, label: 'Cài đặt', icon: Settings },
+  ],
+}
+
+const staffSystemSection: NavSection = {
+  ...tenantMemberSystemSection,
+  items: [
+    requiredNavItem(APP_ROUTES.notifications, 'Thông báo', Bell, P.NOTIFICATIONS_VIEW),
+    requiredNavItem(APP_ROUTES.auditLogs, 'Hoạt động của tôi', ScrollText, P.AUDIT_LOGS_VIEW),
+    { href: APP_ROUTES.settings.security, label: 'Cài đặt', icon: Settings },
   ],
 }
 
@@ -274,8 +308,12 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         requiredNavItem(APP_ROUTES.inbound, 'Nhập kho', PackageCheck, P.GOODS_RECEIPTS_VIEW, [
           APP_ROUTES.inboundRequests,
         ]),
-        requiredNavItem(APP_ROUTES.inventory, 'Tồn kho', PackageSearch, P.INVENTORY_VIEW),
+        {
+          ...requiredNavItem(APP_ROUTES.inventory, 'Tồn kho', PackageSearch, P.INVENTORY_VIEW),
+          excludedPrefixes: [APP_ROUTES.cycleCounts],
+        },
         requiredNavItem(APP_ROUTES.transfers, 'Điều chuyển kho', ArrowLeftRight, P.TRANSFERS_VIEW),
+        requiredNavItem(APP_ROUTES.cycleCounts, 'Kiểm kê', ClipboardCheck, P.CYCLE_COUNTS_VIEW),
         requiredNavItem(
           APP_ROUTES.stockIssueRequests,
           'Xuất kho & Trả hàng',
@@ -285,18 +323,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         ),
       ],
     },
-    {
-      id: 'reports',
-      label: 'Báo cáo',
-      icon: ChartNoAxesCombined,
-      collapsible: true,
-      separatorBefore: true,
-      items: [
-        plannedNavItem('Dashboard kho', ChartNoAxesCombined),
-        plannedNavItem('Báo cáo vận hành', FileChartColumn),
-        plannedNavItem('Dự báo & Bổ sung hàng', TrendingUp),
-      ],
-    },
+    tenantReportsSection,
     {
       id: 'services',
       label: 'Dịch vụ',
@@ -362,6 +389,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
     tenantCatalogSection,
     tenantWarehouseSection,
     tenantOperationsSection,
+    tenantReportsSection,
     tenantMemberSystemSection,
   ],
   [USER_ROLES.WarehouseStaff]: [
@@ -382,7 +410,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         },
         requiredNavItem(
           APP_ROUTES.myTaskHistory,
-          'Lịch sử công việc',
+          'Công việc đã xử lý',
           ScrollText,
           P.WAREHOUSE_TASKS_VIEW_OWN
         ),
@@ -393,7 +421,8 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
     tenantSubjectsSection,
     tenantWarehouseSection,
     tenantOperationsSection,
-    tenantMemberSystemSection,
+    tenantReportsSection,
+    staffSystemSection,
   ],
 }
 
@@ -401,6 +430,8 @@ export function isNavItemActive(pathname: string, item: NavItem): boolean {
   if (!item.href || item.status === 'planned') return false
   if (pathname === item.href) return true
   if (item.match === 'exact') return false
+  if (item.href === APP_ROUTES.reports && pathname === APP_ROUTES.reportForecast) return false
+  if (item.excludedPrefixes?.some((prefix) => pathname.startsWith(prefix))) return false
 
   if (item.activePrefixes?.some((prefix) => pathname.startsWith(prefix))) {
     return true
@@ -450,8 +481,4 @@ function requiredNavItem(
   activePrefixes?: readonly string[]
 ): NavItem {
   return { href, label, icon, requiredPermission, activePrefixes }
-}
-
-function plannedNavItem(label: string, icon: LucideIcon): NavItem {
-  return { label, icon, status: 'planned' }
 }

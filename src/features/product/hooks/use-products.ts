@@ -309,11 +309,17 @@ export function useGenerateBarcodeMutation(id: string) {
 export function useImportProductsMutation() {
   const queryClient = useQueryClient()
   return useMutation<unknown, ApiErrorResponse, ImportProductsRequest>({
+    retry: false,
+    gcTime: 0,
     mutationFn: (request) => productService.importProducts(request),
-    onSuccess: () => {
+    onSuccess: (_result, request) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.products.all })
+      if (request.newCatalogs?.some((draft) => draft.categories))
+        void queryClient.invalidateQueries({ queryKey: queryKeys.categories.all })
+      if (request.newCatalogs?.some((draft) => !draft.categories))
+        void queryClient.invalidateQueries({ queryKey: queryKeys.units.all })
     },
-    onError: (error) => logger.error(formatApiError(error)),
+    onError: (error) => logger.warn(formatApiError(error)),
   })
 }
 

@@ -1,3 +1,6 @@
+'use client'
+
+import { motion, useReducedMotion } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import type { StockIssueRequestStatus } from '../../types/stock-issue.types'
 import { STOCK_ISSUE_REQUEST_STATUS_LABELS } from '../../utils/stock-issue-format'
@@ -7,6 +10,7 @@ export function StockIssueRequestStatusBadge({
 }: {
   readonly status: StockIssueRequestStatus
 }) {
+  const reduceMotion = useReducedMotion()
   const variant =
     status === 'Cancelled'
       ? 'destructive'
@@ -16,5 +20,17 @@ export function StockIssueRequestStatusBadge({
           ? 'default'
           : 'secondary'
 
-  return <Badge variant={variant}>{STOCK_ISSUE_REQUEST_STATUS_LABELS[status]}</Badge>
+  return (
+    <motion.span
+      key={status}
+      className="inline-flex max-w-full"
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Badge variant={variant} className="max-w-full">
+        <span className="truncate">{STOCK_ISSUE_REQUEST_STATUS_LABELS[status]}</span>
+      </Badge>
+    </motion.span>
+  )
 }

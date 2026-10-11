@@ -152,7 +152,7 @@ export function PaymentHistoryTable({
               </EmptyMedia>
               <EmptyTitle>Chưa có thanh toán</EmptyTitle>
               <EmptyDescription>
-                Các hóa đơn sẽ xuất hiện sau khi tenant nâng cấp hoặc gia hạn gói dịch vụ.
+                Các hóa đơn sẽ xuất hiện sau khi doanh nghiệp nâng cấp hoặc gia hạn gói dịch vụ.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

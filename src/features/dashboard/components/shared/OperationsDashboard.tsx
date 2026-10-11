@@ -76,7 +76,7 @@ export function OperationsDashboard() {
           </div>
           <dl className="mt-6 space-y-4 text-sm">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <dt className="text-muted-foreground">Tenant scoped API</dt>
+              <dt className="text-muted-foreground">API theo doanh nghiệp</dt>
               <dd className="text-foreground font-medium">Enabled</dd>
             </div>
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">

@@ -23,7 +23,7 @@ export function SuccessState({ message }: SuccessStateProps) {
           <Link href={APP_ROUTES.auth.login}>Quay lại đăng nhập</Link>
         </Button>
         <Button asChild variant="outline" size="auth" className="border-secondary text-secondary">
-          <Link href={APP_ROUTES.auth.register}>Tạo tenant khác</Link>
+          <Link href={APP_ROUTES.auth.register}>Tạo doanh nghiệp khác</Link>
         </Button>
       </div>
     </div>

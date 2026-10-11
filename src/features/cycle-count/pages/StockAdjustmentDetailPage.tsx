@@ -55,11 +55,15 @@ export default function StockAdjustmentDetailPage({
     <StockAdjustmentDetailView
       detail={detail.data}
       allowedActions={actions.data?.allowedActions ?? []}
+      selfApprovalRequired={actions.data?.selfApprovalRequired ?? false}
       isPending={pending}
       rejectForm={rejectForm}
-      onApprove={async () => {
-        await perform(() => approve.mutateAsync(adjustmentId), 'Đã duyệt và cập nhật tồn kho.')
-      }}
+      onApprove={(selfApprovalAcknowledged) =>
+        perform(
+          () => approve.mutateAsync({ adjustmentId, request: { selfApprovalAcknowledged } }),
+          'Đã duyệt và cập nhật tồn kho.'
+        )
+      }
       onReject={(reason) =>
         perform(
           () => reject.mutateAsync({ adjustmentId, request: { reason } }),

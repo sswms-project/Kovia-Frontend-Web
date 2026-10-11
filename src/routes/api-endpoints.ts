@@ -1,4 +1,14 @@
 export const API_ENDPOINTS = {
+  dashboard: {
+    overview: '/dashboard/overview',
+    warehouses: '/dashboard/warehouses',
+  },
+  reports: {
+    catalog: '/reports/catalog',
+    options: '/reports/filter-options',
+    view: (type: string) => `/reports/${encodeURIComponent(type)}`,
+    export: (type: string) => `/reports/${encodeURIComponent(type)}/export`,
+  },
   // Public endpoints
   auth: {
     login: '/auth/login',
@@ -172,9 +182,12 @@ export const API_ENDPOINTS = {
     allowedActions: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/allowed-actions`,
     recordItem: (cycleCountId: string, itemId: string) =>
       `/cycle-counts/${cycleCountId}/items/${itemId}`,
+    start: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/start`,
     submit: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/submit`,
     recount: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/recount`,
     finalize: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/finalize`,
+    cancel: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/cancel`,
+    export: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/export`,
   },
   stockAdjustments: {
     list: '/stock-adjustments',
@@ -183,6 +196,12 @@ export const API_ENDPOINTS = {
     allowedActions: (adjustmentId: string) => `/stock-adjustments/${adjustmentId}/allowed-actions`,
     approve: (adjustmentId: string) => `/stock-adjustments/${adjustmentId}/approve`,
     reject: (adjustmentId: string) => `/stock-adjustments/${adjustmentId}/reject`,
+    vouchers: '/stock-adjustments/vouchers',
+    voucherDetail: (voucherId: string) => `/stock-adjustments/vouchers/${voucherId}`,
+    voucherAllowedActions: (voucherId: string) =>
+      `/stock-adjustments/vouchers/${voucherId}/allowed-actions`,
+    voucherApprove: (voucherId: string) => `/stock-adjustments/vouchers/${voucherId}/approve`,
+    voucherReject: (voucherId: string) => `/stock-adjustments/vouchers/${voucherId}/reject`,
   },
   suppliers: {
     list: '/suppliers',
@@ -190,6 +209,7 @@ export const API_ENDPOINTS = {
     nextCode: '/suppliers/next-code',
     import: '/suppliers/import',
     importPreview: '/suppliers/import/preview',
+    importInspect: '/suppliers/import/inspect',
     importTemplate: '/suppliers/import-template',
     detail: (supplierId: string) => `/suppliers/${supplierId}`,
     update: (supplierId: string) => `/suppliers/${supplierId}`,
@@ -240,6 +260,13 @@ export const API_ENDPOINTS = {
     reject: (receiptId: string) => `/goods-receipts/${receiptId}/reject`,
     allowedActions: (receiptId: string) => `/goods-receipts/${receiptId}/allowed-actions`,
     putaway: (receiptId: string) => `/goods-receipts/${receiptId}/putaway`,
+    putawayPlan: (receiptId: string) => `/goods-receipts/${receiptId}/putaway-plan`,
+    putawaySuggestions: (receiptId: string) => `/goods-receipts/${receiptId}/putaway-suggestions`,
+    putawayPlanSuggestions: (receiptId: string) =>
+      `/goods-receipts/${receiptId}/putaway-plan/suggestions`,
+    putawayEvidence: '/goods-receipts/putaway-evidence',
+    putawayHeldSlots: (receiptId: string) => `/goods-receipts/${receiptId}/putaway-held-slots`,
+    putawayDeviationReport: '/goods-receipts/putaway-deviations/report',
     cancelPutawayTask: (receiptId: string) => `/goods-receipts/${receiptId}/putaway-task/cancel`,
     reconcilePutawayCancellation: (receiptId: string) =>
       `/goods-receipts/${receiptId}/putaway-task/reconcile-cancellation`,
@@ -324,6 +351,9 @@ export const API_ENDPOINTS = {
     suppliers: (id: string) => `/products/${id}/suppliers`,
     supplier: (productId: string, linkId: string) => `/products/${productId}/suppliers/${linkId}`,
     import: '/products/import',
+    importTemplate: '/products/import/template',
+    importInspect: '/products/import/inspect',
+    importPreview: '/products/import/preview',
   },
   payments: {
     history: '/payments',
@@ -334,24 +364,87 @@ export const API_ENDPOINTS = {
     list: '/transfers',
     create: '/transfers',
     sourceWarehouses: '/transfers/source-warehouses',
-    sourceInventory: '/transfers/source-inventory',
+    sourceProducts: '/transfers/source-products',
+    receivableSlot: '/transfers/receivable-slot',
+    receivableSlots: '/transfers/receivable-slots',
+    sourceLocations: '/transfers/source-locations',
+    nextCode: '/transfers/next-code',
+    requesterOptions: '/transfers/requester-options',
+    availability: '/transfers/availability',
+    drafts: '/transfers/drafts',
+    draft: (transferId: string) => `/transfers/drafts/${transferId}`,
+    submitDraft: (transferId: string) => `/transfers/drafts/${transferId}/submit`,
     detail: (transferId: string) => `/transfers/${transferId}`,
-    approve: (transferId: string) => `/transfers/${transferId}/approve`,
-    reject: (transferId: string) => `/transfers/${transferId}/reject`,
-    dispatch: (transferId: string) => `/transfers/${transferId}/dispatch`,
-    receive: (transferId: string) => `/transfers/${transferId}/receive`,
+    update: (transferId: string) => `/transfers/${transferId}`,
+    allocationOptions: (transferId: string, itemId: string) =>
+      `/transfers/${transferId}/items/${itemId}/allocation-options`,
+    adjustAllocation: (transferId: string) => `/transfers/${transferId}/allocation`,
+    cancel: (transferId: string) => `/transfers/${transferId}/cancel`,
+    stopRemaining: (transferId: string) => `/transfers/${transferId}/stop-remaining`,
+    feedback: (transferId: string) => `/transfers/${transferId}/feedback`,
+    replyFeedback: (transferId: string, feedbackId: string) =>
+      `/transfers/${transferId}/feedback/${feedbackId}/reply`,
+    shipments: (transferId: string) => `/transfers/${transferId}/shipments`,
+    cancelShipment: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/cancel`,
+    pickSheet: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/pick-sheet`,
+    pickAlternatives: (transferId: string, shipmentId: string, lineId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/lines/${lineId}/alternatives`,
+    picks: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/picks`,
+    switchPick: (transferId: string, shipmentId: string, lineId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/lines/${lineId}/switch`,
+    escalatePick: (transferId: string, shipmentId: string, lineId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/lines/${lineId}/escalate`,
+    resolveEscalation: (
+      transferId: string,
+      shipmentId: string,
+      lineId: string,
+      exceptionId: string
+    ) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/lines/${lineId}/escalations/${exceptionId}/resolve`,
+    returnPick: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/returns`,
+    completePicking: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/complete-picking`,
+    setPutAwaySlots: (transferId: string) => `/transfers/${transferId}/putaway-slots`,
+    putAwaySuggestions: (transferId: string) => `/transfers/${transferId}/putaway-suggestions`,
+    reopenPicking: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/reopen-picking`,
+    dispatchShipment: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/dispatch`,
+    receiveSheet: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/receive-sheet`,
+    receipt: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/receipt`,
+    resolveDiscrepancy: (transferId: string, discrepancyId: string) =>
+      `/transfers/${transferId}/discrepancies/${discrepancyId}/resolve`,
   },
   stockIssueRequests: {
+    importPreview: '/stock-issue-requests/import/preview',
+    importTemplate: '/stock-issue-requests/import-template',
     list: '/stock-issue-requests',
     create: '/stock-issue-requests',
     detail: (stockIssueRequestId: string) => `/stock-issue-requests/${stockIssueRequestId}`,
     releaseForPicking: (stockIssueRequestId: string) =>
       `/stock-issue-requests/${stockIssueRequestId}/release-for-picking`,
+    cancel: (stockIssueRequestId: string) => `/stock-issue-requests/${stockIssueRequestId}/cancel`,
+    attachments: (stockIssueRequestId: string) =>
+      `/stock-issue-requests/${stockIssueRequestId}/attachments`,
+    attachment: (stockIssueRequestId: string, attachmentId: string) =>
+      `/stock-issue-requests/${stockIssueRequestId}/attachments/${attachmentId}`,
+    assignPicker: (stockIssueRequestId: string) =>
+      `/stock-issue-requests/${stockIssueRequestId}/assign-picker`,
+    auditLogs: (stockIssueRequestId: string) =>
+      `/stock-issue-requests/${stockIssueRequestId}/audit-logs`,
     picks: (stockIssueRequestId: string) => `/stock-issue-requests/${stockIssueRequestId}/picks`,
     dispatch: (stockIssueRequestId: string) =>
       `/stock-issue-requests/${stockIssueRequestId}/dispatch`,
     authorizeDispatch: (stockIssueRequestId: string) =>
       `/stock-issue-requests/${stockIssueRequestId}/authorize-dispatch`,
+    reportPickIssue: (stockIssueRequestId: string) =>
+      `/stock-issue-requests/${stockIssueRequestId}/report-pick-issue`,
     removePickDetail: (stockIssueRequestId: string, pickDetailId: string) =>
       `/stock-issue-requests/${stockIssueRequestId}/pick-details/${pickDetailId}`,
     goodsReturnRequests: (stockIssueRequestId: string) =>
@@ -373,6 +466,7 @@ export const API_ENDPOINTS = {
     nextCode: '/stock-recipients/next-code',
     import: '/stock-recipients/import',
     importPreview: '/stock-recipients/import/preview',
+    importInspect: '/stock-recipients/import/inspect',
     importTemplate: '/stock-recipients/import-template',
     detail: (stockRecipientId: string) => `/stock-recipients/${stockRecipientId}`,
     update: (stockRecipientId: string) => `/stock-recipients/${stockRecipientId}`,

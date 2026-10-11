@@ -37,7 +37,9 @@ export function LifecycleTimeline({
               <p className="text-sm leading-5 font-medium">
                 {actionLabels?.[event.action] ?? event.action}
               </p>
-              <p className="text-muted-foreground text-xs">{event.actorName}</p>
+              {event.actorName ? (
+                <p className="text-muted-foreground text-xs">{event.actorName}</p>
+              ) : null}
               {event.reason ? (
                 <p className="text-muted-foreground mt-1 text-xs">
                   {reasonLabels?.[event.action] ?? 'Lý do'}: {event.reason}

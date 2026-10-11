@@ -72,6 +72,7 @@ export interface ImportSupplierItem {
 export interface SupplierImportPreviewRow extends ImportSupplierItem {
   readonly rowNumber: number
   readonly errors: readonly string[]
+  readonly fieldErrors?: Readonly<Record<string, readonly string[]>>
 }
 
 export interface SupplierImportPreview {

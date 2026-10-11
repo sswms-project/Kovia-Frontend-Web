@@ -1,5 +1,6 @@
 'use client'
 
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import { Check, Eye, MoreHorizontal, Search, Undo2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -183,7 +184,7 @@ export function GoodsReturnRequestDirectory({
             </TableHeader>
             <TableBody>
               {items.map((item) => (
-                <TableRow key={item.id}>
+                <ClickableTableRow key={item.id} onActivate={() => onInspect(item)}>
                   <TableCell className="font-mono">{item.goodsReturnRequestCode}</TableCell>
                   <TableCell className="font-mono">{item.stockIssueRequestCode}</TableCell>
                   <TableCell className="max-w-64 truncate">{item.reason}</TableCell>
@@ -235,7 +236,7 @@ export function GoodsReturnRequestDirectory({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
-                </TableRow>
+                </ClickableTableRow>
               ))}
             </TableBody>
           </Table>

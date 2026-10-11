@@ -28,6 +28,7 @@ import type {
 } from '../../types/warehouse-layout-scene.types'
 import { PALETTE_DECORATION_OPTIONS, writeLayoutDragData } from './designer-constants'
 import type { LayoutPaletteDragData } from './designer-constants'
+import { WarehouseUnplacedLocations } from './WarehouseUnplacedLocations'
 
 interface DesignerToolboxProps {
   readonly scene: WarehouseLayoutEditorScene
@@ -38,6 +39,7 @@ interface DesignerToolboxProps {
   readonly onCreateRack: (shape?: WarehouseLayoutRackShape) => void
   readonly onCreateDecoration: (type: WarehouseLayoutDecorationType, label: string) => void
   readonly onSelect: (selection: WarehouseLayoutSelection) => void
+  readonly onSelectUnplaced?: (selection: WarehouseLayoutSelection) => void
 }
 
 function RackShapeIcon({ shape }: { readonly shape: WarehouseLayoutRackShape }) {
@@ -190,6 +192,7 @@ export function DesignerToolbox({
   onCreateRack,
   onCreateDecoration,
   onSelect,
+  onSelectUnplaced,
 }: DesignerToolboxProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const selectedZoneCandidateId =
@@ -231,6 +234,7 @@ export function DesignerToolbox({
           </p>
         ) : null}
       </div>
+      <WarehouseUnplacedLocations scene={scene} onSelect={onSelectUnplaced ?? onSelect} />
       {mode === 'designer' ? (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
           <section aria-labelledby="business-tools-title">

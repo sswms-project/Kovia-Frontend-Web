@@ -1,5 +1,19 @@
 import { z } from 'zod'
 
+const optionalPhoneSchema = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(30, `${label} tối đa 30 ký tự.`)
+    .refine(
+      (value) =>
+        value === '' ||
+        (/^\+?[0-9][0-9 ()-]*[0-9]$/.test(value) &&
+          (value.match(/[0-9]/g)?.length ?? 0) >= 7 &&
+          (value.match(/[0-9]/g)?.length ?? 0) <= 15),
+      `${label} không hợp lệ.`
+    )
+
 export const saveSupplierSchema = z.object({
   supplierCode: z
     .string()
@@ -12,7 +26,7 @@ export const saveSupplierSchema = z.object({
     .min(1, 'Tên nhà cung cấp là bắt buộc.')
     .max(255, 'Tên nhà cung cấp tối đa 255 ký tự.'),
   taxCode: z.string().trim().max(50, 'Mã số thuế tối đa 50 ký tự.'),
-  phone: z.string().trim().max(30, 'Số điện thoại tối đa 30 ký tự.'),
+  phone: optionalPhoneSchema('Số điện thoại'),
   email: z
     .string()
     .trim()
@@ -30,7 +44,7 @@ export const saveSupplierSchema = z.object({
     .refine((value) => value === '' || z.string().email().safeParse(value).success, {
       message: 'Email người liên hệ không hợp lệ.',
     }),
-  contactMobile: z.string().trim().max(30, 'Số điện thoại người liên hệ tối đa 30 ký tự.'),
+  contactMobile: optionalPhoneSchema('Số điện thoại người liên hệ'),
   contactChannel: z.string().trim().max(50, 'Kênh liên hệ tối đa 50 ký tự.'),
   contactChannelName: z.string().trim().max(255, 'Tên kênh tối đa 255 ký tự.'),
 })

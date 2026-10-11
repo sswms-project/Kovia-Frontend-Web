@@ -5,13 +5,17 @@ import { GOODS_RETURN_REQUEST_ITEM_CONDITIONS } from '../types/stock-issue.types
 export const stockIssueRequestLineSchema = z.object({
   productId: dotNetGuidSchema('Vui lòng chọn sản phẩm.'),
   quantity: z.number().positive('Số lượng phải lớn hơn 0.'),
+  note: z.string().trim().max(500, 'Ghi chú dòng không được vượt quá 500 ký tự.'),
 })
 
 export const createStockIssueRequestSchema = z
   .object({
     stockRecipientId: dotNetGuidSchema('Vui lòng chọn đơn vị nhận hàng.'),
     warehouseId: dotNetGuidSchema('Vui lòng chọn kho xuất hàng.'),
-    purpose: z.string().trim().max(500, 'Mục đích không được vượt quá 500 ký tự.'),
+    purpose: z.string().trim().max(500, 'Diễn giải không được vượt quá 500 ký tự.'),
+    referenceCode: z.string().trim().max(100, 'Tham chiếu không được vượt quá 100 ký tự.'),
+    issueDate: z.string(),
+    note: z.string().trim().max(1000, 'Ghi chú không được vượt quá 1000 ký tự.'),
     lines: z
       .array(stockIssueRequestLineSchema)
       .min(1, 'Yêu cầu xuất kho phải có ít nhất một sản phẩm.'),
@@ -35,10 +39,13 @@ export const recordStockPickingLineSchema = z.object({
   productId: z.string(),
   productName: z.string(),
   sku: z.string(),
+  barcode: z.string().nullable().optional(),
   remainingQuantity: z.number(),
   inventoryStockId: z.string(),
   availableQuantity: z.number().min(0),
   pickedQuantity: z.number().min(0, 'Số lượng lấy hàng không được âm.'),
+  scannedBarcode: z.string().optional(),
+  scannedSlotCode: z.string().optional(),
 })
 
 export const recordStockPickingSchema = z

@@ -368,6 +368,79 @@ body {
   height: 6px;
 }
 
+/* Keep import content gutters while placing its scroll rail at the workspace edge. */
+[data-slot='workspace-scroll-area']:has([data-slot='bulk-import-workspace']) {
+  padding-right: 0;
+}
+
+[data-slot='bulk-import-workspace']::-webkit-scrollbar,
+[data-slot='workspace-scroll-area']:has([data-slot='bulk-import-workspace'])::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+[data-slot='bulk-import-workspace']::-webkit-scrollbar-thumb,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='bulk-import-workspace']
+  )::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: var(--table-scrollbar-thumb);
+}
+
+[data-slot='bulk-import-workspace']::-webkit-scrollbar-track,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='bulk-import-workspace']
+  )::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-slot='bulk-import-workspace']::-webkit-scrollbar-button,
+[data-slot='bulk-import-workspace'] [data-slot='table-container']::-webkit-scrollbar-button,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='bulk-import-workspace']
+  )::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Transfer screens: slim 6px rail at the workspace edge, like the import workspace. */
+[data-slot='workspace-scroll-area']:has([data-slot='transfer-scroll'][data-edge]) {
+  padding-right: 0;
+}
+
+[data-slot='transfer-scroll']::-webkit-scrollbar,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='transfer-scroll'][data-edge]
+  )::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+[data-slot='transfer-scroll']::-webkit-scrollbar-thumb,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='transfer-scroll'][data-edge]
+  )::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: var(--table-scrollbar-thumb);
+}
+
+[data-slot='transfer-scroll']::-webkit-scrollbar-track,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='transfer-scroll'][data-edge]
+  )::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-slot='transfer-scroll']::-webkit-scrollbar-button,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='transfer-scroll'][data-edge]
+  )::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 [data-slot='table-container']::-webkit-scrollbar-thumb {
   border-radius: 8px;
   background: var(--table-scrollbar-thumb);
@@ -378,7 +451,14 @@ body {
 }
 
 @supports not selector(::-webkit-scrollbar) {
-  [data-slot='table-container'] {
+  [data-slot='table-container'],
+  [data-slot='transfer-scroll'] {
+    scrollbar-width: thin;
+    scrollbar-color: var(--table-scrollbar-thumb) transparent;
+  }
+
+  [data-slot='bulk-import-workspace'],
+  [data-slot='workspace-scroll-area']:has([data-slot='bulk-import-workspace']) {
     scrollbar-width: thin;
     scrollbar-color: var(--table-scrollbar-thumb) transparent;
   }
@@ -428,13 +508,14 @@ body {
   background: var(--muted);
 }
 
+/* Chỉ cuộn ngang; gạch chân tab lệch 1px ở một số mức zoom không được bật thanh cuộn dọc. */
 [data-slot='operational-workspace-navigation'] {
   display: flex;
   min-width: 0;
   max-width: 100%;
   flex-shrink: 0;
   gap: 4px;
-  overflow-x: auto;
+  overflow: auto hidden;
   border-bottom: 1px solid var(--border);
 }
 
@@ -451,15 +532,83 @@ body {
   white-space: nowrap;
 }
 
+[data-slot='operational-workspace-navigation'] > a {
+  position: relative;
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+
 [data-slot='operational-workspace-navigation'] > a:hover {
   color: var(--primary);
   background: var(--muted);
 }
 
 [data-slot='operational-workspace-navigation'] > a[aria-current='page'] {
-  border-bottom-color: var(--primary);
   color: var(--primary);
   font-weight: 700;
+}
+
+/* Gạch chân tab hiện tại trượt ra từ giữa thay vì bật tắt. */
+[data-slot='operational-workspace-navigation'] > a::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  left: 0;
+  height: 2px;
+  background: var(--primary);
+  transform: scaleX(0);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-slot='operational-workspace-navigation'] > a[aria-current='page']::after {
+  transform: scaleX(1);
+}
+
+/* Dòng của mọi danh sách nghiệp vụ hiện lần lượt; độ trễ dừng tăng sau 10 dòng. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot='operational-list-panel'] tbody > tr {
+    animation: operational-row-enter 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes operational-row-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(2) {
+    animation-delay: 30ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(3) {
+    animation-delay: 60ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(4) {
+    animation-delay: 90ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(5) {
+    animation-delay: 120ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(6) {
+    animation-delay: 150ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(7) {
+    animation-delay: 180ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(8) {
+    animation-delay: 210ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(9) {
+    animation-delay: 240ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(10) {
+    animation-delay: 270ms;
+  }
+  [data-slot='operational-list-panel'] tbody > tr:nth-child(n + 11) {
+    animation-delay: 300ms;
+  }
 }
 
 [data-slot='workspace-scroll-area']:has([data-hide-workspace-scrollbar]) {
@@ -494,31 +643,44 @@ body {
   --y: translateX(-115%) !important;
 }
 
+/* Nhãn mã vạch in từ lớp riêng gắn vào body; trên màn hình luôn ẩn. */
+[data-barcode-print-root] {
+  display: none;
+}
+
 @media print {
-  body:has([data-barcode-print-page]) * {
-    visibility: hidden;
+  body:has([data-barcode-print-root]) > :not([data-barcode-print-root]) {
+    display: none !important;
   }
 
-  [data-barcode-print-page],
-  [data-barcode-print-page] * {
-    visibility: visible;
-  }
-
-  [data-barcode-print-page] {
-    position: absolute;
-    inset: 0;
+  [data-barcode-print-root] {
     display: flex;
+    min-height: 100vh;
     width: 100%;
-    max-width: none;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    border: 0;
-    background: white;
-    color: black;
+    gap: 6mm;
+    background: #fff;
+    padding: 16mm;
+    color: #000;
+    text-align: center;
   }
 
-  [data-barcode-print-page] > :not(:has(svg)),
-  [data-barcode-print-actions] {
-    display: none;
+  [data-barcode-print-root] svg {
+    width: 100%;
+    max-width: 150mm;
+    height: auto;
+  }
+
+  [data-barcode-print-title] {
+    font-size: 14pt;
+    font-weight: 600;
+  }
+
+  [data-barcode-print-code] {
+    font-family: monospace;
+    font-size: 16pt;
+    font-weight: 700;
   }
 }

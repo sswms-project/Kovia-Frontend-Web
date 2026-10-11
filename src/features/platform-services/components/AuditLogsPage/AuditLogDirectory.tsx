@@ -20,8 +20,11 @@ export function AuditLogDirectory(props: AuditLogDirectoryProps) {
     >
       <div>
         <h2 id="audit-title" className="text-xl font-semibold">
-          Nhật ký hoạt động
+          {props.title ?? 'Nhật ký hoạt động'}
         </h2>
+        {props.description ? (
+          <p className="text-muted-foreground mt-1 text-sm">{props.description}</p>
+        ) : null}
       </div>
       <OperationalListPanel aria-label="Nhật ký hoạt động">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3">

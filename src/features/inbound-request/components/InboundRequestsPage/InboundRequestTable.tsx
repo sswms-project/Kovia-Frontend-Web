@@ -1,8 +1,7 @@
 import Link from 'next/link'
-import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import type { Route } from 'next'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -13,6 +12,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  OperationalCellStack,
+  OperationalQuantityProgress,
+} from '@/components/operations/OperationalCells'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { inboundSourceLabels } from '../../schemas/inbound-request.schema'
 import { type InboundRequestSummary } from '../../types/inbound-request.types'
@@ -25,8 +28,6 @@ import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
 import { InboundRequestRowActions } from './InboundRequestRowActions'
 
 interface InboundRequestTableProps {
-  readonly previewId?: string
-  readonly onPreview?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canDelete: boolean
   readonly canDeleteApproved?: boolean
@@ -50,35 +51,22 @@ interface InboundRequestTableProps {
   readonly onSelectionChange: (ids: readonly string[]) => void
 }
 
-function receivedPercent(item: InboundRequestSummary) {
-  return item.orderedQuantity <= 0
-    ? 0
-    : Math.min(100, (item.receivedQuantity / item.orderedQuantity) * 100)
-}
-
 export function InboundRequestTableSkeleton() {
   return (
     <div className="flex-1 overflow-hidden" aria-label="Đang tải danh sách yêu cầu nhập kho">
-      <Table className="min-w-[1200px] table-fixed">
+      <Table className="min-w-[960px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card sticky top-0 z-10 w-12 p-0 text-center">
+            <TableHead className="bg-card w-12 p-0 text-center">
               <Skeleton className="size-4" />
             </TableHead>
-            {[
-              'Mã yêu cầu',
-              'Nguồn hàng',
-              'Kho nhận',
-              'Trạng thái',
-              'Tiến độ',
-              'Ngày tạo',
-              'Dự kiến',
-              '',
-            ].map((heading) => (
-              <TableHead key={heading} className="bg-card sticky top-0 z-10">
-                {heading}
-              </TableHead>
-            ))}
+            {['Mã yêu cầu', 'Nguồn hàng · Kho nhận', 'Trạng thái', 'Tiến độ', 'Thời gian', ''].map(
+              (heading) => (
+                <TableHead key={heading} className="bg-card">
+                  {heading}
+                </TableHead>
+              )
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -92,10 +80,8 @@ export function InboundRequestTableSkeleton() {
                 <Skeleton className="mt-2 h-3 w-24" />
               </TableCell>
               <TableCell>
-                <Skeleton className="h-4 w-32" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="mt-2 h-3 w-28" />
               </TableCell>
               <TableCell>
                 <Skeleton className="h-5 w-20" />
@@ -106,9 +92,7 @@ export function InboundRequestTableSkeleton() {
               </TableCell>
               <TableCell>
                 <Skeleton className="h-4 w-28" />
-              </TableCell>
-              <TableCell>
-                <Skeleton className="h-4 w-24" />
+                <Skeleton className="mt-2 h-3 w-24" />
               </TableCell>
               <TableCell>
                 <Skeleton className="ml-auto size-8" />
@@ -122,8 +106,6 @@ export function InboundRequestTableSkeleton() {
 }
 
 export function InboundRequestTable({
-  previewId,
-  onPreview,
   items,
   canDelete,
   canDeleteApproved = false,
@@ -148,10 +130,10 @@ export function InboundRequestTable({
 }: InboundRequestTableProps) {
   return (
     <div className="hidden min-h-0 flex-1 overflow-auto md:block">
-      <Table className="min-w-[1200px] table-fixed">
+      <Table className="min-w-[960px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card sticky top-0 z-10 w-12 p-0 text-center">
+            <TableHead className="bg-card w-12 p-0 text-center">
               <Checkbox
                 className="mx-auto"
                 aria-label="Chọn tất cả yêu cầu nhập kho trên trang"
@@ -170,28 +152,23 @@ export function InboundRequestTable({
                 }
               />
             </TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-56">Mã yêu cầu</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-44">Nguồn hàng</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-36">Kho nhận</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-32">Trạng thái</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-36">Tiến độ nhận</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-44">Ngày tạo</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-28">Dự kiến</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-16">
+            <TableHead className="bg-card w-52">Mã yêu cầu</TableHead>
+            <TableHead className="bg-card">Nguồn hàng · Kho nhận</TableHead>
+            <TableHead className="bg-card w-36">Trạng thái</TableHead>
+            <TableHead className="bg-card w-44">Tiến độ nhận</TableHead>
+            <TableHead className="bg-card w-44">Thời gian</TableHead>
+            <TableHead className="bg-card w-16">
               <span className="sr-only">Thao tác</span>
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((item) => (
-            <TableRow
+            <ClickableTableRow
               key={item.id}
-              {...goodsPreviewInteractions(
-                onPreview ? () => onPreview(item) : undefined,
-                previewId === item.id
-              )}
+              href={APP_ROUTES.inboundRequestDetail(item.id) as Route}
             >
-              <TableCell data-preview-ignore className="w-12 p-0 text-center">
+              <TableCell data-row-ignore className="w-12 p-0 text-center">
                 <Checkbox
                   className="mx-auto"
                   aria-label={`Chọn ${item.inboundRequestCode}`}
@@ -226,32 +203,31 @@ export function InboundRequestTable({
                 </div>
               </TableCell>
               <TableCell className="min-w-0">
-                <div className="min-w-0">
-                  <p className="truncate">
-                    {item.supplierName ?? item.sourceName ?? 'Chưa xác định'}
-                  </p>
-                  <p className="text-muted-foreground truncate text-xs">
-                    {inboundSourceLabels[item.sourceType]}
-                  </p>
-                </div>
-              </TableCell>
-              <TableCell>
-                <span className="block truncate">{item.warehouseName ?? 'Chưa xác định'}</span>
+                <OperationalCellStack
+                  primary={item.supplierName ?? item.sourceName ?? 'Chưa xác định'}
+                  secondary={`${inboundSourceLabels[item.sourceType]} → ${
+                    item.warehouseName ?? 'Chưa xác định kho'
+                  }`}
+                />
               </TableCell>
               <TableCell>
                 <InboundRequestStatusBadge status={item.status} />
               </TableCell>
               <TableCell>
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs tabular-nums">
-                    {formatQuantity(item.receivedQuantity)} / {formatQuantity(item.orderedQuantity)}
-                  </span>
-                  <Progress value={receivedPercent(item)} />
-                </div>
+                <OperationalQuantityProgress
+                  done={item.receivedQuantity}
+                  total={item.orderedQuantity}
+                  doneText={formatQuantity(item.receivedQuantity)}
+                  totalText={formatQuantity(item.orderedQuantity)}
+                />
               </TableCell>
-              <TableCell>{formatOperationalDateTime(item.createdAt)}</TableCell>
-              <TableCell>{formatOperationalDate(item.expectedDate)}</TableCell>
-              <TableCell data-preview-ignore className="text-right">
+              <TableCell>
+                <OperationalCellStack
+                  primary={formatOperationalDateTime(item.createdAt)}
+                  secondary={`Dự kiến ${formatOperationalDate(item.expectedDate)}`}
+                />
+              </TableCell>
+              <TableCell data-row-ignore className="text-right">
                 <InboundRequestRowActions
                   item={item}
                   canCreate={canCreate}
@@ -271,7 +247,7 @@ export function InboundRequestTable({
                   onDuplicate={onDuplicate}
                 />
               </TableCell>
-            </TableRow>
+            </ClickableTableRow>
           ))}
         </TableBody>
       </Table>

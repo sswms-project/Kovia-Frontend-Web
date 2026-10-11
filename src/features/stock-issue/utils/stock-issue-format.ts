@@ -6,9 +6,9 @@ import type {
 
 export const STOCK_ISSUE_REQUEST_STATUS_LABELS: Record<StockIssueRequestStatus, string> = {
   Pending: 'Chờ xử lý',
-  ReleasedForPicking: 'Đã duyệt, chờ lấy hàng',
+  ReleasedForPicking: 'Đã giao việc, chờ lấy hàng',
   Picking: 'Đang lấy hàng',
-  Picked: 'Chờ lệnh xuất',
+  Picked: 'Sẵn sàng xuất (chờ lệnh)',
   AuthorizedForDispatch: 'Đã cho phép xuất',
   Dispatched: 'Đã xuất kho',
   Cancelled: 'Đã hủy',
@@ -44,6 +44,10 @@ export function formatStockIssueDate(value: string): string {
 
 export function canRecordStockPicking(status: StockIssueRequestStatus): boolean {
   return status === 'ReleasedForPicking' || status === 'Picking'
+}
+
+export function canCancelStockIssueRequest(status: StockIssueRequestStatus): boolean {
+  return status === 'Pending' || status === 'ReleasedForPicking'
 }
 
 export function canCreateGoodsReturnRequest(status: StockIssueRequestStatus): boolean {

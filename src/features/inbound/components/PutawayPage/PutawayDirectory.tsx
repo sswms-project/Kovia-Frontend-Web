@@ -9,6 +9,8 @@ import {
   UserRoundCog,
   X,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import type { Route } from 'next'
 import Link from 'next/link'
 import type { DateRange } from 'react-day-picker'
@@ -43,13 +45,15 @@ import {
 } from '@/features/inbound-request/utils/inbound-request-format'
 import type { GoodsReceiptSummary } from '../../types/inbound.types'
 import { TaskAssigneeCell } from '../TaskAssignment'
-import { goodsPreviewInteractions } from '../../utils/goods-preview-interactions'
+import {
+  OperationalCellStack,
+  OperationalQuantityProgress,
+} from '@/components/operations/OperationalCells'
+import { rowActivationProps } from '../../utils/row-activation-props'
 
 export type PutawayAssignmentFilter = 'all' | 'unassigned'
 
 interface PutawayDirectoryProps {
-  readonly previewId?: string
-  readonly onPreview?: (item: GoodsReceiptSummary) => void
   readonly items: readonly GoodsReceiptSummary[]
   readonly totalCount: number
   readonly page: number
@@ -78,8 +82,6 @@ function remainingQuantity(item: GoodsReceiptSummary) {
 }
 
 export function PutawayDirectory({
-  previewId,
-  onPreview,
   items,
   totalCount,
   page,
@@ -102,6 +104,7 @@ export function PutawayDirectory({
   onAssignmentFilterChange,
   onAssign,
 }: PutawayDirectoryProps) {
+  const router = useRouter()
   function renderActions(item: GoodsReceiptSummary, compact: boolean) {
     const isMine = Boolean(currentUserId) && item.putAwayAssignedTo === currentUserId
     return (
@@ -277,9 +280,8 @@ export function PutawayDirectory({
             {items.map((item) => (
               <Item
                 key={item.id}
-                {...goodsPreviewInteractions(
-                  onPreview ? () => onPreview(item) : undefined,
-                  previewId === item.id,
+                {...rowActivationProps(
+                  () => router.push(APP_ROUTES.inboundPutawayDetail(item.id) as Route),
                   'border-b last:border-b-0'
                 )}
               >
@@ -318,27 +320,22 @@ export function PutawayDirectory({
             ))}
           </ItemGroup>
           <div className="hidden min-h-0 flex-1 overflow-auto md:block">
-            <Table className="min-w-[1060px]">
+            <Table className="min-w-[920px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky top-0 z-10">Mã phiếu</TableHead>
-                  <TableHead className="sticky top-0 z-10">Yêu cầu nhập kho</TableHead>
-                  <TableHead className="sticky top-0 z-10">Kho</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Mặt hàng</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Còn cất</TableHead>
-                  <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
-                  <TableHead className="sticky top-0 z-10">Người cất hàng</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Thao tác</TableHead>
+                  <TableHead className="">Mã phiếu</TableHead>
+                  <TableHead className="">Yêu cầu · Kho</TableHead>
+                  <TableHead className="w-48">Đã cất / Cần cất</TableHead>
+                  <TableHead className="w-40">Ngày tạo</TableHead>
+                  <TableHead className="w-48">Người cất hàng</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
-                  <TableRow
+                  <ClickableTableRow
                     key={item.id}
-                    {...goodsPreviewInteractions(
-                      onPreview ? () => onPreview(item) : undefined,
-                      previewId === item.id
-                    )}
+                    href={APP_ROUTES.inboundPutawayDetail(item.id) as Route}
                   >
                     <TableCell className="font-mono font-semibold">
                       <Link
@@ -347,12 +344,26 @@ export function PutawayDirectory({
                       >
                         {item.receiptCode}
                       </Link>
+                      <p className="text-muted-foreground mt-0.5 font-sans text-xs font-normal">
+                        {item.lineCount} mặt hàng
+                      </p>
                     </TableCell>
-                    <TableCell className="font-mono">{item.inboundRequestCode}</TableCell>
-                    <TableCell>{item.warehouseName}</TableCell>
-                    <TableCell className="text-right tabular-nums">{item.lineCount}</TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">
-                      {formatQuantity(remainingQuantity(item))}
+                    <TableCell className="min-w-0">
+                      <OperationalCellStack
+                        primary={<span className="font-mono">{item.inboundRequestCode}</span>}
+                        secondary={item.warehouseName}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <OperationalQuantityProgress
+                        done={item.putAwayQuantity}
+                        total={Math.max(0, item.receivedQuantity - item.damagedQuantity)}
+                        doneText={formatQuantity(item.putAwayQuantity)}
+                        totalText={formatQuantity(
+                          Math.max(0, item.receivedQuantity - item.damagedQuantity)
+                        )}
+                        suffix={`· còn ${formatQuantity(remainingQuantity(item))}`}
+                      />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {formatOperationalDateTime(item.createdAt)}
@@ -368,7 +379,7 @@ export function PutawayDirectory({
                       />
                     </TableCell>
                     <TableCell className="text-right">{renderActions(item, false)}</TableCell>
-                  </TableRow>
+                  </ClickableTableRow>
                 ))}
               </TableBody>
             </Table>

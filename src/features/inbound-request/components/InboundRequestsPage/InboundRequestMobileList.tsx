@@ -1,5 +1,6 @@
 import { Copy } from 'lucide-react'
-import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
+import { rowActivationProps } from '@/features/inbound/utils/row-activation-props'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { Button } from '@/components/ui/button'
@@ -15,8 +16,6 @@ import { inboundSourceLabels } from '../../schemas/inbound-request.schema'
 import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
 
 interface InboundRequestMobileListProps {
-  readonly previewId?: string
-  readonly onPreview?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canCreate: boolean
   readonly isDuplicating: boolean
@@ -24,21 +23,19 @@ interface InboundRequestMobileListProps {
 }
 
 export function InboundRequestMobileList({
-  previewId,
-  onPreview,
   items,
   canCreate,
   isDuplicating,
   onDuplicate,
 }: InboundRequestMobileListProps) {
+  const router = useRouter()
   return (
     <ItemGroup className="gap-0 md:hidden">
       {items.map((item) => (
         <Item
           key={item.id}
-          {...goodsPreviewInteractions(
-            onPreview ? () => onPreview(item) : undefined,
-            previewId === item.id,
+          {...rowActivationProps(
+            () => router.push(APP_ROUTES.inboundRequestDetail(item.id) as Route),
             'border-b last:border-b-0'
           )}
         >

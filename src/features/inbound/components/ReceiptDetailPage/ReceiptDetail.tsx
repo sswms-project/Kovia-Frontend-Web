@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Check,
+  MapPinned,
   PackageCheck,
   Pencil,
   Send,
@@ -18,6 +19,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import { APP_ROUTES } from '@/routes/app-routes'
+import type { InventoryEvidence } from '@/features/inventory/types/inventory.types'
 import type {
   GoodsReceiptAction,
   GoodsReceiptDetail as ReceiptDetailType,
@@ -27,6 +29,7 @@ import { ReceiptActionDialogs } from './ReceiptActionDialogs'
 import { ReceiptHistorySheet } from './ReceiptHistorySheet'
 import { ReceiptItemsTable } from './ReceiptItemsTable'
 import { ReceiptOverview } from './ReceiptOverview'
+import { ReceiptPlanTable } from './ReceiptPlanTable'
 import { ReceiptPutAwayTable } from './ReceiptPutAwayTable'
 
 interface ReceiptDetailProps {
@@ -39,6 +42,8 @@ interface ReceiptDetailProps {
   readonly onApprove: () => Promise<boolean>
   readonly onReject: (reason: string) => Promise<boolean>
   readonly onAssignPutAway?: () => void
+  readonly onPlanPutAway?: () => void
+  readonly onDownloadEvidence?: (evidence: InventoryEvidence) => void
 }
 
 export function ReceiptDetail({
@@ -51,11 +56,14 @@ export function ReceiptDetail({
   onApprove,
   onReject,
   onAssignPutAway,
+  onPlanPutAway,
+  onDownloadEvidence,
 }: ReceiptDetailProps) {
   const [confirmationAction, setConfirmationAction] = useState<'Submit' | 'Approve' | null>(null)
   const [isRejectOpen, setIsRejectOpen] = useState(false)
 
   const hasPutAwayDetails = receipt.items.some((item) => item.putAwayDetails.length > 0)
+  const hasPutAwayPlan = receipt.items.some((item) => item.putAwayPlan.length > 0)
   const usableQuantity = receipt.items.reduce((sum, item) => sum + item.usableQuantity, 0)
   const putAwayQuantity = receipt.items.reduce((sum, item) => sum + item.putAwayQuantity, 0)
   const putAwayPercent =
@@ -131,6 +139,12 @@ export function ReceiptDetail({
                 {receipt.putAwayAssignedTo ? 'Giao lại cất hàng' : 'Giao việc cất hàng'}
               </Button>
             ) : null}
+            {allowedActions.includes('PlanPutAway') && onPlanPutAway ? (
+              <Button type="button" variant="outline" onClick={onPlanPutAway}>
+                <MapPinned aria-hidden="true" />
+                Cấu hình vị trí cất
+              </Button>
+            ) : null}
             {allowedActions.includes('PutAway') ? (
               <Button asChild>
                 <Link href={APP_ROUTES.inboundPutawayDetail(receipt.id) as Route}>
@@ -178,6 +192,7 @@ export function ReceiptDetail({
                 {receipt.items.length}
               </span>
             </TabsTrigger>
+            {hasPutAwayPlan ? <TabsTrigger value="plan">Vị trí cất đã cấu hình</TabsTrigger> : null}
             {hasPutAwayDetails ? <TabsTrigger value="putaway">Lịch sử cất hàng</TabsTrigger> : null}
           </TabsList>
 
@@ -193,12 +208,23 @@ export function ReceiptDetail({
             >
               <ReceiptItemsTable items={receipt.items} />
             </TabsContent>
+            {hasPutAwayPlan ? (
+              <TabsContent
+                value="plan"
+                className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+              >
+                <ReceiptPlanTable items={receipt.items} />
+              </TabsContent>
+            ) : null}
             {hasPutAwayDetails ? (
               <TabsContent
                 value="putaway"
                 className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
               >
-                <ReceiptPutAwayTable items={receipt.items} />
+                <ReceiptPutAwayTable
+                  items={receipt.items}
+                  onDownloadEvidence={onDownloadEvidence}
+                />
               </TabsContent>
             ) : null}
           </div>

@@ -242,11 +242,11 @@ describe('application navigation visibility', () => {
       },
       {
         label: 'Hoạt Động Kho',
-        items: ['Nhập kho', 'Tồn kho', 'Điều chuyển kho', 'Xuất kho & Trả hàng'],
+        items: ['Nhập kho', 'Tồn kho', 'Điều chuyển kho', 'Kiểm kê', 'Xuất kho & Trả hàng'],
       },
       {
-        label: 'Báo cáo',
-        items: ['Dashboard kho', 'Báo cáo vận hành', 'Dự báo & Bổ sung hàng'],
+        label: 'Báo cáo & phân tích',
+        items: ['Báo cáo kho', 'Dự báo & bổ sung hàng'],
       },
       { label: 'Dịch vụ', items: ['Gói dịch vụ', 'Lịch sử thanh toán'] },
       { label: 'Hệ thống', items: ['Thông báo', 'Nhật ký hoạt động', 'Cài đặt'] },
@@ -258,11 +258,7 @@ describe('application navigation visibility', () => {
       (item) => item.status === 'planned'
     )
 
-    expect(plannedItems.map((item) => item.label)).toEqual([
-      'Dashboard kho',
-      'Báo cáo vận hành',
-      'Dự báo & Bổ sung hàng',
-    ])
+    expect(plannedItems.map((item) => item.label)).toEqual([])
     expect(plannedItems.every((item) => item.href === undefined)).toBe(true)
     expect(plannedItems.every((item) => !isNavItemActive('/anything', item))).toBe(true)
   })
@@ -288,6 +284,21 @@ describe('application navigation visibility', () => {
         (item) => item.href === APP_ROUTES.auditLogs
       )
     ).toBe(true)
+  })
+
+  it('separates staff task history, personal activity and security settings', () => {
+    const items = getVisibleNavItems(USER_ROLES.WarehouseStaff, [
+      P.WAREHOUSE_TASKS_VIEW_OWN,
+      P.AUDIT_LOGS_VIEW,
+    ])
+
+    expect(items.find((item) => item.href === APP_ROUTES.myTaskHistory)?.label).toBe(
+      'Công việc đã xử lý'
+    )
+    expect(items.find((item) => item.href === APP_ROUTES.auditLogs)?.label).toBe(
+      'Hoạt động của tôi'
+    )
+    expect(items.some((item) => item.href === APP_ROUTES.settings.security)).toBe(true)
   })
 
   it('lets staff see delegated staff-management navigation without role hard-coding', () => {
@@ -351,13 +362,34 @@ describe('application navigation visibility', () => {
     expect(isNavItemActive('/subscription/invoices/payment-1/print', paymentsItem!)).toBe(true)
   })
 
-  it('keeps inventory forecasting in the inventory workspace until replenishment is available', () => {
-    const tenantItems = getNavItems(USER_ROLES.TenantOwner)
-    const replenishmentItem = tenantItems.find((item) => item.label === 'Dự báo & Bổ sung hàng')
+  it.each([USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff])(
+    'places forecasting under reports with the existing inventory view permission for %s',
+    (role) => {
+      const reports = getVisibleNavSections(role, new Set([P.INVENTORY_VIEW])).find(
+        (section) => section.id === 'reports'
+      )
+      const forecast = reports?.items.find((item) => item.href === APP_ROUTES.reportForecast)
+      expect(reports?.label).toBe('Báo cáo & phân tích')
+      expect(forecast?.status).toBeUndefined()
+      expect(forecast?.requiredPermission).toBe(P.INVENTORY_VIEW)
+      expect(
+        getVisibleNavItems(role, [P.REPORTS_VIEW]).some(
+          (item) => item.href === APP_ROUTES.reportForecast
+        )
+      ).toBe(false)
+      expect(getNavItems(role).some((item) => item.href === APP_ROUTES.inventoryForecast)).toBe(
+        false
+      )
+    }
+  )
 
-    expect(replenishmentItem?.status).toBe('planned')
-    expect(replenishmentItem?.href).toBeUndefined()
-    expect(tenantItems.some((item) => item.href === APP_ROUTES.inventoryForecast)).toBe(false)
+  it('activates only forecasting when opening the forecast workspace', () => {
+    const items = getNavItems(USER_ROLES.WarehouseManager)
+    const forecast = items.find((item) => item.href === APP_ROUTES.reportForecast)!
+    const reports = items.find((item) => item.href === APP_ROUTES.reports)!
+    expect(isNavItemActive(APP_ROUTES.reportForecast, forecast)).toBe(true)
+    expect(isNavItemActive(APP_ROUTES.reportForecast, reports)).toBe(false)
+    expect(isNavItemActive('/reports/stock-flow', reports)).toBe(true)
   })
 
   it('keeps tenant inventory hidden from the system admin', () => {
@@ -389,5 +421,23 @@ describe('application navigation visibility', () => {
         (item) => item.href === APP_ROUTES.settings.accessControl
       )
     ).toBe(false)
+  })
+})
+
+describe('inventory and cycle count navigation', () => {
+  const items = getVisibleNavItems(USER_ROLES.WarehouseManager, [
+    P.INVENTORY_VIEW,
+    P.CYCLE_COUNTS_VIEW,
+  ])
+  const activeLabels = (pathname: string) =>
+    items.filter((item) => isNavItemActive(pathname, item)).map((item) => item.label)
+
+  it('highlights only the cycle count entry on cycle count pages', () => {
+    expect(activeLabels(APP_ROUTES.cycleCounts)).toEqual(['Kiểm kê'])
+    expect(activeLabels(`${APP_ROUTES.cycleCounts}/cycle-count-1`)).toEqual(['Kiểm kê'])
+  })
+
+  it('keeps highlighting the inventory entry on its other pages', () => {
+    expect(activeLabels(APP_ROUTES.inventoryMovements)).toEqual(['Tồn kho'])
   })
 })

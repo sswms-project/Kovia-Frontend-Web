@@ -45,9 +45,9 @@ export function DeactivatePlanDialog({
           </AlertDialogMedia>
           <AlertDialogTitle>Vô hiệu hóa gói &ldquo;{plan.planName}&rdquo;?</AlertDialogTitle>
           <AlertDialogDescription>
-            Gói sẽ ngừng xuất hiện trong danh mục dành cho tenant mới. {plan.currentSubscriberCount}{' '}
-            tenant hiện tại vẫn tiếp tục sử dụng; thao tác bị chặn nếu có thay đổi gói đang chờ áp
-            dụng.
+            Gói sẽ ngừng xuất hiện trong danh mục dành cho doanh nghiệp mới.{' '}
+            {plan.currentSubscriberCount} doanh nghiệp hiện tại vẫn tiếp tục sử dụng; thao tác bị
+            chặn nếu có thay đổi gói đang chờ áp dụng.
           </AlertDialogDescription>
         </AlertDialogHeader>
 

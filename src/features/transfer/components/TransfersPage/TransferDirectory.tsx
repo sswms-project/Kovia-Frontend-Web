@@ -1,18 +1,6 @@
 'use client'
 
-import {
-  ArrowLeftRight,
-  Check,
-  Eye,
-  ListFilter,
-  MoreHorizontal,
-  PackageCheck,
-  Plus,
-  RefreshCw,
-  Search,
-  Truck,
-  X,
-} from 'lucide-react'
+import { ListFilter, Plus, RefreshCw, Search } from 'lucide-react'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
@@ -21,49 +9,20 @@ import {
   OperationalErrorState,
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
-import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
+import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { Input } from '@/components/ui/input'
-import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { P } from '@/config/permissionCodes'
 import { APP_ROUTES } from '@/routes/app-routes'
-import type { TransferStatus, TransferSummary } from '../../types/transfer.types'
-import {
-  canApproveTransfer,
-  canDispatchTransfer,
-  canReceiveTransfer,
-  formatTransferDate,
-  formatTransferQuantity,
-  TRANSFER_STATUS_LABELS,
-} from '../../utils/transfer-format'
-import { TransferStatusBadge } from './TransferStatusBadge'
+import type { TransferStage, TransferStatus, TransferSummary } from '../../types/transfer.types'
+import { transferStatusOptions } from '../../utils/transfer-stage'
+import { TransferDesktopTable } from './TransferDesktopTable'
+import { TransferFilterSheet } from './TransferFilterSheet'
+import { TransferMobileList } from './TransferMobileList'
+import { TransferRowActions } from './TransferRowActions'
+import { TRANSFER_STAGE_LABELS, TransferTabs } from './TransferTabs'
 
 interface WarehouseOption {
   readonly id: string
@@ -71,6 +30,8 @@ interface WarehouseOption {
 }
 
 interface TransferDirectoryProps {
+  readonly stage: TransferStage
+  readonly openDiscrepancyCount: number
   readonly items: readonly TransferSummary[]
   readonly totalCount: number
   readonly page: number
@@ -82,7 +43,8 @@ interface TransferDirectoryProps {
   readonly dateFrom: string
   readonly dateTo: string
   readonly warehouseOptions: readonly WarehouseOption[]
-  readonly permissions: readonly string[]
+  readonly previewId?: string
+  readonly canCreate: boolean
   readonly currentUserId: string | null
   readonly isLoading: boolean
   readonly isFetching: boolean
@@ -96,14 +58,12 @@ interface TransferDirectoryProps {
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
   readonly onRetry: () => void
-  readonly onInspect: (transfer: TransferSummary) => void
-  readonly onApprove: (transfer: TransferSummary) => void
-  readonly onReject: (transfer: TransferSummary) => void
-  readonly onDispatch: (transfer: TransferSummary) => void
-  readonly onReceive: (transfer: TransferSummary) => void
+  readonly onPreview: (transfer: TransferSummary) => void
 }
 
 export function TransferDirectory({
+  stage,
+  openDiscrepancyCount,
   items,
   totalCount,
   page,
@@ -115,7 +75,8 @@ export function TransferDirectory({
   dateFrom,
   dateTo,
   warehouseOptions,
-  permissions,
+  previewId,
+  canCreate,
   currentUserId,
   isLoading,
   isFetching,
@@ -129,102 +90,45 @@ export function TransferDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
-  onInspect,
-  onApprove,
-  onReject,
-  onDispatch,
-  onReceive,
+  onPreview,
 }: TransferDirectoryProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const statusOptions = transferStatusOptions(stage)
   const activeFilterCount =
-    (status ? 1 : 0) +
     (sourceWarehouseId ? 1 : 0) +
     (destinationWarehouseId ? 1 : 0) +
     (dateFrom ? 1 : 0) +
     (dateTo ? 1 : 0)
 
-  const canApprove = permissions.includes(P.TRANSFERS_APPROVE)
-  const canDispatch = permissions.includes(P.TRANSFERS_DISPATCH)
-  const canReceive = permissions.includes(P.TRANSFERS_RECEIVE)
-
-  const renderRowActions = (transfer: TransferSummary) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Thao tác với phiếu ${transfer.transferCode}`}
-        >
-          <MoreHorizontal aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => onInspect(transfer)}>
-          <Eye className="size-4" aria-hidden="true" />
-          Xem chi tiết
-        </DropdownMenuItem>
-        {canApprove &&
-        transfer.createdBy !== currentUserId &&
-        canApproveTransfer(transfer.status) ? (
-          <DropdownMenuItem onSelect={() => onApprove(transfer)}>
-            <Check className="size-4" aria-hidden="true" />
-            Duyệt phiếu
-          </DropdownMenuItem>
-        ) : null}
-        {canApprove &&
-        transfer.createdBy !== currentUserId &&
-        canApproveTransfer(transfer.status) ? (
-          <DropdownMenuItem variant="destructive" onSelect={() => onReject(transfer)}>
-            <X className="size-4" aria-hidden="true" />
-            Từ chối phiếu
-          </DropdownMenuItem>
-        ) : null}
-        {canDispatch && canDispatchTransfer(transfer.status) ? (
-          <DropdownMenuItem onSelect={() => onDispatch(transfer)}>
-            <Truck className="size-4" aria-hidden="true" />
-            Xuất hàng đi
-          </DropdownMenuItem>
-        ) : null}
-        {canReceive && canReceiveTransfer(transfer.status) ? (
-          <DropdownMenuItem onSelect={() => onReceive(transfer)}>
-            <PackageCheck className="size-4" aria-hidden="true" />
-            Xác nhận nhận hàng
-          </DropdownMenuItem>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+  const renderRowActions = (transfer: TransferSummary): ReactNode => (
+    <TransferRowActions
+      transfer={transfer}
+      canOpenDraft={
+        canCreate && transfer.status === 'Draft' && transfer.createdBy === currentUserId
+      }
+    />
   )
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
-            <ArrowLeftRight aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-primary text-xs font-medium">Điều chuyển</p>
-            <h1 className="mt-0.5 text-xl font-semibold">Phiếu điều chuyển kho</h1>
-          </div>
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
+      <header className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="sr-only">Điều chuyển kho</h1>
+        <div className="min-w-0 flex-1">
+          <TransferTabs stage={stage} openDiscrepancyCount={openDiscrepancyCount} />
         </div>
-        {permissions.includes(P.TRANSFERS_CREATE) ? (
-          <Button asChild className="w-full sm:w-auto">
+        {canCreate ? (
+          <Button asChild size="sm" className="shrink-0">
             <Link href={APP_ROUTES.transferCreate}>
               <Plus aria-hidden="true" />
-              Tạo phiếu điều chuyển
+              Tạo yêu cầu điều chuyển
             </Link>
           </Button>
         ) : null}
       </header>
 
-      <OperationalListPanel aria-labelledby="transfer-directory-title">
+      <OperationalListPanel>
         <div className="flex shrink-0 flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 id="transfer-directory-title" className="text-sm font-semibold">
-              Danh sách phiếu
-            </h2>
-          </div>
+          <h2 className="text-sm font-semibold">{TRANSFER_STAGE_LABELS[stage]}</h2>
           <div className="flex w-full gap-2 sm:w-auto">
             <InputGroup className="min-w-0 flex-1 sm:w-72">
               <InputGroupAddon>
@@ -232,11 +136,25 @@ export function TransferDirectory({
               </InputGroupAddon>
               <InputGroupInput
                 aria-label="Tìm phiếu điều chuyển"
-                placeholder="Tìm mã phiếu, kho xuất, kho nhận…"
+                placeholder="Tìm mã phiếu, kho xuất, kho nhập…"
                 value={searchText}
                 onChange={(event) => onSearchChange(event.target.value)}
               />
             </InputGroup>
+            {statusOptions.length > 0 ? (
+              <NativeSelect
+                aria-label="Lọc theo trạng thái"
+                className="w-44 shrink-0"
+                value={status}
+                onChange={(event) => onStatusChange(event.target.value as TransferStatus | '')}
+              >
+                {statusOptions.map((option) => (
+                  <NativeSelectOption key={option.value} value={option.value}>
+                    {option.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            ) : null}
             <Button type="button" variant="outline" onClick={() => setIsFilterOpen(true)}>
               <ListFilter aria-hidden="true" />
               Bộ lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
@@ -248,10 +166,15 @@ export function TransferDirectory({
                   variant="outline"
                   size="icon"
                   aria-label="Tải lại danh sách"
+                  aria-busy={isFetching}
                   onClick={onRetry}
                 >
                   <RefreshCw
-                    className={isFetching ? 'animate-spin' : undefined}
+                    className={
+                      isFetching
+                        ? 'animate-spin motion-reduce:animate-none motion-reduce:opacity-50'
+                        : undefined
+                    }
                     aria-hidden="true"
                   />
                 </Button>
@@ -268,12 +191,22 @@ export function TransferDirectory({
         ) : items.length === 0 ? (
           <OperationalEmptyState
             title="Chưa có phiếu điều chuyển phù hợp"
-            description="Thử đổi từ khóa, bộ lọc hoặc tạo phiếu điều chuyển đầu tiên."
+            description="Thử đổi tab, từ khóa, bộ lọc hoặc tạo yêu cầu điều chuyển mới."
           />
         ) : (
           <>
-            <TransferMobileList items={items} renderRowActions={renderRowActions} />
-            <TransferDesktopTable items={items} renderRowActions={renderRowActions} />
+            <TransferMobileList
+              items={items}
+              previewId={previewId}
+              onPreview={onPreview}
+              renderRowActions={renderRowActions}
+            />
+            <TransferDesktopTable
+              items={items}
+              previewId={previewId}
+              onPreview={onPreview}
+              renderRowActions={renderRowActions}
+            />
             <OperationalPagination
               page={page}
               pageSize={pageSize}
@@ -286,199 +219,19 @@ export function TransferDirectory({
         )}
       </OperationalListPanel>
 
-      <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-        <SheetContent className="w-full sm:max-w-sm">
-          <SheetHeader>
-            <SheetTitle>Bộ lọc phiếu điều chuyển</SheetTitle>
-            <SheetDescription>Thu hẹp danh sách theo trạng thái và kho.</SheetDescription>
-          </SheetHeader>
-          <FieldGroup className="flex-1 p-4">
-            <Field>
-              <FieldLabel htmlFor="transfer-filter-status">Trạng thái</FieldLabel>
-              <NativeSelect
-                id="transfer-filter-status"
-                className="w-full"
-                value={status}
-                onChange={(event) => onStatusChange(event.target.value as TransferStatus | '')}
-              >
-                <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-                {Object.entries(TRANSFER_STATUS_LABELS).map(([value, label]) => (
-                  <NativeSelectOption key={value} value={value}>
-                    {label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="transfer-filter-source">Kho xuất</FieldLabel>
-              <NativeSelect
-                id="transfer-filter-source"
-                className="w-full"
-                value={sourceWarehouseId}
-                onChange={(event) => onSourceWarehouseChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {warehouseOptions.map((warehouse) => (
-                  <NativeSelectOption key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="transfer-filter-destination">Kho nhận</FieldLabel>
-              <NativeSelect
-                id="transfer-filter-destination"
-                className="w-full"
-                value={destinationWarehouseId}
-                onChange={(event) => onDestinationWarehouseChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {warehouseOptions.map((warehouse) => (
-                  <NativeSelectOption key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field>
-                <FieldLabel htmlFor="transfer-date-from">Từ ngày</FieldLabel>
-                <Input
-                  id="transfer-date-from"
-                  type="date"
-                  value={dateFrom}
-                  max={dateTo || undefined}
-                  onChange={(event) => onDateFromChange(event.target.value)}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="transfer-date-to">Đến ngày</FieldLabel>
-                <Input
-                  id="transfer-date-to"
-                  type="date"
-                  value={dateTo}
-                  min={dateFrom || undefined}
-                  onChange={(event) => onDateToChange(event.target.value)}
-                />
-              </Field>
-            </div>
-          </FieldGroup>
-          <SheetFooter>
-            <Button type="button" onClick={() => setIsFilterOpen(false)}>
-              Xem kết quả
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                onStatusChange('')
-                onSourceWarehouseChange('')
-                onDestinationWarehouseChange('')
-                onDateFromChange('')
-                onDateToChange('')
-              }}
-            >
-              Đặt lại
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-    </div>
-  )
-}
-
-function totalTransferQuantity(transfer: TransferSummary) {
-  return transfer.items.reduce((total, item) => total + item.quantity, 0)
-}
-
-function TransferMobileList({
-  items,
-  renderRowActions,
-}: {
-  readonly items: readonly TransferSummary[]
-  readonly renderRowActions: (transfer: TransferSummary) => ReactNode
-}) {
-  return (
-    <ItemGroup className="gap-0 md:hidden">
-      {items.map((item) => (
-        <Item key={item.id} className="border-b last:border-b-0">
-          <ItemContent className="min-w-0">
-            <ItemTitle className="flex flex-wrap items-center gap-2">
-              <span className="max-w-full min-w-0 truncate font-mono font-semibold" translate="no">
-                {item.transferCode}
-              </span>
-              <TransferStatusBadge status={item.status} />
-            </ItemTitle>
-            <ItemDescription>
-              {item.sourceWarehouseName} → {item.destinationWarehouseName}
-            </ItemDescription>
-            <ItemDescription>
-              {item.items.length} dòng · {formatTransferQuantity(totalTransferQuantity(item))} đơn
-              vị · {formatTransferDate(item.createdAt)}
-            </ItemDescription>
-          </ItemContent>
-          {renderRowActions(item)}
-        </Item>
-      ))}
-    </ItemGroup>
-  )
-}
-
-function TransferDesktopTable({
-  items,
-  renderRowActions,
-}: {
-  readonly items: readonly TransferSummary[]
-  readonly renderRowActions: (transfer: TransferSummary) => ReactNode
-}) {
-  return (
-    <div className="hidden min-h-0 flex-1 overflow-auto md:block">
-      <Table className="min-w-[1040px] table-fixed">
-        <TableHeader>
-          <TableRow>
-            <TableHead className="sticky top-0 z-10 w-56">Mã phiếu</TableHead>
-            <TableHead className="sticky top-0 z-10 w-52">Kho xuất</TableHead>
-            <TableHead className="sticky top-0 z-10 w-52">Kho nhận</TableHead>
-            <TableHead className="sticky top-0 z-10 w-36">Trạng thái</TableHead>
-            <TableHead className="sticky top-0 z-10 w-24 text-right">Số dòng</TableHead>
-            <TableHead className="sticky top-0 z-10 w-32 text-right">Tổng SL</TableHead>
-            <TableHead className="sticky top-0 z-10 w-44">Ngày tạo</TableHead>
-            <TableHead className="sticky top-0 z-10 w-12">
-              <span className="sr-only">Thao tác</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="min-w-0">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="block truncate font-mono font-semibold" translate="no">
-                      {item.transferCode}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="font-mono" translate="no">
-                    {item.transferCode}
-                  </TooltipContent>
-                </Tooltip>
-              </TableCell>
-              <TableCell className="truncate">{item.sourceWarehouseName}</TableCell>
-              <TableCell className="truncate">{item.destinationWarehouseName}</TableCell>
-              <TableCell>
-                <TransferStatusBadge status={item.status} />
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{item.items.length}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                {formatTransferQuantity(totalTransferQuantity(item))}
-              </TableCell>
-              <TableCell className="truncate">{formatTransferDate(item.createdAt)}</TableCell>
-              <TableCell className="text-right">{renderRowActions(item)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <TransferFilterSheet
+        open={isFilterOpen}
+        sourceWarehouseId={sourceWarehouseId}
+        destinationWarehouseId={destinationWarehouseId}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        warehouseOptions={warehouseOptions}
+        onOpenChange={setIsFilterOpen}
+        onSourceWarehouseChange={onSourceWarehouseChange}
+        onDestinationWarehouseChange={onDestinationWarehouseChange}
+        onDateFromChange={onDateFromChange}
+        onDateToChange={onDateToChange}
+      />
     </div>
   )
 }

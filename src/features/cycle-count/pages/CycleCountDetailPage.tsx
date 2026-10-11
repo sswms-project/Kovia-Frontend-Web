@@ -11,21 +11,27 @@ import {
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { APP_ROUTES } from '@/routes/app-routes'
-import { CycleCountDetailView } from '../components/CycleCountDetailView'
+import { CycleCountDetailView } from '../components/CycleCountDetailPage'
+import { cycleCountService } from '../services/cycle-count.service'
 import {
-  useCreateStockAdjustmentMutation,
+  useCancelCycleCountMutation,
+  useCreateStockAdjustmentVoucherMutation,
   useCycleCountAllowedActionsQuery,
+  useInvalidateCycleCount,
   useCycleCountQuery,
   useFinalizeCycleCountMutation,
   useRecordCycleCountItemMutation,
   useRequestRecountMutation,
+  useStartCycleCountMutation,
   useSubmitCycleCountMutation,
 } from '../hooks/use-cycle-count'
 import {
+  cancelCycleCountSchema,
+  createStockAdjustmentVoucherSchema,
   recountSchema,
-  stockAdjustmentSchema,
+  type CancelCycleCountFormValues,
+  type CreateStockAdjustmentVoucherFormValues,
   type RecountFormValues,
-  type StockAdjustmentFormValues,
 } from '../schemas/cycle-count.schema'
 
 export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleCountId: string }) {
@@ -34,24 +40,33 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
   const actions = useCycleCountAllowedActionsQuery(cycleCountId)
   const me = useMeQuery()
   const record = useRecordCycleCountItemMutation()
+  const invalidateCycleCount = useInvalidateCycleCount()
+  const start = useStartCycleCountMutation()
   const submit = useSubmitCycleCountMutation()
   const recount = useRequestRecountMutation()
   const finalize = useFinalizeCycleCountMutation()
-  const adjustment = useCreateStockAdjustmentMutation()
+  const cancel = useCancelCycleCountMutation()
+  const createVoucher = useCreateStockAdjustmentVoucherMutation()
   const recountForm = useForm<RecountFormValues>({
     resolver: zodResolver(recountSchema),
     defaultValues: { itemIds: [], reason: '' },
   })
-  const adjustmentForm = useForm<StockAdjustmentFormValues>({
-    resolver: zodResolver(stockAdjustmentSchema),
-    defaultValues: { cycleCountItemId: '', reason: '' },
+  const voucherForm = useForm<CreateStockAdjustmentVoucherFormValues>({
+    resolver: zodResolver(createStockAdjustmentVoucherSchema),
+    defaultValues: { cycleCountItemIds: [], reason: '' },
+  })
+  const cancelForm = useForm<CancelCycleCountFormValues>({
+    resolver: zodResolver(cancelCycleCountSchema),
+    defaultValues: { reason: '' },
   })
   const pending =
     record.isPending ||
+    start.isPending ||
     submit.isPending ||
     recount.isPending ||
     finalize.isPending ||
-    adjustment.isPending
+    createVoucher.isPending ||
+    cancel.isPending
   async function perform(action: () => Promise<unknown>, message: string): Promise<boolean> {
     try {
       await action()
@@ -77,13 +92,32 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
       isPending={pending}
       canCreateAdjustment={me.data?.permissions.includes(P.STOCK_ADJUSTMENTS_CREATE) ?? false}
       recountForm={recountForm}
-      adjustmentForm={adjustmentForm}
-      onRecord={async (itemId, quantity) => {
-        await perform(
-          () => record.mutateAsync({ cycleCountId, itemId, countedQuantity: quantity }),
-          'Đã lưu số đếm.'
+      voucherForm={voucherForm}
+      cancelForm={cancelForm}
+      onSaveItems={(entries) =>
+        perform(async () => {
+          // ponytail: ghi lần lượt từng dòng, thêm API lưu hàng loạt nếu phiếu có hàng trăm dòng.
+          try {
+            for (const entry of entries)
+              await record.mutateAsync({
+                cycleCountId,
+                itemId: entry.itemId,
+                countedQuantity: entry.quantity,
+                countedDamagedQuantity: entry.damagedQuantity,
+                note: entry.note,
+              })
+          } finally {
+            // Dòng đã lưu trước khi lỗi vẫn cần hiện lại, nên invalidate cả khi thất bại.
+            await invalidateCycleCount()
+          }
+        }, `Đã lưu ${entries.length} dòng kiểm kê.`)
+      }
+      onStart={() =>
+        perform(
+          () => start.mutateAsync(cycleCountId),
+          'Đã bắt đầu kiểm kê và cập nhật tồn sổ sách.'
         )
-      }}
+      }
       onSubmit={async () => {
         await perform(() => submit.mutateAsync(cycleCountId), 'Đã gửi kết quả kiểm kê.')
       }}
@@ -93,17 +127,34 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
           'Đã yêu cầu kiểm đếm lại.'
         )
       }
+      onCancel={(reason) =>
+        perform(
+          () => cancel.mutateAsync({ cycleCountId, request: { reason } }),
+          'Đã huỷ phiếu kiểm kê.'
+        )
+      }
+      onExport={async () => {
+        await perform(
+          () =>
+            cycleCountService.exportCycleCount(cycleCountId, `kiem-ke-${detail.data.code}.xlsx`),
+          'Đã xuất danh sách kiểm kê.'
+        )
+      }}
       onFinalize={async () => {
         await perform(() => finalize.mutateAsync(cycleCountId), 'Đã hoàn tất phiếu kiểm kê.')
       }}
-      onCreateAdjustment={async (itemId, reason) => {
+      onCreateVoucher={async (itemIds, reason) => {
         try {
-          const response = await adjustment.mutateAsync({ cycleCountItemId: itemId, reason })
-          toast.success('Đã tạo đề nghị điều chỉnh.')
-          router.push(APP_ROUTES.stockAdjustmentDetail(response.data))
+          const response = await createVoucher.mutateAsync({
+            cycleCountId,
+            cycleCountItemIds: itemIds,
+            reason,
+          })
+          toast.success(`Đã tạo phiếu điều chỉnh ${itemIds.length} dòng.`)
+          router.push(APP_ROUTES.stockAdjustmentVoucherDetail(response.data))
           return true
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : 'Không thể tạo đề nghị điều chỉnh.')
+          toast.error(error instanceof Error ? error.message : 'Không thể tạo phiếu điều chỉnh.')
           return false
         }
       }}

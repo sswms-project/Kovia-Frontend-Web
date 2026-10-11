@@ -1,10 +1,16 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Send } from 'lucide-react'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { P } from '@/config/permissionCodes'
+import { APP_ROUTES } from '@/routes/app-routes'
+import { useStaffListQuery } from '@/features/staff/hooks/use-staff'
+import { STAFF_DIRECTORY_KINDS } from '@/features/staff/types/staff.types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,10 +34,13 @@ import {
   StockIssueRequestDetailSheet,
   StockIssueRequestDirectory,
   CreateGoodsReturnRequestDialog,
+  CancelStockIssueRequestDialog,
+  ReportPickIssueDialog,
 } from '../components/StockIssueRequestsPage'
 import {
   useStockRecipientOptionsQuery,
   useRecordStockPickingMutation,
+  useReportStockIssuePickIssueMutation,
   useStockIssueRequestQuery,
   useStockIssueRequestsQuery,
   useCreateGoodsReturnRequestMutation,
@@ -39,6 +48,8 @@ import {
   useConfirmStockDispatchMutation,
   useRemovePickDetailMutation,
   useReleaseStockIssueRequestMutation,
+  useCancelStockIssueRequestMutation,
+  useAssignStockIssuePickerMutation,
 } from '../hooks/use-stock-issue-requests'
 import {
   recordStockPickingSchema,
@@ -56,14 +67,19 @@ function toRecordStockPickingLines(
     productId: item.productId,
     productName: item.productName,
     sku: item.sku,
+    barcode: item.barcode,
     remainingQuantity: Math.max(0, item.quantity - item.pickedQuantity),
     inventoryStockId: '',
     availableQuantity: 0,
     pickedQuantity: 0,
+    scannedBarcode: '',
   }))
 }
 
-export default function StockIssueRequestPage() {
+export default function StockIssueRequestPage({
+  initialRequestId,
+}: { readonly initialRequestId?: string } = {}) {
+  const [linkedRequestId, setLinkedRequestId] = useState(initialRequestId)
   const [searchText, setSearchText] = useState('')
   const [status, setStatus] = useState<StockIssueRequestStatus | ''>('')
   const [warehouseId, setWarehouseId] = useState('')
@@ -73,13 +89,20 @@ export default function StockIssueRequestPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [inspectedOrder, setInspectedOrder] = useState<StockIssueRequestSummary | null>(null)
+  const router = useRouter()
   const [issuingOrder, setIssuingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [returningOrder, setGoodsReturnRequestingOrder] = useState<StockIssueRequestSummary | null>(
     null
   )
   const [dispatchingOrder, setDispatchingOrder] = useState<StockIssueRequestSummary | null>(null)
+  const [dispatchScanText, setDispatchScanText] = useState('')
   const [authorizingOrder, setAuthorizingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [releasingOrder, setReleasingOrder] = useState<StockIssueRequestSummary | null>(null)
+  const [reportingOrder, setReportingOrder] = useState<StockIssueRequestSummary | null>(null)
+  const reportPickIssueMutation = useReportStockIssuePickIssueMutation()
+  const [cancellingOrder, setCancellingOrder] = useState<StockIssueRequestSummary | null>(null)
+  const [assignedToMe, setAssignedToMe] = useState(false)
+  const [releaseStaffId, setReleaseStaffId] = useState('')
   const [issueInventorySearch, setIssueInventorySearch] = useState('')
   const [returnSlotSearch, setGoodsReturnRequestSlotSearch] = useState('')
 
@@ -96,9 +119,10 @@ export default function StockIssueRequestPage() {
     ...(stockRecipientId ? { stockRecipientId } : {}),
     ...(dateFrom ? { dateFrom } : {}),
     ...(dateTo ? { dateTo } : {}),
+    ...(assignedToMe ? { assignedToMe } : {}),
   })
   const stockRecipientOptionsQuery = useStockRecipientOptionsQuery({ pageNumber: 1, pageSize: 200 })
-  const orderDetailQuery = useStockIssueRequestQuery(inspectedOrder?.id ?? null)
+  const orderDetailQuery = useStockIssueRequestQuery(inspectedOrder?.id ?? linkedRequestId ?? null)
   const reservationQuery = useInventoryReservationsQuery(
     {
       pageNumber: 1,
@@ -125,12 +149,41 @@ export default function StockIssueRequestPage() {
     isActive: true,
   })
 
+  const canPick = (meQuery.data?.permissions ?? []).includes(P.STOCK_ISSUE_REQUESTS_PICK)
+  const canAssignPicker = (meQuery.data?.permissions ?? []).includes(
+    P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER
+  )
+  const pickerWarehouseId = releasingOrder?.warehouseId ?? orderDetailQuery.data?.warehouseId
+  const staffQuery = useStaffListQuery(
+    STAFF_DIRECTORY_KINDS.staff,
+    { top: 100, skip: 0, needTotalCount: true },
+    canAssignPicker && Boolean(pickerWarehouseId)
+  )
+  const managerQuery = useStaffListQuery(
+    STAFF_DIRECTORY_KINDS.managers,
+    { top: 100, skip: 0, needTotalCount: true },
+    canAssignPicker && Boolean(pickerWarehouseId)
+  )
+  const pickerOptions = useMemo(() => {
+    const candidates = [...(staffQuery.data?.items ?? []), ...(managerQuery.data?.items ?? [])]
+    return candidates
+      .filter(
+        (staff, index) =>
+          staff.status === 'Active' &&
+          Boolean(pickerWarehouseId && staff.assignedWarehouseIds.includes(pickerWarehouseId)) &&
+          candidates.findIndex((candidate) => candidate.id === staff.id) === index
+      )
+      .map((staff) => ({ id: staff.id, name: staff.fullName }))
+  }, [managerQuery.data?.items, pickerWarehouseId, staffQuery.data?.items])
+  const assignPickerMutation = useAssignStockIssuePickerMutation()
+
   const recordStockPickingMutation = useRecordStockPickingMutation()
   const createGoodsReturnRequestMutation = useCreateGoodsReturnRequestMutation()
   const confirmDispatchMutation = useConfirmStockDispatchMutation()
   const authorizeDispatchMutation = useAuthorizeStockDispatchMutation()
   const removePickDetailMutation = useRemovePickDetailMutation()
   const releaseForPickingMutation = useReleaseStockIssueRequestMutation()
+  const cancelMutation = useCancelStockIssueRequestMutation()
 
   const recordStockPickingForm = useForm<RecordStockPickingFormValues>({
     resolver: zodResolver(recordStockPickingSchema),
@@ -184,6 +237,8 @@ export default function StockIssueRequestPage() {
               stockIssueRequestItemId: line.stockIssueRequestItemId,
               inventoryStockId: line.inventoryStockId,
               pickedQuantity: line.pickedQuantity,
+              scannedBarcode: line.scannedBarcode?.trim() || null,
+              scannedSlotCode: line.scannedSlotCode?.trim() || null,
             })),
         },
       })
@@ -258,9 +313,17 @@ export default function StockIssueRequestPage() {
   async function handleConfirmDispatch() {
     if (!dispatchingOrder) return
     try {
-      await confirmDispatchMutation.mutateAsync(dispatchingOrder.id)
+      const scannedBarcodes = dispatchScanText
+        .split(/[\s,;]+/)
+        .map((code) => code.trim())
+        .filter(Boolean)
+      await confirmDispatchMutation.mutateAsync({
+        stockIssueRequestId: dispatchingOrder.id,
+        scannedBarcodes,
+      })
       toast.success('Đã xác nhận hàng rời kho và ghi giảm tồn kho.')
       setDispatchingOrder(null)
+      setDispatchScanText('')
     } catch (error) {
       logger.error(formatApiError(error))
       toast.error(getApiErrorMessage(error, 'Không thể xác nhận xuất kho.'))
@@ -279,6 +342,27 @@ export default function StockIssueRequestPage() {
     }
   }
 
+  async function handleCancel(reason: string) {
+    if (!cancellingOrder) return
+    try {
+      if (!cancellingOrder.version) {
+        toast.error('Phiếu xuất chưa có phiên bản. Vui lòng tải lại.')
+        return
+      }
+      await cancelMutation.mutateAsync({
+        stockIssueRequestId: cancellingOrder.id,
+        commandId: crypto.randomUUID(),
+        expectedVersion: cancellingOrder.version,
+        reason,
+      })
+      toast.success('Đã huỷ phiếu xuất và giải phóng tồn kho giữ chỗ.')
+      setCancellingOrder(null)
+    } catch (error) {
+      logger.error(formatApiError(error))
+      toast.error(getApiErrorMessage(error, 'Không thể huỷ phiếu xuất.'))
+    }
+  }
+
   async function handleReleaseForPicking() {
     if (!releasingOrder) return
     try {
@@ -290,12 +374,14 @@ export default function StockIssueRequestPage() {
         stockIssueRequestId: releasingOrder.id,
         commandId: crypto.randomUUID(),
         expectedVersion: releasingOrder.version,
+        assignedStaffId: releaseStaffId,
       })
-      toast.success('Đã duyệt phiếu và giữ tồn kho cho bước lấy hàng.')
+      toast.success('Đã giao việc lấy hàng và giữ tồn kho.')
       setReleasingOrder(null)
+      setReleaseStaffId('')
     } catch (error) {
       logger.error(formatApiError(error))
-      toast.error(getApiErrorMessage(error, 'Không thể duyệt và giữ hàng.'))
+      toast.error(getApiErrorMessage(error, 'Không thể giao việc lấy hàng.'))
     }
   }
 
@@ -312,6 +398,8 @@ export default function StockIssueRequestPage() {
         stockRecipientId={stockRecipientId}
         dateFrom={dateFrom}
         dateTo={dateTo}
+        assignedToMe={assignedToMe}
+        onAssignedToMeChange={(value) => updateFilter(setAssignedToMe, value)}
         stockRecipientOptions={(stockRecipientOptionsQuery.data?.items ?? []).map(
           (stockRecipient) => ({
             id: stockRecipient.id,
@@ -337,6 +425,8 @@ export default function StockIssueRequestPage() {
         onRetry={() => void ordersQuery.refetch()}
         onInspect={setInspectedOrder}
         onReleaseForPicking={setReleasingOrder}
+        onCancel={setCancellingOrder}
+        onReportPickIssue={setReportingOrder}
         onRecordStockPicking={handleOpenRecordStockPicking}
         onAuthorizeDispatch={setAuthorizingOrder}
         onConfirmDispatch={setDispatchingOrder}
@@ -348,6 +438,33 @@ export default function StockIssueRequestPage() {
         isError={orderDetailQuery.isError}
         onRetry={() => void orderDetailQuery.refetch()}
         isRemovingPick={removePickDetailMutation.isPending}
+        canAssignPicker={canAssignPicker}
+        pickerOptions={pickerOptions}
+        isAssigningPicker={assignPickerMutation.isPending}
+        canPick={canPick}
+        onStartPicking={(o) => {
+          setInspectedOrder(null)
+          handleOpenRecordStockPicking(o)
+        }}
+        onReleaseForPicking={(o) => {
+          setInspectedOrder(null)
+          setReleasingOrder(o)
+        }}
+        onAssignPicker={(staffId) => {
+          const detail = orderDetailQuery.data
+          if (!detail?.version) return
+          void assignPickerMutation
+            .mutateAsync({
+              stockIssueRequestId: detail.id,
+              staffId,
+              expectedVersion: detail.version,
+            })
+            .then(() => toast.success('Đã giao người lấy hàng.'))
+            .catch((error) => {
+              logger.error(formatApiError(error))
+              toast.error(getApiErrorMessage(error, 'Không thể giao người lấy hàng.'))
+            })
+        }}
         onRemovePickDetail={(pickDetailId) => {
           const orderId = orderDetailQuery.data?.id
           if (!orderId) return
@@ -360,8 +477,40 @@ export default function StockIssueRequestPage() {
             })
         }}
         onOpenChange={(open) => {
-          if (!open) setInspectedOrder(null)
+          if (open) return
+          setInspectedOrder(null)
+          if (linkedRequestId) {
+            setLinkedRequestId(undefined)
+            router.replace(APP_ROUTES.stockIssueRequests)
+          }
         }}
+      />
+      <ReportPickIssueDialog
+        key={`report-${reportingOrder?.id ?? 'none'}`}
+        order={reportingOrder}
+        isPending={reportPickIssueMutation.isPending}
+        onClose={() => setReportingOrder(null)}
+        onConfirm={async (reason) => {
+          if (!reportingOrder) return
+          try {
+            await reportPickIssueMutation.mutateAsync({
+              stockIssueRequestId: reportingOrder.id,
+              reason,
+            })
+            toast.success('Đã gửi báo cáo hàng lỗi cho chủ doanh nghiệp.')
+            setReportingOrder(null)
+          } catch (error) {
+            logger.error(formatApiError(error))
+            toast.error(getApiErrorMessage(error, 'Không thể gửi báo cáo.'))
+          }
+        }}
+      />
+      <CancelStockIssueRequestDialog
+        key={cancellingOrder?.id ?? 'none'}
+        order={cancellingOrder}
+        isPending={cancelMutation.isPending}
+        onClose={() => setCancellingOrder(null)}
+        onConfirm={(reason) => void handleCancel(reason)}
       />
       <RecordStockPickingDialog
         order={issuingOrder}
@@ -398,21 +547,37 @@ export default function StockIssueRequestPage() {
             <AlertDialogMedia>
               <Send aria-hidden="true" />
             </AlertDialogMedia>
-            <AlertDialogTitle>Duyệt và giữ hàng?</AlertDialogTitle>
+            <AlertDialogTitle>Giao việc lấy hàng?</AlertDialogTitle>
             <AlertDialogDescription>
-              Hệ thống sẽ phân bổ tồn đủ điều kiện và giữ số lượng cho phiếu trước khi nhân viên lấy
-              hàng.
+              Chọn nhân viên kho phụ trách. Hệ thống sẽ giữ tồn đủ điều kiện cho phiếu trước khi
+              nhân viên lấy hàng.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {canAssignPicker ? (
+            <NativeSelect
+              aria-label="Giao cho nhân viên lấy hàng"
+              className="w-full"
+              value={releaseStaffId}
+              disabled={releaseForPickingMutation.isPending}
+              onChange={(event) => setReleaseStaffId(event.target.value)}
+            >
+              <NativeSelectOption value="">Chọn nhân viên lấy hàng…</NativeSelectOption>
+              {pickerOptions.map((option) => (
+                <NativeSelectOption key={option.id} value={option.id}>
+                  {option.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={releaseForPickingMutation.isPending}>
               Hủy
             </AlertDialogCancel>
             <AlertDialogAction
-              disabled={releaseForPickingMutation.isPending}
+              disabled={releaseForPickingMutation.isPending || !releaseStaffId}
               onClick={() => void handleReleaseForPicking()}
             >
-              {releaseForPickingMutation.isPending ? 'Đang xử lý…' : 'Duyệt và giữ hàng'}
+              {releaseForPickingMutation.isPending ? 'Đang xử lý…' : 'Giao việc'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -480,9 +645,20 @@ export default function StockIssueRequestPage() {
             <AlertDialogTitle>Xác nhận hàng đã rời kho?</AlertDialogTitle>
             <AlertDialogDescription>
               Thao tác này sẽ ghi giảm tồn kho thật, sử dụng lượng hàng đã giữ và chuyển yêu cầu
-              xuất sang trạng thái Đã xuất kho.
+              xuất sang trạng thái Đã xuất kho. Quét mã sản phẩm của hàng rời kho để đối chiếu (mỗi
+              mã một dòng hoặc cách nhau bằng dấu phẩy).
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <textarea
+            aria-label="Mã sản phẩm đã quét"
+            name="dispatchScannedBarcodes"
+            autoComplete="off"
+            rows={3}
+            placeholder="Quét hoặc nhập mã sản phẩm…"
+            value={dispatchScanText}
+            onChange={(event) => setDispatchScanText(event.target.value)}
+            className="border-input bg-background w-full border p-2 font-mono text-sm"
+          />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmDispatchMutation.isPending}>Hủy</AlertDialogCancel>
             <AlertDialogAction

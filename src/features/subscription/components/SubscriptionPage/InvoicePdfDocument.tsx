@@ -129,7 +129,7 @@ export function InvoicePdfDocument({ invoice, customer }: InvoicePdfDocumentProp
         <Text style={styles.note}>
           Biên nhận này được tạo từ dữ liệu thanh toán hiện có của hệ thống. Tài liệu này không phải
           hóa đơn điện tử hợp pháp, không bao gồm thuế, chữ ký số hoặc thông tin pháp lý ngoài dữ
-          liệu Backend cung cấp.
+          liệu hệ thống cung cấp.
         </Text>
       </Page>
     </Document>

@@ -12,6 +12,7 @@ const statusStyles: Record<CycleCountStatus | StockAdjustmentStatus, string> = {
   Submitted: 'border-violet-200 bg-violet-50 text-violet-700',
   Recount: 'border-orange-200 bg-orange-50 text-orange-700',
   Completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  Cancelled: 'border-zinc-200 bg-zinc-100 text-zinc-600',
   Pending: 'border-amber-200 bg-amber-50 text-amber-700',
   Approved: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   Rejected: 'border-red-200 bg-red-50 text-red-700',

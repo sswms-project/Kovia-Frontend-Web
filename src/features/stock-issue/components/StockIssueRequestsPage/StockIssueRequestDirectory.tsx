@@ -1,10 +1,21 @@
 'use client'
 
-import { Eye, ListFilter, MoreHorizontal, Plus, RefreshCw, Search, Send, Undo2 } from 'lucide-react'
+import {
+  Ban,
+  Eye,
+  ListFilter,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Undo2,
+  Upload,
+} from 'lucide-react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -44,16 +55,19 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { P } from '@/config/permissionCodes'
 import { APP_ROUTES } from '@/routes/app-routes'
+import { StockIssueImportDialog } from './StockIssueImportDialog'
 import type {
   StockIssueRequestStatus,
   StockIssueRequestSummary,
 } from '../../types/stock-issue.types'
 import {
+  canCancelStockIssueRequest,
   canRecordStockPicking,
   formatStockIssueDate,
   formatStockIssueQuantity,
   STOCK_ISSUE_REQUEST_STATUS_LABELS,
 } from '../../utils/stock-issue-format'
+import { Switch } from '@/components/ui/switch'
 import { StockIssueRequestStatusBadge } from './StockIssueRequestStatusBadge'
 
 interface WarehouseOption {
@@ -72,6 +86,7 @@ interface StockIssueRequestDirectoryProps {
   readonly stockRecipientId: string
   readonly dateFrom: string
   readonly dateTo: string
+  readonly assignedToMe: boolean
   readonly stockRecipientOptions: readonly { id: string; name: string }[]
   readonly warehouseOptions: readonly WarehouseOption[]
   readonly permissions: readonly string[]
@@ -84,11 +99,14 @@ interface StockIssueRequestDirectoryProps {
   readonly onStockRecipientChange: (value: string) => void
   readonly onDateFromChange: (value: string) => void
   readonly onDateToChange: (value: string) => void
+  readonly onAssignedToMeChange: (value: boolean) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
   readonly onRetry: () => void
   readonly onInspect: (order: StockIssueRequestSummary) => void
   readonly onReleaseForPicking: (order: StockIssueRequestSummary) => void
+  readonly onCancel: (order: StockIssueRequestSummary) => void
+  readonly onReportPickIssue: (order: StockIssueRequestSummary) => void
   readonly onRecordStockPicking: (order: StockIssueRequestSummary) => void
   readonly onAuthorizeDispatch: (order: StockIssueRequestSummary) => void
   readonly onConfirmDispatch: (order: StockIssueRequestSummary) => void
@@ -123,22 +141,44 @@ export function StockIssueRequestDirectory({
   onRetry,
   onInspect,
   onReleaseForPicking,
+  onCancel,
+  onReportPickIssue,
   onRecordStockPicking,
   onAuthorizeDispatch,
   onConfirmDispatch,
   onCreateGoodsReturnRequest,
+  assignedToMe,
+  onAssignedToMeChange,
 }: StockIssueRequestDirectoryProps) {
+  const [importOpen, setImportOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const selectedOrder = items.find((order) => order.id === selectedId) ?? items[0] ?? null
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'F3') {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
   const activeFilterCount =
     (status ? 1 : 0) +
     (warehouseId ? 1 : 0) +
     (stockRecipientId ? 1 : 0) +
     (dateFrom ? 1 : 0) +
-    (dateTo ? 1 : 0)
+    (dateTo ? 1 : 0) +
+    (assignedToMe ? 1 : 0)
 
   const canPick = permissions.includes(P.STOCK_ISSUE_REQUESTS_PICK)
   const canDispatch = permissions.includes(P.STOCK_ISSUE_REQUESTS_DISPATCH)
   const canAuthorizeDispatch = permissions.includes(P.STOCK_ISSUE_REQUESTS_AUTHORIZE_DISPATCH)
+  const canAssignPicker = permissions.includes(P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER)
+  const canCancel = permissions.includes(P.STOCK_ISSUE_REQUESTS_CANCEL)
   const canGoodsReturnRequest = permissions.includes(P.STOCK_ISSUE_REQUESTS_RETURN)
 
   const renderRowActions = (order: StockIssueRequestSummary) => (
@@ -158,16 +198,22 @@ export function StockIssueRequestDirectory({
           <Eye className="size-4" aria-hidden="true" />
           Xem chi tiết
         </DropdownMenuItem>
-        {canAuthorizeDispatch && order.status === 'Pending' ? (
+        {canAssignPicker && order.status === 'Pending' ? (
           <DropdownMenuItem onSelect={() => onReleaseForPicking(order)}>
             <Send className="size-4" aria-hidden="true" />
-            Duyệt và giữ hàng
+            Giao việc lấy hàng
           </DropdownMenuItem>
         ) : null}
         {canPick && canRecordStockPicking(order.status) ? (
           <DropdownMenuItem onSelect={() => onRecordStockPicking(order)}>
             <Undo2 className="size-4" aria-hidden="true" />
-            Ghi nhận lấy hàng
+            Quét &amp; lấy hàng
+          </DropdownMenuItem>
+        ) : null}
+        {canPick && canRecordStockPicking(order.status) ? (
+          <DropdownMenuItem onSelect={() => onReportPickIssue(order)}>
+            <Undo2 className="size-4" aria-hidden="true" />
+            Báo hàng lỗi
           </DropdownMenuItem>
         ) : null}
         {canAuthorizeDispatch && order.status === 'Picked' ? (
@@ -188,6 +234,12 @@ export function StockIssueRequestDirectory({
             Tạo yêu cầu trả hàng
           </DropdownMenuItem>
         ) : null}
+        {canCancel && canCancelStockIssueRequest(order.status) ? (
+          <DropdownMenuItem variant="destructive" onSelect={() => onCancel(order)}>
+            <Ban className="size-4" aria-hidden="true" />
+            Huỷ phiếu
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -203,12 +255,19 @@ export function StockIssueRequestDirectory({
           />
         </div>
         {permissions.includes(P.STOCK_ISSUE_REQUESTS_CREATE) ? (
-          <Button asChild className="w-full sm:w-auto">
-            <Link href={APP_ROUTES.stockIssueRequestCreate as Route}>
-              <Plus aria-hidden="true" />
-              Tạo yêu cầu xuất kho
-            </Link>
-          </Button>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload aria-hidden="true" />
+              Nhập từ Excel
+            </Button>
+            <Button asChild className="flex-1 sm:flex-none">
+              <Link href={APP_ROUTES.stockIssueRequestCreate as Route}>
+                <Plus aria-hidden="true" />
+                Tạo yêu cầu xuất kho
+              </Link>
+            </Button>
+            <StockIssueImportDialog open={importOpen} onOpenChange={setImportOpen} />
+          </div>
         ) : null}
       </header>
 
@@ -225,8 +284,9 @@ export function StockIssueRequestDirectory({
                 <Search aria-hidden="true" />
               </InputGroupAddon>
               <InputGroupInput
+                ref={searchInputRef}
                 aria-label="Tìm yêu cầu xuất kho"
-                placeholder="Tìm mã yêu cầu, đơn vị nhận hàng, kho…"
+                placeholder="Tìm mã yêu cầu, đơn vị nhận hàng, kho… (F3)"
                 value={searchText}
                 onChange={(event) => onSearchChange(event.target.value)}
               />
@@ -266,8 +326,19 @@ export function StockIssueRequestDirectory({
           />
         ) : (
           <>
-            <StockIssueRequestMobileList items={items} renderRowActions={renderRowActions} />
-            <StockIssueRequestDesktopTable items={items} renderRowActions={renderRowActions} />
+            <StockIssueRequestMobileList
+              items={items}
+              renderRowActions={renderRowActions}
+              onInspect={onInspect}
+            />
+            <StockIssueRequestDesktopTable
+              items={items}
+              renderRowActions={renderRowActions}
+              onInspect={onInspect}
+              selectedId={selectedOrder?.id ?? null}
+              onSelect={(order) => setSelectedId(order.id)}
+            />
+            {selectedOrder ? <StockIssueLineDetailPanel order={selectedOrder} /> : null}
             <OperationalPagination
               page={page}
               pageSize={pageSize}
@@ -287,6 +358,16 @@ export function StockIssueRequestDirectory({
             <SheetDescription>Thu hẹp danh sách theo trạng thái và kho xuất.</SheetDescription>
           </SheetHeader>
           <FieldGroup className="flex-1 p-4">
+            <Field orientation="horizontal">
+              <Switch
+                id="stock-issue-request-filter-assigned-to-me"
+                checked={assignedToMe}
+                onCheckedChange={onAssignedToMeChange}
+              />
+              <FieldLabel htmlFor="stock-issue-request-filter-assigned-to-me">
+                Chỉ phiếu được giao cho tôi
+              </FieldLabel>
+            </Field>
             <Field>
               <FieldLabel htmlFor="stock-issue-request-filter-status">Trạng thái</FieldLabel>
               <NativeSelect
@@ -396,14 +477,20 @@ function totalPickedQuantity(order: StockIssueRequestSummary) {
 function StockIssueRequestMobileList({
   items,
   renderRowActions,
+  onInspect,
 }: {
   readonly items: readonly StockIssueRequestSummary[]
+  readonly onInspect: (order: StockIssueRequestSummary) => void
   readonly renderRowActions: (order: StockIssueRequestSummary) => ReactNode
 }) {
   return (
     <ItemGroup className="gap-0 md:hidden">
       {items.map((item) => (
-        <Item key={item.id} className="border-b last:border-b-0">
+        <Item
+          key={item.id}
+          className="hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+          onClick={() => onInspect(item)}
+        >
           <ItemContent className="min-w-0">
             <ItemTitle className="flex flex-wrap items-center gap-2">
               <span className="max-w-full min-w-0 truncate font-mono font-semibold" translate="no">
@@ -413,6 +500,7 @@ function StockIssueRequestMobileList({
             </ItemTitle>
             <ItemDescription>
               {item.recipientName} · {item.warehouseName}
+              {item.assignedStaffName ? ` · Lấy hàng: ${item.assignedStaffName}` : ''}
             </ItemDescription>
             <ItemDescription>
               {item.items.length} dòng · {formatStockIssueQuantity(totalPickedQuantity(item))}/
@@ -420,7 +508,7 @@ function StockIssueRequestMobileList({
               {formatStockIssueDate(item.createdAt)}
             </ItemDescription>
           </ItemContent>
-          {renderRowActions(item)}
+          <div onClick={(event) => event.stopPropagation()}>{renderRowActions(item)}</div>
         </Item>
       ))}
     </ItemGroup>
@@ -430,22 +518,29 @@ function StockIssueRequestMobileList({
 function StockIssueRequestDesktopTable({
   items,
   renderRowActions,
+  onInspect,
+  selectedId,
+  onSelect,
 }: {
   readonly items: readonly StockIssueRequestSummary[]
+  readonly onInspect: (order: StockIssueRequestSummary) => void
   readonly renderRowActions: (order: StockIssueRequestSummary) => ReactNode
+  readonly selectedId: string | null
+  readonly onSelect: (order: StockIssueRequestSummary) => void
 }) {
   return (
     <div className="hidden min-h-0 flex-1 overflow-auto md:block">
-      <Table className="min-w-[1040px] table-fixed">
+      <Table className="min-w-[880px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="sticky top-0 z-10 w-56">Mã đơn</TableHead>
-            <TableHead className="sticky top-0 z-10 w-52">Đơn vị nhận hàng</TableHead>
-            <TableHead className="sticky top-0 z-10 w-52">Kho xuất</TableHead>
-            <TableHead className="sticky top-0 z-10 w-40">Trạng thái</TableHead>
-            <TableHead className="sticky top-0 z-10 w-24 text-right">Số dòng</TableHead>
-            <TableHead className="sticky top-0 z-10 w-36 text-right">Đã lấy/Đặt</TableHead>
-            <TableHead className="sticky top-0 z-10 w-44">Ngày tạo</TableHead>
+            <TableHead className="sticky top-0 z-10 w-[16%]">Mã đơn</TableHead>
+            <TableHead className="sticky top-0 z-10 w-[15%]">Đơn vị nhận hàng</TableHead>
+            <TableHead className="sticky top-0 z-10 w-[10%]">Kho xuất</TableHead>
+            <TableHead className="sticky top-0 z-10 w-[18%]">Trạng thái</TableHead>
+            <TableHead className="sticky top-0 z-10 w-[11%]">Người lấy hàng</TableHead>
+            <TableHead className="sticky top-0 z-10 w-[6%] text-right">Số dòng</TableHead>
+            <TableHead className="sticky top-0 z-10 w-[8%] text-right">Đã lấy/Đặt</TableHead>
+            <TableHead className="sticky top-0 z-10 w-[12%]">Ngày tạo</TableHead>
             <TableHead className="sticky top-0 z-10 w-12">
               <span className="sr-only">Thao tác</span>
             </TableHead>
@@ -453,7 +548,13 @@ function StockIssueRequestDesktopTable({
         </TableHeader>
         <TableBody>
           {items.map((item) => (
-            <TableRow key={item.id}>
+            <TableRow
+              key={item.id}
+              className="cursor-pointer"
+              data-state={item.id === selectedId ? 'selected' : undefined}
+              onClick={() => onSelect(item)}
+              onDoubleClick={() => onInspect(item)}
+            >
               <TableCell className="min-w-0">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -466,7 +567,8 @@ function StockIssueRequestDesktopTable({
                   </TooltipContent>
                 </Tooltip>
                 <span className="text-muted-foreground block truncate text-xs">
-                  {item.purpose ?? 'Không có mục đích'}
+                  {item.referenceCode ? `Tham chiếu: ${item.referenceCode} · ` : ''}
+                  {item.purpose ?? 'Không có diễn giải'}
                 </span>
               </TableCell>
               <TableCell className="min-w-0">
@@ -476,8 +578,15 @@ function StockIssueRequestDesktopTable({
                 </span>
               </TableCell>
               <TableCell className="truncate">{item.warehouseName}</TableCell>
-              <TableCell>
+              <TableCell className="min-w-0">
                 <StockIssueRequestStatusBadge status={item.status} />
+                <StockIssueMiniProgress
+                  status={item.status}
+                  hasAssignedPicker={Boolean(item.assignedStaffId)}
+                />
+              </TableCell>
+              <TableCell className="truncate">
+                {item.assignedStaffName ?? <span className="text-muted-foreground">—</span>}
               </TableCell>
               <TableCell className="text-right tabular-nums">{item.items.length}</TableCell>
               <TableCell className="text-right tabular-nums">
@@ -485,11 +594,106 @@ function StockIssueRequestDesktopTable({
                 {formatStockIssueQuantity(totalOrderedQuantity(item))}
               </TableCell>
               <TableCell className="truncate">{formatStockIssueDate(item.createdAt)}</TableCell>
-              <TableCell className="text-right">{renderRowActions(item)}</TableCell>
+              <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                {renderRowActions(item)}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </div>
+  )
+}
+
+const PROGRESS_STEPS: readonly StockIssueRequestStatus[] = [
+  'Pending',
+  'ReleasedForPicking',
+  'Picking',
+  'Picked',
+  'AuthorizedForDispatch',
+  'Dispatched',
+]
+
+function StockIssueMiniProgress({
+  status,
+  hasAssignedPicker,
+}: {
+  readonly status: StockIssueRequestStatus
+  readonly hasAssignedPicker: boolean
+}) {
+  const effective = status === 'Pending' && hasAssignedPicker ? 'ReleasedForPicking' : status
+  const current = PROGRESS_STEPS.indexOf(effective)
+  if (status === 'Cancelled') return null
+  return (
+    <div className="mt-1 flex gap-0.5" aria-hidden="true">
+      {PROGRESS_STEPS.map((step, index) => (
+        <span
+          key={step}
+          className={`h-1 flex-1 rounded-full ${index <= current ? 'bg-primary' : 'bg-muted'}`}
+        />
+      ))}
+    </div>
+  )
+}
+
+function StockIssueLineDetailPanel({ order }: { readonly order: StockIssueRequestSummary }) {
+  return (
+    <section
+      aria-label={`Chi tiết hàng hóa của ${order.stockIssueRequestCode}`}
+      className="hidden max-h-[38%] min-h-32 shrink-0 flex-col border-t md:flex"
+    >
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <h3 className="text-sm font-semibold">
+          Chi tiết hàng hóa ·{' '}
+          <span className="font-mono" translate="no">
+            {order.stockIssueRequestCode}
+          </span>
+        </h3>
+        <span className="text-muted-foreground text-xs">
+          Kho {order.warehouseName} · Nhận: {order.recipientName}
+          {order.recipientPhone ? ` · ${order.recipientPhone}` : ''}
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="sticky top-0 z-10 w-10">#</TableHead>
+              <TableHead className="sticky top-0 z-10">Mã hàng</TableHead>
+              <TableHead className="sticky top-0 z-10">Tên hàng</TableHead>
+              <TableHead className="sticky top-0 z-10">Vị trí lấy</TableHead>
+              <TableHead className="sticky top-0 z-10">Số lô</TableHead>
+              <TableHead className="sticky top-0 z-10 text-right">SL xuất</TableHead>
+              <TableHead className="sticky top-0 z-10 text-right">Đã lấy</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {order.items.map((line, index) => {
+              const slots = [...new Set(line.pickDetails.map((d) => d.slotCode))].join(', ')
+              const lots = [
+                ...new Set(line.pickDetails.map((d) => d.lotNumber).filter(Boolean)),
+              ].join(', ')
+              return (
+                <TableRow key={line.id}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell className="font-mono" translate="no">
+                    {line.sku}
+                  </TableCell>
+                  <TableCell>{line.productName}</TableCell>
+                  <TableCell>{slots || '—'}</TableCell>
+                  <TableCell>{lots || '—'}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatStockIssueQuantity(line.quantity)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatStockIssueQuantity(line.pickedQuantity)}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
   )
 }

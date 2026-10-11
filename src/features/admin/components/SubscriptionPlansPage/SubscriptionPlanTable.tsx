@@ -266,8 +266,8 @@ export function SubscriptionPlanTable({
               <PlanFeatures plan={plan} />
             </div>
             <p className="text-muted-foreground mt-3 text-xs">
-              {plan.currentSubscriberCount} tenant đang dùng · {plan.pendingSubscriberCount} thay
-              đổi chờ áp dụng
+              {plan.currentSubscriberCount} doanh nghiệp đang dùng · {plan.pendingSubscriberCount}{' '}
+              thay đổi chờ áp dụng
             </p>
           </div>
         ))}

@@ -1,36 +1,42 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { logger } from '@/lib/logger'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { logTransferError } from '../utils/transfer-errors'
 import { queryKeys } from '@/lib/query-keys'
-import type { ApiErrorResponse, ApiResponse } from '@/types/api'
-import type { QueryResult } from '@/types/api'
+import type { ApiErrorResponse, ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
-import type { InventoryStockListResponse } from '@/features/inventory/types/inventory.types'
 import { transferService } from '../services/transfer.service'
 import type {
-  CreateTransferRequest,
-  ApproveTransferRequest,
-  ReceiveTransferRequest,
-  RejectTransferRequest,
+  AddTransferFeedbackRequest,
+  CancelTransferRequest,
+  ReplyTransferFeedbackRequest,
+  SaveTransferDraftRequest,
+  SubmitTransferRequest,
+  TransferAvailability,
+  TransferAvailabilityQuery,
+  TransferPutAwayItemSuggestions,
+  TransferReceivableSlotOption,
+  TransferReceivableSlotsQuery,
+  TransferSourceLocation,
+  TransferSourceLocationsQuery,
+  TransferSourceProduct,
+  TransferSourceProductsQuery,
+  TransferDetail,
   TransferListQuery,
   TransferListResponse,
-  TransferSummary,
-  TransferSourceInventoryQuery,
+  TransferRequesterOption,
   TransferSourceWarehouseQuery,
+  UpdateTransferRequest,
 } from '../types/transfer.types'
 
-interface RejectTransferVariables {
-  transferId: string
-  request: RejectTransferRequest
-}
+/** Khóa chung của mọi lệnh ghi điều chuyển để nhận biết tín hiệu realtime dội lại từ chính trình duyệt này. */
+export const TRANSFER_MUTATION_KEY = ['transfers', 'write'] as const
 
-interface ApproveTransferVariables {
-  transferId: string
-  request: ApproveTransferRequest
-}
-
-interface ReceiveTransferVariables {
-  transferId: string
-  request: ReceiveTransferRequest
+/** Mọi thao tác trên phiếu có thể đổi tồn kho, giữ chỗ và công việc được giao. */
+export function invalidateTransferQueries(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
+    queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] }),
+  ])
 }
 
 export function useTransfersQuery(params: TransferListQuery, enabled = true) {
@@ -43,10 +49,30 @@ export function useTransfersQuery(params: TransferListQuery, enabled = true) {
 }
 
 export function useTransferQuery(transferId: string | null) {
-  return useQuery<TransferSummary, ApiErrorResponse>({
+  return useQuery<TransferDetail, ApiErrorResponse>({
     queryKey: queryKeys.transfers.detail(transferId ?? ''),
     queryFn: () => transferService.getTransfer(transferId ?? '').then((response) => response.data),
     enabled: Boolean(transferId),
+  })
+}
+
+/** Gợi ý mã phiếu kế tiếp; sessionKey đổi thì lấy lại (mỗi lần mở form tạo mới). */
+export function useNextTransferCodeQuery(enabled: boolean, sessionKey: string) {
+  return useQuery<string, ApiErrorResponse>({
+    queryKey: [...queryKeys.transfers.nextCode, sessionKey],
+    queryFn: () => transferService.getNextCode().then((response) => response.data),
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+  })
+}
+
+export function useTransferRequesterOptionsQuery(enabled = true) {
+  return useQuery<TransferRequesterOption[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.requesterOptions,
+    queryFn: () => transferService.getRequesterOptions().then((response) => response.data),
+    enabled,
+    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -62,69 +88,157 @@ export function useTransferSourceWarehousesQuery(
   })
 }
 
-export function useTransferSourceInventoryQuery(
-  params: TransferSourceInventoryQuery,
+export function useTransferReceivableSlotsQuery(
+  query: TransferReceivableSlotsQuery,
   enabled = true
 ) {
-  return useQuery<InventoryStockListResponse, ApiErrorResponse>({
-    queryKey: queryKeys.transfers.sourceInventory(params),
-    queryFn: () => transferService.getSourceInventory(params).then((response) => response.data),
+  return useQuery<TransferReceivableSlotOption[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.receivableSlots(query),
+    queryFn: () => transferService.getReceivableSlots(query).then((response) => response.data),
+    enabled,
     placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useTransferPutAwaySuggestionsQuery(transferId: string, enabled = true) {
+  return useQuery<TransferPutAwayItemSuggestions[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.putAwaySuggestions(transferId),
+    queryFn: () =>
+      transferService.getPutAwaySuggestions(transferId).then((response) => response.data),
+    enabled: enabled && Boolean(transferId),
+  })
+}
+
+export function useTransferSourceLocationsQuery(
+  query: TransferSourceLocationsQuery,
+  enabled = true
+) {
+  return useQuery<TransferSourceLocation[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.sourceLocations(query),
+    queryFn: () => transferService.getSourceLocations(query).then((response) => response.data),
     enabled,
   })
 }
 
-export function useCreateTransferMutation() {
-  const queryClient = useQueryClient()
-  return useMutation<ApiResponse<string>, ApiErrorResponse, CreateTransferRequest>({
-    mutationFn: transferService.createTransfer,
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-      ]),
-    onError: (error) => logger.error(error),
+export function useTransferSourceProductsQuery(query: TransferSourceProductsQuery, enabled = true) {
+  return useQuery<TransferSourceProduct[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.sourceProducts(query),
+    queryFn: () => transferService.getSourceProducts(query).then((response) => response.data),
+    enabled,
+    placeholderData: (previousData) => previousData,
   })
 }
 
-export function useApproveTransferMutation() {
+export function useTransferAvailabilityQuery(query: TransferAvailabilityQuery, enabled = true) {
+  return useQuery<TransferAvailability[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.availability(query),
+    queryFn: () => transferService.getAvailability(query).then((response) => response.data),
+    enabled: enabled && query.productIds.length > 0,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+interface SaveDraftVariables {
+  transferId: string | null
+  request: SaveTransferDraftRequest
+}
+
+interface SubmitDraftVariables {
+  transferId: string
+  request: SubmitTransferRequest
+}
+
+interface UpdateTransferVariables {
+  transferId: string
+  request: UpdateTransferRequest
+}
+
+interface CancelTransferVariables {
+  transferId: string
+  request: CancelTransferRequest
+}
+
+interface AddFeedbackVariables {
+  transferId: string
+  request: AddTransferFeedbackRequest
+}
+
+interface ReplyFeedbackVariables {
+  transferId: string
+  feedbackId: string
+  request: ReplyTransferFeedbackRequest
+}
+
+export function useSaveTransferDraftMutation() {
   const queryClient = useQueryClient()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, ApproveTransferVariables>({
-    mutationFn: ({ transferId, request }) => transferService.approveTransfer(transferId, request),
+  return useMutation<ApiResponse<string>, ApiErrorResponse, SaveDraftVariables>({
+    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationFn: ({ transferId, request }) =>
+      transferId
+        ? transferService.updateDraft(transferId, request)
+        : transferService.createDraft(request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
 
-export function useRejectTransferMutation() {
+export function useSubmitTransferDraftMutation() {
   const queryClient = useQueryClient()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, RejectTransferVariables>({
-    mutationFn: ({ transferId, request }) => transferService.rejectTransfer(transferId, request),
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, SubmitDraftVariables>({
+    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationFn: ({ transferId, request }) => transferService.submitDraft(transferId, request),
+    onSuccess: () => invalidateTransferQueries(queryClient),
+    onError: (error) => logTransferError(error),
+  })
+}
+
+export function useUpdateTransferMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, UpdateTransferVariables>({
+    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationFn: ({ transferId, request }) => transferService.updateTransfer(transferId, request),
+    onSuccess: () => invalidateTransferQueries(queryClient),
+    onError: (error) => logTransferError(error),
+  })
+}
+
+export function useCancelTransferMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, CancelTransferVariables>({
+    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationFn: ({ transferId, request }) => transferService.cancelTransfer(transferId, request),
+    onSuccess: () => invalidateTransferQueries(queryClient),
+    onError: (error) => logTransferError(error),
+  })
+}
+
+export function useStopTransferRemainingMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, CancelTransferVariables>({
+    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationFn: ({ transferId, request }) => transferService.stopRemaining(transferId, request),
+    onSuccess: () => invalidateTransferQueries(queryClient),
+    onError: (error) => logTransferError(error),
+  })
+}
+
+export function useAddTransferFeedbackMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<string>, ApiErrorResponse, AddFeedbackVariables>({
+    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationFn: ({ transferId, request }) => transferService.addFeedback(transferId, request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
 
-export function useDispatchTransferMutation() {
+export function useReplyTransferFeedbackMutation() {
   const queryClient = useQueryClient()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
-    mutationFn: transferService.dispatchTransfer,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })
-    },
-    onError: (error) => logger.error(error),
-  })
-}
-
-export function useReceiveTransferMutation() {
-  const queryClient = useQueryClient()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, ReceiveTransferVariables>({
-    mutationFn: ({ transferId, request }) => transferService.receiveTransfer(transferId, request),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })
-    },
-    onError: (error) => logger.error(error),
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, ReplyFeedbackVariables>({
+    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationFn: ({ transferId, feedbackId, request }) =>
+      transferService.replyFeedback(transferId, feedbackId, request),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
+    onError: (error) => logTransferError(error),
   })
 }

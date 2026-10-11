@@ -8,6 +8,8 @@ export interface AuditLogFilterValues {
 }
 
 export interface AuditLogDirectoryProps {
+  readonly title?: string
+  readonly description?: string
   readonly items: AuditLogItem[]
   readonly totalCount: number
   readonly page: number

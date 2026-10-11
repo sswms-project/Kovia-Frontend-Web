@@ -9,7 +9,7 @@ export function TenantOwnerOnlyState() {
       <CardHeader>
         <CardTitle>Chỉ TenantOwner được truy cập</CardTitle>
         <CardDescription>
-          Trang gói dịch vụ chứa thông tin billing của tenant nên không mở cho role hiện tại.
+          Trang gói dịch vụ chứa thông tin billing của doanh nghiệp nên không mở cho role hiện tại.
         </CardDescription>
       </CardHeader>
       <CardContent>

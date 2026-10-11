@@ -71,7 +71,7 @@ export function InvoicePrintView({ invoice, customer }: InvoicePrintViewProps) {
         <p className="text-muted-foreground mt-6 text-xs leading-5">
           Biên nhận này được tạo từ dữ liệu thanh toán hiện có của hệ thống. Tài liệu này không phải
           hóa đơn điện tử hợp pháp, không bao gồm thuế, chữ ký số hoặc thông tin pháp lý ngoài dữ
-          liệu Backend cung cấp.
+          liệu hệ thống cung cấp.
         </p>
       </section>
     </main>

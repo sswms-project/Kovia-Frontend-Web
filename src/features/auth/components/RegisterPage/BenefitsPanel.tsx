@@ -8,7 +8,7 @@ import { APP_ROUTES } from '@/routes/app-routes'
 const trustPoints = [
   {
     label: 'Bảo mật đa tầng',
-    desc: 'Xác minh email và quản trị truy cập theo từng tenant',
+    desc: 'Xác minh email và quản trị truy cập theo từng doanh nghiệp',
   },
   {
     label: 'Triển khai nhanh',

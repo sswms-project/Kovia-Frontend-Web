@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GoodsReceiptItem } from '../../types/inbound.types'
 import { ReceiptItemsTable } from './ReceiptItemsTable'
 import { ReceiptPutAwayTable } from './ReceiptPutAwayTable'
@@ -47,8 +47,16 @@ const item: GoodsReceiptItem = {
       performedByName: 'Nhân viên',
       quantity: 96,
       putAwayAt: '2026-10-04T00:00:00Z',
+      deviationId: null,
+      isOffPlan: false,
+      deviationReason: null,
+      deviationEvidence: [],
+      deviationReasonCode: null,
+      usedHeldSlot: false,
+      isSlotCodeConfirmed: false,
     },
   ],
+  putAwayPlan: [],
 }
 
 afterEach(cleanup)
@@ -112,6 +120,45 @@ describe('receipt units and Vietnamese history', () => {
     expect(screen.getByText('Đạt')).toBeInTheDocument()
     expect(screen.getByText('Kệ KE-01')).toBeInTheDocument()
     expect(screen.queryByText('__SYSTEM_DEFAULT__')).not.toBeInTheDocument()
+  })
+  it('marks put-aways that differ from the plan with their reason and downloadable photos', async () => {
+    const onDownload = vi.fn()
+    const evidence = {
+      id: 'evidence-1',
+      warehouseId: 'warehouse',
+      fileName: 'ke-day.png',
+      contentType: 'image/png',
+      fileSize: 10,
+      uploadedByUserId: 'staff',
+      createdAt: '2026-10-04T00:00:00Z',
+      referenceType: 'PutAwayDeviation',
+      referenceId: 'deviation-1',
+    }
+    const [detail] = item.putAwayDetails
+    render(
+      <ReceiptPutAwayTable
+        items={[
+          {
+            ...item,
+            putAwayDetails: [
+              {
+                ...detail!,
+                deviationId: 'deviation-1',
+                isOffPlan: true,
+                deviationReason: 'Kệ kế hoạch đã đầy',
+                deviationEvidence: [evidence],
+              },
+            ],
+          },
+        ]}
+        onDownloadEvidence={onDownload}
+      />
+    )
+
+    expect(screen.getByText('Khác kế hoạch')).toBeInTheDocument()
+    expect(screen.getByText('Lý do: Kệ kế hoạch đã đầy')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Ảnh: ke-day.png' }))
+    expect(onDownload).toHaveBeenCalledWith(evidence)
   })
   it('translates current inspection workflow actions', async () => {
     const actions = [

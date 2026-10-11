@@ -30,7 +30,7 @@ export function RegisterSuccess({ message, onCreateAnother }: RegisterSuccessPro
               className="border-secondary text-secondary"
               onClick={onCreateAnother}
             >
-              Đăng ký tenant khác
+              Đăng ký doanh nghiệp khác
             </Button>
           </div>
         </div>

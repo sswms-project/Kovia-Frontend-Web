@@ -4,6 +4,7 @@ export const CYCLE_COUNT_STATUSES = {
   submitted: 'Submitted',
   recount: 'Recount',
   completed: 'Completed',
+  cancelled: 'Cancelled',
 } as const
 
 export type CycleCountStatus = (typeof CYCLE_COUNT_STATUSES)[keyof typeof CYCLE_COUNT_STATUSES]
@@ -17,14 +18,19 @@ export const STOCK_ADJUSTMENT_STATUSES = {
 export type StockAdjustmentStatus =
   (typeof STOCK_ADJUSTMENT_STATUSES)[keyof typeof STOCK_ADJUSTMENT_STATUSES]
 
+// Tab lọc ảo trên danh sách: phiếu đã hoàn tất còn dòng lệch chưa tạo điều chỉnh tồn.
+export const CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER = 'NeedsAdjustment'
+
 export interface CycleCountListQuery {
   pageNumber: number
   pageSize: number
   warehouseId?: string
   status?: CycleCountStatus
+  needsAdjustment?: boolean
   assignedTo?: string
   dateFrom?: string
   dateTo?: string
+  searchTerm?: string
 }
 
 export interface CycleCountSummary {
@@ -42,6 +48,13 @@ export interface CycleCountSummary {
   itemCount: number
   countedItemCount: number
   createdAt: string
+  code: string
+  purpose: string | null
+  dueDate: string | null
+  zoneName: string | null
+  varianceItemCount: number | null
+  adjustedItemCount: number
+  approvedAdjustmentItemCount: number
 }
 
 export interface CycleCountListResponse {
@@ -49,6 +62,8 @@ export interface CycleCountListResponse {
   totalCount: number
   pageNumber: number
   pageSize: number
+  statusCounts: Record<string, number>
+  needsAdjustmentCount: number
 }
 
 export interface CycleCountItemHistory {
@@ -60,6 +75,9 @@ export interface CycleCountItemHistory {
   recountRequestedBy: string
   recountRequestedAt: string
   recountReason: string
+  countedByName: string | null
+  recountRequestedByName: string | null
+  systemQuantity: number | null
 }
 
 export interface CycleCountItem {
@@ -81,6 +99,13 @@ export interface CycleCountItem {
   lotId: string | null
   lotNumber: string | null
   qualityStatus: 'Good' | 'Damaged' | 'Quarantine'
+  unitName: string | null
+  rackCode: string | null
+  isSystemDefaultSlot: boolean
+  expiryDate: string | null
+  countedByName: string | null
+  note: string | null
+  countedDamagedQuantity: number | null
 }
 
 export interface CycleCountDetail {
@@ -102,10 +127,22 @@ export interface CycleCountDetail {
   completedAt: string | null
   createdAt: string
   items: CycleCountItem[]
+  code: string
+  purpose: string | null
+  dueDate: string | null
+  cancelledAt: string | null
+  cancelReason: string | null
+  createdByName: string | null
+  submittedByName: string | null
+  finalizedByName: string | null
+  finalizedAt: string | null
+  cancelledByName: string | null
 }
 
 export interface AllowedActionsResponse {
   allowedActions: string[]
+  selfApprovalRequired?: boolean
+  denialReasonCode?: string | null
 }
 
 export interface CreateCycleCountRequest {
@@ -122,10 +159,16 @@ export interface CreateCycleCountRequest {
     qualityStatus: 'Good' | 'Damaged' | 'Quarantine'
   }>
   isBlindCount: boolean
+  purpose: string | null
+  dueDate: string | null
 }
 
 export interface RequestRecountRequest {
   itemIds: string[]
+  reason: string
+}
+
+export interface CancelCycleCountRequest {
   reason: string
 }
 
@@ -136,6 +179,10 @@ export interface CreateStockAdjustmentRequest {
 
 export interface RejectStockAdjustmentRequest {
   reason: string
+}
+
+export interface ApproveStockAdjustmentRequest {
+  selfApprovalAcknowledged: boolean
 }
 
 export interface StockAdjustmentListQuery {
@@ -178,6 +225,63 @@ export interface StockAdjustment {
   lotId: string | null
   lotNumber: string | null
   qualityStatus: 'Good' | 'Damaged' | 'Quarantine'
+  unitName: string | null
+  cycleCountCode: string | null
+  isSystemDefaultSlot: boolean
+  rackCode: string | null
+  voucherId: string | null
+  voucherCode: string | null
+}
+
+export interface StockAdjustmentVoucher {
+  id: string
+  code: string
+  cycleCountId: string
+  cycleCountCode: string
+  warehouseId: string
+  warehouseName: string
+  reason: string
+  status: StockAdjustmentStatus
+  createdAt: string
+  createdBy: string
+  createdByName: string
+  approvedBy: string | null
+  approvedByName: string | null
+  approvedAt: string | null
+  rejectedBy: string | null
+  rejectedByName: string | null
+  rejectedAt: string | null
+  rejectionReason: string | null
+  lineCount: number
+  totalIncrease: number
+  totalDecrease: number
+  lines: StockAdjustment[]
+}
+
+export interface CreateStockAdjustmentVoucherRequest {
+  cycleCountId: string
+  cycleCountItemIds: string[]
+  reason: string
+}
+
+export interface ApproveStockAdjustmentVoucherRequest {
+  selfApprovalAcknowledged: boolean
+  excludedLineIds: string[]
+}
+
+export interface StockAdjustmentVoucherListQuery {
+  pageNumber: number
+  pageSize: number
+  warehouseId?: string
+  status?: StockAdjustmentStatus
+  cycleCountId?: string
+}
+
+export interface StockAdjustmentVoucherListResponse {
+  items: StockAdjustmentVoucher[]
+  totalCount: number
+  pageNumber: number
+  pageSize: number
 }
 
 export interface StockAdjustmentListResponse {

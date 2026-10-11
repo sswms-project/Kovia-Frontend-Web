@@ -7,6 +7,7 @@ import {
   UserRoundX,
   Warehouse,
 } from 'lucide-react'
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -148,7 +149,7 @@ export function StaffDirectoryTable({
           </TableHeader>
           <TableBody>
             {people.map((person) => (
-              <TableRow key={person.id}>
+              <ClickableTableRow key={person.id} onActivate={() => onView(person)}>
                 <TableCell className="pl-4">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className="bg-muted text-foreground flex size-8 items-center justify-center text-[11px] font-semibold">
@@ -199,7 +200,7 @@ export function StaffDirectoryTable({
                   {formatLastLogin(person.lastLoginAt)}
                 </TableCell>
                 <TableCell>{rowActions(person)}</TableCell>
-              </TableRow>
+              </ClickableTableRow>
             ))}
           </TableBody>
         </Table>

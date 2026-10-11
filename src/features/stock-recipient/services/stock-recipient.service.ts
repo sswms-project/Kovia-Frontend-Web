@@ -1,4 +1,8 @@
 import { axiosClient } from '@/lib/axios'
+import type {
+  SpreadsheetImportInspection,
+  SpreadsheetImportPreviewInput,
+} from '@/components/operations/spreadsheet-import.types'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse } from '@/types/api'
 import type {
@@ -30,9 +34,26 @@ export const stockRecipientService = {
     downloadBlob(response.data, 'kovia-mau-nhap-khach-hang.xlsx')
   },
 
-  previewImport: (file: File) => {
+  inspectImport: (input: { file: File; csvDelimiter: string }) => {
+    const form = new FormData()
+    form.append('file', input.file)
+    form.append('csvDelimiter', input.csvDelimiter)
+    return axiosClient
+      .post<ApiResponse<SpreadsheetImportInspection>>(
+        API_ENDPOINTS.stockRecipients.importInspect,
+        form,
+        {
+          headers: { 'Content-Type': null },
+        }
+      )
+      .then((response) => response.data)
+  },
+
+  previewImport: (input: File | SpreadsheetImportPreviewInput) => {
+    const { file, options } = input instanceof File ? { file: input, options: undefined } : input
     const form = new FormData()
     form.append('file', file)
+    if (options) form.append('options', JSON.stringify(options))
     return axiosClient
       .post<
         ApiResponse<StockRecipientImportPreview>

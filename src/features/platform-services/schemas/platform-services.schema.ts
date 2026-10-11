@@ -37,4 +37,6 @@ export const notificationCreatedEventSchema = z.object({
   notificationId: z.uuid(),
   type: z.enum(NOTIFICATION_TYPES),
   createdAt: z.iso.datetime({ offset: true }),
+  referenceType: z.string().nullish(),
+  referenceId: z.uuid().nullish(),
 })

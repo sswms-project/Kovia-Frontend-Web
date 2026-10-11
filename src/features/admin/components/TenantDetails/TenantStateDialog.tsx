@@ -60,8 +60,8 @@ export function TenantStateDialog({
           </DialogTitle>
           <DialogDescription>
             {isSuspend
-              ? 'Mọi người dùng của tenant sẽ bị chặn đăng nhập, refresh token và truy cập API ngay sau khi xác nhận.'
-              : 'Người dùng của tenant có thể đăng nhập và truy cập lại hệ thống sau khi xác nhận.'}
+              ? 'Mọi người dùng của doanh nghiệp sẽ bị chặn đăng nhập, refresh token và truy cập API ngay sau khi xác nhận.'
+              : 'Người dùng của doanh nghiệp có thể đăng nhập và truy cập lại hệ thống sau khi xác nhận.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)}>

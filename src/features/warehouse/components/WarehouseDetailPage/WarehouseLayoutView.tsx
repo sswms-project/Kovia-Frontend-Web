@@ -12,6 +12,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Upload,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -65,6 +66,7 @@ interface WarehouseLayoutViewProps {
   readonly isInventoryLoading?: boolean
   readonly isInventoryError?: boolean
   readonly onCreateZone: () => void
+  readonly onImport?: () => void
   readonly onCreateRack: (zone: ZoneResponse) => void
   readonly onCreateSlot: (rack: RackResponse) => void
   readonly onEditZone: (zone: ZoneResponse) => void
@@ -127,10 +129,18 @@ export function WarehouseLayoutView(props: WarehouseLayoutViewProps) {
           </p>
         </div>
         {props.canConfigure && props.isWarehouseActive ? (
-          <Button type="button" onClick={props.onCreateZone}>
-            <Plus data-icon="inline-start" aria-hidden="true" />
-            Thêm khu vực
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {props.onImport ? (
+              <Button type="button" variant="outline" onClick={props.onImport}>
+                <Upload data-icon="inline-start" aria-hidden="true" />
+                Nhập từ tệp
+              </Button>
+            ) : null}
+            <Button type="button" onClick={props.onCreateZone}>
+              <Plus data-icon="inline-start" aria-hidden="true" />
+              Thêm khu vực
+            </Button>
+          </div>
         ) : null}
       </header>
 

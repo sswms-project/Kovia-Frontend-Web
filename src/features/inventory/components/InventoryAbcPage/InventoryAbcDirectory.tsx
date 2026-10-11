@@ -209,7 +209,7 @@ export function InventoryAbcDirectory({
               Kết quả phân loại
             </h2>
             <p className="text-muted-foreground text-xs">
-              Class do backend tính theo tỷ lệ tích lũy số lượng.
+              Class do hệ thống tính theo tỷ lệ tích lũy số lượng.
             </p>
           </div>
           <div className="flex gap-2">

@@ -25,10 +25,13 @@ import type { InventoryStock } from '../types/inventory.types'
 import { buildInventoryQuery } from '../utils/inventory-query'
 import { formatInventoryLocation } from '../utils/inventory-format'
 
-export default function InventoryPage() {
+export default function InventoryPage({
+  initialWarehouseId,
+  initialProductId,
+}: { readonly initialWarehouseId?: string; readonly initialProductId?: string } = {}) {
   const [searchText, setSearchText] = useState('')
-  const [warehouseId, setWarehouseId] = useState('')
-  const [productId, setProductId] = useState('')
+  const [warehouseId, setWarehouseId] = useState(initialWarehouseId ?? '')
+  const [productId, setProductId] = useState(initialProductId ?? '')
   const [slotId, setSlotId] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)

@@ -7,6 +7,7 @@ describe('toImportItem', () => {
     const row: SupplierImportPreviewRow = {
       rowNumber: 2,
       errors: [],
+      fieldErrors: { contactEmail: ['Lỗi xem trước'] },
       supplierCode: null,
       supplierName: 'Công ty A',
       taxCode: null,
@@ -14,9 +15,9 @@ describe('toImportItem', () => {
       email: null,
       address: null,
       contactSalutation: null,
-      contactName: null,
-      contactEmail: null,
-      contactMobile: null,
+      contactName: 'Nguyễn Văn An',
+      contactEmail: 'an@example.com',
+      contactMobile: '+84 901 234 567',
       contactChannel: null,
       contactChannelName: null,
     }
@@ -25,6 +26,25 @@ describe('toImportItem', () => {
 
     expect(item.rowNumber).toBe(2)
     expect(item).not.toHaveProperty('errors')
+    expect(item).not.toHaveProperty('fieldErrors')
     expect(item).toMatchObject({ supplierName: 'Công ty A', phone: '0900000001' })
+    const other = toImportItem({
+      ...row,
+      rowNumber: 3,
+      supplierName: 'Công ty B',
+      contactName: 'Trần Thị Bình',
+      contactEmail: 'binh@example.com',
+      contactMobile: '0901234568',
+    })
+    expect(item).toMatchObject({
+      contactName: 'Nguyễn Văn An',
+      contactEmail: 'an@example.com',
+      contactMobile: '+84 901 234 567',
+    })
+    expect(other).toMatchObject({
+      contactName: 'Trần Thị Bình',
+      contactEmail: 'binh@example.com',
+      contactMobile: '0901234568',
+    })
   })
 })

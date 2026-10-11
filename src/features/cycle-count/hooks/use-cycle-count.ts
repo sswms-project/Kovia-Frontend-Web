@@ -5,6 +5,7 @@ import type { ApiErrorResponse, ApiResponse } from '@/types/api'
 import { cycleCountService } from '../services/cycle-count.service'
 import type {
   AllowedActionsResponse,
+  CancelCycleCountRequest,
   CreateCycleCountRequest,
   CreateStockAdjustmentRequest,
   CycleCountDetail,
@@ -15,6 +16,9 @@ import type {
   StockAdjustment,
   StockAdjustmentListQuery,
   StockAdjustmentListResponse,
+  StockAdjustmentVoucher,
+  StockAdjustmentVoucherListQuery,
+  StockAdjustmentVoucherListResponse,
 } from '../types/cycle-count.types'
 
 export function useCycleCountsQuery(params: CycleCountListQuery) {
@@ -23,6 +27,27 @@ export function useCycleCountsQuery(params: CycleCountListQuery) {
     queryFn: () => cycleCountService.getCycleCounts(params).then((response) => response.data),
     placeholderData: (previousData) => previousData,
   })
+}
+
+// Nạp sẵn chi tiết + allowed-actions khi rê chuột lên dòng để mở trang gần như tức thì (DB ở xa).
+export function usePrefetchCycleCount() {
+  const queryClient = useQueryClient()
+  return (cycleCountId: string) => {
+    void queryClient.prefetchQuery({
+      queryKey: queryKeys.cycleCounts.detail(cycleCountId),
+      queryFn: () =>
+        cycleCountService.getCycleCount(cycleCountId).then((response) => response.data),
+      staleTime: 30_000,
+    })
+    void queryClient.prefetchQuery({
+      queryKey: queryKeys.cycleCounts.allowedActions(cycleCountId),
+      queryFn: () =>
+        cycleCountService
+          .getCycleCountAllowedActions(cycleCountId)
+          .then((response) => response.data),
+      staleTime: 30_000,
+    })
+  }
 }
 
 export function useCycleCountQuery(cycleCountId: string) {
@@ -42,20 +67,12 @@ export function useCycleCountAllowedActionsQuery(cycleCountId: string) {
   })
 }
 
-function useInvalidateCycleCount() {
+export function useInvalidateCycleCount() {
   const queryClient = useQueryClient()
-  return async (cycleCountId?: string) => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.cycleCounts.all }),
-      ...(cycleCountId
-        ? [
-            queryClient.invalidateQueries({ queryKey: queryKeys.cycleCounts.detail(cycleCountId) }),
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.cycleCounts.allowedActions(cycleCountId),
-            }),
-          ]
-        : []),
-    ])
+  // ponytail: key `all` là prefix của detail + allowed-actions nên một lần invalidate là đủ;
+  // invalidate thêm từng key con sẽ huỷ request đang chạy và gọi lại (3x allowed-actions).
+  return async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.cycleCounts.all })
   }
 }
 
@@ -68,15 +85,20 @@ export function useCreateCycleCountMutation() {
   })
 }
 
+// Không invalidate ở đây: trang lưu nhiều dòng tuần tự và invalidate một lần sau cùng.
 export function useRecordCycleCountItemMutation() {
-  const invalidate = useInvalidateCycleCount()
   return useMutation<
     ApiResponse<unknown>,
     ApiErrorResponse,
-    { cycleCountId: string; itemId: string; countedQuantity: number }
+    {
+      cycleCountId: string
+      itemId: string
+      countedQuantity: number
+      countedDamagedQuantity: number | null
+      note: string | null
+    }
   >({
     mutationFn: cycleCountService.recordCycleCountItem,
-    onSuccess: async (_, variables) => invalidate(variables.cycleCountId),
     onError: (error) => logger.error(error),
   })
 }
@@ -87,13 +109,30 @@ function useCycleCountActionMutation(
   const invalidate = useInvalidateCycleCount()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
     mutationFn,
-    onSuccess: async (_, cycleCountId) => invalidate(cycleCountId),
+    onSuccess: async () => invalidate(),
     onError: (error) => logger.error(error),
   })
 }
 
+export function useStartCycleCountMutation() {
+  return useCycleCountActionMutation(cycleCountService.startCycleCount)
+}
+
 export function useSubmitCycleCountMutation() {
   return useCycleCountActionMutation(cycleCountService.submitCycleCount)
+}
+
+export function useCancelCycleCountMutation() {
+  const invalidate = useInvalidateCycleCount()
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    { cycleCountId: string; request: CancelCycleCountRequest }
+  >({
+    mutationFn: cycleCountService.cancelCycleCount,
+    onSuccess: async () => invalidate(),
+    onError: (error) => logger.error(error),
+  })
 }
 
 export function useFinalizeCycleCountMutation() {
@@ -108,7 +147,7 @@ export function useRequestRecountMutation() {
     { cycleCountId: string; request: RequestRecountRequest }
   >({
     mutationFn: cycleCountService.requestRecount,
-    onSuccess: async (_, variables) => invalidate(variables.cycleCountId),
+    onSuccess: async () => invalidate(),
     onError: (error) => logger.error(error),
   })
 }
@@ -172,9 +211,13 @@ export function useCreateStockAdjustmentMutation() {
 
 export function useApproveStockAdjustmentMutation() {
   const invalidate = useInvalidateStockAdjustment()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    Parameters<typeof cycleCountService.approveStockAdjustment>[0]
+  >({
     mutationFn: cycleCountService.approveStockAdjustment,
-    onSuccess: async (_, adjustmentId) => invalidate(adjustmentId),
+    onSuccess: async (_, { adjustmentId }) => invalidate(adjustmentId),
     onError: (error) => logger.error(error),
   })
 }
@@ -188,6 +231,86 @@ export function useRejectStockAdjustmentMutation() {
   >({
     mutationFn: cycleCountService.rejectStockAdjustment,
     onSuccess: async (_, variables) => invalidate(variables.adjustmentId),
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useStockAdjustmentVouchersQuery(params: StockAdjustmentVoucherListQuery) {
+  return useQuery<StockAdjustmentVoucherListResponse, ApiErrorResponse>({
+    queryKey: queryKeys.stockAdjustments.voucherList(params),
+    queryFn: () =>
+      cycleCountService.getStockAdjustmentVouchers(params).then((response) => response.data),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useStockAdjustmentVoucherQuery(voucherId: string) {
+  return useQuery<StockAdjustmentVoucher, ApiErrorResponse>({
+    queryKey: queryKeys.stockAdjustments.voucherDetail(voucherId),
+    queryFn: () =>
+      cycleCountService.getStockAdjustmentVoucher(voucherId).then((response) => response.data),
+    enabled: Boolean(voucherId),
+  })
+}
+
+export function useStockAdjustmentVoucherAllowedActionsQuery(voucherId: string) {
+  return useQuery<AllowedActionsResponse, ApiErrorResponse>({
+    queryKey: queryKeys.stockAdjustments.voucherAllowedActions(voucherId),
+    queryFn: () =>
+      cycleCountService
+        .getStockAdjustmentVoucherAllowedActions(voucherId)
+        .then((response) => response.data),
+    enabled: Boolean(voucherId),
+  })
+}
+
+// Phiếu điều chỉnh tạo từ kiểm kê nên banner/dòng của phiếu kiểm kê cũng phải tải lại.
+function useInvalidateStockAdjustmentVoucher() {
+  const queryClient = useQueryClient()
+  return async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.stockAdjustments.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.cycleCounts.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
+    ])
+  }
+}
+
+export function useCreateStockAdjustmentVoucherMutation() {
+  const invalidate = useInvalidateStockAdjustmentVoucher()
+  return useMutation<
+    ApiResponse<string>,
+    ApiErrorResponse,
+    Parameters<typeof cycleCountService.createStockAdjustmentVoucher>[0]
+  >({
+    mutationFn: cycleCountService.createStockAdjustmentVoucher,
+    onSuccess: async () => invalidate(),
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useApproveStockAdjustmentVoucherMutation() {
+  const invalidate = useInvalidateStockAdjustmentVoucher()
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    Parameters<typeof cycleCountService.approveStockAdjustmentVoucher>[0]
+  >({
+    mutationFn: cycleCountService.approveStockAdjustmentVoucher,
+    onSuccess: async () => invalidate(),
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useRejectStockAdjustmentVoucherMutation() {
+  const invalidate = useInvalidateStockAdjustmentVoucher()
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    Parameters<typeof cycleCountService.rejectStockAdjustmentVoucher>[0]
+  >({
+    mutationFn: cycleCountService.rejectStockAdjustmentVoucher,
+    onSuccess: async () => invalidate(),
     onError: (error) => logger.error(error),
   })
 }

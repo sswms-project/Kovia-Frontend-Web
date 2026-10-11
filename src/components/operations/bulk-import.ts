@@ -15,13 +15,25 @@ export interface BulkImportResultRow {
 }
 
 export function bulkImportResultsCsv(rows: readonly BulkImportResultRow[]) {
-  const escape = (value: string | number) => {
-    const text = String(value)
-    const spreadsheetSafe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text
-    return `"${spreadsheetSafe.replaceAll('"', '""')}"`
-  }
   return [
     'Dòng,Đối tượng,Kết quả',
-    ...rows.map((row) => [row.rowNumber, row.label, row.result].map(escape).join(',')),
+    ...rows.map((row) =>
+      [row.rowNumber, row.label, row.result].map(escapeBulkImportCsvCell).join(',')
+    ),
   ].join('\r\n')
+}
+
+export function escapeBulkImportCsvCell(value: string | number) {
+  const text = String(value)
+  const safe = /^[\s]*[=+\-@]|^[\t\r\n]/.test(text) ? `'${text}` : text
+  return `"${safe.replaceAll('"', '""')}"`
+}
+
+export function downloadBulkImportFile(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
 }

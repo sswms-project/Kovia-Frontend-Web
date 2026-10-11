@@ -11,7 +11,6 @@ import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { useLocalStorage } from '@/hooks/use-local-storage'
 import {
   formatApiError,
   getApiErrorCode,
@@ -21,18 +20,7 @@ import {
 import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDialog'
-import {
-  InboundPageHeader,
-  InboundMasterDetail,
-  InboundGoodsPreview,
-  INBOUND_DETAIL_STORAGE_KEY,
-} from '../components/InboundWorkspace'
-import {
-  requestGoodsPreviewRows,
-  receivingGoodsPreviewRows,
-  receiptGoodsPreviewRows,
-} from '../utils/inbound-goods-preview'
-import { useInboundRequestQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
+import { InboundPageHeader } from '../components/InboundWorkspace'
 import {
   InboundDocumentImportDialog,
   ReceiveGoodsDialog,
@@ -49,7 +37,6 @@ import {
   useNextGoodsReceiptCodeQuery,
   useInboundDocumentImportQuery,
   useReceivingTasksQuery,
-  useGoodsReceiptQuery,
   useReviewInboundDocumentImportMutation,
   useStartInboundDocumentImportMutation,
   useSubmitGoodsReceiptMutation,
@@ -79,8 +66,6 @@ export default function InboundReceivingPage() {
   const assignment = useAssignWarehouseTask()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const [previewId, setPreviewId] = useState('')
-  const [isDetailExpanded, setIsDetailExpanded] = useLocalStorage(INBOUND_DETAIL_STORAGE_KEY, false)
   const [selectedTask, setSelectedTask] = useState<ReceivingTask | null>(null)
   const [importTask, setImportTask] = useState<ReceivingTask | null>(null)
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -100,24 +85,6 @@ export default function InboundReceivingPage() {
     ...(createdTo ? { createdTo: toOperationalDateTimeEnd(createdTo) } : {}),
     ...(canAssign && assignmentFilter === 'unassigned' ? { unassigned: true } : {}),
   })
-  const preview =
-    !query.isError && !query.isPlaceholderData
-      ? query.data?.items.find((item) => item.inboundRequestId === previewId)
-      : undefined
-  const previewReceiptId = meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW)
-    ? (preview?.activeGoodsReceiptId ?? '')
-    : ''
-  const previewRequestId =
-    !previewReceiptId && meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_VIEW)
-      ? (preview?.inboundRequestId ?? '')
-      : ''
-  const previewReceiptQuery = useGoodsReceiptQuery(isDetailExpanded ? previewReceiptId : '')
-  const previewRequestQuery = useInboundRequestQuery(isDetailExpanded ? previewRequestId : '')
-  const previewRows = previewReceiptId
-    ? receiptGoodsPreviewRows(previewReceiptQuery.data?.items ?? [])
-    : previewRequestId
-      ? requestGoodsPreviewRows(previewRequestQuery.data?.lines ?? [])
-      : receivingGoodsPreviewRows(preview?.lines ?? [])
   const createMutation = useCreateGoodsReceiptMutation()
   const submitMutation = useSubmitGoodsReceiptMutation()
   const importQuery = useInboundDocumentImportQuery(importId)
@@ -385,75 +352,47 @@ export default function InboundReceivingPage() {
         isLoading={query.isFetching}
         isError={query.isError}
       />
-      <InboundMasterDetail
-        expanded={isDetailExpanded}
-        onExpandedChange={setIsDetailExpanded}
-        referenceCode={preview?.inboundRequestCode}
-        detail={
-          <InboundGoodsPreview
-            key={preview?.inboundRequestId ?? ''}
-            selected={Boolean(preview)}
-            rows={previewRows}
-            isReceipt={Boolean(previewReceiptId)}
-            isLoading={
-              Boolean(preview) &&
-              ((Boolean(previewReceiptId) && previewReceiptQuery.isLoading) ||
-                (Boolean(previewRequestId) && previewRequestQuery.isLoading))
-            }
-            isError={previewReceiptQuery.isError || previewRequestQuery.isError}
-            onRetry={() => {
-              if (previewReceiptId) void previewReceiptQuery.refetch()
-              else if (previewRequestId) void previewRequestQuery.refetch()
-            }}
-          />
-        }
-      >
-        <ReceivingTaskDirectory
-          canViewRequest={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_VIEW) ?? false}
-          previewId={preview?.inboundRequestId}
-          onPreview={(item) => {
-            setPreviewId(item.inboundRequestId)
-          }}
-          items={query.data?.items ?? []}
-          totalCount={query.data?.totalCount ?? 0}
-          page={page}
-          pageSize={pageSize}
-          searchText={searchText}
-          createdFrom={createdFrom}
-          createdTo={createdTo}
-          isLoading={query.isFetching}
-          isFetching={query.isFetching}
-          isError={query.isError}
-          onSearchChange={(value) => {
-            setSearchText(value)
-            setPage(1)
-          }}
-          onCreatedFromChange={(value) => {
-            setCreatedFrom(value)
-            setPage(1)
-          }}
-          onCreatedToChange={(value) => {
-            setCreatedTo(value)
-            setPage(1)
-          }}
-          onPageChange={setPage}
-          onPageSizeChange={(value) => {
-            setPageSize(value)
-            setPage(1)
-          }}
-          onReceive={openReceive}
-          onImportDocument={openDocumentImport}
-          onRetry={() => void query.refetch()}
-          currentUserId={currentUserId}
-          canAssign={canAssign}
-          assignmentFilter={assignmentFilter}
-          onAssignmentFilterChange={(value) => {
-            setAssignmentFilter(value)
-            setPage(1)
-          }}
-          onAssign={openAssign}
-        />
-      </InboundMasterDetail>
+      <ReceivingTaskDirectory
+        canViewRequest={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_VIEW) ?? false}
+        items={query.data?.items ?? []}
+        totalCount={query.data?.totalCount ?? 0}
+        page={page}
+        pageSize={pageSize}
+        searchText={searchText}
+        createdFrom={createdFrom}
+        createdTo={createdTo}
+        isLoading={query.isFetching}
+        isFetching={query.isFetching}
+        isError={query.isError}
+        onSearchChange={(value) => {
+          setSearchText(value)
+          setPage(1)
+        }}
+        onCreatedFromChange={(value) => {
+          setCreatedFrom(value)
+          setPage(1)
+        }}
+        onCreatedToChange={(value) => {
+          setCreatedTo(value)
+          setPage(1)
+        }}
+        onPageChange={setPage}
+        onPageSizeChange={(value) => {
+          setPageSize(value)
+          setPage(1)
+        }}
+        onReceive={openReceive}
+        onImportDocument={openDocumentImport}
+        onRetry={() => void query.refetch()}
+        currentUserId={currentUserId}
+        canAssign={canAssign}
+        assignmentFilter={assignmentFilter}
+        onAssignmentFilterChange={(value) => {
+          setAssignmentFilter(value)
+          setPage(1)
+        }}
+        onAssign={openAssign}
+      />
       <AssignWarehouseTaskDialog
         target={assignment.target}
         form={assignment.form}

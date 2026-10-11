@@ -7,6 +7,8 @@ import {
   UserRoundCog,
   X,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import type { DateRange } from 'react-day-picker'
 import Link from 'next/link'
 import type { Route } from 'next'
@@ -37,7 +39,11 @@ import { dateToIsoDateString, formatDisplayDate, isoDateStringToDate } from '@/l
 import { cn } from '@/lib/utils'
 import type { ReceivingTask } from '../../types/inbound.types'
 import { TaskAssigneeCell } from '../TaskAssignment'
-import { goodsPreviewInteractions } from '../../utils/goods-preview-interactions'
+import {
+  OperationalCellStack,
+  OperationalQuantityProgress,
+} from '@/components/operations/OperationalCells'
+import { rowActivationProps } from '../../utils/row-activation-props'
 import {
   formatOperationalDate,
   formatOperationalDateTime,
@@ -46,8 +52,6 @@ import {
 
 interface ReceivingTaskDirectoryProps {
   readonly canViewRequest?: boolean
-  readonly previewId?: string
-  readonly onPreview?: (item: ReceivingTask) => void
   readonly items: readonly ReceivingTask[]
   readonly totalCount: number
   readonly page: number
@@ -86,8 +90,6 @@ function buildDateLabel(from: Date | undefined, to: Date | undefined) {
 
 export function ReceivingTaskDirectory({
   canViewRequest,
-  previewId,
-  onPreview,
   items,
   totalCount,
   page,
@@ -112,6 +114,7 @@ export function ReceivingTaskDirectory({
   onAssignmentFilterChange,
   onAssign,
 }: ReceivingTaskDirectoryProps) {
+  const router = useRouter()
   function renderActions(item: ReceivingTask, layout: 'row' | 'stack') {
     const isMine = Boolean(currentUserId) && item.assignedTo === currentUserId
     const receiptPendingApproval = item.activeGoodsReceiptStatus === 'PendingApproval'
@@ -292,9 +295,9 @@ export function ReceivingTaskDirectory({
             {items.map((item) => (
               <Item
                 key={item.inboundRequestId}
-                {...goodsPreviewInteractions(
-                  onPreview ? () => onPreview(item) : undefined,
-                  previewId === item.inboundRequestId,
+                {...rowActivationProps(
+                  () =>
+                    router.push(APP_ROUTES.inboundRequestDetail(item.inboundRequestId) as Route),
                   'border-b last:border-b-0'
                 )}
               >
@@ -343,28 +346,22 @@ export function ReceivingTaskDirectory({
             ))}
           </ItemGroup>
           <div className="hidden min-h-0 flex-1 overflow-auto md:block">
-            <Table className="min-w-[1240px]">
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky top-0 z-10">Mã yêu cầu</TableHead>
-                  <TableHead className="sticky top-0 z-10">Nhà cung cấp</TableHead>
-                  <TableHead className="sticky top-0 z-10">Kho nhận</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Mặt hàng</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Đã nhận / Yêu cầu</TableHead>
-                  <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
-                  <TableHead className="sticky top-0 z-10">Ngày dự kiến</TableHead>
-                  <TableHead className="sticky top-0 z-10">Người nhận việc</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Thao tác</TableHead>
+                  <TableHead className="">Mã yêu cầu</TableHead>
+                  <TableHead className="">Nhà cung cấp · Kho nhận</TableHead>
+                  <TableHead className="w-44">Đã nhận / Yêu cầu</TableHead>
+                  <TableHead className="w-40">Thời gian</TableHead>
+                  <TableHead className="w-48">Người nhận việc</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
-                  <TableRow
+                  <ClickableTableRow
                     key={item.inboundRequestId}
-                    {...goodsPreviewInteractions(
-                      onPreview ? () => onPreview(item) : undefined,
-                      previewId === item.inboundRequestId
-                    )}
+                    href={APP_ROUTES.inboundRequestDetail(item.inboundRequestId) as Route}
                   >
                     <TableCell className="font-mono font-semibold" translate="no">
                       {canViewRequest ? (
@@ -391,17 +388,26 @@ export function ReceivingTaskDirectory({
                         </p>
                       )}
                     </TableCell>
-                    <TableCell>{item.supplierName}</TableCell>
-                    <TableCell>{item.warehouseName}</TableCell>
-                    <TableCell className="text-right tabular-nums">{item.lines.length}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatQuantity(item.receivedQuantity)} /{' '}
-                      {formatQuantity(item.orderedQuantity)}
+                    <TableCell className="min-w-0">
+                      <OperationalCellStack
+                        primary={item.supplierName}
+                        secondary={`${item.warehouseName} · ${item.lines.length} mặt hàng`}
+                      />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {formatOperationalDateTime(item.createdAt)}
+                    <TableCell>
+                      <OperationalQuantityProgress
+                        done={item.receivedQuantity}
+                        total={item.orderedQuantity}
+                        doneText={formatQuantity(item.receivedQuantity)}
+                        totalText={formatQuantity(item.orderedQuantity)}
+                      />
                     </TableCell>
-                    <TableCell>{formatOperationalDate(item.expectedDate)}</TableCell>
+                    <TableCell>
+                      <OperationalCellStack
+                        primary={formatOperationalDateTime(item.createdAt)}
+                        secondary={`Dự kiến ${formatOperationalDate(item.expectedDate)}`}
+                      />
+                    </TableCell>
                     <TableCell className="max-w-48">
                       <TaskAssigneeCell
                         assigneeName={item.assignedToName}
@@ -411,7 +417,7 @@ export function ReceivingTaskDirectory({
                       />
                     </TableCell>
                     <TableCell className="text-right">{renderActions(item, 'row')}</TableCell>
-                  </TableRow>
+                  </ClickableTableRow>
                 ))}
               </TableBody>
             </Table>

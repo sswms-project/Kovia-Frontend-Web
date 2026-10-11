@@ -1,5 +1,6 @@
-import { InventoryForecastPage } from '@/features/inventory/pages'
+import { redirect } from 'next/navigation'
+import { APP_ROUTES } from '@/routes/app-routes'
 
 export default function InventoryForecastRoutePage() {
-  return <InventoryForecastPage />
+  redirect(APP_ROUTES.reportForecast)
 }

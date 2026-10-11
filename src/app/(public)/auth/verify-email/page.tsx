@@ -3,7 +3,8 @@ import { VerifyEmailPage } from '@/features/auth/pages/VerifyEmailPage'
 
 export const metadata: Metadata = {
   title: 'Xác minh email | KOVIA',
-  description: 'Xác minh email đăng ký tenant owner cho Smart SaaS Warehouse Management System',
+  description:
+    'Xác minh email đăng ký doanh nghiệp owner cho Smart SaaS Warehouse Management System',
 }
 
 interface PageProps {

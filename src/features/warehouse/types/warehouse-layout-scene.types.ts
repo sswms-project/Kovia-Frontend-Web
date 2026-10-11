@@ -60,6 +60,8 @@ export interface WarehouseLayoutRackSceneResponse
   description: string | null
   status: string
   storageMode?: 'RackLevel' | 'SlotLevel'
+  /** Ô mặc định của kệ quản lý theo kệ; không nằm trong danh sách ô. */
+  defaultSlotId?: string | null
   layoutShape?: WarehouseLayoutRackShape | null
   allowsMixedProducts?: boolean
   capacity?: number | null
@@ -133,12 +135,17 @@ export interface SaveWarehouseLayoutSceneRequest {
 export interface WarehouseLayoutEditorZone
   extends
     Omit<WarehouseLayoutZoneSceneResponse, keyof WarehouseLayoutGeometry>,
-    WarehouseLayoutGeometry {}
+    WarehouseLayoutGeometry {
+  /** Derived UI metadata only; never serialized as saved geometry. */
+  placementPending?: boolean
+}
 
 export interface WarehouseLayoutEditorRack
   extends
     Omit<WarehouseLayoutRackSceneResponse, keyof WarehouseLayoutGeometry>,
-    WarehouseLayoutGeometry {}
+    WarehouseLayoutGeometry {
+  placementPending?: boolean
+}
 
 export interface WarehouseLayoutEditorDecoration extends WarehouseLayoutDecorationResponse {
   clientKey: string

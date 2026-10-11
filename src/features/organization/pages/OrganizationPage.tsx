@@ -112,7 +112,7 @@ export function OrganizationPage() {
           <Building2 className="size-5" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <p className="text-primary text-xs font-medium">Không gian tenant</p>
+          <p className="text-primary text-xs font-medium">Không gian doanh nghiệp</p>
           <h1 className="mt-0.5 text-xl font-semibold">Hồ sơ doanh nghiệp</h1>
         </div>
       </header>

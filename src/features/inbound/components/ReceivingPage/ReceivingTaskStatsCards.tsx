@@ -1,13 +1,21 @@
-import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Activity, ClipboardList, PauseCircle, UserRoundX } from 'lucide-react'
 import type { ReceivingTaskStats } from '../../types/inbound.types'
+import {
+  OperationalCountTile,
+  type OperationalTileTone,
+} from '@/components/operations/OperationalCountTile'
 
 const CARDS = [
-  { label: 'Đơn chờ nhận', key: 'totalOpenCount' },
-  { label: 'Chưa giao việc', key: 'unassignedCount' },
-  { label: 'Đang nhận', key: 'inProgressCount' },
-  { label: 'Tạm dừng', key: 'pausedCount' },
-] as const satisfies readonly { label: string; key: keyof ReceivingTaskStats }[]
+  { label: 'Đơn chờ nhận', key: 'totalOpenCount', icon: ClipboardList, tone: 'default' },
+  { label: 'Chưa giao việc', key: 'unassignedCount', icon: UserRoundX, tone: 'warning' },
+  { label: 'Đang nhận', key: 'inProgressCount', icon: Activity, tone: 'active' },
+  { label: 'Tạm dừng', key: 'pausedCount', icon: PauseCircle, tone: 'default' },
+] as const satisfies readonly {
+  label: string
+  key: keyof ReceivingTaskStats
+  icon: typeof ClipboardList
+  tone: OperationalTileTone
+}[]
 
 interface ReceivingTaskStatsCardsProps {
   readonly taskStats: ReceivingTaskStats | null
@@ -22,23 +30,21 @@ export function ReceivingTaskStatsCards({
 }: ReceivingTaskStatsCardsProps) {
   return (
     <section
-      className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4"
+      className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-4"
       aria-label="Thống kê công việc nhận hàng"
       aria-busy={isLoading}
     >
-      {CARDS.map(({ label, key }) => (
-        <Card key={key} size="sm" className="border-l-primary border-l-2">
-          <CardContent className="flex min-h-16 items-center justify-between gap-2">
-            <p className="text-sm font-medium">{label}</p>
-            {isLoading ? (
-              <Skeleton className="h-7 w-10 shrink-0" aria-hidden="true" />
-            ) : (
-              <p className="text-primary shrink-0 text-2xl font-semibold tabular-nums">
-                {isError ? '—' : (taskStats?.[key] ?? 0).toLocaleString('vi-VN')}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      {CARDS.map(({ label, key, icon, tone }, index) => (
+        <OperationalCountTile
+          key={key}
+          index={index}
+          icon={icon}
+          tone={tone}
+          label={label}
+          value={taskStats?.[key] ?? 0}
+          isLoading={isLoading}
+          isError={isError}
+        />
       ))}
     </section>
   )

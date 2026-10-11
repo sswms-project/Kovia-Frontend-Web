@@ -11,6 +11,16 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { FieldError } from '@/components/ui/field'
 import {
@@ -33,15 +43,25 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { InventoryWorkspaceNavigation } from '@/features/inventory/components/InventoryWorkspaceNavigation'
 import { APP_ROUTES } from '@/routes/app-routes'
-import type { StockAdjustment, StockAdjustmentStatus } from '../types/cycle-count.types'
+import type {
+  StockAdjustment,
+  StockAdjustmentStatus,
+  StockAdjustmentVoucher,
+} from '../types/cycle-count.types'
 import { STOCK_ADJUSTMENT_STATUSES } from '../types/cycle-count.types'
-import { formatCount, formatCycleCountDate } from '../utils/cycle-count-format'
+import {
+  CYCLE_COUNT_QUALITY_LABELS,
+  STOCK_ADJUSTMENT_STATUS_LABELS,
+  formatCount,
+  formatCycleCountDate,
+} from '../utils/cycle-count-format'
+import { formatStockLocation } from '../utils/cycle-count-scope'
 import { StockAdjustmentStatusBadge } from './CycleCountStatusBadge'
 import type { RejectStockAdjustmentFormValues } from '../schemas/cycle-count.schema'
 
 interface DirectoryProps {
   readonly permissions: readonly string[]
-  readonly items: readonly StockAdjustment[]
+  readonly items: readonly StockAdjustmentVoucher[]
   readonly totalCount: number
   readonly page: number
   readonly pageSize: number
@@ -98,7 +118,7 @@ export function StockAdjustmentDirectory(props: DirectoryProps) {
               <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
               {Object.values(STOCK_ADJUSTMENT_STATUSES).map((value) => (
                 <NativeSelectOption key={value} value={value}>
-                  {value}
+                  {STOCK_ADJUSTMENT_STATUS_LABELS[value]}
                 </NativeSelectOption>
               ))}
             </NativeSelect>
@@ -121,55 +141,68 @@ export function StockAdjustmentDirectory(props: DirectoryProps) {
           <OperationalErrorState title="Không thể tải điều chỉnh tồn kho" onRetry={props.onRetry} />
         ) : !props.items.length ? (
           <OperationalEmptyState
-            title="Chưa có đề nghị điều chỉnh"
-            description="Đề nghị được tạo từ chênh lệch kiểm kê đã hoàn tất."
+            title="Chưa có phiếu điều chỉnh"
+            description="Phiếu được tạo từ các dòng lệch của phiếu kiểm kê đã hoàn tất."
           />
         ) : (
           <div className="min-h-0 flex-1 overflow-auto">
-            <Table className="min-w-[900px]">
+            <Table className="min-w-[1000px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Sản phẩm</TableHead>
-                  <TableHead>Kho / Slot</TableHead>
-                  <TableHead className="text-right">Thay đổi</TableHead>
+                  <TableHead>Phiếu điều chỉnh</TableHead>
+                  <TableHead>Phiếu kiểm kê</TableHead>
+                  <TableHead>Kho</TableHead>
+                  <TableHead className="text-right">Số dòng</TableHead>
+                  <TableHead className="text-right">Tăng</TableHead>
+                  <TableHead className="text-right">Giảm</TableHead>
                   <TableHead>Người tạo</TableHead>
                   <TableHead>Trạng thái</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {props.items.map((item) => (
-                  <TableRow key={item.id}>
+                {props.items.map((voucher) => (
+                  <TableRow key={voucher.id}>
                     <TableCell>
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-muted-foreground font-mono text-xs">{item.productSku}</p>
-                    </TableCell>
-                    <TableCell>
-                      {item.warehouseName} / <span className="font-mono">{item.slotCode}</span>
-                      <p className="text-muted-foreground text-xs">
-                        {item.lotNumber ? `Lô ${item.lotNumber}` : 'Theo số lượng'} ·{' '}
-                        {item.qualityStatus}
-                      </p>
-                    </TableCell>
-                    <TableCell
-                      className={`text-right font-mono font-semibold ${item.quantityChange < 0 ? 'text-destructive' : 'text-primary'}`}
-                    >
-                      {item.quantityChange > 0 ? '+' : ''}
-                      {formatCount(item.quantityChange)}
-                    </TableCell>
-                    <TableCell>
-                      <p>{item.createdByName}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatCycleCountDate(item.createdAt)}
+                      <Link
+                        href={APP_ROUTES.stockAdjustmentVoucherDetail(voucher.id)}
+                        className="font-mono font-medium underline-offset-2 hover:underline"
+                      >
+                        {voucher.code}
+                      </Link>
+                      <p className="text-muted-foreground max-w-xs truncate text-xs">
+                        {voucher.reason}
                       </p>
                     </TableCell>
                     <TableCell>
-                      <StockAdjustmentStatusBadge status={item.status} />
+                      <Link
+                        href={APP_ROUTES.cycleCountDetail(voucher.cycleCountId)}
+                        className="font-mono text-xs underline-offset-2 hover:underline"
+                      >
+                        {voucher.cycleCountCode}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{voucher.warehouseName}</TableCell>
+                    <TableCell className="text-right font-mono">{voucher.lineCount}</TableCell>
+                    <TableCell className="text-primary text-right font-mono font-semibold">
+                      {voucher.totalIncrease > 0 ? `+${formatCount(voucher.totalIncrease)}` : '—'}
+                    </TableCell>
+                    <TableCell className="text-destructive text-right font-mono font-semibold">
+                      {voucher.totalDecrease < 0 ? formatCount(voucher.totalDecrease) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <p>{voucher.createdByName}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {formatCycleCountDate(voucher.createdAt)}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <StockAdjustmentStatusBadge status={voucher.status} />
                     </TableCell>
                     <TableCell>
                       <Button asChild size="icon" variant="ghost">
                         <Link
-                          href={APP_ROUTES.stockAdjustmentDetail(item.id)}
+                          href={APP_ROUTES.stockAdjustmentVoucherDetail(voucher.id)}
                           aria-label="Xem chi tiết"
                         >
                           <Eye />
@@ -202,21 +235,24 @@ function parseAdjustmentStatus(value: string): '' | StockAdjustmentStatus {
 interface DetailProps {
   readonly detail: StockAdjustment
   readonly allowedActions: readonly string[]
+  readonly selfApprovalRequired: boolean
   readonly isPending: boolean
   readonly rejectForm: UseFormReturn<RejectStockAdjustmentFormValues>
-  readonly onApprove: () => Promise<void>
+  readonly onApprove: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onReject: (reason: string) => Promise<boolean>
 }
 
 export function StockAdjustmentDetailView({
   detail,
   allowedActions,
+  selfApprovalRequired,
   isPending,
   rejectForm,
   onApprove,
   onReject,
 }: DetailProps) {
   const [rejecting, setRejecting] = useState(false)
+  const [approving, setApproving] = useState(false)
   return (
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4">
@@ -233,7 +269,7 @@ export function StockAdjustmentDetailView({
             <p className="text-primary text-xs font-medium">Đề nghị điều chỉnh</p>
             <h1 className="text-xl font-semibold">{detail.productName}</h1>
             <p className="text-muted-foreground font-mono text-xs">
-              {detail.productSku} · {detail.slotCode}
+              {detail.productSku} · {formatStockLocation(detail)}
             </p>
           </div>
         </div>
@@ -242,24 +278,45 @@ export function StockAdjustmentDetailView({
       <section className="bg-border grid gap-px border sm:grid-cols-3">
         <Metric label="Tồn hệ thống" value={detail.systemQuantity} />
         <Metric label="Số kiểm đếm" value={detail.countedQuantity} />
-        <Metric label="Chênh lệch BE tính" value={detail.quantityChange} signed />
+        <Metric label="Chênh lệch hệ thống tính" value={detail.quantityChange} signed />
       </section>
       <section className="bg-card grid gap-4 border p-4 md:grid-cols-2">
         <div>
           <h2 className="text-sm font-semibold">Căn cứ điều chỉnh</h2>
           <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+            <dt className="text-muted-foreground">Mã VTHH</dt>
+            <dd className="font-mono">{detail.productSku}</dd>
+            <dt className="text-muted-foreground">Tên VTHH</dt>
+            <dd className="font-medium">{detail.productName}</dd>
+            <dt className="text-muted-foreground">ĐVT</dt>
+            <dd>{detail.unitName ?? '—'}</dd>
             <dt className="text-muted-foreground">Kho</dt>
             <dd>{detail.warehouseName}</dd>
+            <dt className="text-muted-foreground">Vị trí</dt>
+            <dd className="font-mono">{formatStockLocation(detail)}</dd>
             <dt className="text-muted-foreground">Lý do</dt>
             <dd>{detail.reason}</dd>
             <dt className="text-muted-foreground">Lô hàng</dt>
             <dd className="font-mono">{detail.lotNumber ?? 'Theo số lượng'}</dd>
             <dt className="text-muted-foreground">Chất lượng</dt>
-            <dd>{detail.qualityStatus}</dd>
+            <dd>{CYCLE_COUNT_QUALITY_LABELS[detail.qualityStatus] ?? detail.qualityStatus}</dd>
             <dt className="text-muted-foreground">Người tạo</dt>
             <dd>{detail.createdByName}</dd>
             <dt className="text-muted-foreground">Thời điểm</dt>
             <dd>{formatCycleCountDate(detail.createdAt)}</dd>
+            {detail.voucherId ? (
+              <>
+                <dt className="text-muted-foreground">Phiếu điều chỉnh</dt>
+                <dd>
+                  <Link
+                    className="text-primary hover:underline"
+                    href={APP_ROUTES.stockAdjustmentVoucherDetail(detail.voucherId)}
+                  >
+                    {detail.voucherCode ?? 'Xem phiếu'}
+                  </Link>
+                </dd>
+              </>
+            ) : null}
             {detail.cycleCountId ? (
               <>
                 <dt className="text-muted-foreground">Phiếu kiểm kê</dt>
@@ -268,7 +325,7 @@ export function StockAdjustmentDetailView({
                     className="text-primary hover:underline"
                     href={APP_ROUTES.cycleCountDetail(detail.cycleCountId)}
                   >
-                    Xem phiếu nguồn
+                    {detail.cycleCountCode ?? 'Xem phiếu nguồn'}
                   </Link>
                 </dd>
               </>
@@ -279,10 +336,16 @@ export function StockAdjustmentDetailView({
           <h2 className="text-sm font-semibold">Kết quả phê duyệt</h2>
           <p className="text-muted-foreground mt-3 text-sm">
             {detail.status === 'Pending'
-              ? 'Đang chờ người có thẩm quyền khác người tạo xem xét.'
+              ? detail.voucherId
+                ? 'Dòng thuộc phiếu điều chỉnh, duyệt hoặc từ chối ở cấp phiếu.'
+                : 'Đang chờ chủ doanh nghiệp (hoặc người được uỷ quyền duyệt) xem xét.'
               : detail.status === 'Approved'
-                ? `Đã duyệt bởi ${detail.approvedByName || 'người có thẩm quyền'}.`
-                : `Đã từ chối: ${detail.rejectionReason || ''}`}
+                ? `Đã duyệt bởi ${detail.approvedByName || 'người có thẩm quyền'}${
+                    detail.approvedAt ? ` lúc ${formatCycleCountDate(detail.approvedAt)}` : ''
+                  }. Tồn kho đã được cập nhật.`
+                : `Đã từ chối bởi ${detail.rejectedByName || 'người có thẩm quyền'}${
+                    detail.rejectedAt ? ` lúc ${formatCycleCountDate(detail.rejectedAt)}` : ''
+                  }. Lý do: ${detail.rejectionReason || '—'}`}
           </p>
         </div>
       </section>
@@ -295,13 +358,39 @@ export function StockAdjustmentDetailView({
             </Button>
           ) : null}
           {allowedActions.includes('Approve') ? (
-            <Button disabled={isPending} onClick={() => void onApprove()}>
+            <Button disabled={isPending} onClick={() => setApproving(true)}>
               <Check />
               Duyệt và cập nhật tồn
             </Button>
           ) : null}
         </footer>
       ) : null}
+      <AlertDialog open={approving} onOpenChange={setApproving}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duyệt và cập nhật tồn kho?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selfApprovalRequired
+                ? 'Bạn là người tạo phiếu này. Khi xác nhận, hệ thống ghi nhận hành động tự phê duyệt vào nhật ký kiểm toán.'
+                : 'Tồn kho sẽ được ghi nhận theo số kiểm đếm. Hành động này không thể hoàn tác.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                void onApprove(selfApprovalRequired).then((succeeded) => {
+                  if (succeeded) setApproving(false)
+                })
+              }}
+            >
+              Xác nhận duyệt
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog
         open={rejecting}
         onOpenChange={(open) => {

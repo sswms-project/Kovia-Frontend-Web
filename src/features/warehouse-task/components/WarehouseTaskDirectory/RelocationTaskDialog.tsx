@@ -29,6 +29,7 @@ interface RelocationTaskDialogProps {
   readonly scope: 'mine' | 'managed'
   readonly canAssign: boolean
   readonly canExecute: boolean
+  readonly canOverrideDestination: boolean
   readonly staffOptions: readonly StaffResponse[]
   readonly assignmentStaffId: string
   readonly assignmentReason: string
@@ -53,6 +54,11 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
   const selectedDestination = props.executeForm.watch('destinationSlotId')
   const selectedRecommendation = props.recommendations.find(
     (item) => item.slotId === selectedDestination
+  )
+  const assignedDestinationId =
+    selectedLine?.proposedDestinationSlotId ?? props.recommendations[0]?.slotId
+  const assignedRecommendation = props.recommendations.find(
+    (item) => item.slotId === assignedDestinationId
   )
   const errors = props.executeForm.formState.errors
 
@@ -226,7 +232,9 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
                 <div>
                   <h3 className="font-medium">Ghi nhận điều chuyển</h3>
                   <p className="text-muted-foreground text-sm">
-                    Chọn vị trí theo thứ hạng. Nếu chọn khác ưu tiên số 1, hãy ghi rõ lý do.
+                    {props.canOverrideDestination
+                      ? 'Quản lý có thể chọn vị trí khác và phải ghi rõ lý do.'
+                      : 'Thực hiện đúng vị trí do quản lý hoặc hệ thống chỉ định.'}
                   </p>
                 </div>
                 {detail.executionStatus !== 'InProgress' ? (
@@ -254,7 +262,7 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
                     <p className="text-destructive text-sm">
                       Chưa có vị trí phù hợp. Quản lý cần cấu hình sức chứa hoặc vị trí đích.
                     </p>
-                  ) : (
+                  ) : props.canOverrideDestination ? (
                     <RadioGroup
                       value={selectedDestination}
                       className="max-h-64 overflow-y-auto"
@@ -287,10 +295,33 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
                         </label>
                       ))}
                     </RadioGroup>
+                  ) : assignedDestinationId ? (
+                    <div className="bg-muted/40 border p-3" data-testid="assigned-destination">
+                      <p className="font-medium">
+                        {selectedLine.proposedDestinationSlotCode ??
+                          assignedRecommendation?.slotCode}
+                      </p>
+                      <p className="text-muted-foreground mt-1 text-sm">
+                        {selectedLine.proposedDestinationSlotId
+                          ? 'Vị trí do quản lý chỉ định.'
+                          : 'Vị trí xếp hạng 1 do hệ thống đề xuất.'}
+                      </p>
+                      {assignedRecommendation ? (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {assignedRecommendation.zoneCode} / {assignedRecommendation.rackCode} ·{' '}
+                          {assignedRecommendation.reasons.join(' ')}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-destructive text-sm">
+                      Chưa xác định được vị trí được giao. Vui lòng liên hệ quản lý kho.
+                    </p>
                   )}
                   <FieldError errors={[errors.destinationSlotId]} />
                 </Field>
-                {selectedRecommendation?.rank !== 1 &&
+                {props.canOverrideDestination &&
+                selectedRecommendation?.rank !== 1 &&
                 selectedDestination !== selectedLine.proposedDestinationSlotId ? (
                   <Field data-invalid={Boolean(errors.overrideReason)}>
                     <FieldLabel htmlFor="relocation-override-reason">

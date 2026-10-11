@@ -8,8 +8,16 @@ import {
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
 import type { StockIssueRequestSummary } from '../../types/stock-issue.types'
-import { formatStockIssueDate, formatStockIssueQuantity } from '../../utils/stock-issue-format'
+import {
+  canRecordStockPicking,
+  formatStockIssueDate,
+  formatStockIssueQuantity,
+} from '../../utils/stock-issue-format'
+import { StockIssuePickerAssignment, type PickerOption } from './StockIssuePickerAssignment'
+import { StockIssueAttachmentList } from './StockIssueAttachmentList'
+import { StockIssueAuditTimeline } from './StockIssueAuditTimeline'
 import { StockIssueRequestStatusBadge } from './StockIssueRequestStatusBadge'
+import { StockIssueStatusStepper } from './StockIssueStatusStepper'
 
 interface StockIssueRequestDetailSheetProps {
   readonly order: StockIssueRequestSummary | null
@@ -19,6 +27,13 @@ interface StockIssueRequestDetailSheetProps {
   readonly onRetry: () => void
   readonly isRemovingPick: boolean
   readonly onRemovePickDetail: (pickDetailId: string) => void
+  readonly canAssignPicker: boolean
+  readonly pickerOptions: readonly PickerOption[]
+  readonly isAssigningPicker: boolean
+  readonly onAssignPicker: (staffId: string) => void
+  readonly canPick?: boolean
+  readonly onStartPicking?: (order: StockIssueRequestSummary) => void
+  readonly onReleaseForPicking?: (order: StockIssueRequestSummary) => void
 }
 
 export function StockIssueRequestDetailSheet({
@@ -29,6 +44,13 @@ export function StockIssueRequestDetailSheet({
   onOpenChange,
   isRemovingPick,
   onRemovePickDetail,
+  canAssignPicker,
+  pickerOptions,
+  isAssigningPicker,
+  onAssignPicker,
+  canPick = false,
+  onStartPicking,
+  onReleaseForPicking,
 }: StockIssueRequestDetailSheetProps) {
   return (
     <Sheet open={Boolean(order) || isLoading || isError} onOpenChange={onOpenChange}>
@@ -54,6 +76,58 @@ export function StockIssueRequestDetailSheet({
                   Tạo lúc {formatStockIssueDate(order.createdAt)}
                 </span>
               </div>
+              {canPick && onStartPicking && canRecordStockPicking(order.status) ? (
+                <Button className="w-full" onClick={() => onStartPicking(order)}>
+                  Quét &amp; lấy hàng
+                </Button>
+              ) : null}
+              {canAssignPicker &&
+              onReleaseForPicking &&
+              order.status === 'Pending' &&
+              order.assignedStaffId ? (
+                <div className="space-y-2 border p-3">
+                  <p className="text-muted-foreground text-xs">
+                    Đã chọn người lấy hàng. Bấm giao việc để giữ tồn kho và cho nhân viên bắt đầu
+                    quét &amp; lấy hàng.
+                  </p>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => onReleaseForPicking(order)}
+                  >
+                    Giao việc lấy hàng
+                  </Button>
+                </div>
+              ) : null}
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">Tiến trình xuất kho</h3>
+                <StockIssueStatusStepper
+                  status={order.status}
+                  hasAssignedPicker={Boolean(order.assignedStaffId)}
+                />
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">Người lấy hàng</h3>
+                <p className="text-sm">
+                  {order.assignedStaffName ?? (
+                    <span className="text-muted-foreground">
+                      Chưa giao — chờ quản lý kho giao việc.
+                    </span>
+                  )}
+                </p>
+                {canAssignPicker &&
+                (order.status === 'Pending' ||
+                  order.status === 'ReleasedForPicking' ||
+                  order.status === 'Picking') ? (
+                  <StockIssuePickerAssignment
+                    key={`${order.id}:${order.assignedStaffId ?? ''}`}
+                    options={pickerOptions}
+                    currentStaffId={order.assignedStaffId}
+                    isPending={isAssigningPicker}
+                    onAssign={onAssignPicker}
+                  />
+                ) : null}
+              </section>
               <dl className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <dt className="text-muted-foreground text-xs">Đơn vị nhận hàng</dt>
@@ -78,8 +152,20 @@ export function StockIssueRequestDetailSheet({
                   <dd className="text-sm font-medium">{order.recipientAddress}</dd>
                 </div>
                 <div className="sm:col-span-2">
-                  <dt className="text-muted-foreground text-xs">Mục đích</dt>
+                  <dt className="text-muted-foreground text-xs">Tham chiếu</dt>
+                  <dd className="text-sm font-medium">{order.referenceCode ?? '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs">Ngày xuất</dt>
+                  <dd className="text-sm font-medium">{order.issueDate ?? '—'}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground text-xs">Diễn giải</dt>
                   <dd className="text-sm font-medium">{order.purpose ?? '—'}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground text-xs">Ghi chú</dt>
+                  <dd className="text-sm font-medium whitespace-pre-wrap">{order.note ?? '—'}</dd>
                 </div>
               </dl>
               <section className="space-y-2">
@@ -97,6 +183,9 @@ export function StockIssueRequestDetailSheet({
                             {item.sku}
                           </span>
                         </ItemDescription>
+                        {item.note ? (
+                          <p className="text-muted-foreground mt-1 text-xs">Ghi chú: {item.note}</p>
+                        ) : null}
                         {item.pickDetails.length > 0 ? (
                           <div className="mt-2 space-y-2">
                             {item.pickDetails.map((detail) => (
@@ -148,6 +237,23 @@ export function StockIssueRequestDetailSheet({
                     </Item>
                   ))}
                 </ItemGroup>
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">
+                  Đính kèm{' '}
+                  <span className="text-muted-foreground tabular-nums">
+                    ({order.attachments.length})
+                  </span>
+                </h3>
+                <StockIssueAttachmentList
+                  stockIssueRequestId={order.id}
+                  attachments={order.attachments}
+                  canEdit={order.status !== 'Cancelled' && order.status !== 'Dispatched'}
+                />
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">Nhật ký thao tác</h3>
+                <StockIssueAuditTimeline stockIssueRequestId={order.id} />
               </section>
             </div>
           </>

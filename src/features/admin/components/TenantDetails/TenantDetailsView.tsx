@@ -114,7 +114,7 @@ export function TenantDetailsView({
           <Button
             variant="outline"
             size="icon-sm"
-            aria-label="Làm mới chi tiết tenant"
+            aria-label="Làm mới chi tiết doanh nghiệp"
             disabled={isFetching}
             onClick={onRetry}
           >

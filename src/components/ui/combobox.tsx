@@ -23,6 +23,7 @@ function ComboboxTrigger({ className, children, ...props }: ComboboxPrimitive.Tr
   return (
     <ComboboxPrimitive.Trigger
       data-slot="combobox-trigger"
+      aria-label="Mở danh sách"
       className={cn("group [&_svg:not([class*='size-'])]:size-4", className)}
       {...props}
     >

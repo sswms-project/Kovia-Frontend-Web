@@ -12,6 +12,8 @@ export const APP_ROUTES = {
     verify2fa: '/auth/verify-2fa',
   },
   dashboard: '/dashboard',
+  reports: '/reports' as Route,
+  reportForecast: '/reports/forecast' as Route,
   myTasks: '/tasks' as Route,
   myTaskHistory: '/tasks/history' as Route,
   subscription: '/subscription',
@@ -34,7 +36,9 @@ export const APP_ROUTES = {
   suppliers: '/suppliers',
   supplierImport: '/suppliers/import' as Route,
   units: '/units',
+  unitImport: '/units/import' as Route,
   categories: '/categories',
+  categoryImport: '/categories/import' as Route,
   supplierDetail: (supplierId: string) => `/suppliers/${supplierId}`,
   inboundRequests: '/inbound-requests',
   inboundRequestCreate: '/inbound-requests/new',
@@ -52,6 +56,7 @@ export const APP_ROUTES = {
   warehouseLayoutDesigner: (warehouseId: string): Route =>
     `/warehouse-layouts/${warehouseId}/designer` as Route,
   warehouseLocations: (warehouseId: string) => `/warehouses/${warehouseId}/locations`,
+  warehouseLocationImport: (warehouseId: string): Route => `/warehouses/${warehouseId}/locations/import` as Route,
   warehouseLocationBarcode: (warehouseId: string, locationType: string, locationId: string) =>
     `/warehouses/${warehouseId}/locations/${locationType.toLowerCase()}/${locationId}/barcode`,
   inventory: '/inventory',
@@ -61,7 +66,7 @@ export const APP_ROUTES = {
   inventoryOpeningStocks: '/inventory/opening-stocks',
   inventoryAbcClassification: '/inventory/abc-classification',
   inventoryDiscrepancies: '/inventory/discrepancies',
-  inventoryForecast: '/inventory/forecast',
+  inventoryForecast: '/inventory/forecast', // Legacy URL redirects to reports/forecast.
   cycleCounts: '/inventory/cycle-counts',
   cycleCountCreate: '/inventory/cycle-counts/new',
   cycleCountDetail: (cycleCountId: string): Route =>
@@ -69,8 +74,19 @@ export const APP_ROUTES = {
   stockAdjustments: '/inventory/stock-adjustments',
   stockAdjustmentDetail: (adjustmentId: string): Route =>
     `/inventory/stock-adjustments/${adjustmentId}` as Route,
+  stockAdjustmentVoucherDetail: (voucherId: string): Route =>
+    `/inventory/stock-adjustments/vouchers/${voucherId}` as Route,
   transfers: '/transfers',
+  transfersTab: (stage: string): Route => `/transfers?tab=${stage}` as Route,
+  /** Mở sẵn hộp thoại tạo công việc điều chuyển vị trí (điều chuyển nội bộ trong kho). */
+  createRelocationTask: '/tasks?create=relocation' as Route,
   transferCreate: '/transfers/new',
+  transferDetail: (transferId: string): Route => `/transfers/${transferId}` as Route,
+  transferEdit: (transferId: string): Route => `/transfers/${transferId}/edit` as Route,
+  transferPickTask: (transferId: string, shipmentId: string): Route =>
+    `/tasks/transfers/${transferId}/shipments/${shipmentId}/pick` as Route,
+  transferReceiveTask: (transferId: string, shipmentId: string): Route =>
+    `/tasks/transfers/${transferId}/shipments/${shipmentId}/receive` as Route,
   stockIssueRequests: '/stock-issue-requests',
   stockIssueRequestCreate: '/stock-issue-requests/new',
   goodsReturnRequests: '/goods-return-requests',
@@ -89,6 +105,7 @@ export const APP_ROUTES = {
     payments: '/admin/payments',
   },
   products: '/products',
+  productImport: '/products/import' satisfies Route,
   productDetail: (id: string) => `/products/${id}`,
   productCreate: '/products/create',
   profile: '/profile',

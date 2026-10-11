@@ -15,10 +15,12 @@ import {
   isApiErrorResponse,
 } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
-import { ReceiptDetail } from '../components/ReceiptDetailPage'
+import { PutawayPlanSheet, ReceiptDetail } from '../components/ReceiptDetailPage'
 import { ReceiveGoodsDialog } from '../components/ReceivingPage'
 import { AssignWarehouseTaskDialog } from '../components/TaskAssignment'
+import { inventoryService } from '@/features/inventory/services/inventory.service'
 import { useAssignWarehouseTask } from '../hooks/use-assign-warehouse-task'
+import { usePutawayPlanEditor } from '../hooks/use-putaway-plan-editor'
 import {
   useApproveGoodsReceiptMutation,
   useInboundAllowedActionsQuery,
@@ -39,6 +41,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
   const rejectMutation = useRejectGoodsReceiptMutation()
   const updateMutation = useUpdateGoodsReceiptMutation()
   const assignment = useAssignWarehouseTask()
+  const planEditor = usePutawayPlanEditor(detailQuery.data)
   const form = useForm<GoodsReceiptFormValues>({
     resolver: zodResolver(goodsReceiptSchema),
     defaultValues: { inboundRequestId: '', receiptCode: '', lines: [] },
@@ -143,6 +146,15 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
       currentPriority: receipt.putAwayTaskPriority,
       currentDueAt: receipt.putAwayTaskDueAt,
     })
+  }
+
+  async function downloadEvidence(evidence: { id: string; fileName: string }) {
+    try {
+      await inventoryService.downloadEvidence(evidence.id, evidence.fileName)
+    } catch (error) {
+      logMutationFailure(error)
+      showMutationError(error, 'Không thể tải ảnh. Vui lòng thử lại.')
+    }
   }
 
   async function perform(action: 'submit' | 'approve' | 'reject', reason?: string) {
@@ -258,6 +270,32 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
         onApprove={() => perform('approve')}
         onReject={(reason) => perform('reject', reason)}
         onAssignPutAway={openAssignPutAway}
+        onPlanPutAway={planEditor.open}
+        onDownloadEvidence={(evidence) => void downloadEvidence(evidence)}
+      />
+      <PutawayPlanSheet
+        open={planEditor.isOpen}
+        receiptCode={receipt.receiptCode}
+        items={planEditor.plannableItems}
+        slots={planEditor.slots}
+        drafts={planEditor.drafts}
+        validation={planEditor.validation}
+        suggestions={planEditor.suggestions}
+        heldSlots={planEditor.heldSlots}
+        isLoadingSlots={planEditor.isLoadingSlots}
+        isSlotsError={planEditor.isSlotsError}
+        isSuggesting={planEditor.isSuggesting}
+        isSaving={planEditor.isSaving}
+        onOpenChange={(open) => !open && planEditor.close()}
+        onRetrySlots={planEditor.retrySlots}
+        onAddLine={planEditor.addLine}
+        onChangeLine={planEditor.updateLine}
+        onRemoveLine={planEditor.removeLine}
+        onFillRemaining={planEditor.fillRemaining}
+        onSuggest={() => void planEditor.suggest()}
+        onApplySuggestion={planEditor.applySuggestion}
+        onApplyBestSuggestions={planEditor.applyBestSuggestions}
+        onSave={() => void planEditor.save()}
       />
       <AssignWarehouseTaskDialog
         target={assignment.target}

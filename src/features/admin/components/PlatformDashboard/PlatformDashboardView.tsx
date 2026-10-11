@@ -116,8 +116,8 @@ export function PlatformDashboardView({
   }
 
   const metrics = [
-    { label: 'Tổng tenant', value: data.tenantSummary.total, icon: Building2 },
-    { label: 'Tenant hoạt động', value: data.tenantSummary.active, icon: Activity },
+    { label: 'Tổng doanh nghiệp', value: data.tenantSummary.total, icon: Building2 },
+    { label: 'Doanh nghiệp hoạt động', value: data.tenantSummary.active, icon: Activity },
     { label: 'Đăng ký hiệu lực', value: data.subscriptionSummary.active, icon: CreditCard },
   ]
   if (data.userSummary) {
@@ -176,10 +176,10 @@ export function PlatformDashboardView({
       <div className="grid gap-4 lg:grid-cols-12">
         <section className="bg-card border p-4 lg:col-span-8" aria-labelledby="tenant-status-title">
           <h2 id="tenant-status-title" className="text-sm font-semibold">
-            Phân bổ trạng thái tenant
+            Phân bổ trạng thái doanh nghiệp
           </h2>
           <p className="text-muted-foreground mt-1 text-xs">
-            Có {data.tenantSummary.newLast30Days} tenant mới trong 30 ngày.
+            Có {data.tenantSummary.newLast30Days} doanh nghiệp mới trong 30 ngày.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {[
@@ -248,7 +248,7 @@ export function PlatformDashboardView({
                 <div key={item.planId}>
                   <div className="mb-1 flex justify-between gap-3 text-xs">
                     <span>{item.planName}</span>
-                    <span>{item.tenantCount} tenant</span>
+                    <span>{item.tenantCount} doanh nghiệp</span>
                   </div>
                   <div className="bg-muted h-2 overflow-hidden">
                     <div
@@ -376,10 +376,12 @@ export function PlatformDashboardView({
       {recentTenants ? (
         <section className="bg-card border p-4" aria-labelledby="recent-tenants-title">
           <h2 id="recent-tenants-title" className="text-sm font-semibold">
-            Tenant đăng ký gần đây
+            Doanh nghiệp đăng ký gần đây
           </h2>
           {recentTenants.length === 0 ? (
-            <p className="text-muted-foreground py-10 text-center text-sm">Chưa có tenant nào.</p>
+            <p className="text-muted-foreground py-10 text-center text-sm">
+              Chưa có doanh nghiệp nào.
+            </p>
           ) : (
             <ul className="mt-3 divide-y">
               {recentTenants.map((tenant) => (

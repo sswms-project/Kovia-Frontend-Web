@@ -140,11 +140,11 @@ export function VerifyEmailPage({ token }: VerifyEmailPageProps) {
           </div>
           <h2 className="text-foreground mt-4 text-sm font-semibold">Bảo vệ workspace</h2>
           <p className="text-muted-foreground mt-2 text-sm leading-6">
-            Email xác minh giúp KOVIA đảm bảo người tạo tenant là chủ sở hữu hợp lệ trước khi kích
-            hoạt tài khoản vận hành.
+            Email xác minh giúp KOVIA đảm bảo người tạo doanh nghiệp là chủ sở hữu hợp lệ trước khi
+            kích hoạt tài khoản vận hành.
           </p>
           <div className="border-border bg-muted text-muted-foreground mt-5 rounded-md border p-3 text-xs leading-5">
-            Link xác minh được backend cấp sau khi đăng ký và có thời hạn 15 phút.
+            Link xác minh được hệ thống cấp sau khi đăng ký và có thời hạn 15 phút.
           </div>
         </Card>
       </section>

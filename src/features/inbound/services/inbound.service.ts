@@ -1,6 +1,7 @@
 import { axiosClient } from '@/lib/axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse } from '@/types/api'
+import type { InventoryEvidence } from '@/features/inventory/types/inventory.types'
 import type {
   AssignableWarehouseStaff,
   AssignWarehouseTaskRequest,
@@ -11,7 +12,12 @@ import type {
   GoodsReceiptDetail,
   GoodsReceiptListResponse,
   PutawayRequest,
+  PutAwayDeviationReport,
+  PutAwayDeviationReportQuery,
+  PutAwayHeldSlot,
+  PutAwaySuggestionsResponse,
   PutawayTaskQuery,
+  SavePutAwayPlanRequest,
   ReceivingTaskListResponse,
   ReceivingTaskQuery,
   SaveGoodsReceiptRequest,
@@ -98,6 +104,43 @@ export const inboundService = {
   putaway: (receiptId: string, request: PutawayRequest) =>
     axiosClient
       .post<ApiResponse<unknown>>(API_ENDPOINTS.goodsReceipts.putaway(receiptId), request)
+      .then((response) => response.data),
+  savePutawayPlan: (receiptId: string, request: SavePutAwayPlanRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.goodsReceipts.putawayPlan(receiptId), request)
+      .then((response) => response.data),
+  suggestPutawaySlotsForPutaway: (receiptId: string) =>
+    axiosClient
+      .post<
+        ApiResponse<PutAwaySuggestionsResponse>
+      >(API_ENDPOINTS.goodsReceipts.putawaySuggestions(receiptId), undefined, { timeout: 60_000 })
+      .then((response) => response.data),
+  suggestPutawaySlots: (receiptId: string) =>
+    axiosClient
+      .post<
+        ApiResponse<PutAwaySuggestionsResponse>
+      >(API_ENDPOINTS.goodsReceipts.putawayPlanSuggestions(receiptId), undefined, { timeout: 60_000 })
+      .then((response) => response.data),
+  uploadPutawayEvidence: (warehouseId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('warehouseId', warehouseId)
+    formData.append('file', file)
+    return axiosClient
+      .post<ApiResponse<InventoryEvidence>>(API_ENDPOINTS.goodsReceipts.putawayEvidence, formData, {
+        // Mặc định của axiosClient là JSON; bỏ đi để trình duyệt tự đặt multipart kèm boundary.
+        headers: { 'Content-Type': null },
+      })
+      .then((response) => response.data)
+  },
+  getPutawayHeldSlots: (receiptId: string) =>
+    axiosClient
+      .get<ApiResponse<PutAwayHeldSlot[]>>(API_ENDPOINTS.goodsReceipts.putawayHeldSlots(receiptId))
+      .then((response) => response.data),
+  getPutawayDeviationReport: (params: PutAwayDeviationReportQuery) =>
+    axiosClient
+      .get<
+        ApiResponse<PutAwayDeviationReport>
+      >(API_ENDPOINTS.goodsReceipts.putawayDeviationReport, { params })
       .then((response) => response.data),
   cancelPutawayTask: (receiptId: string, request: CancelPutawayTaskRequest) =>
     axiosClient

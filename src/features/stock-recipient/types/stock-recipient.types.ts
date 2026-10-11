@@ -79,6 +79,7 @@ export interface ImportStockRecipientItem {
 export interface StockRecipientImportPreviewRow extends ImportStockRecipientItem {
   rowNumber: number
   errors: string[]
+  readonly fieldErrors?: Readonly<Record<string, readonly string[]>>
 }
 
 export interface StockRecipientImportPreview {

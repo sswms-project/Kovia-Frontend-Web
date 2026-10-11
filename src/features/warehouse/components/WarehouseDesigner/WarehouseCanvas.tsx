@@ -23,6 +23,7 @@ import type {
 } from '../../types/warehouse-layout-scene.types'
 import {
   constrainLayoutGeometryToCanvas,
+  getLayoutGeometryBounds,
   LAYOUT_DECORATION_MARGIN,
   snapToGrid,
   type LayoutBounds,
@@ -87,6 +88,7 @@ export interface WarehouseCanvasHandle {
   zoomOut: () => void
   zoomTo: (zoomPercent: number) => void
   fit: () => void
+  revealSelection: (selection: WarehouseLayoutSelection) => void
 }
 
 function readCanvasPalette(): CanvasPalette {
@@ -460,6 +462,8 @@ export function WarehouseCanvas({
   const [hoverInfo, setHoverInfo] = useState<CanvasHoverInfo | null>(null)
   const isFitMode = useRef(true)
   const pendingCenter = useRef<{ x: number; y: number } | null>(null)
+  const pendingFocus = useRef(false)
+  const [revealRevision, setRevealRevision] = useState(0)
   const [scale, setScale] = useState(1)
   const [scrollPosition, setScrollPosition] = useState({ left: 0, top: 0 })
   const activeZoneIds = useMemo(
@@ -525,6 +529,28 @@ export function WarehouseCanvas({
     [size.height, size.width, viewport]
   )
 
+  const revealSelection = useCallback(
+    (nextSelection: WarehouseLayoutSelection) => {
+      const object =
+        nextSelection.kind === 'zone'
+          ? scene.zones.find((zone) => zone.id === nextSelection.id)
+          : nextSelection.kind === 'rack'
+            ? scene.racks.find((rack) => rack.id === nextSelection.id)
+            : undefined
+      if (!object || !size.width || !size.height) return
+      const bounds = getLayoutGeometryBounds(object)
+      isFitMode.current = false
+      pendingCenter.current = {
+        x: (bounds.minX + bounds.maxX) / 2,
+        y: (bounds.minY + bounds.maxY) / 2,
+      }
+      pendingFocus.current = true
+      setScale((current) => Math.min(current, getFitScale(size.width, size.height, bounds)))
+      setRevealRevision((current) => current + 1)
+    },
+    [scene.racks, scene.zones, size.height, size.width]
+  )
+
   useImperativeHandle(
     ref,
     () => ({
@@ -532,8 +558,9 @@ export function WarehouseCanvas({
       zoomOut: () => zoomAtCenter(1 / ZOOM_FACTOR),
       zoomTo,
       fit,
+      revealSelection,
     }),
-    [fit, zoomAtCenter, zoomTo]
+    [fit, revealSelection, zoomAtCenter, zoomTo]
   )
 
   useEffect(() => {
@@ -548,9 +575,13 @@ export function WarehouseCanvas({
 
     const nextLeft = Math.max(0, paperLeft + center.x * scale - size.width / 2)
     const nextTop = Math.max(0, paperTop + center.y * scale - size.height / 2)
-    container.scrollTo({ left: nextLeft, top: nextTop })
+    container.scrollTo({ left: nextLeft, top: nextTop, behavior: 'instant' })
     setScrollPosition({ left: nextLeft, top: nextTop })
     pendingCenter.current = null
+    if (pendingFocus.current) {
+      pendingFocus.current = false
+      container.focus({ preventScroll: true })
+    }
   }, [
     containerRef,
     contentHeight,
@@ -558,6 +589,7 @@ export function WarehouseCanvas({
     paperLeft,
     paperTop,
     scale,
+    revealRevision,
     size.height,
     size.width,
   ])

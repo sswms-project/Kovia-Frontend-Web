@@ -1,5 +1,8 @@
 'use client'
 
+import Link from 'next/link'
+import { APP_ROUTES } from '@/routes/app-routes'
+
 import { useMemo, useState } from 'react'
 import {
   ChevronRight,
@@ -9,6 +12,7 @@ import {
   Plus,
   Power,
   RotateCcw,
+  Upload,
 } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Badge } from '@/components/ui/badge'
@@ -200,6 +204,12 @@ export function CategoryCatalog({
         </div>
         {canCreate ? (
           <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link href={APP_ROUTES.categoryImport}>
+                <Upload data-icon="inline-start" aria-hidden="true" />
+                Nhập từ tệp
+              </Link>
+            </Button>
             <Button onClick={() => onCreate(null)}>
               <Plus data-icon="inline-start" aria-hidden="true" />
               Thêm nhóm

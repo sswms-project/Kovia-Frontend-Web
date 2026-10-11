@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -25,6 +26,7 @@ import {
 } from '@/features/inventory/hooks/use-inventory'
 import { useStaffListQuery } from '@/features/staff/hooks/use-staff'
 import { STAFF_DIRECTORY_KINDS } from '@/features/staff/types/staff.types'
+import { useTransferRealtime } from '@/features/transfer/hooks/use-transfer-realtime'
 import { useWarehouseLocationsQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -33,7 +35,9 @@ import {
   RelocationTaskDialog,
   WarehouseTaskDirectory,
   WarehouseTaskScheduleDialog,
+  getTaskRoute,
 } from '../components/WarehouseTaskDirectory'
+import { MyWorkQueue } from '../components/MyWorkQueue'
 import {
   useAssignWarehouseTaskMutation,
   useCreateWarehouseTaskMutation,
@@ -61,7 +65,7 @@ import type {
   WarehouseTaskType,
 } from '../types/warehouse-task.types'
 
-const PAGE_SIZE = 20
+const DEFAULT_PAGE_SIZE = 20
 const EMPTY_LINE = {
   sourceInventoryStockId: '',
   sourceSlotId: '',
@@ -90,14 +94,32 @@ function toDateTimeLocal(value: string | null) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16)
 }
 
-export default function MyWarehouseTasksPage() {
+export default function MyWarehouseTasksPage({
+  initialTaskId,
+  initialWarehouseId,
+  initialDeadline,
+}: {
+  readonly initialTaskId?: string
+  readonly initialWarehouseId?: string
+  readonly initialDeadline?: WarehouseTaskDeadlineStatus
+} = {}) {
   const [page, setPage] = useState(1)
-  const [createOpen, setCreateOpen] = useState(false)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+  // Mở sẵn từ form điều chuyển kho (chọn "Điều chuyển nội bộ vị trí trong kho").
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [createOpen, setCreateOpen] = useState(() => searchParams.get('create') === 'relocation')
   const [sourceSearch, setSourceSearch] = useState('')
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialTaskId ?? null)
+  const [warehouseFilter, setWarehouseFilter] = useState(initialWarehouseId)
   const [scheduleTask, setScheduleTask] = useState<MyWarehouseTask | null>(null)
   const [taskTypeFilter, setTaskTypeFilter] = useState<WarehouseTaskType | ''>('')
-  const [deadlineFilter, setDeadlineFilter] = useState<WarehouseTaskDeadlineStatus | ''>('')
+  const [executionStatusFilter, setExecutionStatusFilter] = useState<
+    MyWarehouseTask['executionStatus'] | ''
+  >('')
+  const [deadlineFilter, setDeadlineFilter] = useState<WarehouseTaskDeadlineStatus | ''>(
+    initialDeadline ?? ''
+  )
   const [assignmentStaffId, setAssignmentStaffId] = useState('')
   const [assignmentReason, setAssignmentReason] = useState('')
   const [pendingReason, setPendingReason] = useState<{
@@ -108,6 +130,13 @@ export default function MyWarehouseTasksPage() {
   const [reasonError, setReasonError] = useState('')
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
+  const assignedWarehouses = meQuery.data?.assignedWarehouses
+  const assignedWarehouseIds = useMemo(
+    () => (assignedWarehouses ?? []).map((warehouse) => warehouse.id),
+    [assignedWarehouses]
+  )
+  // Việc lấy/nhận hàng điều chuyển thay đổi theo thời gian thực nên danh sách tự làm mới.
+  useTransferRealtime({ warehouseIds: assignedWarehouseIds })
   const canManageOwnTasks = permissions.includes(P.WAREHOUSE_TASKS_MANAGE_OWN)
   const managesWarehouseTasks = permissions.includes(P.WAREHOUSE_TASKS_VIEW_ALL)
   const canCreateRelocation = permissions.includes(P.WAREHOUSE_TASKS_CREATE)
@@ -116,11 +145,20 @@ export default function MyWarehouseTasksPage() {
   const query = useMyWarehouseTasksQuery(
     {
       pageNumber: page,
-      pageSize: PAGE_SIZE,
+      pageSize,
+      warehouseId: warehouseFilter,
       taskType: taskTypeFilter || undefined,
+      executionStatus: executionStatusFilter || undefined,
       deadlineStatus: deadlineFilter || undefined,
     },
     scope
+  )
+  const canSeeOwnWork = canManageOwnTasks || permissions.includes(P.STOCK_ISSUE_REQUESTS_PICK)
+  // Việc được giao riêng cho người dùng, không theo bộ lọc của danh sách chính bên dưới.
+  const ownWorkQuery = useMyWarehouseTasksQuery(
+    { pageNumber: 1, pageSize: 50 },
+    'mine',
+    canSeeOwnWork
   )
   const action = useManageMyWarehouseTaskMutation()
   const detailQuery = useWarehouseTaskDetailQuery(selectedTaskId, scope)
@@ -221,6 +259,23 @@ export default function MyWarehouseTasksPage() {
     })
   }, [detailQuery.data, executeForm])
 
+  useEffect(() => {
+    if (canAssignRelocation) return
+    const line = detailQuery.data?.lines.find((item) => item.id === executeLineId)
+    const assignedDestinationId =
+      line?.proposedDestinationSlotId ?? recommendationsQuery.data?.[0]?.slotId
+    if (assignedDestinationId) {
+      executeForm.setValue('destinationSlotId', assignedDestinationId, { shouldValidate: true })
+      executeForm.setValue('overrideReason', '')
+    }
+  }, [
+    canAssignRelocation,
+    detailQuery.data?.lines,
+    executeForm,
+    executeLineId,
+    recommendationsQuery.data,
+  ])
+
   async function run(task: MyWarehouseTask, type: WarehouseTaskAction, note?: string) {
     try {
       await action.mutateAsync({
@@ -240,7 +295,11 @@ export default function MyWarehouseTasksPage() {
 
   function manage(task: MyWarehouseTask, type: WarehouseTaskAction) {
     if (type === 'Start') {
-      void run(task, type)
+      // Lấy/nhận hàng điều chuyển có màn riêng để quét mã: bắt đầu xong mở luôn màn đó.
+      const isTransferTask = task.taskType === 'TransferPick' || task.taskType === 'TransferReceive'
+      void run(task, type).then((started) => {
+        if (started && isTransferTask) router.push(getTaskRoute(task))
+      })
       return
     }
     setReason('')
@@ -398,75 +457,116 @@ export default function MyWarehouseTasksPage() {
 
   return (
     <>
-      <WarehouseTaskDirectory
-        title={managesWarehouseTasks ? 'Công việc kho' : 'Công việc của tôi'}
-        description={
-          managesWarehouseTasks
-            ? 'Theo dõi, tạo và phân công công việc trong các kho được quản lý.'
-            : 'Chỉ hiển thị các nhiệm vụ kho được giao cho bạn. Mỗi lúc chỉ làm một việc.'
-        }
-        items={query.data?.items ?? []}
-        totalCount={query.data?.totalCount ?? 0}
-        stats={query.data?.stats ?? EMPTY_STATS}
-        statsMode={managesWarehouseTasks ? 'managed' : 'mine'}
-        page={page}
-        pageSize={PAGE_SIZE}
-        isLoading={query.isLoading}
-        isFetching={query.isFetching}
-        isError={query.isError}
-        currentUserId={meQuery.data?.id}
-        headerAction={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {managesWarehouseTasks ? (
-              <>
-                <NativeSelect
-                  aria-label="Lọc theo loại công việc"
-                  value={taskTypeFilter}
-                  onChange={(event) => {
-                    setTaskTypeFilter(event.target.value as WarehouseTaskType | '')
-                    setPage(1)
-                  }}
-                  className="w-40"
-                >
-                  <NativeSelectOption value="">Mọi loại việc</NativeSelectOption>
-                  <NativeSelectOption value="Receiving">Nhận hàng</NativeSelectOption>
-                  <NativeSelectOption value="PutAway">Cất hàng</NativeSelectOption>
-                  <NativeSelectOption value="CycleCount">Kiểm kê</NativeSelectOption>
-                  <NativeSelectOption value="Relocation">Điều chuyển</NativeSelectOption>
-                </NativeSelect>
-                <NativeSelect
-                  aria-label="Lọc theo hạn hoàn thành"
-                  value={deadlineFilter}
-                  onChange={(event) => {
-                    setDeadlineFilter(event.target.value as WarehouseTaskDeadlineStatus | '')
-                    setPage(1)
-                  }}
-                  className="w-40"
-                >
-                  <NativeSelectOption value="">Mọi thời hạn</NativeSelectOption>
-                  <NativeSelectOption value="Overdue">Quá hạn</NativeSelectOption>
-                  <NativeSelectOption value="DueSoon">Sắp đến hạn</NativeSelectOption>
-                  <NativeSelectOption value="OnTrack">Đúng tiến độ</NativeSelectOption>
-                  <NativeSelectOption value="NoDeadline">Chưa đặt hạn</NativeSelectOption>
-                </NativeSelect>
-              </>
-            ) : null}
-            {canCreateRelocation ? (
-              <Button type="button" onClick={() => setCreateOpen(true)}>
-                <Plus aria-hidden="true" /> Tạo task điều chuyển
-              </Button>
-            ) : null}
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
+        {warehouseFilter ? (
+          <div className="mb-2 flex shrink-0 items-center justify-between rounded-lg border p-2 text-xs">
+            <span>Đang lọc kho từ tổng quan</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setWarehouseFilter(undefined)
+                setPage(1)
+              }}
+            >
+              Xóa bộ lọc kho
+            </Button>
           </div>
-        }
-        onPageChange={setPage}
-        onRetry={() => void query.refetch()}
-        canManage={canManageOwnTasks}
-        onAction={manage}
-        onOpenRelocation={(task) => setSelectedTaskId(task.id)}
-        onEditSchedule={canAssignRelocation ? openSchedule : undefined}
-      />
+        ) : null}
+        {canSeeOwnWork ? (
+          <MyWorkQueue tasks={ownWorkQuery.data?.items ?? []} isLoading={ownWorkQuery.isLoading} />
+        ) : null}
+        <WarehouseTaskDirectory
+          title={managesWarehouseTasks ? 'Công việc kho' : 'Công việc của tôi'}
+          description={
+            managesWarehouseTasks
+              ? 'Theo dõi, tạo và phân công công việc trong các kho được quản lý.'
+              : 'Các nhiệm vụ kho đang chờ bạn thực hiện.'
+          }
+          items={query.data?.items ?? []}
+          totalCount={query.data?.totalCount ?? 0}
+          stats={query.data?.stats ?? EMPTY_STATS}
+          statsMode={managesWarehouseTasks ? 'managed' : 'mine'}
+          page={page}
+          pageSize={pageSize}
+          isLoading={query.isLoading}
+          isFetching={query.isFetching}
+          isError={query.isError}
+          currentUserId={meQuery.data?.id}
+          headerAction={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <NativeSelect
+                aria-label="Lọc theo loại công việc"
+                value={taskTypeFilter}
+                onChange={(event) => {
+                  setTaskTypeFilter(event.target.value as WarehouseTaskType | '')
+                  setPage(1)
+                }}
+                className="w-40"
+              >
+                <NativeSelectOption value="">Mọi loại việc</NativeSelectOption>
+                <NativeSelectOption value="Receiving">Nhận hàng</NativeSelectOption>
+                <NativeSelectOption value="Picking">Lấy hàng xuất kho</NativeSelectOption>
+                <NativeSelectOption value="PutAway">Cất hàng</NativeSelectOption>
+                <NativeSelectOption value="CycleCount">Kiểm kê</NativeSelectOption>
+                <NativeSelectOption value="Relocation">Điều chuyển vị trí</NativeSelectOption>
+                <NativeSelectOption value="TransferPick">Lấy hàng điều chuyển</NativeSelectOption>
+                <NativeSelectOption value="TransferReceive">
+                  Nhận hàng điều chuyển
+                </NativeSelectOption>
+              </NativeSelect>
+              <NativeSelect
+                aria-label="Lọc theo trạng thái"
+                value={executionStatusFilter}
+                onChange={(event) => {
+                  setExecutionStatusFilter(
+                    event.target.value as MyWarehouseTask['executionStatus'] | ''
+                  )
+                  setPage(1)
+                }}
+                className="w-40"
+              >
+                <NativeSelectOption value="">Mọi trạng thái</NativeSelectOption>
+                <NativeSelectOption value="Queued">Chờ bắt đầu</NativeSelectOption>
+                <NativeSelectOption value="InProgress">Đang làm</NativeSelectOption>
+                <NativeSelectOption value="Paused">Tạm dừng</NativeSelectOption>
+              </NativeSelect>
+              <NativeSelect
+                aria-label="Lọc theo hạn hoàn thành"
+                value={deadlineFilter}
+                onChange={(event) => {
+                  setDeadlineFilter(event.target.value as WarehouseTaskDeadlineStatus | '')
+                  setPage(1)
+                }}
+                className="w-40"
+              >
+                <NativeSelectOption value="">Mọi thời hạn</NativeSelectOption>
+                <NativeSelectOption value="Overdue">Quá hạn</NativeSelectOption>
+                <NativeSelectOption value="DueSoon">Sắp đến hạn</NativeSelectOption>
+                <NativeSelectOption value="OnTrack">Đúng tiến độ</NativeSelectOption>
+                <NativeSelectOption value="NoDeadline">Chưa đặt hạn</NativeSelectOption>
+              </NativeSelect>
+              {canCreateRelocation ? (
+                <Button type="button" onClick={() => setCreateOpen(true)}>
+                  <Plus aria-hidden="true" /> Tạo task điều chuyển
+                </Button>
+              ) : null}
+            </div>
+          }
+          onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize)
+            setPage(1)
+          }}
+          onRetry={() => void query.refetch()}
+          canManage={canManageOwnTasks}
+          onAction={manage}
+          onOpenRelocation={(task) => setSelectedTaskId(task.id)}
+          onEditSchedule={canAssignRelocation ? openSchedule : undefined}
+        />
+      </div>
       <CreateRelocationTaskDialog
-        open={createOpen}
+        open={createOpen && canCreateRelocation}
         form={createForm}
         fields={createLines.fields}
         warehouseOptions={warehouseOptionsQuery.data ?? []}
@@ -490,6 +590,7 @@ export default function MyWarehouseTasksPage() {
         scope={scope}
         canAssign={canAssignRelocation}
         canExecute={canManageOwnTasks && detailQuery.data?.assignedTo === meQuery.data?.id}
+        canOverrideDestination={canAssignRelocation}
         staffOptions={assignableStaff}
         assignmentStaffId={assignmentStaffId || detailQuery.data?.assignedTo || ''}
         assignmentReason={assignmentReason}

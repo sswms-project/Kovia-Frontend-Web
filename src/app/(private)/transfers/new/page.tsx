@@ -1,5 +1,5 @@
-import TransferCreatePage from '@/features/transfer/pages/TransferCreatePage'
+import { TransferFormPage } from '@/features/transfer/pages'
 
 export default function TransferCreateRoutePage() {
-  return <TransferCreatePage />
+  return <TransferFormPage />
 }

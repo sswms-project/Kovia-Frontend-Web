@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { ProductListItem } from '../../types/product.types'
 import { ProductListTable } from './ProductListTable'
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 const product: ProductListItem = {
   id: 'product-1',

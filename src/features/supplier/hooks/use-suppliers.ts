@@ -68,6 +68,7 @@ export function useImportSuppliersMutation() {
 
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, ImportSuppliersRequest>({
     mutationFn: supplierService.importSuppliers,
+    retry: false,
     onSuccess: () => invalidateSuppliers(),
     onError: (error) => logger.error(error),
   })
@@ -80,9 +81,21 @@ export function useSupplierImportTemplateMutation() {
   })
 }
 
+export function useInspectSupplierImportMutation() {
+  return useMutation({
+    mutationFn: supplierService.inspectImport,
+    retry: false,
+  })
+}
+
 export function usePreviewSupplierImportMutation() {
-  return useMutation<ApiResponse<SupplierImportPreview>, ApiErrorResponse, File>({
+  return useMutation<
+    ApiResponse<SupplierImportPreview>,
+    ApiErrorResponse,
+    Parameters<typeof supplierService.previewImport>[0]
+  >({
     mutationFn: supplierService.previewImport,
+    retry: false,
     onError: (error) => logger.error(error),
   })
 }

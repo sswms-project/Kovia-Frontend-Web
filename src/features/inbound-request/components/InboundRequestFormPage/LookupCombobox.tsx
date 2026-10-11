@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Combobox,
   ComboboxContent,
@@ -25,8 +26,15 @@ interface LookupComboboxProps {
   readonly ariaLabel: string
   readonly isLoading: boolean
   readonly isInvalid: boolean
+  readonly disabled?: boolean
   readonly onChange: (value: string, option?: LookupOption) => void
   readonly onSearchChange: (value: string) => void
+  /** Hành động đặt cuối danh sách thả xuống (ví dụ mở sơ đồ kho để chọn vị trí); bấm vào sẽ đóng danh sách. */
+  readonly footerAction?: {
+    readonly label: string
+    readonly icon?: ReactNode
+    readonly onClick: () => void
+  }
 }
 
 export function LookupCombobox({
@@ -39,9 +47,12 @@ export function LookupCombobox({
   ariaLabel,
   isLoading,
   isInvalid,
+  disabled = false,
   onChange,
   onSearchChange,
+  footerAction,
 }: LookupComboboxProps) {
+  const [isOpen, setIsOpen] = useState(false)
   const [rememberedOption, setRememberedOption] = useState<LookupOption | undefined>(
     () => selectedOption ?? options.find((option) => option.value === value)
   )
@@ -57,6 +68,10 @@ export function LookupCombobox({
     }
     return labels
   }, [options, resolvedSelectedOption])
+  const descriptions = useMemo(
+    () => new Map(options.map((option) => [option.value, option.description])),
+    [options]
+  )
   const itemValues = useMemo(() => Array.from(optionLabels.keys()), [optionLabels])
   const filteredItemValues = useMemo(() => options.map((option) => option.value), [options])
 
@@ -80,7 +95,9 @@ export function LookupCombobox({
       onInputValueChange={(nextSearchValue, details) => {
         if (details.reason === 'input-change') onSearchChange(nextSearchValue)
       }}
+      open={isOpen}
       onOpenChange={(open) => {
+        setIsOpen(open)
         if (!open) onSearchChange('')
       }}
     >
@@ -90,14 +107,22 @@ export function LookupCombobox({
         placeholder={placeholder}
         aria-label={ariaLabel}
         aria-invalid={isInvalid}
-        showClear={Boolean(value)}
+        disabled={disabled}
+        showClear={Boolean(value) && !disabled}
       />
       <ComboboxContent sideOffset={4} align="start">
         <ComboboxList>
           <ComboboxGroup>
             {filteredItemValues.map((itemValue) => (
               <ComboboxItem key={itemValue} value={itemValue}>
-                {optionLabels.get(itemValue)}
+                <span className="flex min-w-0 flex-col">
+                  <span>{optionLabels.get(itemValue)}</span>
+                  {descriptions.get(itemValue) ? (
+                    <span className="text-muted-foreground text-xs">
+                      {descriptions.get(itemValue)}
+                    </span>
+                  ) : null}
+                </span>
               </ComboboxItem>
             ))}
           </ComboboxGroup>
@@ -111,6 +136,24 @@ export function LookupCombobox({
             )}
           </ComboboxEmpty>
         </ComboboxList>
+        {footerAction ? (
+          <div className="border-t p-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                setIsOpen(false)
+                onSearchChange('')
+                footerAction.onClick()
+              }}
+            >
+              {footerAction.icon}
+              {footerAction.label}
+            </Button>
+          </div>
+        ) : null}
       </ComboboxContent>
     </Combobox>
   )
