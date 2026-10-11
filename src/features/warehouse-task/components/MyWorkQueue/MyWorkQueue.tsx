@@ -31,7 +31,7 @@ export function MyWorkQueue({ tasks, isLoading }: MyWorkQueueProps) {
   const visible = open.slice(0, MAX_VISIBLE)
 
   return (
-    <section aria-labelledby="my-work-queue-title" className="mb-4 space-y-3">
+    <section aria-labelledby="my-work-queue-title" className="mb-4 shrink-0 space-y-3">
       <div className="flex items-center gap-2">
         <h2 id="my-work-queue-title" className="text-base font-semibold">
           Việc cần làm

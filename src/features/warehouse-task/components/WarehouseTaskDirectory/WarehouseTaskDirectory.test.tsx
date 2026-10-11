@@ -59,6 +59,7 @@ function props(): ComponentProps<typeof WarehouseTaskDirectory> {
     isError: false,
     currentUserId: task.assignedTo ?? undefined,
     onPageChange: vi.fn(),
+    onPageSizeChange: vi.fn(),
     onRetry: vi.fn(),
   }
 }
@@ -66,6 +67,15 @@ function props(): ComponentProps<typeof WarehouseTaskDirectory> {
 describe('WarehouseTaskDirectory', () => {
   beforeEach(() => push.mockReset())
   afterEach(cleanup)
+
+  it('lays the list out with the shared panel: table and pagination are direct children of it', () => {
+    render(<WarehouseTaskDirectory {...props()} />)
+    const panel = screen.getByRole('region', { name: 'Công việc của tôi' })
+    expect(panel).toHaveAttribute('data-slot', 'operational-list-panel')
+    const slots = Array.from(panel.children).map((child) => child.getAttribute('data-slot'))
+    expect(slots).toContain('table-container')
+    expect(slots.filter((slot) => slot === 'operational-list-body')).toHaveLength(1)
+  })
 
   it('opens task details when the task row is clicked or activated with Enter', () => {
     render(<WarehouseTaskDirectory {...props()} />)
