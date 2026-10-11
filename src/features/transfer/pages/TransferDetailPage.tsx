@@ -99,6 +99,8 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   const resolutionActions = useTransferResolutionActions(transfer)
   const allocationActions = useTransferAllocationActions(transfer)
   const putAwayActions = useTransferPutAwayActions(transfer)
+  const capabilities = getTransferCapabilities(viewer, transfer)
+  const canSeeSetPutAway = capabilities.canSetPutAwaySlots
   const [slotSearch, setSlotSearch] = useState('')
   const debouncedSlotSearch = useDebouncedValue(slotSearch.trim(), 300)
   const receivableSlotsQuery = useTransferReceivableSlotsQuery(
@@ -107,7 +109,8 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
       top: 20,
       ...(debouncedSlotSearch ? { search: debouncedSlotSearch } : {}),
     },
-    putAwayActions.isOpen && Boolean(transfer?.destinationWarehouseId)
+    (putAwayActions.isOpen || (tab === 'shipments' && canSeeSetPutAway)) &&
+      Boolean(transfer?.destinationWarehouseId)
   )
   const putAwayRows = useMemo(
     () =>
@@ -129,7 +132,17 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
     [receivableSlotsQuery.data]
   )
 
-  const capabilities = getTransferCapabilities(viewer, transfer)
+  const putAwayShipmentColumn = {
+    warehouseId: transfer?.destinationWarehouseId ?? '',
+    savedSlots: Object.fromEntries(putAwayRows.map((row) => [row.id, row.slot])),
+    editableItemIds: new Set(putAwayRows.filter((row) => !row.locked).map((row) => row.id)),
+    slotOptions: putAwaySlotOptions,
+    isLoadingSlots: receivableSlotsQuery.isFetching,
+    isPending: putAwayActions.isPending,
+    onSlotSearchChange: setSlotSearch,
+    onSave: (itemId: string, slot: LookupOption | undefined) =>
+      void putAwayActions.submit([{ itemId, destinationSlotId: slot?.value ?? null }]),
+  }
   const shipments = useMemo(() => transfer?.shipments ?? [], [transfer?.shipments])
   const discrepancies = transfer?.discrepancies ?? []
   const feedbacks = transfer?.feedbacks ?? []
@@ -230,7 +243,12 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               </Button>
             ) : null}
             {capabilities.canSetPutAwaySlots ? (
-              <Button type="button" size="sm" variant="outline" onClick={putAwayActions.open}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => putAwayActions.open()}
+              >
                 <MapPin aria-hidden="true" />
                 Chọn vị trí cất hàng
               </Button>
@@ -334,6 +352,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                       onReopenPicking={resolutionActions.reopen.open}
                       onAssignTask={resolutionActions.assign.open}
                       onResolveEscalation={resolutionActions.escalation.open}
+                      putAway={capabilities.canSetPutAwaySlots ? putAwayShipmentColumn : undefined}
                     />
                   ) : tab === 'discrepancies' ? (
                     <TransferDiscrepancyPanel
@@ -418,6 +437,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         open={putAwayActions.isOpen}
         warehouseId={transfer?.destinationWarehouseId ?? ''}
         items={putAwayRows}
+        focusItemId={putAwayActions.focusItemId}
         slotOptions={putAwaySlotOptions}
         isLoadingSlots={receivableSlotsQuery.isFetching}
         isPending={putAwayActions.isPending}

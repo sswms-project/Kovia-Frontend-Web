@@ -30,6 +30,8 @@ interface PutAwaySlotsDialogProps {
   readonly slotOptions: readonly LookupOption[]
   readonly isLoadingSlots: boolean
   readonly isPending: boolean
+  /** Dòng cần làm nổi và cuộn tới khi mở (bấm từ bảng đợt xuất). */
+  readonly focusItemId?: string | null
   readonly onSlotSearchChange: (value: string) => void
   readonly onOpenChange: (open: boolean) => void
   readonly onSubmit: (slots: readonly PutAwaySlotChoice[]) => void
@@ -54,6 +56,7 @@ function PutAwaySlotsSession({
   slotOptions,
   isLoadingSlots,
   isPending,
+  focusItemId,
   onSlotSearchChange,
   onClose,
   onSubmit,
@@ -88,7 +91,16 @@ function PutAwaySlotsSession({
               {items.map((item) => {
                 const choice = choices[item.id]
                 return (
-                  <li key={item.id} className="grid gap-1.5 border p-3">
+                  <li
+                    key={item.id}
+                    ref={
+                      item.id === focusItemId
+                        ? (node) => node?.scrollIntoView({ block: 'nearest' })
+                        : undefined
+                    }
+                    aria-current={item.id === focusItemId ? 'true' : undefined}
+                    className={`grid gap-1.5 border p-3 ${item.id === focusItemId ? 'border-primary ring-primary/40 ring-2' : ''}`}
+                  >
                     <span className="text-sm font-medium">{item.label}</span>
                     {item.locked ? (
                       <span className="text-muted-foreground text-xs">

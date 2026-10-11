@@ -17,12 +17,18 @@ export interface PutAwaySlotChoice {
 export function useTransferPutAwayActions(transfer: TransferDetail | undefined) {
   const run = useTransferActionRunner()
   const [isOpen, setIsOpen] = useState(false)
+  const [focusItemId, setFocusItemId] = useState<string | null>(null)
   const mutation = useSetTransferPutAwaySlotsMutation()
 
   return {
     isOpen,
+    /** Dòng được bấm từ bảng đợt xuất; hộp thoại cuộn tới và làm nổi dòng này. */
+    focusItemId,
     isPending: mutation.isPending,
-    open: () => setIsOpen(true),
+    open: (itemId?: string) => {
+      setFocusItemId(itemId ?? null)
+      setIsOpen(true)
+    },
     onOpenChange: (open: boolean) => !open && setIsOpen(false),
     submit: async (slots: readonly PutAwaySlotChoice[]) => {
       if (!transfer?.version || slots.length === 0) return false
