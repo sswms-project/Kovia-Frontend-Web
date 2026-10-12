@@ -22,6 +22,7 @@ import {
 } from '../utils/transfer-receive-plan'
 import { describeTransferError } from '../utils/transfer-errors'
 import { codesMatch } from '../utils/transfer-scan'
+import { UNREADABLE_SLOT_REASONS } from '@/types/putaway.types'
 import {
   useFindReceivableSlotMutation,
   useReceiveTransferShipmentMutation,
@@ -114,6 +115,7 @@ export function useTransferReceiveForm(
       setSlotPathById((current) => ({ ...current, [slot.id]: slot.path }))
       form.setValue(`entries.${position}.destinationSlotId`, slot.id, { shouldDirty: true })
       form.setValue(`entries.${position}.scannedSlotCode`, code, { shouldDirty: true })
+      form.setValue(`entries.${position}.slotCodeUnreadable`, false)
       return true
     } catch (error) {
       // Tra cứu thất bại không tự xóa vị trí kế hoạch, nhưng không được giữ xác nhận của mã cũ.
@@ -155,12 +157,34 @@ export function useTransferReceiveForm(
       plannedSlotLabel: '',
       destinationSlotId: '',
       scannedSlotCode: '',
+      slotCodeUnreadable: false,
       goodQuantity: 0,
       damagedQuantity: 0,
       missingQuantity: 0,
       reasonCode: '',
       deviationReasonCode: '',
       note: '',
+    })
+  }
+
+  /** Nhãn vị trí hỏng/mất: chọn ô từ danh sách thay cho quét; null để quay lại quét mã. */
+  function markSlotUnreadable(index: number, option: { value: string; label: string } | null) {
+    if (!mayEdit()) return
+    const entry = form.getValues(`entries.${index}`)
+    if (!entry) return
+    form.clearErrors([`entries.${index}.scannedSlotCode`, `entries.${index}.deviationReasonCode`])
+    form.setValue(`entries.${index}.scannedSlotCode`, '', { shouldDirty: true })
+    if (option) {
+      setSlotPathById((current) => ({ ...current, [option.value]: option.label }))
+      form.setValue(`entries.${index}.slotCodeUnreadable`, true, { shouldDirty: true })
+      form.setValue(`entries.${index}.destinationSlotId`, option.value, { shouldDirty: true })
+      if (!UNREADABLE_SLOT_REASONS.some((reason) => reason === entry.deviationReasonCode))
+        form.setValue(`entries.${index}.deviationReasonCode`, '')
+      return
+    }
+    form.setValue(`entries.${index}.slotCodeUnreadable`, false, { shouldDirty: true })
+    form.setValue(`entries.${index}.destinationSlotId`, entry.plannedSlotId ?? '', {
+      shouldDirty: true,
     })
   }
 
@@ -222,6 +246,7 @@ export function useTransferReceiveForm(
     scanSlot,
     scanProduct,
     splitEntry,
+    markSlotUnreadable,
     confirm,
     countEntriesOf: (index: number) => {
       const target = form.getValues(`entries.${index}`)

@@ -17,6 +17,7 @@ export function PutawayDeviationPanel({
   children,
   noteRequired = reasonCode === 'Other',
   title = 'Bạn đang cất khác kế hoạch của quản lý',
+  reasons,
 }: {
   readonly reasonCode: string
   readonly note: string
@@ -26,6 +27,8 @@ export function PutawayDeviationPanel({
   readonly disabled: boolean
   readonly title?: string
   readonly noteRequired?: boolean
+  /** Giới hạn danh sách nhóm lý do; mặc định là tất cả. */
+  readonly reasons?: readonly PutawayDeviationReason[]
   readonly children?: ReactNode
 }) {
   const id = useId()
@@ -58,7 +61,9 @@ export function PutawayDeviationPanel({
             }
           >
             <NativeSelectOption value="">Chọn lý do</NativeSelectOption>
-            {PUTAWAY_REASON_OPTIONS.map((option) => (
+            {PUTAWAY_REASON_OPTIONS.filter(
+              (option) => !reasons || reasons.includes(option.code)
+            ).map((option) => (
               <NativeSelectOption key={option.code} value={option.code}>
                 {option.label}
               </NativeSelectOption>

@@ -6,7 +6,7 @@ import {
   TRANSFER_PICK_REASONS,
 } from '../types/transfer.types'
 import { hasAtMostTwoDecimals } from '../utils/transfer-scan'
-import { PUTAWAY_DEVIATION_REASONS } from '@/types/putaway.types'
+import { PUTAWAY_DEVIATION_REASONS, UNREADABLE_SLOT_REASONS } from '@/types/putaway.types'
 import type { TransferReceiveSheet } from '../types/transfer.types'
 import { receiptPlanStates } from '../utils/transfer-receive-plan'
 
@@ -85,6 +85,7 @@ export const transferReceiptEntrySchema = z.object({
   missingQuantity: z.number('Số lượng phải là số.').min(0, 'Số lượng thiếu không được âm.'),
   reasonCode: z.string().max(50, 'Nguyên nhân không được vượt quá 50 ký tự.'),
   deviationReasonCode: z.string().max(40).optional(),
+  slotCodeUnreadable: z.boolean().optional(),
   note: note500,
 })
 
@@ -123,13 +124,31 @@ export function createTransferReceiptSchema(
             path: ['entries', index, 'goodQuantity'],
             message: 'Dòng/lô không còn thuộc phiếu nhận; hãy kiểm tra dữ liệu mới.',
           })
-        if (plans[index]?.isPlanned && needsSlot && !entry.scannedSlotCode)
+        if (
+          plans[index]?.isPlanned &&
+          needsSlot &&
+          !entry.scannedSlotCode &&
+          !entry.slotCodeUnreadable
+        )
           context.addIssue({
             code: 'custom',
             path: ['entries', index, 'scannedSlotCode'],
             message: 'Vị trí theo kế hoạch vẫn cần quét hoặc nhập mã để xác nhận.',
           })
-        if (plans[index]?.isOffPlan) {
+        if (entry.slotCodeUnreadable && needsSlot) {
+          if (!UNREADABLE_SLOT_REASONS.some((reason) => reason === entry.deviationReasonCode))
+            context.addIssue({
+              code: 'custom',
+              path: ['entries', index, 'deviationReasonCode'],
+              message: 'Hãy chọn lý do không quét được mã vị trí.',
+            })
+          if (entry.deviationReasonCode === 'Other' && entry.note.trim().length < 5)
+            context.addIssue({
+              code: 'custom',
+              path: ['entries', index, 'note'],
+              message: 'Lý do khác cần mô tả từ 5 đến 500 ký tự.',
+            })
+        } else if (plans[index]?.isOffPlan) {
           if (!PUTAWAY_DEVIATION_REASONS.some((reason) => reason === entry.deviationReasonCode))
             context.addIssue({
               code: 'custom',

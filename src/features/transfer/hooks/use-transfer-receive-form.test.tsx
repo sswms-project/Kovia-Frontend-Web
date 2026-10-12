@@ -99,4 +99,36 @@ describe('useTransferReceiveForm', () => {
     expect(hook.result.current.form.getValues('entries.0.scannedSlotCode')).toBe('A01')
     expect(hook.result.current.form.getValues('entries.1.scannedSlotCode')).toBe('')
   })
+
+  it('lets a worker pick the slot from a list when the label is unreadable, and a later scan restores the normal path', async () => {
+    const { hook } = setup()
+    act(() =>
+      hook.result.current.markSlotUnreadable(0, { value: SLOT_A, label: 'Khu K01 / Kệ A07' })
+    )
+    expect(hook.result.current.form.getValues('entries.0')).toMatchObject({
+      slotCodeUnreadable: true,
+      destinationSlotId: SLOT_A,
+      scannedSlotCode: '',
+      deviationReasonCode: '',
+    })
+    expect(hook.result.current.slotPathById[SLOT_A]).toBe('Khu K01 / Kệ A07')
+    act(() => hook.result.current.form.setValue('entries.0.deviationReasonCode', 'LabelMismatch'))
+    mocks.receive.mockResolvedValue({})
+    await act(async () => {
+      await hook.result.current.confirm()
+    })
+    expect(mocks.receive.mock.calls[0]![0].request.entries[0]).toMatchObject({
+      slotCodeUnreadable: true,
+      scannedSlotCode: null,
+      deviationReasonCode: 'LabelMismatch',
+    })
+    mocks.find.mockResolvedValue({ id: SLOT_A, path: 'Khu K01 / Kệ A07' })
+    await act(async () => {
+      await hook.result.current.scanSlot(0, 'A01')
+    })
+    expect(hook.result.current.form.getValues('entries.0')).toMatchObject({
+      slotCodeUnreadable: false,
+      scannedSlotCode: 'A01',
+    })
+  })
 })

@@ -6,6 +6,11 @@ export const PUTAWAY_DEVIATION_REASONS = [
   'Other',
 ] as const
 export type PutawayDeviationReason = (typeof PUTAWAY_DEVIATION_REASONS)[number]
+/** Nhóm lý do được phép khi không quét được mã vị trí (nhãn hỏng/mất hoặc lý do khác kèm ghi chú). */
+export const UNREADABLE_SLOT_REASONS = [
+  'LabelMismatch',
+  'Other',
+] as const satisfies readonly PutawayDeviationReason[]
 export const PUTAWAY_REASON_OPTIONS = [
   { code: 'SlotFull', label: 'Vị trí đã đầy' },
   { code: 'SlotBlocked', label: 'Vị trí hỏng hoặc bị chắn' },

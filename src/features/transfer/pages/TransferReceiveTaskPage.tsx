@@ -13,6 +13,7 @@ import { PutawayPlanNotice } from '@/components/operations/putaway'
 import { receiptPlanStates, receiveScanProgress } from '../utils/transfer-receive-plan'
 import { canSeeWarehouse } from '../utils/transfer-capabilities'
 import { P } from '@/config/permissionCodes'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   formatOperationalDate,
   formatQuantity,
@@ -29,6 +30,7 @@ import {
   TransferConfirmDialog,
 } from '../components/TransferShared'
 import { useTransferReceiveSheetQuery } from '../hooks/use-transfer-fulfillment'
+import { useTransferReceivableSlotsQuery } from '../hooks/use-transfers'
 import { useTransferReceiveForm } from '../hooks/use-transfer-receive-form'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
@@ -62,6 +64,16 @@ export default function TransferReceiveTaskPage({
   const receive = useTransferReceiveForm(transferId, shipmentId, sheet, canAct)
   const [isResetPlanConfirmOpen, setIsResetPlanConfirmOpen] = useState(false)
   const [isReloading, setIsReloading] = useState(false)
+  const [slotSearch, setSlotSearch] = useState<string | null>(null)
+  const debouncedSlotSearch = useDebouncedValue((slotSearch ?? '').trim(), 300)
+  const receivableSlotsQuery = useTransferReceivableSlotsQuery(
+    {
+      warehouseId: sheet?.destinationWarehouseId ?? '',
+      top: 20,
+      ...(debouncedSlotSearch ? { search: debouncedSlotSearch } : {}),
+    },
+    canAct && slotSearch !== null && Boolean(sheet?.destinationWarehouseId)
+  )
   const reloadLock = useRef(false)
   const values = receive.form.watch('entries')
   const planStates = sheet ? receiptPlanStates(sheet, values) : []
@@ -100,6 +112,20 @@ export default function TransferReceiveTaskPage({
   }
   const targetEntry = scanTarget ? values[scanTarget.index] : undefined
   const targetLine = targetEntry ? receive.lineById.get(targetEntry.lineId) : undefined
+
+  /** Vị trí theo kế hoạch của dòng đứng đầu, sau đó là kết quả tìm trong kho nhập. */
+  function slotOptionsFor(line: NonNullable<typeof sheet>['lines'][number]) {
+    const planned = line.lots.flatMap((lot) =>
+      (lot.plan ?? []).map((plan) => ({ value: plan.slotId, label: plan.path }))
+    )
+    const found = (receivableSlotsQuery.data ?? []).map((slot) => ({
+      value: slot.id,
+      label: slot.path,
+    }))
+    return [...planned, ...found].filter(
+      (option, position, all) => all.findIndex((other) => other.value === option.value) === position
+    )
+  }
 
   async function reload() {
     if (reloadLock.current || receive.isReceiving || receive.isFindingSlot) return
@@ -271,6 +297,10 @@ export default function TransferReceiveTaskPage({
                   }
                   disabled={receive.blocked || isReloading || receive.isFindingSlot}
                   isFindingSlot={receive.isFindingSlot}
+                  slotOptions={slotOptionsFor(line)}
+                  isLoadingSlots={receivableSlotsQuery.isFetching}
+                  onSearchSlots={setSlotSearch}
+                  onMarkUnreadable={receive.markSlotUnreadable}
                   onScanSlot={receive.scanSlot}
                   onScanProduct={receive.scanProduct}
                   onSplit={receive.splitEntry}

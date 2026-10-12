@@ -68,7 +68,9 @@ export function receiveScanProgress(entries: readonly TransferReceiptEntryValues
   const required = entries.filter((entry) => entry.goodQuantity > 0 || entry.damagedQuantity > 0)
   return {
     required: required.length,
-    confirmed: required.filter((entry) => entry.destinationSlotId && entry.scannedSlotCode).length,
+    confirmed: required.filter(
+      (entry) => entry.destinationSlotId && (entry.scannedSlotCode || entry.slotCodeUnreadable)
+    ).length,
   }
 }
 

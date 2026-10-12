@@ -117,3 +117,54 @@ describe('planned transfer receipt', () => {
     expect([...changedReceivePlanLines(sheet, fresh)]).toEqual([sheet.lines[0]!.lineId])
   })
 })
+
+describe('unreadable slot label', () => {
+  const reasonIssue = (entry: Partial<ReturnType<typeof buildInitialReceiptEntries>[number]>) => {
+    const sheet = plannedReceiveSheet()
+    const entries = buildInitialReceiptEntries(sheet)
+    entries[0] = { ...entries[0]!, ...entry }
+    const result = createTransferReceiptSchema(
+      buildExpectedReceiptQuantities(sheet),
+      sheet
+    ).safeParse({ entries })
+    return result.success ? [] : result.error.issues.map((issue) => issue.path.join('.'))
+  }
+
+  it('needs a label or other reason, and does not demand a scan once the slot is picked from the list', () => {
+    const base = { slotCodeUnreadable: true, scannedSlotCode: '', destinationSlotId: SLOT_A }
+    expect(reasonIssue({ ...base, deviationReasonCode: '' })).toContain(
+      'entries.0.deviationReasonCode'
+    )
+    expect(reasonIssue({ ...base, deviationReasonCode: 'SlotFull' })).toContain(
+      'entries.0.deviationReasonCode'
+    )
+    expect(reasonIssue({ ...base, deviationReasonCode: 'Other', note: 'ngắn' })).toContain(
+      'entries.0.note'
+    )
+    expect(reasonIssue({ ...base, deviationReasonCode: 'LabelMismatch' })).not.toContain(
+      'entries.0.scannedSlotCode'
+    )
+    expect(reasonIssue({ ...base, deviationReasonCode: 'LabelMismatch' })).not.toContain(
+      'entries.0.deviationReasonCode'
+    )
+  })
+
+  it('sends the flag with a null scanned code and counts the entry as confirmed', () => {
+    const sheet = plannedReceiveSheet()
+    const entries = buildInitialReceiptEntries(sheet)
+    entries[0] = {
+      ...entries[0]!,
+      slotCodeUnreadable: true,
+      scannedSlotCode: 'cũ',
+      deviationReasonCode: 'LabelMismatch',
+    }
+    const request = toReceiveRequest({ entries }, 'v1', 'hash')
+    expect(request.entries[0]).toMatchObject({
+      slotCodeUnreadable: true,
+      scannedSlotCode: null,
+      deviationReasonCode: 'LabelMismatch',
+    })
+    expect(request.entries[1]).not.toHaveProperty('slotCodeUnreadable')
+    expect(receiveScanProgress(entries).confirmed).toBe(1)
+  })
+})

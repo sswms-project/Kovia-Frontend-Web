@@ -643,3 +643,31 @@ Mục này thay thế thông tin migration/kiểm thử hiện tại của check
 - Guard bỏ nháp áp dụng khi đóng Sheet; chưa có bằng chứng browser Back/Forward/rời cả trang. Không đánh dấu checklist UI/khả dụng từ unit test.
 - Gate C còn phải chạy Edge 360/768/1280, zoom 200%, bàn phím, screen reader/reduced motion, toàn vòng đời nhiều đợt và mất mạng thật. Chưa đo SQL danh sách 50 dòng.
 - Gate A vẫn thiếu race hai handler thật trên SQL Server; mức High giữ nguyên. Không chạy ứng dụng, không kết nối/ghi DB deploy, không migration/seed. Kết quả trên là tự kiểm của người triển khai, không phải review độc lập hoặc chứng nhận production.
+
+---
+
+## 17. Bổ sung: lối thoát khi không quét được mã vị trí — 2026-10-12
+
+**Quyết định (người dùng chốt):** thêm lối thoát giống Nhập kho; nhóm lý do dùng lại `PutAwayDeviationReasonCode` (chỉ `LabelMismatch` và `Other`); áp dụng cho **mọi dòng** (cả `Legacy` lẫn `Planned`).
+
+**Hiện trạng:** BE luôn bắt quét mã ô (`TransferScanRules.EnsureSlotMatchesAsync` → `RequireScanned`) cho mọi khai báo có hàng tốt hoặc hỏng; trước đây không có lối thoát nên nhãn hỏng/mất chặn xác nhận nhận đợt. Đây là hành vi sẵn có, không do Gate B thêm. Luật FE "dòng `Planned` phải có mã quét" chỉ chặn trước đúng lỗi này, vì ô điền sẵn từ kế hoạch chưa phải là đã quét.
+
+### Backend
+
+- `ReceiveTransferShipmentEntry` thêm `SlotCodeUnreadable` (mặc định `false`).
+- Khi `true`: chỉ hợp lệ với khai báo có hàng tốt hoặc hỏng; **không được kèm** `ScannedSlotCode`; `DeviationReasonCode` phải là `LabelMismatch` hoặc `Other`, `Other` cần `Note` 5–500 ký tự. Sai → `400` mã `TRANSFER_SLOT_SCAN_REASON_REQUIRED`.
+- Bỏ qua `EnsureSlotMatchesAsync`, nhưng **vẫn** kiểm ô thuộc kho nhập, đang hoạt động, không phải khu chờ xuất; quét mã hàng và mọi kiểm số lượng giữ nguyên.
+- Ghi nhận **không cần migration:** `ScannedSlotCode = null` nghĩa là chưa xác nhận bằng quét (dữ liệu cũ luôn có mã vì quét đang bắt buộc); lý do nằm ở `DeviationReasonCode` và `Note`. `IsOffPlan` chỉ bật khi thật sự khác kế hoạch, không bật chỉ vì không quét. Nếu khai báo vừa khác kế hoạch vừa không quét được, dùng **một** lý do duy nhất (`LabelMismatch`/`Other`) cho cả hai; giới hạn đã biết.
+- Thông báo gộp vào luồng "khác kế hoạch" hiện có: người tạo phiếu, người lập kế hoạch (nếu có) và người giữ quyền `Resolve` ở kho nhập; tiêu đề "Hàng điều chuyển nhận không quét mã vị trí" khi chỉ có lý do này.
+- Test: có cờ + `LabelMismatch`; thiếu lý do, lý do ngoài hai nhóm, `Other` thiếu ghi chú, có kèm mã quét → từ chối và không ghi dòng nhận; ô ngoài kho nhập, khai báo chỉ hàng thiếu → từ chối; dòng `Planned` không bị đánh khác kế hoạch.
+
+### Frontend
+
+- Thẻ nhận hàng có nút "Không quét được mã vị trí?" (chỉ khi trang cấp danh sách vị trí). Mở ra: chọn vị trí từ danh sách (ô theo kế hoạch của dòng đứng đầu, rồi tìm trong kho nhập), chọn nhóm lý do (`LabelMismatch`/`Other`), nút "Quay lại quét mã vị trí". Trang sở hữu truy vấn danh sách vị trí, chỉ gọi khi có thẻ được mở.
+- Khai báo có `slotCodeUnreadable` được tính là đã xác nhận trong tiến độ N/M, không bị ô quét tự dẫn tới lại; quét thành công một mã sau đó tự trả về đường quét thường.
+- Yêu cầu gửi `slotCodeUnreadable: true`, `scannedSlotCode: null`, `deviationReasonCode`.
+- Dùng lại `PutawayDeviationPanel` với tham số `reasons` mới để giới hạn nhóm lý do; ô khác kế hoạch kết hợp không quét được dùng cùng một lý do.
+
+### Không đổi
+
+Quét mã hàng vẫn tùy chọn; `planVersion`, ngân sách ô, `IsOffPlan` và công tắc quét (đã hoãn) giữ nguyên. Báo cáo riêng cho nhận không quét mã **chưa** làm.

@@ -23,6 +23,7 @@ export function buildInitialReceiptEntries(
         missingQuantity: 0,
         reasonCode: '',
         deviationReasonCode: '',
+        slotCodeUnreadable: false,
         note: '',
       }
       if (line.planMode !== 'Planned') return [base]
@@ -83,9 +84,10 @@ export function toReceiveRequest(
       missingQuantity: entry.missingQuantity,
       reasonCode: entry.reasonCode || null,
       note: entry.note || null,
-      scannedSlotCode: entry.scannedSlotCode || null,
+      scannedSlotCode: entry.slotCodeUnreadable ? null : entry.scannedSlotCode || null,
       scannedProductCode: entry.scannedProductCode || null,
       ...(entry.deviationReasonCode ? { deviationReasonCode: entry.deviationReasonCode } : {}),
+      ...(entry.slotCodeUnreadable ? { slotCodeUnreadable: true } : {}),
     })),
   }
 }
@@ -125,6 +127,7 @@ export function removeReceiptEntry<T extends RemovableReceiptEntry>(
 
 interface ScannableReceiptEntry {
   readonly destinationSlotId: string
+  readonly slotCodeUnreadable?: boolean
   readonly scannedSlotCode?: string
   readonly scannedProductCode?: string
   readonly goodQuantity: number
@@ -149,7 +152,9 @@ export function nextReceiveScanTarget(
     entry.damagedQuantity > 0 ||
     (entry.goodQuantity <= 0 && entry.damagedQuantity <= 0 && entry.missingQuantity <= 0)
   const slotIndex = entries.findIndex(
-    (entry) => needsScan(entry) && (!entry.destinationSlotId || entry.scannedSlotCode === '')
+    (entry) =>
+      needsScan(entry) &&
+      (!entry.destinationSlotId || (entry.scannedSlotCode === '' && !entry.slotCodeUnreadable))
   )
   if (slotIndex >= 0) return { index: slotIndex, step: 'slot' }
   const productIndex = entries.findIndex((entry) => needsScan(entry) && !entry.scannedProductCode)

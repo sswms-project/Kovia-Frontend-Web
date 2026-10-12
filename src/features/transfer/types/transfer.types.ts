@@ -544,6 +544,7 @@ export interface TransferReceiptEntryRequest {
   scannedSlotCode: string | null
   scannedProductCode: string | null
   deviationReasonCode?: string | null
+  slotCodeUnreadable?: boolean
 }
 
 export interface ReceiveTransferShipmentRequest {
