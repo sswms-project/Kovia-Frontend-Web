@@ -289,6 +289,7 @@ export function useReceiveTransferShipmentMutation() {
     ApiErrorResponse,
     ShipmentScope & { request: ReceiveTransferShipmentRequest }
   >({
+    retry: false,
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.receiveShipment(transferId, shipmentId, request),

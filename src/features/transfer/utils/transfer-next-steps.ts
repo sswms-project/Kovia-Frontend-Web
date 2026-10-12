@@ -1,6 +1,5 @@
 import type { TransferDetail, TransferShipment } from '../types/transfer.types'
 import {
-  canChoosePutAwaySlot,
   openDiscrepancies,
   type ShipmentCapabilities,
   type TransferCapabilities,
@@ -69,15 +68,15 @@ export function getTransferNextSteps(
 
   if (capabilities.canSetPutAwaySlots) {
     const missing = transfer.items.filter(
-      (item) => canChoosePutAwaySlot(item) && !item.destinationSlotId
+      (item) => item.quantity > item.stoppedQuantity && (item.putAwayPlan ?? []).length === 0
     ).length
     if (missing > 0) {
       steps.push({
         id: 'set-put-away',
-        title: `${missing} dòng hàng chưa có vị trí cất`,
+        title: `${missing} dòng hàng chưa có kế hoạch cất`,
         description:
-          'Chọn ô cất hàng để nhân viên nhận hàng thấy "Cất vào" ở từng dòng thay vì tự tìm chỗ.',
-        actionLabel: 'Chọn vị trí cất hàng',
+          'Chia số lượng theo vị trí; nhân viên nhận hàng sẽ thấy kế hoạch riêng cho từng lô.',
+        actionLabel: 'Lập kế hoạch cất hàng',
         action: { type: 'setPutAwaySlots' },
       })
     }

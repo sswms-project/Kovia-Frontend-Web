@@ -597,3 +597,49 @@ Mục này thay thế thông tin migration/kiểm thử hiện tại của check
 - Release API build: **0 cảnh báo / 0 lỗi**. **189 test liên quan đạt**. EF `has-pending-model-changes` báo không drift; kiểm metadata xác nhận chỉ một migration kế hoạch và không có FK/property ngầm.
 - Toàn bộ suite: **1.258 đạt / 5 lỗi / 1 bỏ qua (1.264 tổng)**; baseline dev **1.222 đạt / 6 lỗi / 1 bỏ qua (1.229 tổng)**. Cả 5 lỗi đều có sẵn (4 InboundOperationalEditing, 1 cache quyền inactive); lỗi reflection endpoint thứ sáu của baseline đã được Gate A sửa. Không thêm test lỗi mới.
 - Chưa chạy ứng dụng, kết nối/ghi DB deploy, áp migration, đo SQL trang 50 dòng hoặc chạy hai handler đồng thời trên SQL Server. **Gate A vẫn chưa đóng nghiệm thu; rủi ro race giữ High.** SQLite/metadata không thay thế bằng chứng SQL Server thật. Gate B/UI chưa triển khai trong lượt này.
+
+---
+
+## 16. Tiến trình Gate B — 2026-10-12
+
+**Trạng thái: đã triển khai và tự kiểm mã Gate B; chưa nghiệm thu toàn luồng hoặc phê duyệt merge.** Mục này cập nhật trạng thái FE sau mục 15, không đóng Gate A/A+ hoặc Gate C. Chưa commit/push trong lượt này.
+
+### Đã triển khai
+
+- Rút sáu thành phần cất hàng thuần hiển thị vào `components/operations/putaway` và kiểu trung lập vào `types/putaway.types.ts`. Nhập kho giữ adapter, hook/API và phần ảnh bằng chứng riêng; không chuyển nghiệp vụ Nhập kho sang Điều chuyển.
+- Thêm hợp đồng TS/service cho kế hoạch nhiều vị trí và endpoint gợi ý dạng object; giữ service/endpoint mảng cũ trong thời gian tương thích. `query-keys.ts` và `api-endpoints.ts` chỉ thêm hai dòng mỗi file, không format lại.
+- Sheet kế hoạch dùng hook `use-transfer-plan-editor.ts`: Đã nhận khóa, Còn lại chỉnh được, payload lưu tổng; kiểm tổng `Quantity − Stopped`, độ chính xác ĐVT, vị trí trùng và tối đa 20 vị trí/dòng. Chọn bằng combobox/sơ đồ, hỏi trước khi bỏ nháp, lỗi gắn trường và focus lỗi. Gợi ý chỉ gọi khi bấm, chỉ điền nháp, không tự lưu.
+- Phiếu nhận điền phân bổ theo từng lô và vị trí, phần chưa có kế hoạch để trống vị trí. Vẫn phải quét/nhập mã và xác nhận tra cứu; ID điền sẵn không được coi là đã quét. Ngân sách tốt dùng chung giữa các lô và cả request. Có tiến độ xác nhận, nhóm lý do lệch, Other 5–500 ký tự, tách phần trong/vượt kế hoạch, giữ hành vi Legacy và nguyên nhân hỏng/thiếu.
+- Hiển thị `planWarnings` cạnh thẻ hàng, không âm thầm bỏ cảnh báo ô bị tắt. Thao tác Làm theo kế hoạch hỏi trước khi thay nội dung đã sửa.
+- Refetch không tự nâng token cùng nháp cũ. Lỗi 409/kết quả lưu chưa xác định khóa gửi lại, cho tải lại để đối chiếu và giữ số lượng/ghi chú. Request ghi không tự retry; handler có khóa tức thời chống bấm/quét lặp.
+- Danh sách có lọc trạng thái kèm số đếm, cột Việc cần làm và URL giữ trạng thái/tìm kiếm/kho/ngày/trang. Tab chi tiết theo Hàng hóa, Lấy hàng, Nhận hàng, Chênh lệch/Phản hồi, Lịch sử; mặc định theo việc tiếp theo, đếm việc đang chờ. Link task kiểm quyền/phạm vi và người được giao, không lấy `nextActionCode` làm quyền.
+
+### Bổ sung hợp đồng đọc BE, không đổi schema
+
+- Chi tiết thêm `baseQuantityPrecision` từ ĐVT chính và `receivedPutAwayLocations` cho mọi vị trí đã nhận tốt, gồm nhận bổ sung/ngoài kế hoạch. Nếu chỉ có `putAwayPlan`, FE không thể khóa một vị trí đã nhận ngoài kế hoạch; trường bổ sung giải quyết thiếu dữ liệu này.
+- Các vị trí đã nhận được hợp vào nháp với lượng tối thiểu đã nhận; không xóa/đổi vị trí đó. Reader lấy đường dẫn và GetTransfer che trường mới nếu người xem không có phạm vi kho nhập.
+- Không đổi command ghi, migration, seed hay danh mục quyền. Migration chuẩn vẫn là `20261011173500_AddTransferPutAwayPlan`; chưa kiểm/áp dụng migration trên DB deploy.
+
+### Kiểm thử và ảnh hưởng
+
+| Kiểm tra                 | Kết quả / giới hạn                                                                                                                                                                                                                                                                             |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FE toàn bộ Vitest        | **929 đạt / 166 file, 0 lỗi**. Bao gồm test Nhập kho và nhận/lấy hàng hiện có.                                                                                                                                                                                                                 |
+| TypeScript, ESLint `src` | Đạt; TypeScript cũng chạy trong cả hai production build.                                                                                                                                                                                                                                       |
+| Production build         | **Webpack và Turbopack đều đạt**, 70 trang static. Chỉ build trên bản sao D.                                                                                                                                                                                                                   |
+| BE Release build         | **0 lỗi / 0 cảnh báo**; không khởi động API.                                                                                                                                                                                                                                                   |
+| Test BE Transfer         | **129 đạt**, dùng fixture EF InMemory cô lập; không chứng nhận race SQL Server thật. Không chạy lại toàn suite BE trong lượt Gate B.                                                                                                                                                           |
+| GitNexus                 | FE `detect_changes`: Critical, 125 ký hiệu/16 luồng; BE: Low, 12 ký hiệu/0 luồng. Đã rà hook nhận/lấy hàng, invalidation, danh sách/chi tiết và adapter Nhập kho bằng diff + test. Index không bao phủ hết file mới chưa tracked/caller MediatR; không coi scan là bằng chứng an toàn độc lập. |
+| Git                      | Diff whitespace đạt; giữ nguyên thay đổi AGENTS.md/CLAUDE.md có sẵn; chưa stage/commit/push.                                                                                                                                                                                                   |
+
+- Test `ReceiptTables` đã lỗi trên HEAD gốc vì còn tìm nhãn `Kệ KE-01`, trong khi UI hiện tại là `Kệ KE-01 (không chia ô)`. Đã sửa duy nhất kỳ vọng test cho đúng nhãn có sẵn; không sửa UI Nhập kho để làm test xanh.
+- Chạy công cụ Node trực tiếp từ dependency đã có, không `pnpm install`. Bản sao QA dùng junction node_modules nên build Turbopack ban đầu báo symlink ra ngoài root; đặt `turbopack.root = D:/` **chỉ trong config bản sao QA** rồi build đạt. Config/bundler/output server dev ở repo gốc không đổi. Sau lỗi đầu, TEMP/TMP của lượt build tiếp theo đặt trên D; Next đã sinh một panic log chẩn đoán ở Temp mặc định trong lượt lỗi đầu.
+- Bản sao: `D:/Kovia-QA/Transfer-GateB-20261012`, `D:/Kovia-QA/Transfer-GateB-20261012-BE`; baseline FE: `D:/Kovia-QA/Transfer-GateB-20261012-FE-baseline`. BE có báo cáo TRX tại `results/transfer-gate-b.trx`.
+
+### Khác với spec / việc còn phải nghiệm thu
+
+- `splitEntry` thêm khai báo vị trí trống để người dùng chủ động đổi vị trí: các ô kế hoạch đã được điền riêng ngay từ đầu nên không nhân đôi phân bổ kế hoạch khi tách.
+- Quyền sửa vẫn theo quyền hiệu lực và phạm vi kho hiện có; không thêm kiểm tên vai trò. Policy BE hiện có chưa phân biệt View/Manage bằng cấp phân công riêng, nên không tuyên bố nhân viên có `transfers:receive` chỉ được xem. Cần đối chiếu/chốt ranh giới này trong QA phân quyền, không tự thêm quyền hoặc blacklist vai trò ở FE. Chế độ chỉ đọc không gọi AI hay có nút lưu; chưa nghiệm thu khả năng xem gợi ý AI riêng của nhân viên như mục 7.
+- Guard bỏ nháp áp dụng khi đóng Sheet; chưa có bằng chứng browser Back/Forward/rời cả trang. Không đánh dấu checklist UI/khả dụng từ unit test.
+- Gate C còn phải chạy Edge 360/768/1280, zoom 200%, bàn phím, screen reader/reduced motion, toàn vòng đời nhiều đợt và mất mạng thật. Chưa đo SQL danh sách 50 dòng.
+- Gate A vẫn thiếu race hai handler thật trên SQL Server; mức High giữ nguyên. Không chạy ứng dụng, không kết nối/ghi DB deploy, không migration/seed. Kết quả trên là tự kiểm của người triển khai, không phải review độc lập hoặc chứng nhận production.

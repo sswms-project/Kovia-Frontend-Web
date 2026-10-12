@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { TransferNextActionChip } from './TransferNextActionChip'
 import type { ReactNode } from 'react'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import {
@@ -53,6 +54,7 @@ export function TransferMobileList({
                 {item.lineCount} dòng · {formatQuantity(item.requestedQuantity)} đơn vị ·{' '}
                 {formatOperationalDateTime(item.createdAt)}
               </ItemDescription>
+              <TransferNextActionChip code={item.nextActionCode} />
               <TransferFlagBadges
                 hasOpenFeedback={item.hasOpenFeedback}
                 hasPendingPickEscalation={item.hasPendingPickEscalation}

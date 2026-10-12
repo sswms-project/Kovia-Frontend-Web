@@ -1,8 +1,9 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useForm } from 'react-hook-form'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TransferReceiptFormValues } from '../../schemas/transfer-fulfillment.schema'
 import { ReceiveEntryCard } from './ReceiveEntryCard'
+import type { ReceiptPlanState } from '../../utils/transfer-receive-plan'
 
 afterEach(cleanup)
 
@@ -11,11 +12,17 @@ function Harness({
   suggestedSlotId,
   slotLabel,
   destinationSlotId = '',
+  scannedSlotCode = 'A07',
+  planState,
+  onSplitExcess = vi.fn(),
 }: {
   suggestedSlotLabel?: string
   suggestedSlotId?: string
   slotLabel?: string
   destinationSlotId?: string
+  scannedSlotCode?: string
+  planState?: ReceiptPlanState
+  onSplitExcess?: (index: number) => void
 }) {
   const form = useForm<TransferReceiptFormValues>({
     defaultValues: {
@@ -25,7 +32,7 @@ function Harness({
           lotId: null,
           productLabel: 'SKU-1',
           destinationSlotId,
-          scannedSlotCode: 'A07',
+          scannedSlotCode,
           scannedProductCode: '',
           goodQuantity: 20,
           damagedQuantity: 0,
@@ -54,11 +61,40 @@ function Harness({
       onScanProduct={vi.fn()}
       onSplit={vi.fn()}
       onRemove={vi.fn()}
+      planState={planState}
+      onSplitExcess={onSplitExcess}
     />
   )
 }
 
 describe('ReceiveEntryCard', () => {
+  it('does not show a prefilled location as scan-confirmed and keeps the optional product scan collapsed', () => {
+    render(<Harness destinationSlotId="slot-1" scannedSlotCode="" slotLabel="Khu K01 / Kệ A07" />)
+    expect(screen.getByLabelText('Quét mã vị trí cất hàng')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Quét mã hàng (không bắt buộc)')).not.toBeInTheDocument()
+  })
+
+  it('shows the reason panel and can split a partially overflowing allocation', () => {
+    const split = vi.fn()
+    render(
+      <Harness
+        planState={{
+          isPlanned: true,
+          isOffPlan: true,
+          budgetBefore: 10,
+          withinPlan: 10,
+          excess: 10,
+        }}
+        onSplitExcess={split}
+      />
+    )
+    expect(screen.getByLabelText('Nhóm lý do')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Nhóm lý do'), { target: { value: 'Other' } })
+    expect(screen.getByLabelText('Mô tả lý do')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tách phần vượt kế hoạch' }))
+    expect(split).toHaveBeenCalledWith(0)
+  })
+
   it('shows where the warehouse manager wants the goods put away', () => {
     render(<Harness suggestedSlotLabel="Khu K01 / Kệ A07" />)
     expect(screen.getByText('Cất vào')).toBeInTheDocument()

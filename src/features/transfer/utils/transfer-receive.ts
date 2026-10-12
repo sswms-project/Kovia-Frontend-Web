@@ -10,19 +10,38 @@ export function buildInitialReceiptEntries(
   sheet: TransferReceiveSheet
 ): TransferReceiptEntryValues[] {
   return sheet.lines.flatMap((line) =>
-    line.lots.map((lot) => ({
-      lineId: line.lineId,
-      lotId: lot.lotId,
-      productLabel: `${line.sku} · ${line.productName}`,
-      destinationSlotId: '',
-      scannedSlotCode: '',
-      scannedProductCode: '',
-      goodQuantity: Math.max(0, lot.dispatchedQuantity - lot.receivedQuantity),
-      damagedQuantity: 0,
-      missingQuantity: 0,
-      reasonCode: '',
-      note: '',
-    }))
+    line.lots.flatMap((lot) => {
+      const base = {
+        lineId: line.lineId,
+        lotId: lot.lotId,
+        productLabel: `${line.sku} · ${line.productName}`,
+        destinationSlotId: '',
+        scannedSlotCode: '',
+        scannedProductCode: '',
+        goodQuantity: Math.max(0, lot.dispatchedQuantity - lot.receivedQuantity),
+        damagedQuantity: 0,
+        missingQuantity: 0,
+        reasonCode: '',
+        deviationReasonCode: '',
+        note: '',
+      }
+      if (line.planMode !== 'Planned') return [base]
+      const planned: TransferReceiptEntryValues[] = (lot.plan ?? [])
+        .filter((plan) => plan.plannedQuantity > 0)
+        .map((plan) => ({
+          ...base,
+          destinationSlotId: plan.slotId,
+          goodQuantity: plan.plannedQuantity,
+          plannedSlotId: plan.slotId,
+          plannedSlotLabel: plan.path,
+        }))
+      const remaining = Math.max(
+        0,
+        base.goodQuantity - planned.reduce((sum, entry) => sum + entry.goodQuantity, 0)
+      )
+      if (remaining > 1e-9) planned.push({ ...base, goodQuantity: remaining })
+      return planned
+    })
   )
 }
 
@@ -49,10 +68,12 @@ export interface ReceivableSlot {
 
 export function toReceiveRequest(
   values: TransferReceiptFormValues,
-  expectedVersion: string
+  expectedVersion: string,
+  planVersion?: string | null
 ): ReceiveTransferShipmentRequest {
   return {
     expectedVersion,
+    ...(planVersion ? { planVersion } : {}),
     entries: values.entries.map((entry) => ({
       lineId: entry.lineId,
       lotId: entry.lotId,
@@ -64,6 +85,7 @@ export function toReceiveRequest(
       note: entry.note || null,
       scannedSlotCode: entry.scannedSlotCode || null,
       scannedProductCode: entry.scannedProductCode || null,
+      ...(entry.deviationReasonCode ? { deviationReasonCode: entry.deviationReasonCode } : {}),
     })),
   }
 }
@@ -103,6 +125,7 @@ export function removeReceiptEntry<T extends RemovableReceiptEntry>(
 
 interface ScannableReceiptEntry {
   readonly destinationSlotId: string
+  readonly scannedSlotCode?: string
   readonly scannedProductCode?: string
   readonly goodQuantity: number
   readonly damagedQuantity: number
@@ -125,7 +148,9 @@ export function nextReceiveScanTarget(
     entry.goodQuantity > 0 ||
     entry.damagedQuantity > 0 ||
     (entry.goodQuantity <= 0 && entry.damagedQuantity <= 0 && entry.missingQuantity <= 0)
-  const slotIndex = entries.findIndex((entry) => needsScan(entry) && !entry.destinationSlotId)
+  const slotIndex = entries.findIndex(
+    (entry) => needsScan(entry) && (!entry.destinationSlotId || entry.scannedSlotCode === '')
+  )
   if (slotIndex >= 0) return { index: slotIndex, step: 'slot' }
   const productIndex = entries.findIndex((entry) => needsScan(entry) && !entry.scannedProductCode)
   return productIndex >= 0 ? { index: productIndex, step: 'product' } : null

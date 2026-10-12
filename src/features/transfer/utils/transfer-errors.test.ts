@@ -54,5 +54,9 @@ describe('describeTransferError', () => {
   it('falls back for unknown error shapes', () => {
     expect(describeTransferError(undefined, 'Không thể lưu.').message).toBe('Không thể lưu.')
     expect(describeTransferError(new Error('boom'), 'Không thể lưu.').message).toBe('boom')
+    expect(describeTransferError(new Error('Failed to fetch'), 'x').kind).toBe('unknown-result')
+    expect(
+      describeTransferError({ statusCode: 503, message: 'Service unavailable' }, 'x').kind
+    ).toBe('unknown-result')
   })
 })

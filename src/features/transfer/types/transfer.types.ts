@@ -121,6 +121,7 @@ export interface TransferSourceProduct {
 
 export interface TransferSummary {
   id: string
+  nextActionCode?: string | null
   transferCode: string
   sourceWarehouseId: string
   sourceWarehouseName: string
@@ -147,11 +148,21 @@ export interface TransferSummary {
 
 export interface TransferListResponse {
   items: TransferSummary[]
+  statusCounts?: TransferStatusCounts
   totalCount: number
   pageNumber: number
   pageSize: number
   /** Số phiếu còn chênh lệch chưa xử lý (hiện trên tab chờ xử lý chênh lệch). */
   openDiscrepancyCount: number
+}
+
+export interface TransferStatusCounts {
+  all: number
+  draft: number
+  inProgress: number
+  awaitingResolution: number
+  completed: number
+  cancelled: number
 }
 
 export interface TransferRequesterOption {
@@ -162,6 +173,10 @@ export interface TransferRequesterOption {
 
 export interface TransferItem {
   id: string
+  putAwayPlan?: TransferPutAwayPlanLine[] | null
+  planMode?: 'Planned' | 'Legacy'
+  baseQuantityPrecision?: number
+  receivedPutAwayLocations?: { slotId: string; path: string; receivedQuantity: number }[] | null
   productId: string
   productName: string
   sku: string
@@ -552,10 +567,12 @@ export interface TransferReceiptEntryRequest {
   note: string | null
   scannedSlotCode: string | null
   scannedProductCode: string | null
+  deviationReasonCode?: string | null
 }
 
 export interface ReceiveTransferShipmentRequest {
   expectedVersion: string
+  planVersion?: string | null
   entries: TransferReceiptEntryRequest[]
 }
 
@@ -667,6 +684,8 @@ export interface TransferReceiveSheetLot {
   expiryDate: string | null
   dispatchedQuantity: number
   receivedQuantity: number
+  plan?: TransferReceivePlanLine[] | null
+  unplannedQuantity?: number
 }
 
 export interface TransferReceiveSheetLine {
@@ -683,6 +702,8 @@ export interface TransferReceiveSheetLine {
   suggestedIsSystemDefaultSlot: boolean
   suggestedZoneCode?: string | null
   lots: TransferReceiveSheetLot[]
+  planMode?: 'Planned' | 'Legacy'
+  planWarnings?: TransferReceivePlanWarning[]
 }
 
 export interface TransferReceiveSheet {
@@ -694,5 +715,68 @@ export interface TransferReceiveSheet {
   destinationWarehouseName: string
   shipmentStatus: TransferShipmentStatus
   version: string | null
+  planVersion?: string | null
   lines: TransferReceiveSheetLine[]
+}
+
+export interface TransferPutAwayPlanLine {
+  slotId: string
+  slotCode: string
+  rackCode: string | null
+  zoneName: string | null
+  path: string
+  plannedTotal: number
+  receivedQuantity: number
+  remainingBudget: number
+  isSystemDefaultSlot: boolean
+  plannedByUserId: string
+  createdAt: string
+  modifiedAt: string | null
+}
+
+export interface TransferReceivePlanLine {
+  slotId: string
+  slotCode: string
+  rackCode: string | null
+  zoneName: string | null
+  path: string
+  plannedQuantity: number
+  remainingBudget: number
+  isSystemDefaultSlot: boolean
+}
+
+export interface TransferReceivePlanWarning {
+  slotId: string
+  slotCode: string
+  path: string | null
+  remainingBudget: number
+  message: string
+}
+
+export interface SetTransferPutAwayPlanRequest {
+  expectedVersion: string
+  items: { itemId: string; lines: { slotId: string; plannedTotal: number }[] }[]
+}
+
+export interface TransferPutAwayPlanSuggestions {
+  items: {
+    itemId: string
+    remaining: number
+    unallocatedQuantity: number
+    suggestions: {
+      slotId: string
+      slotCode: string
+      rackCode: string | null
+      zoneName: string | null
+      path: string
+      suggestedQuantity: number
+      available: number | null
+      reason: string
+      warnings: string[]
+    }[]
+  }[]
+  isAiAssisted: boolean
+  notice: string | null
+  summary: string | null
+  risks: string[]
 }

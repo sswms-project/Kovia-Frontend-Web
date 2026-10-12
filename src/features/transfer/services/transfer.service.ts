@@ -13,6 +13,8 @@ import type {
   DispatchTransferShipmentRequest,
   ReopenTransferPickingRequest,
   SetTransferPutAwaySlotsRequest,
+  SetTransferPutAwayPlanRequest,
+  TransferPutAwayPlanSuggestions,
   TransferPutAwayItemSuggestions,
   EscalateTransferPickRequest,
   ReceiveTransferShipmentRequest,
@@ -47,6 +49,21 @@ import type { ReceivableSlot } from '../utils/transfer-receive'
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
 
 export const transferService = {
+  setPutAwayPlan: (transferId: string, request: SetTransferPutAwayPlanRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request)
+      .then(unwrap),
+
+  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string) =>
+    axiosClient
+      .get<ApiResponse<TransferPutAwayPlanSuggestions>>(
+        API_ENDPOINTS.transfers.putAwayPlanSuggestions(transferId),
+        {
+          params: shipmentId ? { shipmentId } : undefined,
+        }
+      )
+      .then(unwrap),
+
   /**
    * Tra vị trí cất hàng của kho nhận theo mã vừa quét; null nếu không có vị trí khớp. Server đối chiếu nhãn
    * ghép khu, mã vạch riêng và mã ngắn, và từ chối (409) khi một mã ngắn trùng ở nhiều kệ.

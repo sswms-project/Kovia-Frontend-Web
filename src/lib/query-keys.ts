@@ -238,6 +238,8 @@ export const queryKeys = {
       ['transfers', 'source-warehouses', params] as const,
     putAwaySuggestions: (transferId: string) =>
       ['transfers', 'putaway-suggestions', transferId] as const,
+    putAwayPlanSuggestions: (transferId: string, shipmentId?: string) =>
+      ['transfers', 'putaway-plan-suggestions', transferId, shipmentId ?? null] as const,
     receivableSlots: (params: TransferReceivableSlotsQuery) =>
       ['transfers', 'receivable-slots', params] as const,
     sourceLocations: (params: TransferSourceLocationsQuery) =>
