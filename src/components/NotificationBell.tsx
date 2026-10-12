@@ -36,6 +36,14 @@ export function NotificationBell(props: NotificationBellProps) {
   const { hasMore, isLoadingMore, onLoadMore } = props
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null)
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null)
+  const [previousUnread, setPreviousUnread] = useState<number | null>(null)
+  const [ringKey, setRingKey] = useState(0)
+
+  // Chuông chỉ rung khi số chưa đọc tăng sau lần tải đầu, không rung lúc mới vào trang.
+  if (!props.isLoading && previousUnread !== props.unreadCount) {
+    if (previousUnread !== null && props.unreadCount > previousUnread) setRingKey((key) => key + 1)
+    setPreviousUnread(props.unreadCount)
+  }
 
   useEffect(() => {
     if (!scrollRoot || !sentinel || !hasMore || isLoadingMore || !onLoadMore) return
@@ -58,9 +66,17 @@ export function NotificationBell(props: NotificationBellProps) {
           className="text-foreground relative"
           aria-label={`Thông báo${props.unreadCount > 0 ? `, ${props.unreadCount} chưa đọc` : ''}`}
         >
-          <Bell aria-hidden="true" />
+          <Bell
+            key={ringKey}
+            aria-hidden="true"
+            data-notification-bell-ring={ringKey > 0 ? '' : undefined}
+          />
           {props.unreadCount > 0 ? (
-            <span className="bg-destructive text-destructive-foreground absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold">
+            <span
+              key={props.unreadCount}
+              data-notification-badge
+              className="bg-destructive text-destructive-foreground absolute -top-0.5 -right-0.5 flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+            >
               {props.unreadCount > 99 ? '99+' : props.unreadCount}
             </span>
           ) : null}
@@ -107,12 +123,13 @@ export function NotificationBell(props: NotificationBellProps) {
                 key={notification.id}
                 disabled={props.pendingNotificationId === notification.id}
                 onSelect={() => props.onMarkRead(notification)}
-                className="flex flex-col items-start gap-1 py-2"
+                data-notification-item
+                className="flex flex-col items-start gap-1 py-2 transition-colors"
               >
                 <div className="flex w-full items-center gap-2">
                   <span
                     className={cn(
-                      'min-w-0 flex-1 truncate text-sm',
+                      'min-w-0 flex-1 truncate text-sm transition-colors',
                       notification.isRead
                         ? 'text-muted-foreground'
                         : 'text-foreground font-semibold'
@@ -122,7 +139,7 @@ export function NotificationBell(props: NotificationBellProps) {
                   </span>
                   <span
                     className={cn(
-                      'size-2 shrink-0 rounded-full',
+                      'size-2 shrink-0 rounded-full transition-colors duration-300',
                       notification.isRead ? 'bg-muted-foreground/30' : 'bg-primary'
                     )}
                     aria-label={notification.isRead ? 'Đã đọc' : 'Chưa đọc'}
