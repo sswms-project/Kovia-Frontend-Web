@@ -24,19 +24,21 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { CycleCountListFilter, CycleCountSummary } from '../types/cycle-count.types'
 import {
   CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER,
   CYCLE_COUNT_STATUS_GROUPS,
-  CYCLE_COUNT_STATUSES,
 } from '../types/cycle-count.types'
 import {
   formatCycleCountDate,
   formatCycleCountDay,
+  getAdjustmentState,
   getOverdueDays,
   hasCountResults,
 } from '../utils/cycle-count-format'
+import { CycleCountCards } from './CycleCountCards'
 import { CycleCountStatsTiles } from './CycleCountStatsTiles'
 import { CycleCountStatusBadge } from './CycleCountStatusBadge'
 import { OptionSelect } from './OptionSelect'
@@ -47,23 +49,6 @@ const SORT_OPTIONS = [
   { value: 'priority', label: 'Ưu tiên xử lý' },
   { value: 'newest', label: 'Mới tạo nhất' },
 ] as const
-
-// Phiếu đã hoàn tất chỉ thực sự xong khi mọi dòng lệch đã có điều chỉnh tồn được duyệt.
-function getAdjustmentState(item: CycleCountSummary) {
-  const variance = item.varianceItemCount ?? 0
-  if (item.status !== CYCLE_COUNT_STATUSES.completed || variance === 0) return null
-  if (item.adjustedItemCount < variance)
-    return {
-      label: `Cần tạo điều chỉnh (${item.adjustedItemCount}/${variance})`,
-      variant: 'destructive',
-    } as const
-  if (item.approvedAdjustmentItemCount < variance)
-    return {
-      label: `Chờ duyệt điều chỉnh (${item.approvedAdjustmentItemCount}/${variance})`,
-      variant: 'outline',
-    } as const
-  return { label: 'Đã xử lý', variant: 'secondary' } as const
-}
 
 interface Props {
   readonly items: readonly CycleCountSummary[]
@@ -93,6 +78,7 @@ interface Props {
 
 export function CycleCountDirectory(props: Props) {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const allCount = Object.values(props.statusCounts).reduce((sum, count) => sum + count, 0)
 
   return (
@@ -147,35 +133,44 @@ export function CycleCountDirectory(props: Props) {
               ))}
             </TabsList>
           </Tabs>
-          <div className="flex flex-wrap items-end gap-3">
-            <Field className="w-full sm:w-72">
-              <FieldLabel htmlFor="cycleCountSearch">Tìm phiếu</FieldLabel>
+          <div className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap sm:gap-3">
+            <Field className="col-span-2 sm:w-72">
+              <FieldLabel htmlFor="cycleCountSearch" className="max-sm:sr-only">
+                Tìm phiếu
+              </FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
                   <Search aria-hidden="true" />
                 </InputGroupAddon>
                 <InputGroupInput
                   id="cycleCountSearch"
+                  className="max-sm:h-11 max-sm:text-base"
                   placeholder="Số phiếu hoặc mục đích"
                   value={props.searchTerm}
                   onChange={(event) => props.onSearchTermChange(event.target.value)}
                 />
               </InputGroup>
             </Field>
-            <Field className="w-full sm:w-64">
-              <FieldLabel htmlFor="cycleCountWarehouse">Kho</FieldLabel>
+            <Field className="sm:w-64">
+              <FieldLabel htmlFor="cycleCountWarehouse" className="max-sm:sr-only">
+                Kho
+              </FieldLabel>
               <OptionSelect
                 id="cycleCountWarehouse"
+                className="max-sm:h-11"
                 value={props.warehouseId}
                 options={props.warehouses}
                 emptyLabel="Tất cả kho"
                 onValueChange={props.onWarehouseChange}
               />
             </Field>
-            <Field className="w-full sm:w-48">
-              <FieldLabel htmlFor="cycleCountSort">Sắp xếp</FieldLabel>
+            <Field className="sm:w-48">
+              <FieldLabel htmlFor="cycleCountSort" className="max-sm:sr-only">
+                Sắp xếp
+              </FieldLabel>
               <OptionSelect
                 id="cycleCountSort"
+                className="max-sm:h-11"
                 value={props.sortBy}
                 options={SORT_OPTIONS}
                 onValueChange={props.onSortChange}
@@ -184,6 +179,7 @@ export function CycleCountDirectory(props: Props) {
             {props.needsAdjustmentCount > 0 ||
             props.status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER ? (
               <Button
+                className="max-sm:h-11"
                 variant={
                   props.status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER ? 'default' : 'outline'
                 }
@@ -204,6 +200,7 @@ export function CycleCountDirectory(props: Props) {
             <Button
               variant="outline"
               size="icon"
+              className="max-sm:h-11 max-sm:w-full"
               aria-label="Làm mới"
               disabled={props.isFetching}
               onClick={props.onRetry}
@@ -222,6 +219,12 @@ export function CycleCountDirectory(props: Props) {
           <OperationalEmptyState
             title="Chưa có phiếu kiểm kê"
             description="Tạo phiếu mới hoặc thay đổi bộ lọc để xem dữ liệu."
+          />
+        ) : isMobile ? (
+          <CycleCountCards
+            items={props.items}
+            isFetching={props.isFetching}
+            onPrefetchDetail={props.onPrefetchDetail}
           />
         ) : (
           <Table

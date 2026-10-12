@@ -47,7 +47,7 @@ export function CycleCountStatsTiles({
 }: CycleCountStatsTilesProps) {
   return (
     <section
-      className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-4"
+      className="bg-border hidden shrink-0 grid-cols-2 gap-px border sm:grid sm:grid-cols-4"
       aria-label="Thống kê phiếu kiểm kê"
       aria-busy={isLoading}
     >

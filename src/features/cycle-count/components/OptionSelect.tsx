@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -23,6 +24,7 @@ interface OptionSelectProps {
   /** Bỏ trống khi trường luôn phải có giá trị (ví dụ mức ưu tiên). */
   readonly emptyLabel?: string
   readonly disabled?: boolean
+  readonly className?: string
   readonly invalid?: boolean
   readonly onValueChange: (value: string) => void
 }
@@ -33,6 +35,7 @@ export function OptionSelect({
   options,
   emptyLabel,
   disabled,
+  className,
   invalid,
   onValueChange,
 }: OptionSelectProps) {
@@ -42,7 +45,7 @@ export function OptionSelect({
       disabled={disabled}
       onValueChange={(next) => onValueChange(next === EMPTY_VALUE ? '' : next)}
     >
-      <SelectTrigger id={id} className="w-full" aria-invalid={invalid}>
+      <SelectTrigger id={id} className={cn('w-full', className)} aria-invalid={invalid}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent position="popper" align="start" sideOffset={4}>

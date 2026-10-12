@@ -2,6 +2,7 @@ import {
   CYCLE_COUNT_STATUSES,
   STOCK_ADJUSTMENT_STATUSES,
   type CycleCountStatus,
+  type CycleCountSummary,
   type StockAdjustmentStatus,
 } from '../types/cycle-count.types'
 
@@ -71,4 +72,21 @@ export function getOverdueDays(dueDate: string | null, status: CycleCountStatus)
 export function formatCountDifference(value: number | null): string {
   if (value === null) return '—'
   return value < 0 ? `(${formatCount(-value)})` : formatCount(value)
+}
+
+// Phiếu đã hoàn tất chỉ thực sự xong khi mọi dòng lệch đã có điều chỉnh tồn được duyệt.
+export function getAdjustmentState(item: CycleCountSummary) {
+  const variance = item.varianceItemCount ?? 0
+  if (item.status !== CYCLE_COUNT_STATUSES.completed || variance === 0) return null
+  if (item.adjustedItemCount < variance)
+    return {
+      label: `Cần tạo điều chỉnh (${item.adjustedItemCount}/${variance})`,
+      variant: 'destructive',
+    } as const
+  if (item.approvedAdjustmentItemCount < variance)
+    return {
+      label: `Chờ duyệt điều chỉnh (${item.approvedAdjustmentItemCount}/${variance})`,
+      variant: 'outline',
+    } as const
+  return { label: 'Đã xử lý', variant: 'secondary' } as const
 }
