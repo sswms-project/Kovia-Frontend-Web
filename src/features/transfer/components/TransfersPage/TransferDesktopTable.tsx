@@ -31,7 +31,7 @@ export function TransferDesktopTable({
       <Table className="min-w-[1280px]">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-44">Mã phiếu</TableHead>
+            <TableHead className="w-44">Mã yêu cầu</TableHead>
             <TableHead className="w-44">Ngày tạo</TableHead>
             <TableHead className="w-72">Kho xuất → Kho nhập</TableHead>
             <TableHead className="w-36">Hạn cần hàng</TableHead>

@@ -13,12 +13,16 @@ import {
 } from '@/components/operations/OperationalState'
 import { Button } from '@/components/ui/button'
 import { P } from '@/config/permissionCodes'
-import { useProductOptionsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
+import {
+  useInboundRequestProductDetails,
+  useInboundRequestUnitConversions,
+} from '@/features/inbound-request/hooks/use-inbound-requests'
 import {
   RECORD_STATUS,
   type LookupOption,
 } from '@/features/inbound-request/types/inbound-request.types'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
+import { useUnitsQuery } from '@/features/product/hooks/use-products'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -37,6 +41,8 @@ import {
   useTransferAvailabilityQuery,
   useTransferQuery,
   useTransferRequesterOptionsQuery,
+  useTransferReceivableSlotsQuery,
+  useTransferSourceProductsQuery,
   useTransferSourceWarehousesQuery,
 } from '../hooks/use-transfers'
 import {
@@ -48,8 +54,12 @@ import {
   EMPTY_TRANSFER_LINE,
   dispatchedInEnteredUnit,
   emptyTransferForm,
+  findWarehouseName,
   visibleTransferItems,
 } from '../utils/transfer-form'
+import { canSeeWarehouse } from '../utils/transfer-capabilities'
+import { buildTransferLineUnits } from '../utils/transfer-line-units'
+import type { TransferLineUnits } from '../types/transfer.types'
 
 const LOOKUP_PAGE_SIZE = 20
 
@@ -102,21 +112,90 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
     },
     Boolean(destinationWarehouseId)
   )
-  const productsQuery = useProductOptionsQuery({
-    pageNumber: 1,
-    pageSize: LOOKUP_PAGE_SIZE,
-    status: RECORD_STATUS.Active,
-    ...(debouncedProductSearch ? { searchTerm: debouncedProductSearch } : {}),
-  })
+  const hasWarehouses = Boolean(
+    sourceWarehouseId && destinationWarehouseId && sourceWarehouseId !== destinationWarehouseId
+  )
+  // Chỉ gợi ý sản phẩm còn tồn khả dụng ở kho xuất, để không chọn nhầm hàng kho đó không có.
+  const productsQuery = useTransferSourceProductsQuery(
+    {
+      sourceWarehouseId,
+      destinationWarehouseId,
+      pageSize: LOOKUP_PAGE_SIZE,
+      ...(debouncedProductSearch ? { searchTerm: debouncedProductSearch } : {}),
+    },
+    hasWarehouses
+  )
   const productIds = useMemo(
     () => [...new Set(lines.map((line) => line.productId).filter(Boolean))].sort(),
     [lines]
   )
   const availabilityQuery = useTransferAvailabilityQuery(
     { sourceWarehouseId, destinationWarehouseId, productIds },
-    Boolean(
-      sourceWarehouseId && destinationWarehouseId && sourceWarehouseId !== destinationWarehouseId
-    )
+    hasWarehouses
+  )
+
+  // Đơn vị lấy từ danh mục sản phẩm để hiện ngay khi chọn sản phẩm, không chờ chọn kho.
+  const productDetails = useInboundRequestProductDetails(productIds)
+  const productConversions = useInboundRequestUnitConversions(productIds)
+  const unitsQuery = useUnitsQuery(true, RECORD_STATUS.Active)
+
+  // Vị trí đi chỉ dành cho chủ và người kho xuất; người kho nhập không biết nơi lấy hàng.
+  const showSourceSlot =
+    hasWarehouses &&
+    viewer.permissions.includes(P.TRANSFERS_DISPATCH) &&
+    canSeeWarehouse(viewer, sourceWarehouseId)
+  const knownSourceSlots = useMemo(() => {
+    const known: Record<string, LookupOption> = {}
+    for (const item of detail?.items ?? []) {
+      if (item.sourceSlotId) {
+        known[item.sourceSlotId] = {
+          value: item.sourceSlotId,
+          label: item.sourceSlotPath ?? item.sourceSlotCode ?? item.sourceSlotId,
+        }
+      }
+    }
+    return known
+  }, [detail?.items])
+  // Vị trí đến chỉ dành cho chủ và người kho nhập; người kho xuất không thấy cột này.
+  const showDestinationSlot =
+    Boolean(destinationWarehouseId) && canSeeWarehouse(viewer, destinationWarehouseId)
+  const [slotSearch, setSlotSearch] = useState('')
+  const debouncedSlotSearch = useDebouncedValue(slotSearch.trim(), 300)
+  const destinationSlotsQuery = useTransferReceivableSlotsQuery(
+    {
+      warehouseId: destinationWarehouseId,
+      top: LOOKUP_PAGE_SIZE,
+      ...(debouncedSlotSearch ? { search: debouncedSlotSearch } : {}),
+    },
+    showDestinationSlot
+  )
+  const destinationSlotOptions = useMemo<LookupOption[]>(
+    () => (destinationSlotsQuery.data ?? []).map((slot) => ({ value: slot.id, label: slot.path })),
+    [destinationSlotsQuery.data]
+  )
+  const knownDestinationSlots = useMemo(() => {
+    const known: Record<string, LookupOption> = {}
+    for (const item of detail?.items ?? []) {
+      if (item.destinationSlotId) {
+        known[item.destinationSlotId] = {
+          value: item.destinationSlotId,
+          label: item.destinationSlotPath ?? item.destinationSlotCode ?? item.destinationSlotId,
+        }
+      }
+    }
+    return known
+  }, [detail?.items])
+  const lockedDestinationItemIds = useMemo(
+    () =>
+      new Set(
+        (detail?.items ?? [])
+          .filter(
+            (item) =>
+              item.receivedQuantity > 0 || item.damagedQuantity > 0 || item.missingQuantity > 0
+          )
+          .map((item) => item.id)
+      ),
+    [detail?.items]
   )
 
   const codeSessionKey = useId()
@@ -166,6 +245,25 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
       Object.fromEntries((availabilityQuery.data ?? []).map((entry) => [entry.productId, entry])),
     [availabilityQuery.data]
   )
+  const unitsByProductId: Record<string, TransferLineUnits> = {}
+  productIds.forEach((id, index) => {
+    const product = productDetails[index]?.data
+    if (!product) return
+    unitsByProductId[id] = buildTransferLineUnits(
+      product,
+      productConversions[index]?.data ?? [],
+      unitsQuery.data ?? [],
+      availabilityByProductId[id]
+    )
+  })
+  const isUnitLoading =
+    unitsQuery.isPending ||
+    productDetails.some((query) => query.isPending) ||
+    productConversions.some((query) => query.isPending)
+  const isUnitError =
+    unitsQuery.isError ||
+    productDetails.some((query) => query.isError) ||
+    productConversions.some((query) => query.isError)
   const knownProductOptions = useMemo(() => {
     const options: Record<string, LookupOption> = {}
     for (const item of detail?.items ?? []) {
@@ -184,11 +282,11 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
   }, [availabilityQuery.data, detail?.items])
   const productOptions = useMemo<LookupOption[]>(
     () =>
-      (productsQuery.data?.items ?? []).map((product) => ({
-        value: product.id,
-        label: `${product.sku} - ${product.productName}`,
+      (productsQuery.data ?? []).map((product) => ({
+        value: product.productId,
+        label: `${product.sku} - ${product.productName} (tồn ${formatQuantity(product.availableQuantity)} ${product.baseUnitName})`,
       })),
-    [productsQuery.data?.items]
+    [productsQuery.data]
   )
 
   const destinationOptions = useMemo(
@@ -234,6 +332,11 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
   function changeDestination(value: string) {
     form.setValue('destinationWarehouseId', value, { shouldDirty: true, shouldValidate: true })
     form.setValue('sourceWarehouseId', '', { shouldDirty: true })
+    // Vị trí đến thuộc kho nhập cũ, vị trí đi thuộc kho xuất cũ nên không còn hợp lệ khi đổi kho.
+    form.getValues('lines').forEach((_, index) => {
+      form.setValue(`lines.${index}.destinationSlotId`, '', { shouldDirty: true })
+      form.setValue(`lines.${index}.sourceSlotId`, '', { shouldDirty: true })
+    })
   }
 
   const submit = form.handleSubmit((values) =>
@@ -253,9 +356,9 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
     (detail?.isLegacyWorkflow || (detail?.status !== 'Draft' && detail?.status !== 'InProgress'))
 
   const totalBaseQuantity = lines.reduce((sum, line) => {
-    const unit = availabilityByProductId[line.productId]?.units.find(
-      (candidate) =>
-        candidate.unitId === (line.unitId || availabilityByProductId[line.productId]?.baseUnitId)
+    const info = unitsByProductId[line.productId]
+    const unit = info?.units.find(
+      (candidate) => candidate.unitId === (line.unitId || info.baseUnitId)
     )
     return unit && Number.isFinite(line.quantity)
       ? sum + line.quantity * unit.conversionFactor
@@ -313,7 +416,19 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
           warehousesLocked={warehousesLocked}
           productOptions={productOptions}
           knownProductOptions={knownProductOptions}
-          availabilityByProductId={availabilityByProductId}
+          unitsByProductId={unitsByProductId}
+          isUnitLoading={isUnitLoading}
+          isUnitError={isUnitError}
+          hasWarehouses={hasWarehouses}
+          showSourceSlot={showSourceSlot}
+          sourceWarehouseId={sourceWarehouseId}
+          knownSourceSlots={knownSourceSlots}
+          showDestinationSlot={showDestinationSlot}
+          destinationSlotOptions={destinationSlotOptions}
+          knownDestinationSlots={knownDestinationSlots}
+          isDestinationSlotLoading={destinationSlotsQuery.isFetching}
+          lockedDestinationItemIds={lockedDestinationItemIds}
+          onDestinationSlotSearchChange={setSlotSearch}
           lockByItemId={lockInfoByItemId}
           isProductSearchLoading={productsQuery.isFetching}
           isSaving={actions.isSaving}
@@ -331,9 +446,14 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
           onCodeChange={codeSuggestion.markEdited}
           onSelectInternalRelocation={() => router.push(APP_ROUTES.createRelocationTask)}
           onDestinationChange={changeDestination}
-          onSourceChange={(value) =>
+          onSourceChange={(value) => {
             form.setValue('sourceWarehouseId', value, { shouldDirty: true, shouldValidate: true })
-          }
+            form
+              .getValues('lines')
+              .forEach((_, index) =>
+                form.setValue(`lines.${index}.sourceSlotId`, '', { shouldDirty: true })
+              )
+          }}
           onProductSearchChange={(scope, value) =>
             setProductSearch((current) =>
               current?.scope === scope && current.value === value ? current : { scope, value }
@@ -351,11 +471,36 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
         open={actions.isConfirmOpen}
         title="Tạo yêu cầu điều chuyển?"
         description={
-          <p>
-            Hệ thống sẽ kiểm tồn khả dụng và giữ chỗ ngay <strong>{lines.length} dòng hàng</strong>{' '}
-            (tổng {formatQuantity(totalBaseQuantity)} theo đơn vị chính) ở kho xuất. Nếu thiếu tồn,
-            toàn bộ yêu cầu sẽ bị chặn và bản nháp được giữ lại.
-          </p>
+          <div className="grid gap-3">
+            <dl className="bg-muted/50 text-foreground grid gap-1.5 rounded-md border p-3">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Kho xuất</dt>
+                <dd className="text-right font-medium">
+                  {findWarehouseName(sourceOptions, sourceWarehouseId)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Kho nhập</dt>
+                <dd className="text-right font-medium">
+                  {findWarehouseName(destinationOptions, destinationWarehouseId)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Số dòng hàng</dt>
+                <dd className="text-right font-medium tabular-nums">{lines.length}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Tổng số lượng</dt>
+                <dd className="text-right font-medium tabular-nums">
+                  {formatQuantity(totalBaseQuantity)} theo đơn vị chính
+                </dd>
+              </div>
+            </dl>
+            <p>
+              Hệ thống kiểm tồn khả dụng và <strong>giữ chỗ ngay</strong> ở kho xuất. Nếu thiếu tồn,
+              toàn bộ yêu cầu bị chặn và bản nháp được giữ lại.
+            </p>
+          </div>
         }
         confirmLabel="Tạo yêu cầu"
         pendingLabel="Đang tạo…"

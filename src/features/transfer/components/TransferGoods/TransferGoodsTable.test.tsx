@@ -21,6 +21,8 @@ const row: TransferGoodsRow = {
   stopped: 0,
   unbatched: 12,
   discrepancy: 'open',
+  destinationSlot: 'Khu K01 / Kệ A07',
+  allocations: ['Khu Z-A / Kệ A-01: 24'],
 }
 
 function renderTable(props: Partial<React.ComponentProps<typeof TransferGoodsTable>> = {}) {
@@ -82,5 +84,17 @@ describe('TransferGoodsTable', () => {
   it('tells the user when the transfer has no goods', () => {
     renderTable({ rows: [] })
     expect(screen.getByText('Phiếu chưa có hàng hóa')).toBeInTheDocument()
+  })
+
+  it('shows the picked-from and destination columns only to the people who may see them', () => {
+    renderTable()
+    expect(screen.queryByText('Phân bổ lấy hàng')).not.toBeInTheDocument()
+    expect(screen.queryByText('Khu K01 / Kệ A07')).not.toBeInTheDocument()
+    cleanup()
+
+    renderTable({ showAllocation: true, showDestinationSlot: true })
+    expect(screen.getByText('Phân bổ lấy hàng')).toBeInTheDocument()
+    expect(screen.getByText('Khu Z-A / Kệ A-01: 24')).toBeInTheDocument()
+    expect(screen.getByText('Khu K01 / Kệ A07')).toBeInTheDocument()
   })
 })

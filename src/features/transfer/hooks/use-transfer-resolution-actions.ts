@@ -6,6 +6,10 @@ import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAssignableStaffQuery } from '@/features/inbound/hooks/use-inbound'
 import { useAssignWarehouseTaskMutation } from '@/features/warehouse-task/hooks/use-warehouse-task'
+import {
+  transferReasonSchema,
+  type TransferReasonFormValues,
+} from '../schemas/transfer-actions.schema'
 import type { AssignTransferTaskTarget } from '../components/TransferDetailPage/AssignTransferTaskDialog'
 import type { PendingEscalation } from '../components/TransferDetailPage/ResolveEscalationDialog'
 import {
@@ -17,7 +21,9 @@ import {
 import type { TransferDetail, TransferDiscrepancy, TransferShipment } from '../types/transfer.types'
 import { useTransferActionRunner } from './use-transfer-action-runner'
 import {
+  useDispatchTransferShipmentMutation,
   useFindReceivableSlotMutation,
+  useReopenTransferPickingMutation,
   useResolveTransferDiscrepancyMutation,
   useResolveTransferEscalationMutation,
   useTransferPickAlternativesQuery,
@@ -28,8 +34,9 @@ import { invalidateTransferQueries } from './use-transfers'
 
 type AssignKind = 'pick' | 'receive'
 
+/** Chỉ lưu mã đợt để luôn đọc người đang được giao và phiên bản mới nhất từ phiếu, không dùng bản chụp cũ. */
 interface AssignState {
-  readonly shipment: TransferShipment
+  readonly shipmentId: string
   readonly kind: AssignKind
 }
 
@@ -59,10 +66,11 @@ export function useTransferResolutionActions(transfer: TransferDetail | undefine
   const transferId = transfer?.id ?? null
 
   const [assignState, setAssignState] = useState<AssignState | null>(null)
+  const assignShipment = assignState
+    ? (transfer?.shipments ?? []).find((shipment) => shipment.id === assignState.shipmentId)
+    : undefined
   const assignTaskId =
-    assignState?.kind === 'pick'
-      ? assignState.shipment.pickTaskId
-      : assignState?.shipment.receiveTaskId
+    assignState?.kind === 'pick' ? assignShipment?.pickTaskId : assignShipment?.receiveTaskId
   const staffQuery = useAssignableStaffQuery(
     assignState
       ? assignState.kind === 'pick'
@@ -71,6 +79,15 @@ export function useTransferResolutionActions(transfer: TransferDetail | undefine
       : null
   )
   const assignMutation = useAssignWarehouseTaskMutation(assignTaskId ?? null)
+
+  const [departureShipment, setDepartureShipment] = useState<TransferShipment | null>(null)
+  const departureMutation = useDispatchTransferShipmentMutation()
+  const [reopenShipment, setReopenShipment] = useState<TransferShipment | null>(null)
+  const reopenForm = useForm<TransferReasonFormValues>({
+    resolver: zodResolver(transferReasonSchema),
+    defaultValues: { reason: '' },
+  })
+  const reopenMutation = useReopenTransferPickingMutation()
 
   const [escalationShipment, setEscalationShipment] = useState<TransferShipment | null>(null)
   const [selectedExceptionId, setSelectedExceptionId] = useState('')
@@ -121,20 +138,25 @@ export function useTransferResolutionActions(transfer: TransferDetail | undefine
     [discrepancy?.itemId, receiveSheetQuery.data?.lines]
   )
 
-  const assignTarget: AssignTransferTaskTarget | null = assignState
-    ? {
-        title: assignState.kind === 'pick' ? 'Giao việc lấy hàng' : 'Giao việc nhận hàng',
-        description: `Đợt ${assignState.shipment.shipmentNumber} · ${
-          assignState.kind === 'pick'
-            ? transfer?.sourceWarehouseName
-            : transfer?.destinationWarehouseName
-        }`,
-        currentAssigneeId:
-          assignState.kind === 'pick'
-            ? assignState.shipment.pickAssigneeId
-            : assignState.shipment.receiveAssigneeId,
-      }
-    : null
+  const assignTarget: AssignTransferTaskTarget | null =
+    assignState && assignShipment
+      ? {
+          title: assignState.kind === 'pick' ? 'Giao việc lấy hàng' : 'Giao việc nhận hàng',
+          description: `Đợt ${assignShipment.shipmentNumber} · ${
+            assignState.kind === 'pick'
+              ? transfer?.sourceWarehouseName
+              : transfer?.destinationWarehouseName
+          }`,
+          currentAssigneeId:
+            assignState.kind === 'pick'
+              ? assignShipment.pickAssigneeId
+              : assignShipment.receiveAssigneeId,
+          currentAssigneeName:
+            (assignState.kind === 'pick'
+              ? assignShipment.pickAssigneeName
+              : assignShipment.receiveAssigneeName) ?? null,
+        }
+      : null
 
   return {
     assign: {
@@ -142,19 +164,20 @@ export function useTransferResolutionActions(transfer: TransferDetail | undefine
       staff: (staffQuery.data ?? []).map((person) => ({ id: person.id, name: person.fullName })),
       isLoadingStaff: staffQuery.isLoading,
       isPending: assignMutation.isPending,
-      open: (shipment: TransferShipment, kind: AssignKind) => setAssignState({ shipment, kind }),
+      open: (shipment: TransferShipment, kind: AssignKind) =>
+        setAssignState({ shipmentId: shipment.id, kind }),
       onOpenChange: (open: boolean) => !open && setAssignState(null),
       submit: async (request: { staffId: string; reason: string | null }) => {
-        if (!assignState) return
+        if (!assignState || !assignShipment) return
         const version =
           assignState.kind === 'pick'
-            ? assignState.shipment.pickTaskVersion
-            : assignState.shipment.receiveTaskVersion
+            ? assignShipment.pickTaskVersion
+            : assignShipment.receiveTaskVersion
         if (!version) return
         const currentAssignee =
           assignState.kind === 'pick'
-            ? assignState.shipment.pickAssigneeId
-            : assignState.shipment.receiveAssigneeId
+            ? assignShipment.pickAssigneeId
+            : assignShipment.receiveAssigneeId
         const done = await run(
           () =>
             assignMutation.mutateAsync({
@@ -171,6 +194,50 @@ export function useTransferResolutionActions(transfer: TransferDetail | undefine
           // Việc giao đi qua API công việc kho nên phải tự làm mới chi tiết phiếu để hiện người nhận mới.
           void invalidateTransferQueries(queryClient)
         }
+      },
+    },
+    departure: {
+      shipment: departureShipment,
+      isPending: departureMutation.isPending,
+      open: (shipment: TransferShipment) => setDepartureShipment(shipment),
+      onOpenChange: (open: boolean) => !open && setDepartureShipment(null),
+      confirm: async () => {
+        if (!transferId || !departureShipment?.version) return
+        const done = await run(
+          () =>
+            departureMutation.mutateAsync({
+              transferId,
+              shipmentId: departureShipment.id,
+              request: { expectedVersion: departureShipment.version ?? '' },
+            }),
+          'Đã xác nhận xuất kho; kho nhập sẽ nhận hàng.',
+          'Không thể xác nhận xuất kho.'
+        )
+        if (done) setDepartureShipment(null)
+      },
+    },
+    reopen: {
+      shipment: reopenShipment,
+      form: reopenForm,
+      isPending: reopenMutation.isPending,
+      open: (shipment: TransferShipment) => {
+        reopenForm.reset({ reason: '' })
+        setReopenShipment(shipment)
+      },
+      onOpenChange: (open: boolean) => !open && setReopenShipment(null),
+      submit: async (values: TransferReasonFormValues) => {
+        if (!transferId || !reopenShipment?.version) return
+        const done = await run(
+          () =>
+            reopenMutation.mutateAsync({
+              transferId,
+              shipmentId: reopenShipment.id,
+              request: { expectedVersion: reopenShipment.version ?? '', reason: values.reason },
+            }),
+          'Đã mở lại lấy hàng cho đợt.',
+          'Không thể mở lại lấy hàng.'
+        )
+        if (done) setReopenShipment(null)
       },
     },
     escalation: {

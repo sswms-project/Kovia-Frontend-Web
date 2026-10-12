@@ -28,6 +28,9 @@ import type {
 import type { ProductListQuery, ProductLotQuery } from '@/features/product/types/product.types'
 import type {
   TransferAvailabilityQuery,
+  TransferReceivableSlotsQuery,
+  TransferSourceLocationsQuery,
+  TransferSourceProductsQuery,
   TransferListQuery,
   TransferSourceWarehouseQuery,
 } from '@/features/transfer/types/transfer.types'
@@ -233,12 +236,22 @@ export const queryKeys = {
     requesterOptions: ['transfers', 'requester-options'] as const,
     sourceWarehouses: (params: TransferSourceWarehouseQuery) =>
       ['transfers', 'source-warehouses', params] as const,
+    putAwaySuggestions: (transferId: string) =>
+      ['transfers', 'putaway-suggestions', transferId] as const,
+    receivableSlots: (params: TransferReceivableSlotsQuery) =>
+      ['transfers', 'receivable-slots', params] as const,
+    sourceLocations: (params: TransferSourceLocationsQuery) =>
+      ['transfers', 'source-locations', params] as const,
+    sourceProducts: (params: TransferSourceProductsQuery) =>
+      ['transfers', 'source-products', params] as const,
     availability: (params: TransferAvailabilityQuery) =>
       ['transfers', 'availability', params] as const,
     pickSheet: (transferId: string, shipmentId: string) =>
       ['transfers', 'pick-sheet', transferId, shipmentId] as const,
     pickAlternatives: (transferId: string, shipmentId: string, lineId: string) =>
       ['transfers', 'pick-alternatives', transferId, shipmentId, lineId] as const,
+    allocationOptions: (transferId: string, itemId: string) =>
+      ['transfers', 'allocation-options', transferId, itemId] as const,
     receiveSheet: (transferId: string, shipmentId: string) =>
       ['transfers', 'receive-sheet', transferId, shipmentId] as const,
   },

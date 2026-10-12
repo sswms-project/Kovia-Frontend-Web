@@ -6,6 +6,10 @@ import {
 } from '@/components/operations/BulkImportWorkspace'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
+import {
+  BulkImportFieldCell,
+  BulkImportRowResult,
+} from '@/components/operations/BulkImportFeedback'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { ProductImportPreview } from '../../types/product-import.types'
+import type { ProductImportIssue, ProductImportPreview } from '../../types/product-import.types'
 import {
   importSelectionState,
   isValidProductImportRow,
@@ -67,6 +71,15 @@ export function ProductImportReview({
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize)
   const visibleValid = visible.filter(isValidProductImportRow).map((row) => row.rowNumber)
   const blocked = pending || preview.fileErrors.length > 0 || preview.schemaVersion !== 1
+  const issueMessage = (issue: ProductImportIssue) =>
+    `${issue.source ? `Trang “${issue.source.sheetName}”, dòng ${issue.source.rowNumber}: ` : ''}${issue.message}`
+  const supplementaryErrors = preview.rows.reduce(
+    (count, row) =>
+      count +
+      row.errors.filter((issue) => issue.field === 'description' || issue.field === 'shelfLifeDays')
+        .length,
+    0
+  )
   return (
     <>
       {preview.fileErrors.length || preview.warnings.length ? (
@@ -81,8 +94,13 @@ export function ProductImportReview({
           <AlertDescription className="min-w-0">
             <details>
               <summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2">
-                {preview.fileErrors.length} lỗi tệp · {preview.warnings.length} cảnh báo — xem chi
-                tiết
+                {[
+                  preview.fileErrors.length ? `${preview.fileErrors.length} lỗi tệp` : null,
+                  preview.warnings.length ? `${preview.warnings.length} lưu ý` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}{' '}
+                — xem chi tiết
               </summary>
               <ul className="mt-2 flex max-h-32 flex-col gap-2 overflow-auto wrap-anywhere whitespace-normal">
                 {[...preview.fileErrors, ...preview.warnings].map((issue, index) => (
@@ -109,6 +127,7 @@ export function ProductImportReview({
           <BulkImportSupplementaryToggle
             expanded={supplementaryExpanded}
             controls={tableId}
+            errorCount={supplementaryErrors}
             onToggle={() => setSupplementaryExpanded((expanded) => !expanded)}
           />
           <Input
@@ -174,7 +193,7 @@ export function ProductImportReview({
                 />
               </TableHead>
               <TableHead>Dòng nguồn</TableHead>
-              <TableHead>Kiểm tra / Chi tiết lỗi</TableHead>
+              <TableHead>Kết quả</TableHead>
               <TableHead>Mã hàng</TableHead>
               <TableHead>Tên hàng</TableHead>
               <TableHead>ĐVT chính</TableHead>
@@ -201,130 +220,148 @@ export function ProductImportReview({
                 </TableCell>
               </TableRow>
             ) : (
-              visible.map((row) => (
-                <TableRow key={row.rowNumber}>
-                  <TableCell>
-                    <Checkbox
-                      aria-label={`Chọn dòng ${row.rowNumber}`}
-                      aria-describedby={
-                        preview.fileErrors.length
-                          ? 'product-import-file-issues'
-                          : !isValidProductImportRow(row)
-                            ? `import-row-${row.rowNumber}-errors`
-                            : undefined
-                      }
-                      checked={selected.includes(row.rowNumber)}
-                      disabled={blocked || !isValidProductImportRow(row)}
-                      onCheckedChange={(checked) =>
-                        onSelectionChange(
-                          toggleImportSelection(selected, [row.rowNumber], checked === true)
-                        )
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="max-w-48 wrap-anywhere whitespace-normal">
-                    {row.sheetName}:{row.rowNumber}
-                  </TableCell>
-                  <TableCell className="max-w-96 min-w-48 wrap-anywhere whitespace-normal">
-                    <Badge variant={isValidProductImportRow(row) ? 'default' : 'destructive'}>
-                      {isValidProductImportRow(row) ? 'Hợp lệ' : 'Không hợp lệ'}
-                    </Badge>
-                    {row.warnings.some((issue) => issue.code === 'catalogWillCreate') ? (
-                      <Badge variant="outline" className="mt-1 block w-fit">
-                        Sẽ tạo danh mục
-                      </Badge>
-                    ) : null}
-                    {!isValidProductImportRow(row) || row.warnings.length ? (
-                      <details id={`import-row-${row.rowNumber}-errors`} className="mt-1 text-xs">
-                        <summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2">
-                          {row.errors.length +
-                            row.unitConversions.reduce(
-                              (count, child) => count + child.errors.length,
-                              0
-                            )}{' '}
-                          lỗi · {row.warnings.length} cảnh báo.
-                          {!isValidProductImportRow(row) ? ' Không thể chọn dòng có lỗi.' : null}
-                        </summary>
-                        <div className="max-h-48 overflow-auto">
-                          {[
-                            ...row.errors,
-                            ...row.unitConversions.flatMap((child) => child.errors),
-                            ...row.warnings,
-                          ].map((issue, index) => (
-                            <p key={index} className="mt-1">
-                              {issue.source
-                                ? `${issue.source.sheetName}:${issue.source.rowNumber} — `
-                                : ''}
-                              {issue.message}
-                            </p>
-                          ))}
-                        </div>
-                      </details>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="max-w-48 font-mono wrap-anywhere whitespace-normal">
-                    {row.sku}
-                  </TableCell>
-                  <TableCell className="max-w-80 min-w-48 wrap-anywhere whitespace-normal">
-                    {row.productName}
-                  </TableCell>
-                  <TableCell className="max-w-48 wrap-anywhere whitespace-normal">
-                    {row.unit ? `${row.unit.code} — ${row.unit.name}` : row.unitValue}
-                  </TableCell>
-                  <TableCell className="max-w-48 wrap-anywhere whitespace-normal">
-                    {row.category
-                      ? `${row.category.code} — ${row.category.name}`
-                      : row.categoryValue}
-                  </TableCell>
-                  {supplementaryExpanded ? (
-                    <TableCell className="animate-in fade-in-0 animation-duration-150 max-w-64 min-w-40 wrap-anywhere whitespace-normal motion-reduce:animate-none">
-                      {row.description || '—'}
+              visible.map((row) => {
+                const fieldErrors = (field: string) =>
+                  row.errors
+                    .filter((issue) => issue.field?.toLowerCase() === field.toLowerCase())
+                    .map((issue) => issue.message)
+                const errors = [
+                  ...row.errors,
+                  ...row.unitConversions.flatMap((child) => child.errors),
+                ].map(issueMessage)
+                // Lỗi của cột đang ẩn hoặc của dòng quy đổi không hiện ở ô nào nên phải hiện đủ ở cột Kết quả.
+                const shownFields = new Set([
+                  'sku',
+                  'productname',
+                  'unit',
+                  'category',
+                  'islottracked',
+                  ...(supplementaryExpanded ? ['description', 'shelflifedays'] : []),
+                ])
+                const pinnedErrors = [
+                  ...row.errors.filter(
+                    (issue) => !shownFields.has(issue.field?.toLowerCase() ?? '')
+                  ),
+                  ...row.unitConversions.flatMap((child) => child.errors),
+                ].map(issueMessage)
+                return (
+                  <TableRow key={row.rowNumber}>
+                    <TableCell>
+                      <Checkbox
+                        aria-label={`Chọn dòng ${row.rowNumber}`}
+                        aria-describedby={
+                          preview.fileErrors.length
+                            ? 'product-import-file-issues'
+                            : !isValidProductImportRow(row)
+                              ? `import-row-${row.rowNumber}-errors`
+                              : undefined
+                        }
+                        checked={selected.includes(row.rowNumber)}
+                        disabled={blocked || !isValidProductImportRow(row)}
+                        onCheckedChange={(checked) =>
+                          onSelectionChange(
+                            toggleImportSelection(selected, [row.rowNumber], checked === true)
+                          )
+                        }
+                      />
                     </TableCell>
-                  ) : null}
-                  <TableCell>{row.isLotTracked ? 'Có' : 'Không'}</TableCell>
-                  {supplementaryExpanded ? (
-                    <TableCell className="animate-in fade-in-0 animation-duration-150 motion-reduce:animate-none">
-                      {row.shelfLifeDays ?? '—'}
+                    <TableCell className="max-w-48 wrap-anywhere whitespace-normal">
+                      {row.sheetName}:{row.rowNumber}
                     </TableCell>
-                  ) : null}
-                  <TableCell className="max-w-80 min-w-56 wrap-anywhere whitespace-normal">
-                    {row.unitConversions.length ? (
-                      <details>
-                        <summary className="cursor-pointer focus-visible:outline-2">
-                          {row.unitConversions.length} đơn vị quy đổi
-                        </summary>
-                        <div className="max-h-48 overflow-auto">
-                          {row.unitConversions.map((child) => (
-                            <div
-                              key={`${child.sheetName}:${child.rowNumber}`}
-                              className="py-1 text-xs"
-                            >
-                              <p>
-                                1{' '}
-                                {child.unit
-                                  ? `${child.unit.code} — ${child.unit.name}`
-                                  : child.unitValue}{' '}
-                                = {child.conversionFactorText ?? child.conversionFactor ?? '?'}{' '}
-                                {row.unit ? `${row.unit.code} — ${row.unit.name}` : row.unitValue}
-                              </p>
-                              <p className="text-muted-foreground">
-                                {child.sheetName}:{child.rowNumber}
-                              </p>
-                              {child.errors.map((issue, index) => (
-                                <p key={index} className="text-destructive">
-                                  {issue.message}
+                    <TableCell
+                      id={`import-row-${row.rowNumber}-errors`}
+                      className="max-w-80 min-w-56 wrap-anywhere whitespace-normal"
+                    >
+                      <BulkImportRowResult
+                        errors={errors}
+                        pinned={pinnedErrors}
+                        valid={isValidProductImportRow(row)}
+                        warnings={row.warnings
+                          .filter((issue) => issue.code !== 'catalogWillCreate')
+                          .map(issueMessage)}
+                      >
+                        {row.warnings.some((issue) => issue.code === 'catalogWillCreate') ? (
+                          <Badge variant="outline" className="mt-1 block w-fit">
+                            Sẽ tạo danh mục
+                          </Badge>
+                        ) : null}
+                      </BulkImportRowResult>
+                    </TableCell>
+                    <BulkImportFieldCell errors={fieldErrors('sku')} className="max-w-48 font-mono">
+                      {row.sku || '—'}
+                    </BulkImportFieldCell>
+                    <BulkImportFieldCell
+                      errors={fieldErrors('productName')}
+                      className="max-w-80 min-w-48"
+                    >
+                      {row.productName || '—'}
+                    </BulkImportFieldCell>
+                    <BulkImportFieldCell errors={fieldErrors('unit')} className="max-w-48">
+                      {row.unit ? `${row.unit.code} — ${row.unit.name}` : row.unitValue}
+                    </BulkImportFieldCell>
+                    <BulkImportFieldCell errors={fieldErrors('category')} className="max-w-48">
+                      {row.category
+                        ? `${row.category.code} — ${row.category.name}`
+                        : row.categoryValue}
+                    </BulkImportFieldCell>
+                    {supplementaryExpanded ? (
+                      <BulkImportFieldCell
+                        errors={fieldErrors('description')}
+                        className="animate-in fade-in-0 animation-duration-150 max-w-64 min-w-40 motion-reduce:animate-none"
+                      >
+                        {row.description || '—'}
+                      </BulkImportFieldCell>
+                    ) : null}
+                    <BulkImportFieldCell errors={fieldErrors('isLotTracked')}>
+                      {row.isLotTracked ? 'Có' : 'Không'}
+                    </BulkImportFieldCell>
+                    {supplementaryExpanded ? (
+                      <BulkImportFieldCell
+                        errors={fieldErrors('shelfLifeDays')}
+                        className="animate-in fade-in-0 animation-duration-150 motion-reduce:animate-none"
+                      >
+                        {row.shelfLifeDays ?? '—'}
+                      </BulkImportFieldCell>
+                    ) : null}
+                    <TableCell className="max-w-80 min-w-56 wrap-anywhere whitespace-normal">
+                      {row.unitConversions.length ? (
+                        <details>
+                          <summary className="cursor-pointer focus-visible:outline-2">
+                            {row.unitConversions.length} đơn vị quy đổi
+                          </summary>
+                          <div className="max-h-48 overflow-auto">
+                            {row.unitConversions.map((child) => (
+                              <div
+                                key={`${child.sheetName}:${child.rowNumber}`}
+                                className="py-1 text-xs"
+                              >
+                                <p>
+                                  1{' '}
+                                  {child.unit
+                                    ? `${child.unit.code} — ${child.unit.name}`
+                                    : child.unitValue}{' '}
+                                  = {child.conversionFactorText ?? child.conversionFactor ?? '?'}{' '}
+                                  {row.unit ? `${row.unit.code} — ${row.unit.name}` : row.unitValue}
                                 </p>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
+                                <p className="text-muted-foreground">
+                                  {child.sheetName}:{child.rowNumber}
+                                </p>
+                                {child.errors.map((issue, index) => (
+                                  <p key={index} className="text-destructive">
+                                    {issue.message}
+                                  </p>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>

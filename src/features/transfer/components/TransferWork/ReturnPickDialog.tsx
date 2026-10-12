@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,7 +15,8 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import type { TransferPickReturnFormValues } from '../../schemas/transfer-fulfillment.schema'
 import type { TransferPickDetail } from '../../types/transfer.types'
-import { formatTransferLocation } from '../../utils/transfer-location'
+import { formatTransferLocation, transferLocationScanCodes } from '../../utils/transfer-location'
+import { codesMatch } from '../../utils/transfer-scan'
 import { PickLineLabel, type LineScopedDialogProps } from './PickDialogParts'
 import { ScanInput } from './ScanInput'
 
@@ -37,9 +39,34 @@ export function ReturnPickDialog({
   onSubmit,
 }: ReturnPickDialogProps) {
   const errors = form.formState.errors
+  const selectedPickId = form.watch('pickDetailId')
+  const selectedPick = picks.find((pick) => pick.id === selectedPickId)
+  const [mismatch, setMismatch] = useState<{ pickId: string; message: string } | null>(null)
+  const expected = selectedPick ? formatTransferLocation(selectedPick) : null
+
+  // Quét nhầm sang vị trí khác với lần lấy đã chọn thì báo ngay tại ô, không đợi server từ chối.
+  // Giá trị nhãn KOVIA:LOC:... để server quyết định vì lần lấy không mang mã ô.
+  function handleScan(code: string) {
+    const scanned = code.trim()
+    if (
+      selectedPick &&
+      !/^kovia:loc:/i.test(scanned) &&
+      !codesMatch(scanned, ...transferLocationScanCodes(selectedPick))
+    ) {
+      setMismatch({
+        pickId: selectedPick.id,
+        message: `Mã ${scanned} không khớp. Hãy quét mã của ${formatTransferLocation(selectedPick)}.`,
+      })
+      return false
+    }
+    setMismatch(null)
+    onScanSlot(scanned)
+    return true
+  }
+  const localError = mismatch && mismatch.pickId === selectedPickId ? mismatch.message : null
   return (
     <Dialog open={Boolean(line)} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent>
+      <DialogContent size="lg" className="sm:max-w-lg">
         {line ? (
           <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
@@ -87,15 +114,17 @@ export function ReturnPickDialog({
             <ScanInput
               id="return-scan-slot"
               label="Quét mã vị trí để trả"
+              description={expected ? `Quét mã của ${expected}` : undefined}
               confirmedValue={form.watch('scannedSlotCode') || undefined}
-              error={scannedSlotError ?? errors.scannedSlotCode?.message ?? null}
+              error={localError ?? scannedSlotError ?? errors.scannedSlotCode?.message ?? null}
               disabled={isPending}
-              onScan={onScanSlot}
+              onScan={handleScan}
             />
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
+                className="h-11"
                 disabled={isPending}
                 onClick={() => onOpenChange(false)}
               >

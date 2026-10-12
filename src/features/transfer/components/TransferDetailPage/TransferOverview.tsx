@@ -30,19 +30,21 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
     { label: 'Kho xuất', value: transfer.sourceWarehouseName },
     { label: 'Kho nhập', value: transfer.destinationWarehouseName },
     { label: 'Người tạo', value: transfer.createdByName ?? '—' },
-    { label: 'Người yêu cầu', value: transfer.requesterName || '—' },
     { label: 'Bộ phận yêu cầu', value: transfer.requestingDepartment || '—' },
     { label: 'Ngày tạo', value: formatOperationalDateTime(transfer.createdAt) },
     {
       label: 'Hạn cần hàng',
       value: transfer.requiredBy ? formatOperationalDate(transfer.requiredBy) : 'Chưa đặt hạn',
     },
-    { label: 'Lý do', value: transfer.reason || '—' },
-    { label: 'Ghi chú', value: transfer.note || '—' },
-    {
-      label: 'Tiến độ (ĐVT chính)',
-      value: `Yêu cầu ${formatQuantity(requested)} · Đã xuất ${formatQuantity(dispatched)} · Đã nhận ${formatQuantity(received)}${stopped > 0 ? ` · Đã dừng ${formatQuantity(stopped)}` : ''}`,
-    },
+    { label: 'Ghi chú cho kho', value: transfer.note || '—' },
+    { label: 'Người yêu cầu', value: transfer.requesterName || '—' },
+    { label: 'Lý do điều chuyển', value: transfer.reason || '—' },
+  ]
+  const progress: OverviewItem[] = [
+    { label: 'Yêu cầu', value: formatQuantity(requested) },
+    { label: 'Đã xuất', value: formatQuantity(dispatched) },
+    { label: 'Đã nhận', value: formatQuantity(received) },
+    ...(stopped > 0 ? [{ label: 'Đã dừng', value: formatQuantity(stopped) }] : []),
   ]
   if (transfer.cancellationReason) {
     items.push({ label: 'Lý do hủy', value: transfer.cancellationReason })
@@ -72,14 +74,30 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
           </AlertDescription>
         </Alert>
       ) : null}
-      <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-        {items.map((item) => (
-          <div key={item.label} className="min-w-0">
-            <dt className="text-muted-foreground text-xs">{item.label}</dt>
-            <dd className="break-words">{item.value}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="grid gap-4 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:gap-0">
+        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:pr-6 xl:grid-cols-3">
+          {items.map((item) => (
+            <div key={item.label} className="min-w-0">
+              <dt className="text-muted-foreground text-xs">{item.label}</dt>
+              <dd className="break-words">{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <section
+          className="border-t pt-3 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6"
+          aria-label="Tiến độ (ĐVT chính)"
+        >
+          <h3 className="text-muted-foreground mb-2 text-xs">Tiến độ (ĐVT chính)</h3>
+          <dl className="grid gap-y-2">
+            {progress.map((item) => (
+              <div key={item.label} className="flex items-baseline justify-between gap-4">
+                <dt className="text-muted-foreground text-xs">{item.label}</dt>
+                <dd className="font-medium tabular-nums">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </div>
     </section>
   )
 }

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { BulkImportMappingFields } from './BulkImportWorkspace'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { SpreadsheetImportColumnTable } from './SpreadsheetImportColumnTable'
@@ -33,13 +34,13 @@ export function BulkImportMapping({
   const mappingError = spreadsheetMappingError(inspection, options)
   return (
     <section
-      className="flex min-h-160 min-w-0 flex-1 shrink-0 flex-col gap-3 lg:min-h-128"
+      className="flex min-w-0 shrink-0 flex-col gap-3"
       aria-label="Ghép cột nhập dữ liệu"
       aria-busy={busy}
     >
       <h2 className="shrink-0 font-semibold">Ghép cột</h2>
-      <fieldset disabled={busy} className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-        <FieldGroup className="grid shrink-0 gap-3 sm:grid-cols-2">
+      <fieldset disabled={busy} className="flex min-w-0 shrink-0 flex-col gap-4">
+        <BulkImportMappingFields>
           <Field>
             <FieldLabel htmlFor="party-import-sheet">Trang tính</FieldLabel>
             <NativeSelect
@@ -85,7 +86,10 @@ export function BulkImportMapping({
               ))}
             </NativeSelect>
           </Field>
-        </FieldGroup>
+        </BulkImportMappingFields>
+        <p className="text-muted-foreground text-xs">
+          Chọn dòng chứa tên cột, rồi đối chiếu ví dụ để ghép thông tin.
+        </p>
         {header && sheet ? (
           <SpreadsheetImportColumnTable
             kind="party"

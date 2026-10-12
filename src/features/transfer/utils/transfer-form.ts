@@ -18,6 +18,8 @@ export const EMPTY_TRANSFER_LINE: TransferLineFormValues = {
   itemId: null,
   productId: '',
   unitId: '',
+  destinationSlotId: '',
+  sourceSlotId: '',
   quantity: 1,
 }
 
@@ -57,6 +59,8 @@ export function transferToFormValues(detail: TransferDetail): TransferRequestFor
             itemId: item.id,
             productId: item.productId,
             unitId: item.unitId ?? item.baseUnitId ?? '',
+            destinationSlotId: item.destinationSlotId ?? '',
+            sourceSlotId: item.sourceSlotId ?? '',
             quantity: item.requestedQuantity > 0 ? item.requestedQuantity : item.quantity,
           }))
         : [{ ...EMPTY_TRANSFER_LINE }],
@@ -79,6 +83,8 @@ export function toTransferLineInputs(
     productId: line.productId,
     unitId: line.unitId || null,
     quantity: line.quantity,
+    destinationSlotId: line.destinationSlotId || null,
+    sourceSlotId: line.sourceSlotId || null,
   }))
 }
 
@@ -124,4 +130,12 @@ export function toUpdateTransferRequest(
     note: values.note || null,
     items: toTransferLineInputs(values.lines),
   }
+}
+
+/** Tên kho đang chọn để hiện trong hộp xác nhận; '—' khi chưa chọn hoặc chưa tải xong danh sách. */
+export function findWarehouseName(
+  options: readonly { readonly id: string; readonly name: string }[],
+  warehouseId: string
+): string {
+  return options.find((option) => option.id === warehouseId)?.name ?? '—'
 }

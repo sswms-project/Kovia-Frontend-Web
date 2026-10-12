@@ -64,34 +64,41 @@ export function BulkImportResult({
   }
 
   return (
-    <Card className={cn(children && 'min-h-0 flex-1 overflow-hidden')}>
+    <Card className={cn('min-w-0', children && 'min-h-0 flex-1 overflow-hidden')}>
       <CardHeader className="shrink-0">
         <CardTitle className="flex items-center gap-2">
           <FileSpreadsheet className="text-primary" aria-hidden="true" />
           Đã hoàn tất nhập {entityLabel}
         </CardTitle>
       </CardHeader>
-      <CardContent className={cn('flex flex-col gap-4', children && 'min-h-0 flex-1')}>
+      <CardContent className={cn('flex min-w-0 flex-col gap-4', children && 'min-h-0 flex-1')}>
         <p className="text-sm" role="status">
           Đã nhập <strong>{importedCount}</strong> {entityLabel}; bỏ qua {skippedCount} dòng.
         </p>
         {children ?? (
           <div className="max-h-96 overflow-auto border">
-            <Table>
+            <Table className="table-fixed" aria-label={`Kết quả nhập ${entityLabel}`}>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">Dòng</TableHead>
-                  <TableHead>{entityLabel}</TableHead>
-                  <TableHead>Kết quả</TableHead>
+                  <TableHead className="wrap-anywhere whitespace-normal">{entityLabel}</TableHead>
+                  <TableHead className="w-2/5">Kết quả</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
                   <TableRow key={item.rowNumber}>
-                    <TableCell className="tabular-nums">{item.rowNumber}</TableCell>
-                    <TableCell>{item.label}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.isImported ? 'default' : 'outline'}>{item.result}</Badge>
+                    <TableCell className="align-top tabular-nums">{item.rowNumber}</TableCell>
+                    <TableCell className="align-top wrap-anywhere whitespace-normal">
+                      {item.label}
+                    </TableCell>
+                    <TableCell className="align-top wrap-anywhere whitespace-normal">
+                      <Badge
+                        variant={item.isImported ? 'default' : 'outline'}
+                        className="h-auto max-w-full text-left wrap-anywhere whitespace-normal"
+                      >
+                        {item.result}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}

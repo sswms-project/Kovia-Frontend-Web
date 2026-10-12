@@ -158,6 +158,7 @@ export function WarehouseDesignerWorkspace({
     useState<WarehouseLayoutEditorRack | null>(null)
   const [locationDeactivateError, setLocationDeactivateError] = useState<string | null>(null)
   const canvasRef = useRef<WarehouseCanvasHandle>(null)
+  const pendingUnplacedSelection = useRef<WarehouseLayoutSelection | null>(null)
   const initialSceneRef = useRef(initialScene)
   const resetRevisionRef = useRef(resetRevision)
   const baseVersionRef = useRef(sceneVersion)
@@ -246,6 +247,16 @@ export function WarehouseDesignerWorkspace({
 
   function updateColor(target: WarehouseLayoutGeometryTarget, id: string, color: string | null) {
     if (!canConfigure) return
+    const placementPending =
+      target === 'zone'
+        ? scene.zones.find((zone) => zone.id === id)?.placementPending
+        : target === 'rack'
+          ? scene.racks.find((rack) => rack.id === id)?.placementPending
+          : false
+    if (placementPending) {
+      toast.info('Hãy đặt vị trí trên sơ đồ trước khi đổi màu.')
+      return
+    }
     dispatch({ type: 'update-color', target, id, color })
   }
 
@@ -521,6 +532,15 @@ export function WarehouseDesignerWorkspace({
         handleSelectionChange(nextSelection)
         setIsToolboxOpen(false)
       }}
+      onSelectUnplaced={(nextSelection) => {
+        handleSelectionChange(nextSelection)
+        if (isCompact) {
+          pendingUnplacedSelection.current = nextSelection
+          setIsToolboxOpen(false)
+        } else {
+          canvasRef.current?.revealSelection(nextSelection)
+        }
+      }}
     />
   )
 
@@ -673,7 +693,16 @@ export function WarehouseDesignerWorkspace({
             ) : null}
           </div>
           <Drawer open={isToolboxOpen} onOpenChange={setIsToolboxOpen}>
-            <DrawerContent className="h-[76dvh] overscroll-contain">
+            <DrawerContent
+              className="h-[76dvh] overscroll-contain"
+              onCloseAutoFocus={(event) => {
+                const nextSelection = pendingUnplacedSelection.current
+                if (!nextSelection) return
+                event.preventDefault()
+                pendingUnplacedSelection.current = null
+                canvasRef.current?.revealSelection(nextSelection)
+              }}
+            >
               <DrawerHeader className="sr-only">
                 <DrawerTitle>Đối tượng sơ đồ</DrawerTitle>
                 <DrawerDescription>Thêm hoặc chọn thành phần trong sơ đồ kho.</DrawerDescription>

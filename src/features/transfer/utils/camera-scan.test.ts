@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { describeCameraFailure, isCameraScanSupported, startCameraScan } from './camera-scan'
+import {
+  REPEAT_GUARD_MS,
+  describeCameraFailure,
+  isCameraScanSupported,
+  startCameraScan,
+} from './camera-scan'
 
 function setSecureContext(value: boolean) {
   Object.defineProperty(window, 'isSecureContext', { value, configurable: true })
@@ -73,5 +78,41 @@ describe('startCameraScan', () => {
     const onError = vi.fn()
     await startCameraScan(document.createElement('video'), vi.fn(), onError)
     expect(onError).toHaveBeenCalledWith('denied')
+  })
+
+  it('keeps scanning in continuous mode and ignores the same code held in front of the camera', async () => {
+    vi.useFakeTimers()
+    const stop = vi.fn()
+    let report: ((result: { getText: () => string } | undefined) => void) | undefined
+    vi.doMock('@zxing/browser', () => ({
+      BrowserMultiFormatReader: class {
+        async decodeFromConstraints(
+          _constraints: unknown,
+          _video: unknown,
+          callback: typeof report
+        ) {
+          report = callback
+          return { stop }
+        }
+      },
+    }))
+    const onCode = vi.fn()
+    const handle = await startCameraScan(document.createElement('video'), onCode, vi.fn(), {
+      continuous: true,
+    })
+
+    report?.({ getText: () => 'A07' })
+    vi.advanceTimersByTime(300)
+    report?.({ getText: () => 'A07' })
+    vi.advanceTimersByTime(300)
+    report?.({ getText: () => 'B09' })
+    vi.advanceTimersByTime(REPEAT_GUARD_MS + 100)
+    report?.({ getText: () => 'B09' })
+
+    expect(onCode.mock.calls.map(([code]) => code)).toEqual(['A07', 'B09', 'B09'])
+    expect(stop).not.toHaveBeenCalled()
+    handle.stop()
+    expect(stop).toHaveBeenCalled()
+    vi.useRealTimers()
   })
 })

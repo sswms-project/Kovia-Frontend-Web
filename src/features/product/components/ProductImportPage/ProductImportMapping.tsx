@@ -1,7 +1,9 @@
 import type { UseFormReturn } from 'react-hook-form'
+import { Fragment } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
+import { BulkImportMappingFields } from '@/components/operations/BulkImportWorkspace'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
@@ -81,12 +83,16 @@ export function ProductImportMapping({
     )
   }
   return (
-    <OperationalListPanel aria-label="Cấu hình ghép cột">
+    <section
+      aria-label="Cấu hình ghép cột"
+      aria-busy={pending}
+      className="flex min-w-0 shrink-0 flex-col gap-3"
+    >
+      <h2 className="shrink-0 font-semibold">Ghép cột</h2>
       <form
         id="product-import-mapping"
         noValidate
-        data-slot="operational-list-body"
-        className="flex min-h-0 flex-1 flex-col gap-4 p-3"
+        className="flex min-w-0 flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault()
           onPreview()
@@ -94,110 +100,142 @@ export function ProductImportMapping({
       >
         <fieldset disabled={pending} className="flex min-w-0 shrink-0 flex-col gap-4">
           <legend className="sr-only">Ghép cột dữ liệu</legend>
-          {!inspect.isCsv ? (
-            <FieldGroup className="[container-type:normal] min-w-0 shrink-0">
-              <div className="grid min-w-0 gap-3 md:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="import-main-sheet">Trang tính hàng hóa</FieldLabel>
-                  <NativeSelect
-                    id="import-main-sheet"
-                    className="w-full"
-                    aria-invalid={Boolean(form.formState.errors.main?.sheetId)}
-                    aria-describedby={
-                      form.formState.errors.main?.sheetId ? 'import-main-sheet-error' : undefined
-                    }
-                    value={values.main.sheetId}
-                    onChange={(event) => changeSheet('main', event.target.value)}
+          <BulkImportMappingFields>
+            <Field>
+              <FieldLabel htmlFor="import-main-sheet">Trang tính hàng hóa</FieldLabel>
+              <NativeSelect
+                id="import-main-sheet"
+                className="w-full"
+                aria-invalid={Boolean(form.formState.errors.main?.sheetId)}
+                aria-describedby={
+                  form.formState.errors.main?.sheetId ? 'import-main-sheet-error' : undefined
+                }
+                value={values.main.sheetId}
+                disabled={inspect.isCsv}
+                onChange={(event) => changeSheet('main', event.target.value)}
+              >
+                <NativeSelectOption value="">Chọn trang tính</NativeSelectOption>
+                {inspect.sheets.map((sheet) => (
+                  <NativeSelectOption
+                    key={sheet.sheetId}
+                    value={sheet.sheetId}
+                    title={sheet.sheetName}
                   >
-                    <NativeSelectOption value="">Chọn trang tính</NativeSelectOption>
-                    {inspect.sheets.map((sheet) => (
-                      <NativeSelectOption
-                        key={sheet.sheetId}
-                        value={sheet.sheetId}
-                        title={sheet.sheetName}
-                      >
-                        {productImportSheetLabel(sheet.sheetName)}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                  {form.formState.errors.main?.sheetId ? (
-                    <p
-                      id="import-main-sheet-error"
-                      role="alert"
-                      className="text-destructive text-sm"
-                    >
-                      {form.formState.errors.main.sheetId.message}
-                    </p>
-                  ) : null}
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="import-conversion-sheet">
-                    Trang tính quy đổi (tùy chọn)
-                  </FieldLabel>
-                  <NativeSelect
-                    id="import-conversion-sheet"
-                    className="w-full"
-                    value={values.conversions?.sheetId ?? ''}
-                    disabled={inspect.isCsv || pending}
-                    onChange={(event) => changeSheet('conversions', event.target.value)}
-                  >
-                    <NativeSelectOption value="">Không nhập quy đổi</NativeSelectOption>
-                    {inspect.sheets
-                      .filter((sheet) => sheet.sheetId !== values.main.sheetId)
-                      .map((sheet) => (
-                        <NativeSelectOption
-                          key={sheet.sheetId}
-                          value={sheet.sheetId}
-                          title={sheet.sheetName}
-                        >
-                          {productImportSheetLabel(sheet.sheetName)}
-                        </NativeSelectOption>
-                      ))}
-                  </NativeSelect>
-                  <FieldDescription>
-                    Chọn trang chứa đơn vị và hệ số quy đổi, nếu có.
-                  </FieldDescription>
-                </Field>
-              </div>
-            </FieldGroup>
-          ) : (
-            <p className="text-muted-foreground text-xs">
-              CSV chỉ có bảng hàng hóa, không chứa đơn vị quy đổi.
-            </p>
-          )}
-          {!inspect.isCsv &&
-          !values.conversions &&
-          inspect.sheets.some(
-            (sheet) =>
-              sheet.sheetId !== values.main.sheetId &&
-              sheet.conversionHeaderCandidates.some((candidate) => candidate.hasAllRequiredFields)
-          ) ? (
-            <Alert role="status" className="border-warning/40 bg-warning-container/30">
-              <TriangleAlert aria-hidden="true" className="text-warning" />
-              <AlertTitle>Chưa chọn trang tính quy đổi</AlertTitle>
-              <AlertDescription>
-                Tệp có dữ liệu quy đổi. Chọn trang ở phía trên để nhập; nếu bỏ qua, các đơn vị quy
-                đổi sẽ không được nhập.
-              </AlertDescription>
-            </Alert>
-          ) : null}
+                    {productImportSheetLabel(sheet.sheetName)}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              {form.formState.errors.main?.sheetId ? (
+                <p id="import-main-sheet-error" role="alert" className="text-destructive text-sm">
+                  {form.formState.errors.main.sheetId.message}
+                </p>
+              ) : null}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="import-main-header">
+                Dòng tiêu đề
+                <span className="sr-only">
+                  {' '}
+                  —{' '}
+                  {inspect.sheets.find((sheet) => sheet.sheetId === values.main.sheetId)?.sheetName}
+                </span>
+              </FieldLabel>
+              <Input
+                id="import-main-header"
+                type="number"
+                min={1}
+                max={50}
+                value={
+                  Number.isFinite(values.main.headerRowNumber) ? values.main.headerRowNumber : ''
+                }
+                aria-invalid={Boolean(form.formState.errors.main?.headerRowNumber)}
+                aria-describedby={`import-main-header-help${form.formState.errors.main?.headerRowNumber ? ' import-main-error' : ''}`}
+                list="import-main-header-suggestions"
+                onChange={(event) => changeHeader('main', event.target.valueAsNumber)}
+              />
+              <datalist id="import-main-header-suggestions">
+                {inspect.sheets
+                  .find((sheet) => sheet.sheetId === values.main.sheetId)
+                  ?.mainHeaderCandidates.map((candidate) => (
+                    <option key={candidate.rowNumber} value={candidate.rowNumber}>
+                      Dòng {candidate.rowNumber}
+                    </option>
+                  ))}
+              </datalist>
+            </Field>
+          </BulkImportMappingFields>
+          <p id="import-main-header-help" className="text-muted-foreground text-xs">
+            Chọn dòng chứa tên cột (1–50), rồi đối chiếu ví dụ để ghép thông tin.
+            {inspect.isCsv ? ' Tệp CSV chỉ có bảng hàng hóa, không chứa đơn vị quy đổi.' : ''}
+          </p>
           {(['main', 'conversions'] as const).map((kind) => {
             const options = values[kind]
-            if (!options?.sheetId) return null
             return (
-              <MappingSection
-                key={kind}
-                kind={kind}
-                options={options}
-                inspect={inspect}
-                error={
-                  form.formState.errors[kind]?.columnMapping?.message ??
-                  form.formState.errors[kind]?.sheetId?.message ??
-                  form.formState.errors[kind]?.headerRowNumber?.message
-                }
-                onHeaderChange={(value) => changeHeader(kind, value)}
-                onColumnChange={(field, column) => changeColumn(kind, field, column)}
-              />
+              <Fragment key={kind}>
+                {kind === 'conversions' && !inspect.isCsv ? (
+                  <section
+                    aria-label="Đơn vị quy đổi — tùy chọn"
+                    className="flex min-w-0 flex-col gap-3 border-t pt-3"
+                  >
+                    <h3 className="text-sm font-semibold">Đơn vị quy đổi — tùy chọn</h3>
+                    <Field>
+                      <FieldLabel htmlFor="import-conversion-sheet">
+                        Trang tính quy đổi (tùy chọn)
+                      </FieldLabel>
+                      <NativeSelect
+                        id="import-conversion-sheet"
+                        value={values.conversions?.sheetId ?? ''}
+                        onChange={(event) => changeSheet('conversions', event.target.value)}
+                      >
+                        <NativeSelectOption value="">Không nhập quy đổi</NativeSelectOption>
+                        {inspect.sheets
+                          .filter((sheet) => sheet.sheetId !== values.main.sheetId)
+                          .map((sheet) => (
+                            <NativeSelectOption
+                              key={sheet.sheetId}
+                              value={sheet.sheetId}
+                              title={sheet.sheetName}
+                            >
+                              {productImportSheetLabel(sheet.sheetName)}
+                            </NativeSelectOption>
+                          ))}
+                      </NativeSelect>
+                    </Field>
+                    {!values.conversions &&
+                    inspect.sheets.some(
+                      (sheet) =>
+                        sheet.sheetId !== values.main.sheetId &&
+                        sheet.conversionHeaderCandidates.some(
+                          (candidate) => candidate.hasAllRequiredFields
+                        )
+                    ) ? (
+                      <Alert role="status" className="border-warning/40 bg-warning-container/30">
+                        <TriangleAlert aria-hidden="true" className="text-warning" />
+                        <AlertTitle>Chưa chọn trang tính quy đổi</AlertTitle>
+                        <AlertDescription>
+                          Tệp có dữ liệu quy đổi. Chọn trang để nhập; nếu bỏ qua, các đơn vị quy đổi
+                          sẽ không được nhập.
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+                  </section>
+                ) : null}
+                {options?.sheetId ? (
+                  <MappingSection
+                    key={kind}
+                    kind={kind}
+                    options={options}
+                    inspect={inspect}
+                    error={
+                      form.formState.errors[kind]?.columnMapping?.message ??
+                      form.formState.errors[kind]?.sheetId?.message ??
+                      form.formState.errors[kind]?.headerRowNumber?.message
+                    }
+                    onHeaderChange={(value) => changeHeader(kind, value)}
+                    onColumnChange={(field, column) => changeColumn(kind, field, column)}
+                  />
+                ) : null}
+              </Fragment>
             )
           })}
           {form.formState.errors.schemaVersion ? (
@@ -207,7 +245,7 @@ export function ProductImportMapping({
           ) : null}
         </fieldset>
       </form>
-    </OperationalListPanel>
+    </section>
   )
 }
 
@@ -247,41 +285,41 @@ function MappingSection({
       aria-label={kind === 'main' ? 'Cột hàng hóa' : 'Cột quy đổi'}
       className="flex min-w-0 shrink-0 flex-col gap-3"
     >
-      <div className="bg-muted/50 flex flex-wrap items-center justify-between gap-3 border p-3">
-        <div className="min-w-0 flex-1 basis-56">
-          <h3 className="text-sm font-semibold">
-            {kind === 'main' ? 'Ghép cột hàng hóa' : 'Ghép cột đơn vị quy đổi'}
-          </h3>
-          <p className="text-muted-foreground mt-1 text-xs wrap-anywhere">
-            Trang tính trong tệp:{' '}
-            <span className="font-medium" translate="no">
-              {sheet.sheetName}
-            </span>
-          </p>
+      {kind === 'conversions' ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 basis-56">
+            <h3 className="text-sm font-semibold">Ghép cột đơn vị quy đổi</h3>
+            <p className="text-muted-foreground mt-1 text-xs wrap-anywhere">
+              Trang tính trong tệp:{' '}
+              <span className="font-medium" translate="no">
+                {sheet.sheetName}
+              </span>
+            </p>
+          </div>
+          <Field orientation="horizontal" className="w-auto shrink-0">
+            <FieldLabel htmlFor={`import-${kind}-header`}>
+              Dòng tiêu đề<span className="sr-only"> — {sheet.sheetName}</span>
+            </FieldLabel>
+            <Input
+              id={`import-${kind}-header`}
+              type="number"
+              min={1}
+              max={50}
+              className="w-20"
+              value={Number.isFinite(options.headerRowNumber) ? options.headerRowNumber : ''}
+              aria-invalid={Boolean(error)}
+              aria-describedby={`import-${kind}-header-help${error ? ` import-${kind}-error` : ''}`}
+              onChange={(event) => onHeaderChange(event.target.valueAsNumber)}
+            />
+          </Field>
+          <FieldDescription id={`import-${kind}-header-help`} className="basis-full">
+            {candidates.length
+              ? `Các dòng gợi ý: ${candidates.map((item) => item.rowNumber).join(', ')}. `
+              : ''}
+            Chọn dòng chứa tên cột (1–50). Dữ liệu mẫu chỉ để đối chiếu.
+          </FieldDescription>
         </div>
-        <Field orientation="horizontal" className="w-auto shrink-0">
-          <FieldLabel htmlFor={`import-${kind}-header`}>
-            Dòng tiêu đề<span className="sr-only"> — {sheet.sheetName}</span>
-          </FieldLabel>
-          <Input
-            id={`import-${kind}-header`}
-            type="number"
-            min={1}
-            max={50}
-            className="w-20"
-            value={Number.isFinite(options.headerRowNumber) ? options.headerRowNumber : ''}
-            aria-invalid={Boolean(error)}
-            aria-describedby={`import-${kind}-header-help${error ? ` import-${kind}-error` : ''}`}
-            onChange={(event) => onHeaderChange(event.target.valueAsNumber)}
-          />
-        </Field>
-        <FieldDescription id={`import-${kind}-header-help`} className="basis-full">
-          {candidates.length
-            ? `Các dòng gợi ý: ${candidates.map((item) => item.rowNumber).join(', ')}. `
-            : ''}
-          Chọn dòng chứa tên cột (1–50). Dữ liệu mẫu chỉ để đối chiếu.
-        </FieldDescription>
-      </div>
+      ) : null}
       {kind === 'conversions' ? (
         <p className="text-muted-foreground text-xs/relaxed">
           Mỗi dòng là một đơn vị quy đổi của mã hàng. Ví dụ: 1 Thùng = 24 Lon → hệ số quy đổi là 24.

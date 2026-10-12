@@ -93,12 +93,12 @@ export function TransferGeneralSection({
       ) : null}
       <FieldGroup className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <BusinessCodeField
-          label="Số phiếu điều chuyển"
+          label="Mã yêu cầu điều chuyển"
           error={errors.transferCode}
           suggestionStatus={codeSuggestionStatus}
           description={
             mode === 'edit'
-              ? 'Mã phiếu không đổi sau khi đã gửi.'
+              ? 'Mã yêu cầu không đổi sau khi đã gửi.'
               : 'Có thể sửa; để trống thì hệ thống tự cấp.'
           }
           inputProps={{
@@ -208,7 +208,7 @@ export function TransferGeneralSection({
           <FieldError>{errors.reason?.message}</FieldError>
         </Field>
         <Field className="md:col-span-2 xl:col-span-4" data-invalid={Boolean(errors.note)}>
-          <FieldLabel htmlFor="transfer-note">Ghi chú</FieldLabel>
+          <FieldLabel htmlFor="transfer-note">Ghi chú cho kho</FieldLabel>
           <Textarea
             id="transfer-note"
             rows={2}

@@ -71,10 +71,10 @@ export function mapWarehouseLayoutScene(scene: WarehouseLayoutSceneResponse): {
     const geometry = hasGeometry(zone)
       ? constrainLayoutGeometryToCanvas(zone, scene.canvas, false)
       : getDefaultZoneGeometry(index, scene)
-    if (zone.status === 'Active' && (!hasGeometry(zone) || hasGeometryChanged(zone, geometry))) {
+    if (zone.status === 'Active' && hasGeometry(zone) && hasGeometryChanged(zone, geometry)) {
       hasGeneratedGeometry = true
     }
-    return { ...zone, ...geometry, color: zone.color ?? null }
+    return { ...zone, ...geometry, color: zone.color ?? null, placementPending: !hasGeometry(zone) }
   })
   const zoneById = new Map(zones.map((zone) => [zone.id, zone]))
   const rackIndexByZone = new Map<string, number>()
@@ -99,7 +99,8 @@ export function mapWarehouseLayoutScene(scene: WarehouseLayoutSceneResponse): {
     if (
       rack.status === 'Active' &&
       zone?.status === 'Active' &&
-      (!hasGeometry(rack) || hasGeometryChanged(rack, geometry))
+      hasGeometry(rack) &&
+      hasGeometryChanged(rack, geometry)
     ) {
       hasGeneratedGeometry = true
     }
@@ -108,6 +109,7 @@ export function mapWarehouseLayoutScene(scene: WarehouseLayoutSceneResponse): {
       ...geometry,
       color: rack.color ?? null,
       layoutShape: rack.layoutShape ?? 'Standard',
+      placementPending: !hasGeometry(rack),
     }
   })
   const decorations = scene.decorations.map<WarehouseLayoutEditorDecoration>((decoration) => {
@@ -160,7 +162,7 @@ export function mapEditorSceneToSaveRequest(
     version,
     canvas: scene.canvas,
     zones: scene.zones
-      .filter((zone) => zone.status === 'Active')
+      .filter((zone) => zone.status === 'Active' && !zone.placementPending)
       .map((zone) => ({
         entityId: zone.id,
         x: zone.x,
@@ -172,7 +174,10 @@ export function mapEditorSceneToSaveRequest(
         color: zone.color ?? null,
       })),
     racks: scene.racks
-      .filter((rack) => rack.status === 'Active' && activeZoneIds.has(rack.zoneId))
+      .filter(
+        (rack) =>
+          rack.status === 'Active' && activeZoneIds.has(rack.zoneId) && !rack.placementPending
+      )
       .map((rack) => ({
         entityId: rack.id,
         x: rack.x,

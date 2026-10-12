@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { LocationSearchResponse } from '@/features/warehouse/types/warehouse.types'
 import type { TransferReceiveSheet } from '../types/transfer.types'
 import {
   dispatchedInEnteredUnit,
@@ -12,7 +11,8 @@ import {
 import {
   buildExpectedReceiptQuantities,
   buildInitialReceiptEntries,
-  findReceivableSlot,
+  nextReceiveScanTarget,
+  removeReceiptEntry,
   toReceiveRequest,
 } from './transfer-receive'
 import { buildTransfer, buildTransferItem } from './transfer-test-fixtures'
@@ -60,7 +60,16 @@ describe('transfer form conversion', () => {
     const values = emptyTransferForm()
     values.sourceWarehouseId = 'a'
     values.destinationWarehouseId = 'b'
-    values.lines = [{ itemId: null, productId: 'p', unitId: '', quantity: 3 }]
+    values.lines = [
+      {
+        itemId: null,
+        productId: 'p',
+        unitId: '',
+        destinationSlotId: '',
+        sourceSlotId: '',
+        quantity: 3,
+      },
+    ]
     expect(toSaveDraftRequest(values, 'v1')).toEqual({
       expectedVersion: 'v1',
       transferCode: null,
@@ -71,7 +80,31 @@ describe('transfer form conversion', () => {
       reason: null,
       requiredBy: null,
       note: null,
-      items: [{ itemId: null, productId: 'p', unitId: null, quantity: 3 }],
+      items: [
+        {
+          itemId: null,
+          productId: 'p',
+          unitId: null,
+          quantity: 3,
+          destinationSlotId: null,
+          sourceSlotId: null,
+        },
+      ],
+    })
+  })
+
+  it('carries the chosen pick and put-away slots through the form and back', () => {
+    const detail = buildTransfer({
+      items: [buildTransferItem({ sourceSlotId: 'slot-out', destinationSlotId: 'slot-in' })],
+    })
+    const values = transferToFormValues(detail)
+    expect(values.lines[0]).toMatchObject({
+      sourceSlotId: 'slot-out',
+      destinationSlotId: 'slot-in',
+    })
+    expect(toSaveDraftRequest(values, null).items[0]).toMatchObject({
+      sourceSlotId: 'slot-out',
+      destinationSlotId: 'slot-in',
     })
   })
 
@@ -183,22 +216,84 @@ describe('receive helpers', () => {
     })
   })
 
-  it('only resolves active, non-staging slots by code or barcode', () => {
-    const slot = (overrides: Partial<LocationSearchResponse>) =>
-      ({
-        id: 'x',
-        type: 'Slot',
-        code: 'B-01',
-        barcodeValue: 'BAR-B-01',
-        lifecycleStatus: 'Active',
-        isOutboundStaging: false,
-        ...overrides,
-      }) as LocationSearchResponse
-    expect(findReceivableSlot('b-01', [slot({ id: 'a' })])?.id).toBe('a')
-    expect(findReceivableSlot('bar-b-01', [slot({ id: 'a' })])?.id).toBe('a')
-    expect(findReceivableSlot('B-01', [slot({ isOutboundStaging: true })])).toBeNull()
-    expect(findReceivableSlot('B-01', [slot({ lifecycleStatus: 'Inactive' })])).toBeNull()
-    expect(findReceivableSlot('B-01', [slot({ type: 'Rack' })])).toBeNull()
-    expect(findReceivableSlot('', [slot({})])).toBeNull()
+  it('moves the quantities of a removed receipt entry onto the remaining one of the same line and lot', () => {
+    const entry = (
+      overrides: Partial<{
+        lineId: string
+        lotId: string | null
+        goodQuantity: number
+        damagedQuantity: number
+        missingQuantity: number
+      }>
+    ) => ({
+      lineId: 'l1',
+      lotId: null,
+      goodQuantity: 0,
+      damagedQuantity: 0,
+      missingQuantity: 0,
+      ...overrides,
+    })
+    const entries = [
+      entry({ goodQuantity: 20 }),
+      entry({ goodQuantity: 0 }),
+      entry({ lineId: 'l2' }),
+    ]
+
+    const afterRemovingFirst = removeReceiptEntry(entries, 0)
+    expect(afterRemovingFirst).toHaveLength(2)
+    expect(afterRemovingFirst[0]).toMatchObject({ lineId: 'l1', goodQuantity: 20 })
+
+    const afterRemovingSecond = removeReceiptEntry(entries, 1)
+    expect(afterRemovingSecond[0]).toMatchObject({ goodQuantity: 20 })
+    expect(removeReceiptEntry([entries[2]!], 0)).toHaveLength(0)
+  })
+
+  it('points the shared camera at the next location, then at the next product', () => {
+    const entry = (
+      overrides: Partial<{
+        destinationSlotId: string
+        scannedProductCode: string
+        goodQuantity: number
+        damagedQuantity: number
+        missingQuantity: number
+      }>
+    ) => ({
+      destinationSlotId: '',
+      scannedProductCode: '',
+      goodQuantity: 5,
+      damagedQuantity: 0,
+      missingQuantity: 0,
+      ...overrides,
+    })
+    expect(nextReceiveScanTarget([entry({}), entry({})])).toEqual({ index: 0, step: 'slot' })
+    expect(nextReceiveScanTarget([entry({ destinationSlotId: 'a' }), entry({})])).toEqual({
+      index: 1,
+      step: 'slot',
+    })
+    expect(
+      nextReceiveScanTarget([entry({ destinationSlotId: 'a' }), entry({ destinationSlotId: 'b' })])
+    ).toEqual({ index: 0, step: 'product' })
+    // Khai báo mới còn trống vẫn cần quét vị trí; khai báo chỉ có hàng thiếu thì bỏ qua.
+    expect(
+      nextReceiveScanTarget([
+        entry({ destinationSlotId: 'a', scannedProductCode: 'x' }),
+        entry({ goodQuantity: 0 }),
+      ])
+    ).toEqual({ index: 1, step: 'slot' })
+    expect(nextReceiveScanTarget([entry({ goodQuantity: 0, missingQuantity: 5 })])).toBeNull()
+    expect(
+      nextReceiveScanTarget([entry({ destinationSlotId: 'a', scannedProductCode: 'x' })])
+    ).toBeNull()
+  })
+
+  it('carries the chosen destination slot through the form and back to the request', () => {
+    const detail = buildTransfer({
+      items: [buildTransferItem({ id: 'i1', destinationSlotId: 'slot-1' })],
+    })
+    const values = transferToFormValues(detail)
+    expect(values.lines[0]?.destinationSlotId).toBe('slot-1')
+    expect(toSaveDraftRequest(values, null).items[0]?.destinationSlotId).toBe('slot-1')
+    values.lines[0]!.destinationSlotId = ''
+    expect(toSaveDraftRequest(values, null).items[0]?.destinationSlotId).toBeNull()
   })
 })

@@ -13,13 +13,17 @@ export const transferLineSchema = z.object({
   itemId: z.string().nullable(),
   productId: dotNetGuidSchema('Vui lòng chọn sản phẩm.'),
   unitId: optionalGuid('Đơn vị tính không hợp lệ.'),
+  /** Vị trí đến gợi ý ở kho nhập; chuỗi rỗng là chưa chọn. */
+  destinationSlotId: optionalGuid('Vị trí đến không hợp lệ.'),
+  /** Vị trí lấy hàng ưu tiên ở kho xuất; chuỗi rỗng là để hệ thống tự phân bổ. */
+  sourceSlotId: optionalGuid('Vị trí đi không hợp lệ.'),
   quantity: z.number('Số lượng phải là số.').positive('Số lượng phải lớn hơn 0.'),
 })
 
 export const transferRequestSchema = z
   .object({
     /** Để trống thì BE tự cấp mã kế tiếp; có nhập thì phải duy nhất trong doanh nghiệp. */
-    transferCode: z.string().trim().max(100, 'Mã phiếu không được vượt quá 100 ký tự.'),
+    transferCode: z.string().trim().max(100, 'Mã yêu cầu không được vượt quá 100 ký tự.'),
     requesterName: z.string().trim().max(200, 'Người yêu cầu không được vượt quá 200 ký tự.'),
     requestingDepartment: z
       .string()

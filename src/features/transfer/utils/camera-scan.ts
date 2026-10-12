@@ -29,17 +29,31 @@ export const CAMERA_FAILURE_MESSAGES: Record<CameraScanFailure, string> = {
   unknown: 'Không mở được camera. Hãy thử lại hoặc nhập mã bằng tay.',
 }
 
+interface CameraScanOptions {
+  /** Đọc liên tục thay vì dừng sau mã đầu tiên; cùng một mã chỉ báo lại sau {@link REPEAT_GUARD_MS}. */
+  readonly continuous?: boolean
+  /** Khoảng bỏ qua mã trùng khi đọc liên tục; mặc định {@link REPEAT_GUARD_MS}. */
+  readonly repeatGuardMs?: number
+}
+
+/** Giữ camera trước một mã thì ZXing đọc lại nhiều lần mỗi giây; bỏ qua mã trùng trong khoảng này. */
+export const REPEAT_GUARD_MS = 1500
+
 /**
- * Bật camera sau, đọc mã vạch/QR liên tục và gọi onCode cho lần đọc đầu tiên. Thư viện giải mã chỉ tải khi
- * người dùng bấm quét bằng camera nên không làm nặng màn hình lấy/nhận hàng.
+ * Bật camera sau và đọc mã vạch/QR. Mặc định dừng sau mã đầu tiên (hộp thoại camera riêng); chế độ liên tục
+ * giữ camera chạy để quét nhiều mã liên tiếp. Thư viện giải mã chỉ tải khi người dùng bật camera nên không làm
+ * nặng màn hình lấy/nhận hàng.
  */
 export async function startCameraScan(
   video: HTMLVideoElement,
   onCode: (code: string) => void,
-  onError: (failure: CameraScanFailure) => void
+  onError: (failure: CameraScanFailure) => void,
+  { continuous = false, repeatGuardMs = REPEAT_GUARD_MS }: CameraScanOptions = {}
 ): Promise<CameraScanHandle> {
   let stopped = false
   let controls: { stop: () => void } | undefined
+  let lastCode = ''
+  let lastSeenAt = 0
   const stop = () => {
     stopped = true
     controls?.stop()
@@ -52,9 +66,19 @@ export async function startCameraScan(
       video,
       (result) => {
         if (stopped || !result) return
-        stopped = true
-        controls?.stop()
-        onCode(result.getText().trim())
+        const code = result.getText().trim()
+        if (!continuous) {
+          stopped = true
+          controls?.stop()
+          onCode(code)
+          return
+        }
+        const now = Date.now()
+        const isRepeat = code === lastCode && now - lastSeenAt < repeatGuardMs
+        // Còn thấy mã đó trước camera thì gia hạn, chỉ báo lại khi đã rời mã đủ lâu.
+        lastCode = code
+        lastSeenAt = now
+        if (!isRepeat) onCode(code)
       }
     )
     if (stopped) controls.stop()

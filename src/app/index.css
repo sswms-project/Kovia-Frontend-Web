@@ -404,6 +404,43 @@ body {
   height: 0;
 }
 
+/* Transfer screens: slim 6px rail at the workspace edge, like the import workspace. */
+[data-slot='workspace-scroll-area']:has([data-slot='transfer-scroll'][data-edge]) {
+  padding-right: 0;
+}
+
+[data-slot='transfer-scroll']::-webkit-scrollbar,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='transfer-scroll'][data-edge]
+  )::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+[data-slot='transfer-scroll']::-webkit-scrollbar-thumb,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='transfer-scroll'][data-edge]
+  )::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: var(--table-scrollbar-thumb);
+}
+
+[data-slot='transfer-scroll']::-webkit-scrollbar-track,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='transfer-scroll'][data-edge]
+  )::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-slot='transfer-scroll']::-webkit-scrollbar-button,
+[data-slot='workspace-scroll-area']:has(
+    [data-slot='transfer-scroll'][data-edge]
+  )::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 [data-slot='table-container']::-webkit-scrollbar-thumb {
   border-radius: 8px;
   background: var(--table-scrollbar-thumb);
@@ -414,7 +451,8 @@ body {
 }
 
 @supports not selector(::-webkit-scrollbar) {
-  [data-slot='table-container'] {
+  [data-slot='table-container'],
+  [data-slot='transfer-scroll'] {
     scrollbar-width: thin;
     scrollbar-color: var(--table-scrollbar-thumb) transparent;
   }
@@ -605,31 +643,44 @@ body {
   --y: translateX(-115%) !important;
 }
 
+/* Nhãn mã vạch in từ lớp riêng gắn vào body; trên màn hình luôn ẩn. */
+[data-barcode-print-root] {
+  display: none;
+}
+
 @media print {
-  body:has([data-barcode-print-page]) * {
-    visibility: hidden;
+  body:has([data-barcode-print-root]) > :not([data-barcode-print-root]) {
+    display: none !important;
   }
 
-  [data-barcode-print-page],
-  [data-barcode-print-page] * {
-    visibility: visible;
-  }
-
-  [data-barcode-print-page] {
-    position: absolute;
-    inset: 0;
+  [data-barcode-print-root] {
     display: flex;
+    min-height: 100vh;
     width: 100%;
-    max-width: none;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    border: 0;
-    background: white;
-    color: black;
+    gap: 6mm;
+    background: #fff;
+    padding: 16mm;
+    color: #000;
+    text-align: center;
   }
 
-  [data-barcode-print-page] > :not(:has(svg)),
-  [data-barcode-print-actions] {
-    display: none;
+  [data-barcode-print-root] svg {
+    width: 100%;
+    max-width: 150mm;
+    height: auto;
+  }
+
+  [data-barcode-print-title] {
+    font-size: 14pt;
+    font-weight: 600;
+  }
+
+  [data-barcode-print-code] {
+    font-family: monospace;
+    font-size: 16pt;
+    font-weight: 700;
   }
 }

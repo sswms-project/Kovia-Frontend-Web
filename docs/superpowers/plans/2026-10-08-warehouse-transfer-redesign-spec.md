@@ -559,10 +559,10 @@ Kiểm thử:
 - [x] Khảo sát AMIS (chỉ xem, không lưu) và đối chiếu code BE/FE hiện tại.
 - [x] Chốt nghiệp vụ với người dùng qua trao đổi ngày 2026-10-07/08.
 - [ ] Người dùng duyệt spec.
-- [x] Gate A Backend: mã nguồn + test xong (2026-10-08); **migration đã sinh nhưng chưa chạy**, chờ duyệt riêng.
+- [x] Gate A Backend: mã nguồn + test xong (2026-10-08); migration `AddWarehouseTransferWorkflow` đã áp lên `db71143` ngày 2026-10-08 với phép của người dùng.
 - [x] Gate B Frontend logic (2026-10-08): xem mục 20.
 - [ ] Gate C UI/UX và QA.
-- [ ] Cập nhật checklist UC 82–88 trên Google Sheet (khi người dùng yêu cầu).
+- [x] Cập nhật checklist UC 82–88 (và UC 72) trên Google Sheet, sheet "mới" (2026-10-09, theo yêu cầu của người dùng): xem mục 24.
 
 Lần viết tài liệu này không sửa source, không build/test, không khởi động server, không tạo/chạy migration, không ghi DB, không commit/push/PR.
 
@@ -735,3 +735,47 @@ Rà soát BE + FE theo spec, `.rules` và `AGENTS.md` hai repo, GitNexus (impact
 ### 22.4. Kiểm thử
 
 BE 1022 đạt, 1 bỏ qua; FE 643 đạt, typecheck và lint sạch. Trình duyệt: danh sách (mobile + desktop, bộ lọc, menu thao tác), form nháp lưu nhiều lần, gửi yêu cầu.
+
+## 23. Chỉnh sửa theo phản hồi dùng thử (2026-10-09)
+
+**Luồng xuất đợt thành hai bước (phương án A, không đổi vị trí tồn)**
+
+- Thêm trạng thái đợt `ReadyToDispatch` ("Chờ xuất kho"). Trạng thái lưu dạng chuỗi nên không cần migration.
+- Nhân viên (`transfers:pick`) bấm **Hoàn tất lấy hàng**: kiểm đủ/không dư/không chờ quản lý, đợt sang `ReadyToDispatch`, công việc lấy hàng hoàn tất, báo Manager kho xuất. Chưa trừ tồn.
+- Manager kho xuất (`transfers:dispatch`) bấm **Xác nhận đã xuất kho** khi xe rời: trừ tồn, đợt sang `InTransit`, tạo công việc nhận hàng. Trước đây nhân viên tự xuất đợt.
+- Manager có thể **Mở lại lấy hàng** (`POST .../reopen-picking`, bắt buộc lý do) để đưa đợt về `Picking`.
+- Hủy phiếu và dừng phần còn lại bị chặn khi còn đợt `ReadyToDispatch`, kèm hướng dẫn xử lý.
+
+**Gán việc theo kho**: Manager kho xuất giao việc lấy hàng và tạo đợt; Manager kho nhập giao việc nhận hàng (FE kiểm theo kho được gán, BE vẫn kiểm `Manage` theo kho của công việc).
+
+**Giao diện chi tiết phiếu**: dải "Việc tiếp theo" theo vai trò và kho; nút giao việc ở góc phải trên; bố cục thông tin có cột Tiến độ riêng; nhãn "Lý do điều chuyển" và "Ghi chú cho kho"; cột danh sách "Mã yêu cầu".
+
+**Màn lấy/nhận hàng**: báo rõ khi tài khoản thiếu quyền `transfers:pick`/`transfers:receive` thay vì ẩn nút; "Bắt đầu" ở Công việc của tôi mở thẳng màn lấy/nhận hàng.
+
+**Form tạo yêu cầu**: ĐVT lấy từ sản phẩm (đơn vị chính + quy đổi) nên hiện ngay, nhãn "Thùng (1 Thùng = 24 Chai)"; chỉ gợi ý sản phẩm còn tồn khả dụng ở kho xuất (`GET /api/transfers/source-products`); nút "Tạo yêu cầu" và "Tạo đợt xuất" xám khi vượt tồn hoặc chưa chọn dòng.
+
+**Hiệu năng**: gửi yêu cầu tải tồn khả dụng và giữ chỗ hiện có một lần cho cả phiếu thay vì lặp theo từng dòng. Chưa đo thời gian thực trên DB từ xa.
+
+## 24. Vị trí đến, phân bổ lấy hàng, điều chỉnh phân bổ và checklist (2026-10-09)
+
+Đã merge vào `dev` qua PR BE #213 và FE #187. Không có migration mới của luồng điều chuyển.
+
+**Quy tắc nhìn thấy theo kho (che ở BE, không chỉ ở giao diện)**
+
+| Người xem                                | Vị trí đến | Phân bổ lấy hàng / vị trí đi |
+| ---------------------------------------- | ---------- | ---------------------------- |
+| Chủ doanh nghiệp, người thuộc cả hai kho | Thấy       | Thấy                         |
+| Người kho xuất                           | Không      | Thấy                         |
+| Người kho nhập                           | Thấy       | Không                        |
+
+**Vị trí đến (không bắt buộc, từng dòng)**: lưu ở `StockTransferItem.DestinationSlotId`; phải thuộc kho nhập, đang hoạt động, không phải khu chờ xuất (`GET /api/transfers/receivable-slots`); khóa sửa khi dòng đã bắt đầu nhận. Màn nhận hàng chỉ hiện "Gợi ý cất tại Khu / Kệ / Ô"; vẫn phải quét vị trí để xác nhận.
+
+**Hiển thị phân bổ**: chi tiết phiếu trả `Allocations` (vị trí, lô, hạn, số lượng đang giữ chỗ) cho người kho xuất và chủ.
+
+**Điều chỉnh phân bổ** (`GET .../items/{itemId}/allocation-options`, `POST .../allocation`): chỉ chủ và quản lý kho xuất (quyền `transfers:dispatch`). Chuyển giữ chỗ giữa các vị trí/lô, chỉ phần chưa lấy, tổng không đổi; chọn lô ngoài FEFO chỉ cảnh báo, không cần duyệt, ghi nhật ký (`AdjustAllocation` / `AdjustAllocationNonFefo`); lý do không bắt buộc; kiểm tra phiên bản phiếu; `CommandId` chống ghi trùng.
+
+**Vị trí đi ưu tiên (không bắt buộc)**: dùng lại cột có sẵn `StockTransferItem.SourceSlotId` nên không cần migration. Khi gửi yêu cầu, vị trí này được lấy trước rồi mới theo FEFO/FIFO (`GET /api/transfers/source-locations`). Cần quyền `transfers:dispatch` và quyền quản lý kho xuất; chỉ đọc khi dòng đã giữ chỗ.
+
+**Quét mã**: nhận nhãn in trên mã vạch (mã ngắn, `BarcodeValue`, nhãn ghép khu như `K01-A07-S-01`, dạng `KOVIA:LOC:*` cũ); mã vạch sản phẩm dùng SKU, dạng cũ vẫn quét được; nhận hàng tra vị trí phía server, mã ngắn trùng nhiều kệ trả 409; camera quét liên tục ở màn lấy và nhận hàng. Chế độ bật/tắt quét mã barcode (Manager) **hoãn, bàn sau**.
+
+**Checklist UC (sheet "mới", cột C đến Q)**: UC 82 (tên giữ nguyên; luồng thêm sửa phiếu đã gửi, bỏ bước duyệt, giữ chỗ khi gửi); UC 83 (xem: tiến độ, che theo kho); UC 84 (tên giữ nguyên "Approve/Reject Warehouse Transfer Request"; nội dung các cột là theo dõi, phản hồi, điều chỉnh phân bổ thay cổng duyệt); UC 85 (chia đợt, lấy hàng, xác nhận xe rời kho hai bước); UC 86 (nhận và cất: vị trí tra ở server, gợi ý chỗ cất); UC 88 đổi tên thành "Cancel Request" (gồm hủy và dừng phần còn lại; chặn khi đợt chờ xuất); UC 72 bổ sung giao việc lấy/nhận hàng theo kho. UC 87 giữ nguyên. Mã BR/MSG giữ như cũ, không thêm mã mới. Chưa thêm dòng riêng "Sửa yêu cầu đã gửi": nội dung này nằm trong luồng thay thế của UC 82.

@@ -11,8 +11,10 @@ import type { TransferReceiveSheet } from '../types/transfer.types'
 import {
   buildExpectedReceiptQuantities,
   buildInitialReceiptEntries,
+  removeReceiptEntry,
   toReceiveRequest,
 } from '../utils/transfer-receive'
+import { describeTransferError } from '../utils/transfer-errors'
 import { codesMatch } from '../utils/transfer-scan'
 import { useTransferActionRunner } from './use-transfer-action-runner'
 import {
@@ -38,6 +40,8 @@ export function useTransferReceiveForm(
   const entries = useFieldArray({ control: form.control, name: 'entries' })
   const findSlotMutation = useFindReceivableSlotMutation()
   const receiveMutation = useReceiveTransferShipmentMutation()
+  // Đường dẫn "Khu / Kệ / Ô" của vị trí đã quét, để thẻ hiển thị tên đầy đủ thay vì chữ vừa gõ.
+  const [slotPathById, setSlotPathById] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!sheet) return
@@ -68,12 +72,18 @@ export function useTransferReceiveForm(
         return false
       }
       form.clearErrors(`entries.${index}.scannedSlotCode`)
+      setSlotPathById((current) => ({ ...current, [slot.id]: slot.path }))
       form.setValue(`entries.${index}.destinationSlotId`, slot.id, { shouldDirty: true })
       form.setValue(`entries.${index}.scannedSlotCode`, code, { shouldDirty: true })
       return true
-    } catch {
+    } catch (error) {
+      form.setValue(`entries.${index}.destinationSlotId`, '')
+      form.setValue(`entries.${index}.scannedSlotCode`, '')
       form.setError(`entries.${index}.scannedSlotCode`, {
-        message: 'Không tra được vị trí. Hãy kiểm tra kết nối rồi quét lại.',
+        message: describeTransferError(
+          error,
+          'Không tra được vị trí. Hãy kiểm tra kết nối rồi quét lại.'
+        ).message,
       })
       return false
     }
@@ -136,6 +146,7 @@ export function useTransferReceiveForm(
     form,
     fields: entries.fields,
     lineById,
+    slotPathById,
     isFindingSlot: findSlotMutation.isPending,
     isReceiving: receiveMutation.isPending,
     isConfirmOpen,
@@ -143,7 +154,8 @@ export function useTransferReceiveForm(
     scanSlot,
     scanProduct,
     splitEntry,
-    removeEntry: entries.remove,
+    removeEntry: (index: number) =>
+      entries.replace(removeReceiptEntry(form.getValues('entries'), index)),
     countEntriesOf,
     reset: () => {
       hydratedVersion.current = null

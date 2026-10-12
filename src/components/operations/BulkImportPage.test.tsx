@@ -120,6 +120,69 @@ async function confirmImport(buttonName: RegExp) {
 }
 
 describe('BulkImportPage', () => {
+  it('uses natural preview height and retains row selection when changing page size', async () => {
+    renderPage({
+      rows: Array.from({ length: 25 }, (_, index) => ({
+        rowNumber: index + 2,
+        name: `Khách hàng ${index + 1}`,
+        errors: [],
+      })),
+    })
+    await chooseFile()
+    const panel = screen.getByRole('region', { name: 'Bản xem trước nhập dữ liệu' })
+    expect(panel).toHaveClass('flex-none', 'shrink-0')
+    expect(panel).toHaveClass('[&>[data-slot=table-container]]:flex-none')
+    expect(panel).toHaveClass('[&>[data-slot=table-container]]:overflow-x-auto')
+    expect(panel).toHaveClass('[&>[data-slot=table-container]]:overflow-y-hidden')
+    expect(panel.querySelectorAll('tbody tr')).toHaveLength(25)
+    const scrollDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'scrollIntoView'
+    )
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    })
+    try {
+      for (const pageSize of [10, 20]) {
+        fireEvent.keyDown(screen.getByRole('combobox', { name: 'Số dòng mỗi trang' }), {
+          key: 'ArrowDown',
+        })
+        fireEvent.keyDown(await screen.findByRole('option', { name: String(pageSize) }), {
+          key: 'Enter',
+        })
+        expect(panel.querySelectorAll('tbody tr')).toHaveLength(pageSize)
+        expect(within(panel).getByRole('checkbox', { name: 'Chọn dòng 2' })).toBeChecked()
+        expect(screen.getByText(/đã chọn 25\/25 dòng hợp lệ/)).toBeVisible()
+      }
+    } finally {
+      if (scrollDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollDescriptor)
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+      }
+    }
+  })
+
+  it('keeps results next to the source row and exposes multiple hidden-field errors', async () => {
+    renderPage({
+      rows: [
+        { rowNumber: 2, name: 'Khách sai', errors: ['Thiếu email.', 'Liên hệ không hợp lệ.'] },
+      ],
+    })
+    await chooseFile()
+    expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+      '',
+      'Dòng',
+      'Kết quả',
+      'Tên',
+    ])
+    // Không cột nào đang hiển thị nhận hai lỗi này nên cả hai phải hiện đủ, không bị gấp lại.
+    expect(screen.getByText('Thiếu email.')).toBeVisible()
+    expect(screen.getByText('Liên hệ không hợp lệ.')).toBeVisible()
+    expect(screen.queryByText(/Xem chi tiết/)).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Chọn dòng 2' })).toBeDisabled()
+  })
   it('rereads CSV with the newly selected delimiter at the mapping step', async () => {
     const onInspect = vi.fn(async () => ({
       isSucceeded: true as const,

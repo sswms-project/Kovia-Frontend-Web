@@ -1,12 +1,9 @@
-import type { LocationSearchResponse } from '@/features/warehouse/types/warehouse.types'
-import type { ZoneResponse } from '@/types/warehouse'
 import {
   receiptEntryKey,
   type TransferReceiptEntryValues,
   type TransferReceiptFormValues,
 } from '../schemas/transfer-fulfillment.schema'
 import type { ReceiveTransferShipmentRequest, TransferReceiveSheet } from '../types/transfer.types'
-import { codesMatch } from './transfer-scan'
 
 /** Mỗi dòng/lô bắt đầu bằng một hàng nhận tốt toàn bộ; nhân viên sửa khi thực tế lệch. */
 export function buildInitialReceiptEntries(
@@ -46,47 +43,8 @@ export function buildExpectedReceiptQuantities(sheet: TransferReceiveSheet): Map
 export interface ReceivableSlot {
   readonly id: string
   readonly code: string
-}
-
-/** Vị trí cất hàng hợp lệ: hoạt động và không phải vị trí chờ xuất. */
-export function findReceivableSlot(
-  scannedCode: string,
-  slots: readonly LocationSearchResponse[]
-): ReceivableSlot | null {
-  if (!scannedCode.trim()) return null
-  const slot = slots.find(
-    (candidate) =>
-      candidate.type === 'Slot' &&
-      !candidate.isOutboundStaging &&
-      candidate.lifecycleStatus === 'Active' &&
-      codesMatch(scannedCode, candidate.code, candidate.barcodeValue)
-  )
-  return slot ? { id: slot.id, code: slot.code } : null
-}
-
-/**
- * Kệ quản lý ở mức kệ (RackLevel) không có ô con: hàng được cất vào ô mặc định của kệ nên quét mã kệ là đủ,
- * giống màn cất hàng của Nhập kho.
- */
-export function findRackLevelSlot(
-  scannedCode: string,
-  zones: readonly ZoneResponse[]
-): ReceivableSlot | null {
-  if (!scannedCode.trim()) return null
-  for (const zone of zones) {
-    if (zone.status !== 'Active') continue
-    for (const rack of zone.racks) {
-      if (
-        rack.status === 'Active' &&
-        rack.storageMode === 'RackLevel' &&
-        rack.defaultSlotId &&
-        codesMatch(scannedCode, rack.rackCode)
-      ) {
-        return { id: rack.defaultSlotId, code: rack.rackCode }
-      }
-    }
-  }
-  return null
+  /** "Khu K01 / Kệ A07" để người nhận biết mình đang đứng ở đâu. */
+  readonly path: string
 }
 
 export function toReceiveRequest(
@@ -108,4 +66,67 @@ export function toReceiveRequest(
       scannedProductCode: entry.scannedProductCode || null,
     })),
   }
+}
+
+interface RemovableReceiptEntry {
+  readonly lineId: string
+  readonly lotId: string | null
+  readonly goodQuantity: number
+  readonly damagedQuantity: number
+  readonly missingQuantity: number
+}
+
+/**
+ * Bỏ một khai báo nhận: số lượng của nó được cộng sang khai báo còn lại của cùng dòng và lô, để tổng vẫn khớp
+ * số đã xuất và không để lại khai báo trống (không còn ô quét) sau khi bỏ.
+ */
+export function removeReceiptEntry<T extends RemovableReceiptEntry>(
+  entries: readonly T[],
+  index: number
+): T[] {
+  const removed = entries[index]
+  if (!removed) return [...entries]
+  const next = entries.filter((_, position) => position !== index)
+  const target = next.findIndex(
+    (entry) => entry.lineId === removed.lineId && entry.lotId === removed.lotId
+  )
+  const absorber = next[target]
+  if (!absorber) return next
+  next[target] = {
+    ...absorber,
+    goodQuantity: absorber.goodQuantity + removed.goodQuantity,
+    damagedQuantity: absorber.damagedQuantity + removed.damagedQuantity,
+    missingQuantity: absorber.missingQuantity + removed.missingQuantity,
+  }
+  return next
+}
+
+interface ScannableReceiptEntry {
+  readonly destinationSlotId: string
+  readonly scannedProductCode?: string
+  readonly goodQuantity: number
+  readonly damagedQuantity: number
+  readonly missingQuantity: number
+}
+
+export interface ReceiveScanTarget {
+  readonly index: number
+  readonly step: 'slot' | 'product'
+}
+
+/**
+ * Khai báo và bước quét kế tiếp mà camera dùng chung đang chờ: quét xong vị trí của mọi khai báo cần cất hàng
+ * rồi mới tới mã hàng. Khai báo chỉ có hàng thiếu không cần quét nên bị bỏ qua.
+ */
+export function nextReceiveScanTarget(
+  entries: readonly ScannableReceiptEntry[]
+): ReceiveScanTarget | null {
+  const needsScan = (entry: ScannableReceiptEntry) =>
+    entry.goodQuantity > 0 ||
+    entry.damagedQuantity > 0 ||
+    (entry.goodQuantity <= 0 && entry.damagedQuantity <= 0 && entry.missingQuantity <= 0)
+  const slotIndex = entries.findIndex((entry) => needsScan(entry) && !entry.destinationSlotId)
+  if (slotIndex >= 0) return { index: slotIndex, step: 'slot' }
+  const productIndex = entries.findIndex((entry) => needsScan(entry) && !entry.scannedProductCode)
+  return productIndex >= 0 ? { index: productIndex, step: 'product' } : null
 }

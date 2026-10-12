@@ -4,7 +4,7 @@ import { ChevronRight, LoaderCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,14 @@ export const BULK_IMPORT_ACTIVITY_LABELS = {
   importing: 'Đang nhập dữ liệu…',
   template: 'Đang tải mẫu…',
 } as const satisfies Record<BulkImportActivity, string>
+
+export function BulkImportMappingFields({ children }: { readonly children: ReactNode }) {
+  return (
+    <FieldGroup className="[container-type:normal] grid min-w-0 shrink-0 gap-3 sm:grid-cols-2">
+      {children}
+    </FieldGroup>
+  )
+}
 
 interface BulkImportWorkspaceProps {
   readonly header: ReactNode
@@ -38,7 +46,7 @@ export function BulkImportWorkspace({
     <div
       data-slot="bulk-import-workspace"
       className={cn(
-        'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 sm:pr-4 lg:pr-5 [@media(max-height:600px)]:min-h-176',
+        'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 overflow-y-auto pr-3 pb-3 sm:pr-4 sm:pb-4 lg:pr-5 lg:pb-5 [@media(max-height:600px)]:min-h-176',
         className
       )}
       aria-busy={activity !== 'idle'}

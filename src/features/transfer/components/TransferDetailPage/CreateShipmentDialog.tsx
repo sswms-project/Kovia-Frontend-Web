@@ -32,9 +32,14 @@ export function CreateShipmentDialog({
   const { fields } = useFieldArray({ control: form.control, name: 'lines' })
   const lines = form.watch('lines')
   const errors = form.formState.errors
+  const selected = lines.filter((line) => line.selected)
+  const hasInvalidQuantity = selected.some(
+    (line) => !Number.isFinite(line.quantity) || line.quantity <= 0 || line.quantity > line.maximum
+  )
+  const canSubmit = selected.length > 0 && !hasInvalidQuantity
   return (
     <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent size="lg" className="sm:max-w-2xl">
         <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Tạo đợt xuất</DialogTitle>
@@ -98,7 +103,12 @@ export function CreateShipmentDialog({
             >
               Đóng
             </Button>
-            <Button type="submit" disabled={isPending}>
+            {selected.length === 0 ? (
+              <p role="status" className="text-muted-foreground mr-auto self-center text-xs">
+                Chọn ít nhất một dòng hàng để tạo đợt xuất.
+              </p>
+            ) : null}
+            <Button type="submit" disabled={isPending || !canSubmit}>
               {isPending ? 'Đang tạo…' : 'Tạo đợt xuất'}
             </Button>
           </DialogFooter>

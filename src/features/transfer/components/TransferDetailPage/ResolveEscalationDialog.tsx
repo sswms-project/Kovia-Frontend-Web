@@ -1,3 +1,4 @@
+import { TriangleAlert } from 'lucide-react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
@@ -62,7 +63,7 @@ export function ResolveEscalationDialog({
   const selected = escalations.find((entry) => entry.exception.id === selectedExceptionId)
   return (
     <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent size="lg" className="sm:max-w-xl">
         <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>Xử lý báo cáo lấy hàng</DialogTitle>
@@ -92,11 +93,22 @@ export function ResolveEscalationDialog({
                         <span className="font-mono">{entry.line.sku}</span> ·{' '}
                         {entry.line.productName}
                       </span>
-                      <span className="text-muted-foreground block text-xs">
-                        {labelOf(PICK_REASON_LABELS, entry.exception.reasonCode)} ·{' '}
-                        {formatQuantity(entry.exception.quantity)} {entry.line.baseUnitName}
-                        {entry.exception.note ? ` · ${entry.exception.note}` : ''}
+                      <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="bg-warning-container text-on-warning-container inline-flex items-center gap-1.5 px-2 py-0.5 text-sm font-semibold">
+                          <TriangleAlert aria-hidden="true" className="size-4" />
+                          {labelOf(PICK_REASON_LABELS, entry.exception.reasonCode)}
+                        </span>
+                        <span className="text-sm font-medium tabular-nums">
+                          Số lượng: {formatQuantity(entry.exception.quantity)}{' '}
+                          {entry.line.baseUnitName}
+                        </span>
                       </span>
+                      {entry.exception.note ? (
+                        <span className="mt-1.5 block text-sm">
+                          <span className="text-muted-foreground">Nhân viên ghi: </span>
+                          {entry.exception.note}
+                        </span>
+                      ) : null}
                     </button>
                   </li>
                 ))}

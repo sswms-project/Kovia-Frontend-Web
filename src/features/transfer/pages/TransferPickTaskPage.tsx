@@ -17,7 +17,11 @@ import {
   ReturnPickDialog,
   TransferWorkHeader,
 } from '../components/TransferWork'
-import { TransferChangedBanner, TransferConfirmDialog } from '../components/TransferShared'
+import {
+  MissingPermissionNotice,
+  TransferChangedBanner,
+  TransferConfirmDialog,
+} from '../components/TransferShared'
 import { useTransferPickSheetQuery } from '../hooks/use-transfer-fulfillment'
 import { useTransferPickActions } from '../hooks/use-transfer-pick-actions'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
@@ -40,7 +44,8 @@ export default function TransferPickTaskPage({
   const actions = useTransferPickActions(transferId, shipmentId, sheet)
 
   const isPicking = sheet?.shipmentStatus === 'Picking'
-  const canAct = viewer.permissions.includes(P.TRANSFERS_PICK) && isPicking
+  const hasPickPermission = viewer.permissions.includes(P.TRANSFERS_PICK)
+  const canAct = hasPickPermission && isPicking
   const lines = sheet?.lines ?? []
   const blockers = {
     pendingManager: lines.filter((line) => line.status === 'PendingManager').length,
@@ -76,7 +81,7 @@ export default function TransferPickTaskPage({
         <TransferChangedBanner onReload={reload} onDismiss={realtime.dismiss} />
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div data-slot="transfer-scroll" className="min-h-0 flex-1 overflow-y-auto">
         {sheetQuery.isLoading ? (
           <OperationalLoadingState rows={3} />
         ) : sheetQuery.isError || !sheet ? (
@@ -91,7 +96,14 @@ export default function TransferPickTaskPage({
           />
         ) : (
           <div className="grid gap-3 pb-3">
-            {!isPicking ? (
+            {isPicking && !hasPickPermission ? (
+              <MissingPermissionNotice action="lấy hàng điều chuyển" />
+            ) : null}
+            {sheet?.shipmentStatus === 'ReadyToDispatch' ? (
+              <p className="text-muted-foreground text-sm" role="status">
+                Đã lấy xong và đang chờ xe rời kho. Quản lý kho sẽ xác nhận xuất kho.
+              </p>
+            ) : !isPicking ? (
               <p className="text-muted-foreground text-sm" role="status">
                 Đợt này không còn ở trạng thái lấy hàng nên chỉ xem được.
               </p>
@@ -120,17 +132,17 @@ export default function TransferPickTaskPage({
                 : ''}
               {blockers.missing > 0 ? `${blockers.missing} dòng chưa lấy đủ. ` : ''}
               {blockers.surplus > 0 ? `${blockers.surplus} dòng lấy dư cần trả về vị trí. ` : ''}
-              Hoàn tất các dòng trên để xuất đợt.
+              Hoàn tất các dòng trên để hoàn tất lấy hàng.
             </p>
           ) : null}
           <Button
             type="button"
             className="h-12 w-full text-base"
             disabled={!canDispatch}
-            onClick={actions.dispatch.open}
+            onClick={actions.complete.open}
           >
             <PackageCheck aria-hidden="true" />
-            Xác nhận xuất đợt
+            Hoàn tất lấy hàng
           </Button>
         </footer>
       ) : null}
@@ -179,20 +191,20 @@ export default function TransferPickTaskPage({
         onSubmit={(values) => void actions.returnPick.submit(values)}
       />
       <TransferConfirmDialog
-        open={actions.dispatch.isOpen}
-        title="Xác nhận xuất đợt?"
+        open={actions.complete.isOpen}
+        title="Hoàn tất lấy hàng?"
         description={
           <p>
-            Hệ thống sẽ trừ tồn kho xuất <strong>{formatQuantity(totalPicked)}</strong> đơn vị (ĐVT
-            chính) của {lines.length} dòng và chuyển đợt sang trạng thái đang vận chuyển. Thao tác
-            này không hoàn tác được.
+            Bạn đã lấy đủ <strong>{formatQuantity(totalPicked)}</strong> đơn vị (ĐVT chính) của{' '}
+            {lines.length} dòng. Hàng chuyển sang trạng thái chờ xuất; tồn kho chỉ bị trừ khi quản
+            lý xác nhận xe đã rời kho.
           </p>
         }
-        confirmLabel="Xuất đợt"
-        pendingLabel="Đang xuất…"
-        isPending={actions.dispatch.isPending}
-        onOpenChange={actions.dispatch.onOpenChange}
-        onConfirm={() => void actions.dispatch.confirm()}
+        confirmLabel="Hoàn tất lấy hàng"
+        pendingLabel="Đang xử lý…"
+        isPending={actions.complete.isPending}
+        onOpenChange={actions.complete.onOpenChange}
+        onConfirm={() => void actions.complete.confirm()}
       />
     </div>
   )

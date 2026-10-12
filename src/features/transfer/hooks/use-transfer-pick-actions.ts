@@ -29,7 +29,7 @@ import {
 } from '../utils/transfer-scan'
 import { useTransferActionRunner } from './use-transfer-action-runner'
 import {
-  useDispatchTransferShipmentMutation,
+  useCompleteTransferPickingMutation,
   useEscalateTransferPickMutation,
   useRecordTransferPickMutation,
   useReturnTransferPickMutation,
@@ -68,7 +68,7 @@ export function useTransferPickActions(
   const [escalateLine, setEscalateLine] = useState<TransferPickSheetLine | null>(null)
   const [returnLine, setReturnLine] = useState<TransferPickSheetLine | null>(null)
   const [returnScanError, setReturnScanError] = useState<string | null>(null)
-  const [isDispatchOpen, setIsDispatchOpen] = useState(false)
+  const [isCompleteOpen, setIsCompleteOpen] = useState(false)
   // Một mã cho mỗi lần mở hộp thoại: bấm lại khi mạng chậm gửi cùng mã nên BE không ghi hai lần.
   const commandIds = useRef({ pick: '', switch: '', escalate: '', return: '' })
 
@@ -97,7 +97,7 @@ export function useTransferPickActions(
   const switchMutation = useSwitchTransferPickMutation()
   const escalateMutation = useEscalateTransferPickMutation()
   const returnMutation = useReturnTransferPickMutation()
-  const dispatchMutation = useDispatchTransferShipmentMutation()
+  const completeMutation = useCompleteTransferPickingMutation()
 
   const suggestion = scan.suggestion
   const maximumQuantity =
@@ -330,24 +330,24 @@ export function useTransferPickActions(
         if (done) setReturnLine(null)
       },
     },
-    dispatch: {
-      isOpen: isDispatchOpen,
-      isPending: dispatchMutation.isPending,
-      open: () => setIsDispatchOpen(true),
-      onOpenChange: setIsDispatchOpen,
+    complete: {
+      isOpen: isCompleteOpen,
+      isPending: completeMutation.isPending,
+      open: () => setIsCompleteOpen(true),
+      onOpenChange: setIsCompleteOpen,
       confirm: async () => {
         if (!sheet?.version) return
         const done = await run(
           () =>
-            dispatchMutation.mutateAsync({
+            completeMutation.mutateAsync({
               transferId,
               shipmentId,
               request: { expectedVersion: sheet.version ?? '' },
             }),
-          'Đã xuất đợt khỏi kho; kho nhập sẽ nhận hàng.',
-          'Không thể xuất đợt.'
+          'Đã báo lấy xong; chờ quản lý xác nhận xe rời kho.',
+          'Không thể hoàn tất lấy hàng.'
         )
-        if (done) setIsDispatchOpen(false)
+        if (done) setIsCompleteOpen(false)
       },
     },
   }

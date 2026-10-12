@@ -1,14 +1,19 @@
-import { warehouseService } from '@/features/warehouse/services/warehouse.service'
 import { axiosClient } from '@/lib/axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
 import type {
+  AdjustTransferAllocationRequest,
+  TransferAllocationOption,
   AddTransferFeedbackRequest,
   CancelTransferRequest,
   CancelTransferShipmentRequest,
   CreateTransferShipmentRequest,
+  CompleteTransferPickingRequest,
   DispatchTransferShipmentRequest,
+  ReopenTransferPickingRequest,
+  SetTransferPutAwaySlotsRequest,
+  TransferPutAwayItemSuggestions,
   EscalateTransferPickRequest,
   ReceiveTransferShipmentRequest,
   RecordTransferPickRequest,
@@ -21,6 +26,12 @@ import type {
   SwitchTransferPickRequest,
   TransferAvailability,
   TransferAvailabilityQuery,
+  TransferReceivableSlotOption,
+  TransferReceivableSlotsQuery,
+  TransferSourceLocation,
+  TransferSourceLocationsQuery,
+  TransferSourceProduct,
+  TransferSourceProductsQuery,
   TransferDetail,
   TransferListQuery,
   TransferListResponse,
@@ -31,27 +42,21 @@ import type {
   TransferSourceWarehouseQuery,
   UpdateTransferRequest,
 } from '../types/transfer.types'
-import { findRackLevelSlot, findReceivableSlot } from '../utils/transfer-receive'
+import type { ReceivableSlot } from '../utils/transfer-receive'
 
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
 
 export const transferService = {
-  /** Tra vị trí cất hàng hợp lệ của kho theo mã vừa quét; null nếu không có vị trí khớp. */
-  findReceivableSlot: async (warehouseId: string, scannedCode: string) => {
-    const response = await warehouseService.getLocations(warehouseId, {
-      top: 20,
-      skip: 0,
-      needTotalCount: true,
-      type: 'Slot',
-      lifecycleStatus: 'Active',
-      searchText: scannedCode.trim(),
-    })
-    const slot = findReceivableSlot(scannedCode, response.data.items)
-    if (slot) return slot
-    // Không phải ô con: thử mã kệ của kệ quản lý ở mức kệ.
-    const layout = await warehouseService.getLayout(warehouseId)
-    return findRackLevelSlot(scannedCode, layout.data)
-  },
+  /**
+   * Tra vị trí cất hàng của kho nhận theo mã vừa quét; null nếu không có vị trí khớp. Server đối chiếu nhãn
+   * ghép khu, mã vạch riêng và mã ngắn, và từ chối (409) khi một mã ngắn trùng ở nhiều kệ.
+   */
+  findReceivableSlot: (warehouseId: string, scannedCode: string) =>
+    axiosClient
+      .get<ApiResponse<ReceivableSlot | null>>(API_ENDPOINTS.transfers.receivableSlot, {
+        params: { warehouseId, code: scannedCode.trim() },
+      })
+      .then((response) => response.data.data),
 
   getTransfers: (params: TransferListQuery) =>
     axiosClient
@@ -76,6 +81,32 @@ export const transferService = {
       .get<ApiResponse<QueryResult<WarehouseResponse>>>(API_ENDPOINTS.transfers.sourceWarehouses, {
         params,
       })
+      .then(unwrap),
+
+  getReceivableSlots: (params: TransferReceivableSlotsQuery) =>
+    axiosClient
+      .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.receivableSlots, {
+        params,
+      })
+      .then(unwrap),
+
+  getPutAwaySuggestions: (transferId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferPutAwayItemSuggestions[]>
+      >(API_ENDPOINTS.transfers.putAwaySuggestions(transferId))
+      .then(unwrap),
+
+  getSourceLocations: (params: TransferSourceLocationsQuery) =>
+    axiosClient
+      .get<ApiResponse<TransferSourceLocation[]>>(API_ENDPOINTS.transfers.sourceLocations, {
+        params,
+      })
+      .then(unwrap),
+
+  getSourceProducts: (params: TransferSourceProductsQuery) =>
+    axiosClient
+      .get<ApiResponse<TransferSourceProduct[]>>(API_ENDPOINTS.transfers.sourceProducts, { params })
       .then(unwrap),
 
   getAvailability: (query: TransferAvailabilityQuery) =>
@@ -158,6 +189,18 @@ export const transferService = {
       .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.picks(transferId, shipmentId), request)
       .then(unwrap),
 
+  getAllocationOptions: (transferId: string, itemId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferAllocationOption[]>
+      >(API_ENDPOINTS.transfers.allocationOptions(transferId, itemId))
+      .then(unwrap),
+
+  adjustAllocation: (transferId: string, request: AdjustTransferAllocationRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.adjustAllocation(transferId), request)
+      .then(unwrap),
+
   switchPick: (
     transferId: string,
     shipmentId: string,
@@ -200,6 +243,29 @@ export const transferService = {
       .post<
         ApiResponse<unknown>
       >(API_ENDPOINTS.transfers.returnPick(transferId, shipmentId), request)
+      .then(unwrap),
+
+  completePicking: (
+    transferId: string,
+    shipmentId: string,
+    request: CompleteTransferPickingRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.completePicking(transferId, shipmentId), request)
+      .then(unwrap),
+
+  setPutAwaySlots: (transferId: string, request: SetTransferPutAwaySlotsRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwaySlots(transferId), request)
+      .then(unwrap),
+
+  reopenPicking: (transferId: string, shipmentId: string, request: ReopenTransferPickingRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.reopenPicking(transferId, shipmentId), request)
       .then(unwrap),
 
   dispatchShipment: (

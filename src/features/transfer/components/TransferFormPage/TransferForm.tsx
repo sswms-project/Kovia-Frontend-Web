@@ -3,12 +3,14 @@ import type { FieldArrayWithId, UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
-import type { TransferAvailability } from '../../types/transfer.types'
+import type { TransferLineUnits } from '../../types/transfer.types'
 import {
   TransferGeneralSection,
   type TransferFormMode,
   type WarehouseSelectOption,
 } from './TransferGeneralSection'
+import { exceedsAvailability } from '../../utils/transfer-line-units'
+import { lineGridColumns } from './line-grid'
 import { TransferLineRow, type TransferLineLockInfo } from './TransferLineRow'
 import type { BusinessCodeFieldProps } from '@/components/forms/BusinessCodeField'
 
@@ -23,7 +25,20 @@ interface TransferFormProps {
   readonly warehousesLocked: boolean
   readonly productOptions: readonly LookupOption[]
   readonly knownProductOptions: Readonly<Record<string, LookupOption>>
-  readonly availabilityByProductId: Readonly<Record<string, TransferAvailability>>
+  readonly unitsByProductId: Readonly<Record<string, TransferLineUnits>>
+  readonly isUnitLoading: boolean
+  readonly isUnitError: boolean
+  /** Đã chọn đủ kho xuất và kho nhập, nên mới có số tồn để hiển thị. */
+  readonly hasWarehouses: boolean
+  readonly showSourceSlot: boolean
+  readonly sourceWarehouseId: string
+  readonly knownSourceSlots: Readonly<Record<string, LookupOption>>
+  readonly showDestinationSlot: boolean
+  readonly destinationSlotOptions: readonly LookupOption[]
+  readonly knownDestinationSlots: Readonly<Record<string, LookupOption>>
+  readonly isDestinationSlotLoading: boolean
+  readonly lockedDestinationItemIds: ReadonlySet<string>
+  readonly onDestinationSlotSearchChange: (value: string) => void
   readonly lockByItemId: Readonly<Record<string, TransferLineLockInfo>>
   readonly isProductSearchLoading: boolean
   readonly isSaving: boolean
@@ -51,7 +66,19 @@ export function TransferForm({
   warehousesLocked,
   productOptions,
   knownProductOptions,
-  availabilityByProductId,
+  unitsByProductId,
+  isUnitLoading,
+  isUnitError,
+  hasWarehouses,
+  showSourceSlot,
+  sourceWarehouseId,
+  knownSourceSlots,
+  showDestinationSlot,
+  destinationSlotOptions,
+  knownDestinationSlots,
+  isDestinationSlotLoading,
+  lockedDestinationItemIds,
+  onDestinationSlotSearchChange,
   lockByItemId,
   isProductSearchLoading,
   isSaving,
@@ -72,9 +99,15 @@ export function TransferForm({
   const errors = form.formState.errors
   const lines = form.watch('lines')
   const isEditingSubmitted = mode === 'edit'
+  const overAvailabilityCount = lines.filter(
+    (line) =>
+      !(isEditingSubmitted && line.itemId) &&
+      exceedsAvailability(line.quantity, line.unitId, unitsByProductId[line.productId])
+  ).length
 
   return (
     <form
+      data-slot="transfer-scroll"
       className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
       noValidate
       onSubmit={(event) => {
@@ -112,13 +145,17 @@ export function TransferForm({
             Thêm dòng
           </Button>
         </div>
-        <div className="text-muted-foreground bg-muted hidden gap-3 border-b px-3 py-2 text-xs font-medium lg:grid lg:grid-cols-[28px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_32px]">
+        <div
+          className={`text-muted-foreground bg-muted hidden gap-3 border-b px-3 py-2 text-xs font-medium lg:grid ${lineGridColumns(showSourceSlot, showDestinationSlot)}`}
+        >
           <span>#</span>
           <span>Sản phẩm</span>
           <span>ĐVT</span>
           <span>Số lượng</span>
           <span>SL theo ĐVT chính</span>
           <span>Tồn khả dụng kho xuất</span>
+          {showSourceSlot ? <span>Vị trí đi</span> : null}
+          {showDestinationSlot ? <span>Vị trí đến</span> : null}
           <span />
         </div>
         {errors.lines?.message || errors.lines?.root?.message ? (
@@ -138,7 +175,20 @@ export function TransferForm({
                 index={index}
                 lineCount={fields.length}
                 form={form}
-                availability={availabilityByProductId[productId]}
+                unitInfo={unitsByProductId[productId]}
+                isUnitLoading={isUnitLoading}
+                isUnitError={isUnitError}
+                hasWarehouses={hasWarehouses}
+                showSourceSlot={showSourceSlot}
+                sourceWarehouseId={sourceWarehouseId}
+                selectedSourceSlot={knownSourceSlots[line?.sourceSlotId ?? '']}
+                isSourceSlotLocked={isEditingSubmitted && Boolean(itemId)}
+                showDestinationSlot={showDestinationSlot}
+                destinationSlotOptions={destinationSlotOptions}
+                selectedDestinationSlot={knownDestinationSlots[line?.destinationSlotId ?? '']}
+                isDestinationSlotLoading={isDestinationSlotLoading}
+                isDestinationSlotLocked={Boolean(itemId && lockedDestinationItemIds.has(itemId))}
+                onDestinationSlotSearchChange={onDestinationSlotSearchChange}
                 selectedOption={knownProductOptions[productId]}
                 options={productOptions}
                 isProductSearchLoading={isProductSearchLoading}
@@ -162,7 +212,12 @@ export function TransferForm({
             Lưu nháp
           </Button>
         ) : null}
-        <Button type="submit" disabled={isSaving}>
+        {overAvailabilityCount > 0 ? (
+          <p role="status" className="text-warning mr-auto self-center text-xs">
+            {overAvailabilityCount} dòng vượt tồn khả dụng của kho xuất.
+          </p>
+        ) : null}
+        <Button type="submit" disabled={isSaving || overAvailabilityCount > 0}>
           {isSaving ? 'Đang lưu…' : mode === 'edit' ? 'Lưu thay đổi' : 'Tạo yêu cầu'}
         </Button>
       </div>

@@ -78,7 +78,7 @@ describe('TransferGeneralSection', () => {
   it('keeps the code fixed once the request has been sent and hides the kind picker', () => {
     render(<Harness mode="edit" defaults={{ transferCode: 'PDC000007' }} />)
 
-    expect(screen.getByLabelText('Số phiếu điều chuyển')).toBeDisabled()
+    expect(screen.getByLabelText('Mã yêu cầu điều chuyển')).toBeDisabled()
     expect(screen.queryByRole('radio')).not.toBeInTheDocument()
   })
 })

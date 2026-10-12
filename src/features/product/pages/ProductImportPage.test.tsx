@@ -632,7 +632,9 @@ describe('product import workflow', () => {
       new File(['x'], 'hang.csv')
     )
     await screen.findByLabelText('sku *')
-    expect(screen.queryByLabelText('Trang tính hàng hóa')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Trang tính hàng hóa')).toHaveValue('1')
+    expect(screen.getByLabelText('Trang tính hàng hóa')).toBeDisabled()
+    expect(screen.getByText(/Tệp CSV chỉ có bảng hàng hóa/)).toBeVisible()
     expect(screen.queryByLabelText('Trang tính quy đổi (tùy chọn)')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Dòng tiêu đề — Hàng hóa')).toHaveValue(1)
     expect(screen.getByRole('button', { name: 'Kiểm tra dữ liệu' })).toBeDisabled()
@@ -677,12 +679,55 @@ describe('product import workflow', () => {
     renderPage()
     await openReview()
     expect(screen.getByRole('checkbox', { name: 'Chọn dòng 3' })).toHaveAccessibleDescription(
-      /Không thể chọn dòng có lỗi/
+      /Không tìm thấy đơn vị/
     )
+    expect(screen.queryByText(/0 cảnh báo/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/0 lưu ý/)).not.toBeInTheDocument()
+    expect(screen.getByText('Trang “Hàng hóa”, dòng 3: Không tìm thấy đơn vị.')).toBeVisible()
     await userEvent.click(screen.getAllByText('1 đơn vị quy đổi')[0]!)
     expect(screen.getAllByText('1 THUNG — Thùng = 24 LON — Lon')[0]).toBeVisible()
     expect(screen.getAllByText('LON — Lon')[0]).toBeVisible()
     expect(screen.getAllByText('DU — Đồ uống')[0]).toBeVisible()
+  })
+  it('marks product cells and keeps hidden-field and conversion errors available in the common result', async () => {
+    const conversionIssue = {
+      ...issue,
+      field: 'conversionFactor',
+      message: 'Hệ số phải lớn hơn 0.',
+      source: { sheetName: 'Quy đổi', rowNumber: 8, columnIndex: 2 },
+    }
+    vi.mocked(productImportService.preview).mockResolvedValueOnce({
+      ...previewData,
+      rows: [
+        {
+          ...invalid,
+          errors: [issue, { ...issue, field: 'description', message: 'Mô tả quá dài.' }],
+          unitConversions: [{ ...row.unitConversions[0]!, errors: [conversionIssue] }],
+        },
+      ],
+    })
+    renderPage()
+    await userEvent.upload(
+      screen.getByLabelText('Tệp vật tư hàng hóa'),
+      new File(['data'], 'hang.xlsx')
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Kiểm tra dữ liệu' }))
+    await screen.findByRole('checkbox', { name: 'Chọn dòng 3' })
+    expect(
+      screen
+        .getAllByRole('columnheader')
+        .slice(1, 5)
+        .map((header) => header.textContent)
+    ).toEqual(['Dòng nguồn', 'Kết quả', 'Mã hàng', 'Tên hàng'])
+    expect(screen.getByText('Không tìm thấy đơn vị.').closest('td')).toHaveClass('bg-destructive/5')
+    expect(screen.queryByRole('columnheader', { name: 'Mô tả' })).not.toBeInTheDocument()
+    // Lỗi của cột đang ẩn và của dòng quy đổi không có ô nào hiển thị nên luôn hiện đủ ở cột Kết quả.
+    expect(screen.getByText('Trang “Hàng hóa”, dòng 3: Mô tả quá dài.')).toBeVisible()
+    expect(screen.getByText('Trang “Quy đổi”, dòng 8: Hệ số phải lớn hơn 0.')).toBeVisible()
+    expect(screen.getByText('Xem chi tiết (1 thông báo khác)')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Mở rộng thông tin bổ sung · 1 lỗi' }))
+    expect(screen.getByText('Mô tả quá dài.').closest('td')).toHaveClass('bg-destructive/5')
+    expect(screen.getByRole('checkbox', { name: 'Chọn dòng 3' })).toBeDisabled()
   })
   it('resets result pagination and retains the shared table footer', async () => {
     vi.mocked(productImportService.preview).mockResolvedValueOnce({

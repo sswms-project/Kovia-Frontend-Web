@@ -21,6 +21,10 @@ export interface TransferGoodsRow {
   readonly stopped: number
   readonly unbatched: number
   readonly discrepancy: TransferDiscrepancyState
+  /** "Khu / Kệ / Ô" gợi ý ở kho nhập; null khi chưa chọn hoặc người xem không thuộc kho nhập. */
+  readonly destinationSlot: string | null
+  /** Nơi hàng được giữ chỗ để lấy; null khi người xem không thuộc kho xuất. */
+  readonly allocations: readonly string[] | null
 }
 
 export function transferGoodsRows(detail: TransferDetail | undefined | null): TransferGoodsRow[] {
@@ -52,6 +56,13 @@ export function transferGoodsRows(detail: TransferDetail | undefined | null): Tr
       unbatched: item.unbatchedQuantity,
       discrepancy:
         related.length === 0 ? 'none' : related.some((entry) => entry.isOpen) ? 'open' : 'resolved',
+      destinationSlot: item.destinationSlotPath ?? item.destinationSlotCode ?? null,
+      allocations: item.allocations
+        ? item.allocations.map(
+            (allocation) =>
+              `${allocation.location}${allocation.lotNumber ? ` · lô ${allocation.lotNumber}` : ''}: ${formatQuantity(allocation.quantity)}`
+          )
+        : null,
     }
   })
 }

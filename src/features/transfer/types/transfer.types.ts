@@ -23,6 +23,7 @@ export type TransferReceiveProgress = 'NotReceived' | 'PartiallyReceived' | 'Rec
 
 export type TransferShipmentStatus =
   | 'Picking'
+  | 'ReadyToDispatch'
   | 'InTransit'
   | 'Receiving'
   | 'Received'
@@ -102,6 +103,22 @@ export interface TransferAvailabilityQuery {
   productIds: string[]
 }
 
+export interface TransferSourceProductsQuery {
+  sourceWarehouseId: string
+  destinationWarehouseId: string
+  searchTerm?: string
+  pageSize?: number
+}
+
+/** Sản phẩm còn tồn khả dụng ở kho xuất (theo ĐVT chính). */
+export interface TransferSourceProduct {
+  productId: string
+  sku: string
+  productName: string
+  baseUnitName: string
+  availableQuantity: number
+}
+
 export interface TransferSummary {
   id: string
   transferCode: string
@@ -171,6 +188,61 @@ export interface TransferItem {
   resolvedMissingQuantity: number
   stoppedQuantity: number
   unbatchedQuantity: number
+  /** Chỉ người kho xuất (hoặc chủ) nhận được; BE bỏ trống với người chỉ thuộc kho nhập. */
+  allocations?: TransferAllocation[] | null
+  /** "Khu K01 / Kệ A07 / S-01"; BE bỏ trống với người chỉ thuộc kho xuất. */
+  destinationSlotPath?: string | null
+  /** Vị trí lấy hàng ưu tiên do chủ/quản lý kho xuất chọn; BE bỏ trống với người chỉ thuộc kho nhập. */
+  sourceSlotPath?: string | null
+}
+
+/** Hàng của một dòng phiếu đang được giữ chỗ ở đâu (vị trí lấy do hệ thống phân bổ). */
+export interface TransferAllocation {
+  inventoryStockId: string
+  location: string
+  lotNumber: string | null
+  expiryDate: string | null
+  quantity: number
+}
+
+/** Vị trí của kho xuất đang có tồn khả dụng của một sản phẩm. */
+export interface TransferSourceLocation {
+  slotId: string
+  code: string
+  path: string
+  availableQuantity: number
+  earliestExpiry: string | null
+}
+
+export interface TransferSourceLocationsQuery {
+  sourceWarehouseId: string
+  productId: string
+}
+
+export interface TransferPutAwaySlotSuggestion {
+  slotId: string
+  path: string
+  reason: string
+  /** Số lượng còn nhận được (đơn vị chính); null khi vị trí không giới hạn sức chứa. */
+  available: number | null
+  warnings: string[]
+}
+
+export interface TransferPutAwayItemSuggestions {
+  itemId: string
+  suggestions: TransferPutAwaySlotSuggestion[]
+}
+
+export interface TransferReceivableSlotOption {
+  id: string
+  code: string
+  path: string
+}
+
+export interface TransferReceivableSlotsQuery {
+  warehouseId: string
+  search?: string
+  top?: number
 }
 
 export interface TransferShipmentLine {
@@ -207,6 +279,8 @@ export interface TransferShipment {
   lines: TransferShipmentLine[]
   pickTaskVersion: string | null
   receiveTaskVersion: string | null
+  pickAssigneeName?: string | null
+  receiveAssigneeName?: string | null
 }
 
 export interface TransferDiscrepancy {
@@ -296,11 +370,33 @@ export interface TransferAvailability {
   units: TransferAvailabilityUnit[]
 }
 
+/** Một đơn vị chọn được trên dòng hàng; tồn chỉ có khi đã chọn kho xuất. */
+export interface TransferLineUnitOption {
+  unitId: string
+  unitName: string
+  /** Số đơn vị chính trong 1 đơn vị này (đơn vị chính luôn là 1). */
+  conversionFactor: number
+  quantityPrecision: number
+  isBase: boolean
+  availableQuantity?: number
+}
+
+export interface TransferLineUnits {
+  productId: string
+  baseUnitId: string
+  baseUnitName: string
+  units: TransferLineUnitOption[]
+}
+
 export interface TransferLineInput {
   itemId: string | null
   productId: string
   unitId: string | null
   quantity: number
+  /** Vị trí cất hàng gợi ý ở kho nhập (tùy chọn). */
+  destinationSlotId?: string | null
+  /** Vị trí lấy hàng ưu tiên ở kho xuất (tùy chọn); chỉ chủ và quản lý kho xuất đặt được. */
+  sourceSlotId?: string | null
 }
 
 export interface SaveTransferDraftRequest {
@@ -399,6 +495,48 @@ export interface ReturnTransferPickRequest {
   scannedSlotCode: string
 }
 
+export interface CompleteTransferPickingRequest {
+  expectedVersion: string
+}
+
+/** Một vị trí/lô ở kho xuất mà dòng phiếu đang giữ chỗ hoặc có thể chuyển sang. */
+export interface TransferAllocationOption {
+  inventoryStockId: string
+  location: string
+  lotNumber: string | null
+  expiryDate: string | null
+  /** Tồn khả dụng cho người khác (chưa tính phần dòng này đang giữ). */
+  availableQuantity: number
+  /** Dòng này đang giữ chỗ bao nhiêu ở đây. */
+  reservedForItem: number
+  /** Phần giữ chỗ chưa bị lấy ra, chuyển đi được. */
+  movableQuantity: number
+}
+
+export interface TransferAllocationMove {
+  itemId: string
+  fromInventoryStockId: string
+  toInventoryStockId: string
+  quantity: number
+}
+
+export interface AdjustTransferAllocationRequest {
+  expectedVersion: string
+  moves: TransferAllocationMove[]
+  reason: string | null
+  commandId: string
+}
+
+export interface SetTransferPutAwaySlotsRequest {
+  expectedVersion: string
+  slots: { itemId: string; destinationSlotId: string | null }[]
+}
+
+export interface ReopenTransferPickingRequest {
+  expectedVersion: string
+  reason: string
+}
+
 export interface DispatchTransferShipmentRequest {
   expectedVersion: string
 }
@@ -442,6 +580,8 @@ export interface TransferPickSuggestion {
   reservedQuantity: number
   rackCode: string | null
   isSystemDefaultSlot: boolean
+  rackId?: string | null
+  zoneCode?: string | null
 }
 
 export interface TransferPickAlternative {
@@ -455,6 +595,8 @@ export interface TransferPickAlternative {
   availableQuantity: number
   rackCode: string | null
   isSystemDefaultSlot: boolean
+  rackId?: string | null
+  zoneCode?: string | null
 }
 
 export interface TransferPickDetail {
@@ -469,6 +611,8 @@ export interface TransferPickDetail {
   pickedAt: string
   rackCode: string | null
   isSystemDefaultSlot: boolean
+  rackId?: string | null
+  zoneCode?: string | null
 }
 
 export interface TransferPickException {
@@ -537,6 +681,7 @@ export interface TransferReceiveSheetLine {
   suggestedSlotCode: string | null
   suggestedRackCode: string | null
   suggestedIsSystemDefaultSlot: boolean
+  suggestedZoneCode?: string | null
   lots: TransferReceiveSheetLot[]
 }
 

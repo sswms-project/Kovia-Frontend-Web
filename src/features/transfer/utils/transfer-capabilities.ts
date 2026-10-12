@@ -3,6 +3,7 @@ import type {
   TransferDetail,
   TransferDiscrepancy,
   TransferFeedback,
+  TransferItem,
   TransferShipment,
 } from '../types/transfer.types'
 
@@ -11,6 +12,14 @@ export interface TransferViewer {
   readonly currentUserId: string | null
   /** Chủ doanh nghiệp được sửa/hủy mọi phiếu; người khác chỉ phiếu do mình tạo (BE kiểm lại). */
   readonly isTenantOwner: boolean
+  /** Kho người xem được gán; bỏ trống nghĩa là không giới hạn theo kho (BE vẫn kiểm lại). */
+  readonly warehouseIds?: readonly string[]
+}
+
+/** Kho của phiếu: kho xuất giao việc lấy hàng, kho nhập giao việc nhận hàng. */
+export interface TransferWarehouses {
+  readonly sourceWarehouseId: string
+  readonly destinationWarehouseId: string
 }
 
 export type TransferClosingAction = 'cancel' | 'stop' | null
@@ -22,6 +31,10 @@ export interface TransferCapabilities {
   readonly canReplyFeedback: boolean
   readonly canCreateShipment: boolean
   readonly canResolveDiscrepancy: boolean
+  /** Chủ và quản lý kho xuất đổi nơi lấy hàng của các dòng đang giữ chỗ. */
+  readonly canAdjustAllocation: boolean
+  /** Quản lý kho nhập (và chủ) chọn vị trí cất hàng cho các dòng chưa bắt đầu nhận. */
+  readonly canSetPutAwaySlots: boolean
   /** UI chỉ hiện một nút: Hủy phiếu khi chưa xuất đợt nào, Dừng phần còn lại khi đã xuất. */
   readonly closingAction: TransferClosingAction
 }
@@ -29,8 +42,15 @@ export interface TransferCapabilities {
 export interface ShipmentCapabilities {
   readonly canCancel: boolean
   readonly canOpenPick: boolean
+  /** Quản lý kho xuất xác nhận xe đã rời kho (trừ tồn). */
+  readonly canConfirmDeparture: boolean
+  /** Quản lý mở lại lấy hàng khi đợt đang chờ xuất. */
+  readonly canReopenPicking: boolean
   readonly canOpenReceive: boolean
-  readonly canAssignTask: boolean
+  /** Quản lý kho xuất giao việc lấy hàng. */
+  readonly canAssignPick: boolean
+  /** Quản lý kho nhập giao việc nhận hàng. */
+  readonly canAssignReceive: boolean
   readonly canResolveEscalation: boolean
 }
 
@@ -41,11 +61,23 @@ const NONE: TransferCapabilities = {
   canReplyFeedback: false,
   canCreateShipment: false,
   canResolveDiscrepancy: false,
+  canAdjustAllocation: false,
+  canSetPutAwaySlots: false,
   closingAction: null,
 }
 
 function has(viewer: TransferViewer, permission: string) {
   return viewer.permissions.includes(permission)
+}
+
+/** Người xem thuộc kho này (chủ doanh nghiệp, hoặc kho nằm trong danh sách được phân công). */
+export function canSeeWarehouse(viewer: TransferViewer, warehouseId: string | undefined) {
+  return manages(viewer, warehouseId)
+}
+
+function manages(viewer: TransferViewer, warehouseId: string | undefined) {
+  if (viewer.isTenantOwner || !viewer.warehouseIds || !warehouseId) return true
+  return viewer.warehouseIds.includes(warehouseId)
 }
 
 export function hasDispatchedAny(transfer: Pick<TransferDetail, 'items'>) {
@@ -101,30 +133,78 @@ export function getTransferCapabilities(
     canEditDraft: canCreate && isOwnDraft,
     canEdit: canCreate && mayChange && isInProgress,
     canGiveFeedback:
-      isOpen && (has(viewer, P.TRANSFERS_DISPATCH) || has(viewer, P.TRANSFERS_RECEIVE)),
+      isOpen &&
+      ((has(viewer, P.TRANSFERS_DISPATCH) && manages(viewer, transfer.sourceWarehouseId)) ||
+        (has(viewer, P.TRANSFERS_RECEIVE) && manages(viewer, transfer.destinationWarehouseId))),
     canReplyFeedback: canCreate && isOpen && hasOpenFeedback(transfer.feedbacks),
     canCreateShipment:
-      has(viewer, P.TRANSFERS_DISPATCH) && isInProgress && unbatchedQuantity(transfer) > 0,
+      has(viewer, P.TRANSFERS_DISPATCH) &&
+      manages(viewer, transfer.sourceWarehouseId) &&
+      isInProgress &&
+      unbatchedQuantity(transfer) > 0,
     canResolveDiscrepancy:
-      has(viewer, P.TRANSFERS_RESOLVE) && openDiscrepancies(transfer.discrepancies).length > 0,
+      has(viewer, P.TRANSFERS_RESOLVE) &&
+      manages(viewer, transfer.destinationWarehouseId) &&
+      openDiscrepancies(transfer.discrepancies).length > 0,
+    canAdjustAllocation:
+      has(viewer, P.TRANSFERS_DISPATCH) &&
+      manages(viewer, transfer.sourceWarehouseId) &&
+      isInProgress &&
+      transfer.items.some((item) => (item.allocations ?? []).length > 0),
+    canSetPutAwaySlots:
+      has(viewer, P.TRANSFERS_RECEIVE) &&
+      manages(viewer, transfer.destinationWarehouseId) &&
+      isInProgress &&
+      transfer.items.some(canChoosePutAwaySlot),
     closingAction,
   }
 }
 
+/** Dòng chưa có khai báo nhận mới đổi được vị trí cất hàng (cùng quy tắc khóa với BE). */
+export function canChoosePutAwaySlot(item: TransferItem) {
+  return item.receivedQuantity === 0 && item.damagedQuantity === 0 && item.missingQuantity === 0
+}
+
 export function getShipmentCapabilities(
   viewer: TransferViewer,
-  shipment: Pick<TransferShipment, 'status' | 'lines'>
+  shipment: Pick<TransferShipment, 'status' | 'lines'>,
+  warehouses?: TransferWarehouses
 ): ShipmentCapabilities {
   const isPicking = shipment.status === 'Picking'
+  const isReady = shipment.status === 'ReadyToDispatch'
   const isReceivable = shipment.status === 'InTransit' || shipment.status === 'Receiving'
   return {
-    canCancel: has(viewer, P.TRANSFERS_DISPATCH) && isPicking,
-    canOpenPick: has(viewer, P.TRANSFERS_PICK) && isPicking,
-    canOpenReceive: has(viewer, P.TRANSFERS_RECEIVE) && isReceivable,
-    canAssignTask: has(viewer, P.WAREHOUSE_TASKS_ASSIGN) && (isPicking || isReceivable),
+    canCancel:
+      has(viewer, P.TRANSFERS_DISPATCH) &&
+      isPicking &&
+      manages(viewer, warehouses?.sourceWarehouseId),
+    canOpenPick:
+      has(viewer, P.TRANSFERS_PICK) && isPicking && manages(viewer, warehouses?.sourceWarehouseId),
+    canConfirmDeparture:
+      has(viewer, P.TRANSFERS_DISPATCH) &&
+      isReady &&
+      manages(viewer, warehouses?.sourceWarehouseId),
+    canReopenPicking:
+      has(viewer, P.TRANSFERS_DISPATCH) &&
+      isReady &&
+      manages(viewer, warehouses?.sourceWarehouseId),
+    // Nhận hàng là việc của kho nhập: người của kho xuất không mở được dù có quyền nhận.
+    canOpenReceive:
+      has(viewer, P.TRANSFERS_RECEIVE) &&
+      isReceivable &&
+      manages(viewer, warehouses?.destinationWarehouseId),
+    canAssignPick:
+      has(viewer, P.WAREHOUSE_TASKS_ASSIGN) &&
+      isPicking &&
+      manages(viewer, warehouses?.sourceWarehouseId),
+    canAssignReceive:
+      has(viewer, P.WAREHOUSE_TASKS_ASSIGN) &&
+      isReceivable &&
+      manages(viewer, warehouses?.destinationWarehouseId),
     canResolveEscalation:
       has(viewer, P.TRANSFERS_DISPATCH) &&
       isPicking &&
+      manages(viewer, warehouses?.sourceWarehouseId) &&
       shipment.lines.some((line) => line.status === 'PendingManager'),
   }
 }

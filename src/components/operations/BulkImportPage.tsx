@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { BulkImportFieldCell, BulkImportRowResult } from './BulkImportFeedback'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -542,7 +543,7 @@ export function BulkImportPage<TRow extends BulkImportRow>({
           ) : null}
 
           <OperationalListPanel
-            className="max-sm:min-h-128 max-sm:shrink-0"
+            className="flex-none shrink-0 [&>[data-slot=table-container]]:flex-none [&>[data-slot=table-container]]:overflow-x-auto [&>[data-slot=table-container]]:overflow-y-hidden"
             aria-label="Bản xem trước nhập dữ liệu"
           >
             <BulkImportReviewHeader
@@ -621,12 +622,12 @@ export function BulkImportPage<TRow extends BulkImportRow>({
                     />
                   </TableHead>
                   <TableHead className="w-16">Dòng</TableHead>
+                  <TableHead>Kết quả</TableHead>
                   {visibleColumns.map((column) => (
                     <TableHead key={column.key} className={column.headClassName}>
                       {column.header}
                     </TableHead>
                   ))}
-                  <TableHead>Kết quả</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -658,43 +659,37 @@ export function BulkImportPage<TRow extends BulkImportRow>({
                           />
                         </TableCell>
                         <TableCell className="tabular-nums">{row.rowNumber}</TableCell>
+                        <TableCell
+                          className="max-w-80 min-w-56"
+                          id={`party-import-errors-${row.rowNumber}`}
+                        >
+                          <BulkImportRowResult
+                            errors={row.errors}
+                            valid={isValid}
+                            pinned={row.errors.filter(
+                              (message) =>
+                                !visibleColumns.some((column) =>
+                                  row.fieldErrors?.[column.key]?.includes(message)
+                                )
+                            )}
+                          />
+                        </TableCell>
                         {visibleColumns.map((column) => {
                           const errors = row.fieldErrors?.[column.key] ?? []
                           return (
-                            <TableCell
+                            <BulkImportFieldCell
                               key={column.key}
+                              errors={errors}
                               className={cn(
                                 column.cellClassName,
                                 column.isSupplementary &&
-                                  'animate-in fade-in-0 animation-duration-150 motion-reduce:animate-none',
-                                errors.length > 0 && 'bg-destructive/5'
+                                  'animate-in fade-in-0 animation-duration-150 motion-reduce:animate-none'
                               )}
                             >
                               {column.render(row)}
-                              {errors.map((message) => (
-                                <p
-                                  key={message}
-                                  className="text-destructive mt-1 max-w-64 text-xs wrap-anywhere whitespace-normal"
-                                >
-                                  {message}
-                                </p>
-                              ))}
-                            </TableCell>
+                            </BulkImportFieldCell>
                           )
                         })}
-                        <TableCell
-                          className="max-w-96 min-w-56 break-words whitespace-normal"
-                          id={`party-import-errors-${row.rowNumber}`}
-                        >
-                          <Badge variant={isValid ? 'default' : 'destructive'}>
-                            {isValid ? 'Hợp lệ' : 'Không hợp lệ'}
-                          </Badge>
-                          {row.errors.map((message) => (
-                            <p key={message} className="text-muted-foreground mt-1 text-xs">
-                              {message}
-                            </p>
-                          ))}
-                        </TableCell>
                       </TableRow>
                     )
                   })

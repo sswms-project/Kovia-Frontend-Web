@@ -53,6 +53,7 @@ export const RECEIVE_PROGRESS_LABELS: Record<TransferReceiveProgress, string> = 
 
 export const SHIPMENT_STATUS_LABELS: Record<TransferShipmentStatus, string> = {
   Picking: 'Đang lấy hàng',
+  ReadyToDispatch: 'Chờ xuất kho',
   InTransit: 'Đang vận chuyển',
   Receiving: 'Đang nhận hàng',
   Received: 'Đã nhận',

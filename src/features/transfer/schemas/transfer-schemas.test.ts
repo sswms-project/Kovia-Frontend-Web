@@ -28,7 +28,16 @@ const validRequest = {
   reason: '',
   requiredBy: '',
   note: '',
-  lines: [{ itemId: null, productId: PRODUCT_A, unitId: '', quantity: 5 }],
+  lines: [
+    {
+      itemId: null,
+      productId: PRODUCT_A,
+      unitId: '',
+      destinationSlotId: '',
+      sourceSlotId: '',
+      quantity: 5,
+    },
+  ],
 }
 
 function issuePaths(result: { success: boolean; error?: { issues: { path: PropertyKey[] }[] } }) {
@@ -94,6 +103,8 @@ describe('transferRequestSchema', () => {
       itemId: null,
       productId: `30000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
       unitId: '',
+      destinationSlotId: '',
+      sourceSlotId: '',
       quantity: 1,
     }))
     expect(transferRequestSchema.safeParse({ ...validRequest, lines: tooMany }).success).toBe(false)
@@ -103,7 +114,16 @@ describe('transferRequestSchema', () => {
     const schema = transferRequestSchemaWithLocks(new Map([[ITEM_A, { minimum: 4 }]]))
     const edited = {
       ...validRequest,
-      lines: [{ itemId: ITEM_A, productId: PRODUCT_A, unitId: '', quantity: 3 }],
+      lines: [
+        {
+          itemId: ITEM_A,
+          productId: PRODUCT_A,
+          unitId: '',
+          destinationSlotId: '',
+          sourceSlotId: '',
+          quantity: 3,
+        },
+      ],
     }
     expect(issuePaths(schema.safeParse(edited))).toContain('lines.0.quantity')
     expect(
@@ -111,7 +131,16 @@ describe('transferRequestSchema', () => {
     ).toBe(true)
     const added = {
       ...edited,
-      lines: [{ itemId: null, productId: PRODUCT_B, unitId: '', quantity: 1 }],
+      lines: [
+        {
+          itemId: null,
+          productId: PRODUCT_B,
+          unitId: '',
+          destinationSlotId: '',
+          sourceSlotId: '',
+          quantity: 1,
+        },
+      ],
     }
     expect(schema.safeParse(added).success).toBe(true)
   })

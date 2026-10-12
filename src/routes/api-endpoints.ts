@@ -364,6 +364,10 @@ export const API_ENDPOINTS = {
     list: '/transfers',
     create: '/transfers',
     sourceWarehouses: '/transfers/source-warehouses',
+    sourceProducts: '/transfers/source-products',
+    receivableSlot: '/transfers/receivable-slot',
+    receivableSlots: '/transfers/receivable-slots',
+    sourceLocations: '/transfers/source-locations',
     nextCode: '/transfers/next-code',
     requesterOptions: '/transfers/requester-options',
     availability: '/transfers/availability',
@@ -372,6 +376,9 @@ export const API_ENDPOINTS = {
     submitDraft: (transferId: string) => `/transfers/drafts/${transferId}/submit`,
     detail: (transferId: string) => `/transfers/${transferId}`,
     update: (transferId: string) => `/transfers/${transferId}`,
+    allocationOptions: (transferId: string, itemId: string) =>
+      `/transfers/${transferId}/items/${itemId}/allocation-options`,
+    adjustAllocation: (transferId: string) => `/transfers/${transferId}/allocation`,
     cancel: (transferId: string) => `/transfers/${transferId}/cancel`,
     stopRemaining: (transferId: string) => `/transfers/${transferId}/stop-remaining`,
     feedback: (transferId: string) => `/transfers/${transferId}/feedback`,
@@ -399,6 +406,12 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/shipments/${shipmentId}/lines/${lineId}/escalations/${exceptionId}/resolve`,
     returnPick: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/returns`,
+    completePicking: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/complete-picking`,
+    setPutAwaySlots: (transferId: string) => `/transfers/${transferId}/putaway-slots`,
+    putAwaySuggestions: (transferId: string) => `/transfers/${transferId}/putaway-suggestions`,
+    reopenPicking: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/reopen-picking`,
     dispatchShipment: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/dispatch`,
     receiveSheet: (transferId: string, shipmentId: string) =>

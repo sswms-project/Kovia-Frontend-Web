@@ -1,4 +1,4 @@
-import { getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error'
+import { getApiErrorMessage, isApiErrorResponse, logApiError } from '@/lib/api-error'
 
 export type TransferErrorKind = 'conflict' | 'unknown-result' | 'rejected'
 
@@ -40,3 +40,6 @@ export function describeTransferError(error: unknown, fallback: string): Transfe
   }
   return { kind: 'rejected', message: getApiErrorMessage(error, fallback) }
 }
+
+/** Ghi log lỗi của lệnh điều chuyển theo cùng quy tắc lỗi 4xx của mọi lệnh ghi. */
+export const logTransferError = logApiError

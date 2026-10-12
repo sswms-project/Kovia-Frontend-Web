@@ -12,9 +12,17 @@ export function useTransferViewer(): { viewer: TransferViewer; isReady: boolean 
   const isTenantOwner = useAuthStore((state) => state.user?.role === USER_ROLES.TenantOwner)
   const permissions = meQuery.data?.permissions
   const currentUserId = meQuery.data?.id ?? null
+  const assignedWarehouses = meQuery.data?.assignedWarehouses
   const viewer = useMemo<TransferViewer>(
-    () => ({ permissions: permissions ?? [], currentUserId, isTenantOwner }),
-    [permissions, currentUserId, isTenantOwner]
+    () => ({
+      permissions: permissions ?? [],
+      currentUserId,
+      isTenantOwner,
+      warehouseIds: isTenantOwner
+        ? undefined
+        : assignedWarehouses?.map((warehouse) => warehouse.id),
+    }),
+    [permissions, currentUserId, isTenantOwner, assignedWarehouses]
   )
   return { viewer, isReady: Boolean(meQuery.data) }
 }

@@ -31,6 +31,8 @@ interface ScanInputProps {
   /** Chuyển con trỏ vào ô khi giá trị này chuyển sang true: máy quét gõ thẳng vào ô đang focus nên bước kế tiếp phải được focus sẵn. */
   readonly focusWhen?: boolean
   readonly pending?: boolean
+  /** Ẩn nút camera riêng của ô khi màn hình có khung camera dùng chung. */
+  readonly hideCamera?: boolean
   /** Bấm Enter khi ô trống (máy quét không gửi gì): dùng để xác nhận khi quét từng đơn vị. */
   readonly onEmptyEnter?: () => void
   readonly onScan: (code: string) => ScanResult
@@ -49,6 +51,7 @@ export function ScanInput({
   autoFocus = false,
   focusWhen = false,
   pending = false,
+  hideCamera = false,
   onEmptyEnter,
   onScan,
 }: ScanInputProps) {
@@ -84,15 +87,6 @@ export function ScanInput({
     <Field data-invalid={Boolean(error)}>
       <FieldLabel htmlFor={id} className="gap-2">
         {label}
-        {isConfirmed ? (
-          <span
-            className="text-primary inline-flex items-center gap-1 font-mono text-xs"
-            translate="no"
-          >
-            <CircleCheck className="size-3.5" aria-hidden="true" />
-            {confirmedValue}
-          </span>
-        ) : null}
       </FieldLabel>
       <div className="flex gap-2">
         <Input
@@ -108,7 +102,9 @@ export function ScanInput({
           inputMode={preferences.scannerMode ? 'none' : undefined}
           disabled={disabled}
           aria-invalid={Boolean(error)}
-          className="h-11 font-mono text-base"
+          className={
+            isConfirmed ? 'border-primary h-11 font-mono text-base' : 'h-11 font-mono text-base'
+          }
           placeholder="Quét hoặc nhập mã rồi nhấn Enter"
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
@@ -127,7 +123,7 @@ export function ScanInput({
             submit()
           }}
         />
-        {canUseCamera ? (
+        {canUseCamera && !hideCamera ? (
           <Button
             type="button"
             variant="outline"
@@ -151,6 +147,18 @@ export function ScanInput({
           <span className="sr-only sm:not-sr-only">Xác nhận</span>
         </Button>
       </div>
+      {isConfirmed ? (
+        <p
+          role="status"
+          className="border-primary/40 bg-primary/10 text-primary flex items-center gap-2 border px-3 py-2 text-sm font-medium"
+        >
+          <CircleCheck className="size-5 shrink-0" aria-hidden="true" />
+          <span>Đã quét đúng</span>
+          <span className="font-mono font-semibold" translate="no">
+            {confirmedValue}
+          </span>
+        </p>
+      ) : null}
       {description ? <FieldDescription>{description}</FieldDescription> : null}
       {error ? <FieldError>{error}</FieldError> : null}
       {isCameraOpen ? (

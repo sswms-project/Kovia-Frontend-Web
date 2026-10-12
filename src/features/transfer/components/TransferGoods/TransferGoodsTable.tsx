@@ -41,6 +41,10 @@ interface TransferGoodsTableProps {
   readonly isLoading?: boolean
   readonly isError?: boolean
   readonly onRetry?: () => void
+  /** Cột "Vị trí đến": chỉ chủ và người kho nhập. */
+  readonly showDestinationSlot?: boolean
+  /** Cột "Phân bổ lấy hàng": chỉ chủ và người kho xuất. */
+  readonly showAllocation?: boolean
 }
 
 export function TransferGoodsTable({
@@ -49,6 +53,8 @@ export function TransferGoodsTable({
   isLoading,
   isError,
   onRetry,
+  showDestinationSlot = false,
+  showAllocation = false,
 }: TransferGoodsTableProps) {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -118,7 +124,7 @@ export function TransferGoodsTable({
 
   return (
     <>
-      <Table className="min-w-[1300px]">
+      <Table className="min-w-[1500px]">
         <TableHeader>
           <TableRow>
             <TableHead>#</TableHead>
@@ -130,6 +136,22 @@ export function TransferGoodsTable({
             <TableHead>
               <InboundColumnLabel label="ĐVQĐ" description="Đơn vị quy đổi người tạo đã chọn" />
             </TableHead>
+            {showAllocation ? (
+              <TableHead>
+                <InboundColumnLabel
+                  label="Phân bổ lấy hàng"
+                  description="Hệ thống giữ chỗ hàng ở vị trí và lô nào của kho xuất"
+                />
+              </TableHead>
+            ) : null}
+            {showDestinationSlot ? (
+              <TableHead>
+                <InboundColumnLabel
+                  label="Vị trí đến"
+                  description="Vị trí cất hàng gợi ý ở kho nhập"
+                />
+              </TableHead>
+            ) : null}
             {COLUMNS.map((column) => (
               <TableHead key={column.label} className="text-right">
                 <InboundColumnLabel label={column.label} description={column.description} />
@@ -146,6 +168,22 @@ export function TransferGoodsTable({
               <TableCell className="whitespace-normal">{row.name}</TableCell>
               <TableCell>{row.unit}</TableCell>
               <TableCell>{row.conversion ?? '—'}</TableCell>
+              {showAllocation ? (
+                <TableCell className="whitespace-normal">
+                  {row.allocations && row.allocations.length > 0 ? (
+                    <ul className="grid gap-0.5 text-xs">
+                      {row.allocations.map((allocation) => (
+                        <li key={allocation}>{allocation}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
+              ) : null}
+              {showDestinationSlot ? (
+                <TableCell className="whitespace-normal">{row.destinationSlot ?? '—'}</TableCell>
+              ) : null}
               {[
                 row.requested,
                 row.unbatched,

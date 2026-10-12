@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { logger } from '@/lib/logger'
+import { logTransferError } from '../utils/transfer-errors'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
@@ -12,6 +12,13 @@ import type {
   SubmitTransferRequest,
   TransferAvailability,
   TransferAvailabilityQuery,
+  TransferPutAwayItemSuggestions,
+  TransferReceivableSlotOption,
+  TransferReceivableSlotsQuery,
+  TransferSourceLocation,
+  TransferSourceLocationsQuery,
+  TransferSourceProduct,
+  TransferSourceProductsQuery,
   TransferDetail,
   TransferListQuery,
   TransferListResponse,
@@ -81,6 +88,47 @@ export function useTransferSourceWarehousesQuery(
   })
 }
 
+export function useTransferReceivableSlotsQuery(
+  query: TransferReceivableSlotsQuery,
+  enabled = true
+) {
+  return useQuery<TransferReceivableSlotOption[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.receivableSlots(query),
+    queryFn: () => transferService.getReceivableSlots(query).then((response) => response.data),
+    enabled,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useTransferPutAwaySuggestionsQuery(transferId: string, enabled = true) {
+  return useQuery<TransferPutAwayItemSuggestions[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.putAwaySuggestions(transferId),
+    queryFn: () =>
+      transferService.getPutAwaySuggestions(transferId).then((response) => response.data),
+    enabled: enabled && Boolean(transferId),
+  })
+}
+
+export function useTransferSourceLocationsQuery(
+  query: TransferSourceLocationsQuery,
+  enabled = true
+) {
+  return useQuery<TransferSourceLocation[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.sourceLocations(query),
+    queryFn: () => transferService.getSourceLocations(query).then((response) => response.data),
+    enabled,
+  })
+}
+
+export function useTransferSourceProductsQuery(query: TransferSourceProductsQuery, enabled = true) {
+  return useQuery<TransferSourceProduct[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.sourceProducts(query),
+    queryFn: () => transferService.getSourceProducts(query).then((response) => response.data),
+    enabled,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
 export function useTransferAvailabilityQuery(query: TransferAvailabilityQuery, enabled = true) {
   return useQuery<TransferAvailability[], ApiErrorResponse>({
     queryKey: queryKeys.transfers.availability(query),
@@ -130,7 +178,7 @@ export function useSaveTransferDraftMutation() {
         ? transferService.updateDraft(transferId, request)
         : transferService.createDraft(request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
 
@@ -140,7 +188,7 @@ export function useSubmitTransferDraftMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, request }) => transferService.submitDraft(transferId, request),
     onSuccess: () => invalidateTransferQueries(queryClient),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
 
@@ -150,7 +198,7 @@ export function useUpdateTransferMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, request }) => transferService.updateTransfer(transferId, request),
     onSuccess: () => invalidateTransferQueries(queryClient),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
 
@@ -160,7 +208,7 @@ export function useCancelTransferMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, request }) => transferService.cancelTransfer(transferId, request),
     onSuccess: () => invalidateTransferQueries(queryClient),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
 
@@ -170,7 +218,7 @@ export function useStopTransferRemainingMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, request }) => transferService.stopRemaining(transferId, request),
     onSuccess: () => invalidateTransferQueries(queryClient),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
 
@@ -180,7 +228,7 @@ export function useAddTransferFeedbackMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, request }) => transferService.addFeedback(transferId, request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
 
@@ -191,6 +239,6 @@ export function useReplyTransferFeedbackMutation() {
     mutationFn: ({ transferId, feedbackId, request }) =>
       transferService.replyFeedback(transferId, feedbackId, request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
-    onError: (error) => logger.error(error),
+    onError: (error) => logTransferError(error),
   })
 }
