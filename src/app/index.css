@@ -768,3 +768,96 @@ body {
     font-weight: 700;
   }
 }
+
+/*
+ * Native <select> popup styled like the shared dropdown template. Customizable select ships in
+ * Chromium 135+; browsers without it skip this block and keep their system popup.
+ * The condition tests the selector, and the open state sits on the <select> (`:open::picker`):
+ * Lightning CSS drops `@supports (appearance: base-select)` and rejects `::picker(select):popover-open`.
+ */
+@supports selector(::picker(select)) {
+  [data-slot='native-select'],
+  [data-slot='native-select']::picker(select) {
+    appearance: base-select;
+  }
+
+  /* The component draws its own chevron. */
+  [data-slot='native-select']::picker-icon {
+    display: none;
+  }
+
+  [data-slot='native-select'] {
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  [data-slot='native-select']::picker(select) {
+    margin-block: 4px;
+    max-height: min(22rem, 60vh);
+    padding: 4px;
+    border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+    border-radius: var(--radius-xl);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--shadow-lg);
+    /* Transform and opacity only, 200ms like every other dropdown. */
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+    transform-origin: top;
+    transition:
+      opacity 200ms ease,
+      transform 200ms ease,
+      overlay 200ms allow-discrete,
+      display 200ms allow-discrete;
+  }
+
+  [data-slot='native-select']:open::picker(select) {
+    opacity: 1;
+    transform: none;
+  }
+
+  @starting-style {
+    [data-slot='native-select']:open::picker(select) {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.97);
+    }
+  }
+
+  [data-slot='native-select'] [data-slot='native-select-option'] {
+    gap: 8px;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: inherit;
+    font-size: 12px;
+    white-space: nowrap;
+    transition: background-color 100ms ease;
+  }
+
+  [data-slot='native-select'] [data-slot='native-select-option']:is(:hover, :focus-visible) {
+    background: color-mix(in oklab, var(--foreground) 10%, transparent);
+    outline: none;
+  }
+
+  [data-slot='native-select'] [data-slot='native-select-option']:checked {
+    font-weight: 600;
+  }
+
+  [data-slot='native-select'] [data-slot='native-select-option']:disabled {
+    opacity: 0.5;
+  }
+
+  /* Checkmark on the right, as in Select. */
+  [data-slot='native-select'] [data-slot='native-select-option']::checkmark {
+    order: 1;
+    margin-left: auto;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot='native-select']::picker(select),
+    [data-slot='native-select'] [data-slot='native-select-option'] {
+      transition: none;
+    }
+  }
+}
