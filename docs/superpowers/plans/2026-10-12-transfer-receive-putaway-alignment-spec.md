@@ -570,3 +570,30 @@ Bằng chứng: `D:/Kovia-QA/TransferAlignment-20261012-GateA/results/`; nhật 
 - Thống nhất cách hiểu mục 3.2 và 3.6: **thiếu** `planVersion` ở dòng Planned trả `400` với mã `TRANSFER_PUTAWAY_PLAN_VERSION_REQUIRED`; **có gửi nhưng cũ**, kể cả kế hoạch vừa bị xóa, trả `409` với mã `TRANSFER_PUTAWAY_PLAN_CHANGED`.
 - Triển khai trên nhánh làm việc `feat/huytv` hiện có, giữ các thay đổi instruction file đang có. Không tự chuyển nhánh hoặc tạo PR. Migration cũ không đổi; chưa kiểm trạng thái PR #217 trên GitHub nên không kết luận về mergeability của PR.
 - Không có SQL Server QA cô lập để chạy race thực tế. Không tự dùng DB deploy để vượt qua Gate A+/quy trình cho phép migration. Cần kiểm SQL Server plan/receive và hai đợt nhận trước khi đánh dấu Gate A hoàn tất.
+
+---
+
+## 15. Sửa findings Gate A và đồng bộ dev — 2026-10-12
+
+Mục này thay thế thông tin migration/kiểm thử hiện tại của checkpoint 14; mục 14 được giữ làm lịch sử. Người dùng đã cho phép sửa và commit để review, **không push hoặc áp migration**.
+
+### Những phần đã sửa
+
+- PR #217 đã merge vào `dev` tại `b7ff92c7`. BE tích hợp `origin/dev` tại `29f01acf`, giải 5 conflict và bỏ migration trùng `20261012021015` cùng Designer/SQL. Chỉ giữ **`20261011173500_AddTransferPutAwayPlan`** và các file của `dev`; không rollback DB, không sửa nội dung migration đã phát hành.
+- Giữ navigation `Item ↔ StockTransferItem.PutAwayPlanLines` và snapshot của `dev`, đồng thời giữ enum `DeviationReasonCode` với `HasConversion<string>()` (cột SQL vẫn `nvarchar(40)`). Bỏ DbSet bị auto-merge thành hai khai báo. Không mất thay đổi CycleCount từ `dev`.
+- Thông báo: người tạo + người lập kế hoạch gần nhất được gộp/loại trùng; khi có chênh lệch hoặc cất khác kế hoạch, dùng **`transfers:resolve` tại kho nhập** qua resolver hiện có, chỉ một lượt gửi theo quyền, loại người thực hiện và người đã nhận trực tiếp. Không lọc người nhận theo tên vai trò trong handler.
+- Dòng phiếu nhận thêm **`planWarnings[]`**: `{ slotId, slotCode, path, remainingBudget, message }`. Chỉ cảnh báo ô kế hoạch còn ngân sách nhưng không còn nhận được; bao gồm ô/kệ/khu vực bị tắt hoặc vị trí không còn hợp lệ. Giữ phần đó trong `unplannedQuantity`, không tự chuyển sang ô khác. **Gate B phải hiển thị cảnh báo cạnh dòng hàng**, cho người dùng chọn ô và khai báo lý do như hiện tại.
+
+### Quyết định cho Gate B / ghi chú phát hành
+
+- BE đánh lệch cả entry làm vượt ngân sách theo 3.6. FE hỗ trợ tách phần trong kế hoạch và phần vượt thành hai khai báo khi còn độ chính xác hợp lệ, hiển thị rõ trước xác nhận; vẫn giữ quyền chỉnh của người dùng và BE kiểm lại toàn request.
+- `nextActionCode` là **việc tiếp theo của phiếu**, không phải chứng nhận quyền hoặc việc cá nhân được giao. FE kiểm capability/quyền/giao việc trước khi mở hành động. Không đổi thứ tự ưu tiên BE trong lượt fix này; cần đo SQL thực tế cho trang 50 dòng trước khi kết luận về hiệu năng.
+- Gợi ý AI chỉ tải khi người dùng bấm **Gợi ý vị trí**; không tự gọi khi mở trang, lấy lại focus hoặc reconnect. Không tự lưu kế hoạch.
+- Ghi chú phát hành: danh sách mặc định (không có `stage`/`status`) và `statusCounts.all` loại phiếu đã hủy; vẫn xem được phiếu hủy bằng bộ lọc `Cancelled`. `stage` cũ giữ nguyên hành vi trong bản tương thích.
+
+### Kiểm thử và giới hạn
+
+- Bản sao D: `D:/Kovia-QA/TransferAlignment-20261012-GateAFix/BE`; baseline là `origin/dev` `29f01acf` trong thư mục riêng.
+- Release API build: **0 cảnh báo / 0 lỗi**. **189 test liên quan đạt**. EF `has-pending-model-changes` báo không drift; kiểm metadata xác nhận chỉ một migration kế hoạch và không có FK/property ngầm.
+- Toàn bộ suite: **1.258 đạt / 5 lỗi / 1 bỏ qua (1.264 tổng)**; baseline dev **1.222 đạt / 6 lỗi / 1 bỏ qua (1.229 tổng)**. Cả 5 lỗi đều có sẵn (4 InboundOperationalEditing, 1 cache quyền inactive); lỗi reflection endpoint thứ sáu của baseline đã được Gate A sửa. Không thêm test lỗi mới.
+- Chưa chạy ứng dụng, kết nối/ghi DB deploy, áp migration, đo SQL trang 50 dòng hoặc chạy hai handler đồng thời trên SQL Server. **Gate A vẫn chưa đóng nghiệm thu; rủi ro race giữ High.** SQLite/metadata không thay thế bằng chứng SQL Server thật. Gate B/UI chưa triển khai trong lượt này.
