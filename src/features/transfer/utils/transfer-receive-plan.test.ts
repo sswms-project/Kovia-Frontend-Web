@@ -25,6 +25,16 @@ describe('planned transfer receipt', () => {
     entries[0]!.scannedSlotCode = 'A01'
     expect(receiveScanProgress(entries).confirmed).toBe(1)
   })
+  it('does not ask for a deviation reason until the unplanned quantity has a destination slot', () => {
+    const sheet = plannedReceiveSheet()
+    const entries = buildInitialReceiptEntries(sheet)
+    expect(receiptPlanStates(sheet, entries).map((state) => state.isOffPlan)).toEqual([
+      false,
+      false,
+    ])
+    entries[1]!.destinationSlotId = 'slot-outside-plan'
+    expect(receiptPlanStates(sheet, entries)[1]!.isOffPlan).toBe(true)
+  })
   it('shares one item-slot budget across lots and marks the entire overflowing entry as off-plan', () => {
     const sheet = plannedReceiveSheet()
     const first = sheet.lines[0]!.lots[0]!

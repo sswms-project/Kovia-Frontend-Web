@@ -33,7 +33,7 @@ export function receiptPlanStates(
     if (isPlanned) budgets.set(key, Math.max(0, budget - good))
     return {
       isPlanned,
-      isOffPlan: isPlanned && good > budget,
+      isOffPlan: isPlanned && Boolean(entry.destinationSlotId) && good > budget,
       budgetBefore: budget / 100,
       withinPlan: within / 100,
       excess: Math.max(0, good - budget) / 100,

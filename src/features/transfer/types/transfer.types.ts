@@ -73,9 +73,6 @@ export const TRANSFER_DISCREPANCY_ACTIONS = [
 ] as const
 export type TransferDiscrepancyAction = (typeof TRANSFER_DISCREPANCY_ACTIONS)[number]
 
-export const TRANSFER_STAGES = ['request', 'transfer', 'discrepancy'] as const
-export type TransferStage = (typeof TRANSFER_STAGES)[number]
-
 export interface TransferListQuery {
   pageNumber: number
   pageSize: number
@@ -85,8 +82,6 @@ export interface TransferListQuery {
   destinationWarehouseId?: string
   dateFrom?: string
   dateTo?: string
-  /** Tab: request = mọi yêu cầu đã tạo, transfer = đã có đợt rời kho, discrepancy = còn chênh lệch chưa xử lý. */
-  stage?: TransferStage
 }
 
 export interface TransferSourceWarehouseQuery {
@@ -232,20 +227,6 @@ export interface TransferSourceLocation {
 export interface TransferSourceLocationsQuery {
   sourceWarehouseId: string
   productId: string
-}
-
-export interface TransferPutAwaySlotSuggestion {
-  slotId: string
-  path: string
-  reason: string
-  /** Số lượng còn nhận được (đơn vị chính); null khi vị trí không giới hạn sức chứa. */
-  available: number | null
-  warnings: string[]
-}
-
-export interface TransferPutAwayItemSuggestions {
-  itemId: string
-  suggestions: TransferPutAwaySlotSuggestion[]
 }
 
 export interface TransferReceivableSlotOption {
@@ -540,11 +521,6 @@ export interface AdjustTransferAllocationRequest {
   moves: TransferAllocationMove[]
   reason: string | null
   commandId: string
-}
-
-export interface SetTransferPutAwaySlotsRequest {
-  expectedVersion: string
-  slots: { itemId: string; destinationSlotId: string | null }[]
 }
 
 export interface ReopenTransferPickingRequest {

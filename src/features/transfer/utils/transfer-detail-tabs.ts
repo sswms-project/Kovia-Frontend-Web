@@ -17,7 +17,7 @@ export function defaultTransferDetailTab(steps: readonly TransferNextStep[]): Tr
   if (!action) return 'goods'
   if (
     action.type === 'openReceive' ||
-    action.type === 'setPutAwaySlots' ||
+    action.type === 'openPutAwayPlan' ||
     (action.type === 'assign' && action.kind === 'receive')
   )
     return 'receive'

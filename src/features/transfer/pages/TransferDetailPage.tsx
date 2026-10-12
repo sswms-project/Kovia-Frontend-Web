@@ -152,7 +152,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   function runNextStep(action: TransferNextStepAction) {
     if (action.type === 'createShipment') requestActions.shipment.open()
     else if (action.type === 'adjustAllocation') allocationActions.open()
-    else if (action.type === 'setPutAwaySlots') putAwayActions.open()
+    else if (action.type === 'openPutAwayPlan') putAwayActions.open()
     else if (action.type === 'assign') resolutionActions.assign.open(action.shipment, action.kind)
     else if (action.type === 'confirmDeparture') resolutionActions.departure.open(action.shipment)
     else if (action.type === 'resolveDiscrepancy') setTab('discrepancies')
@@ -176,7 +176,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
     },
     {
       value: 'receive',
-      label: `Nhận hàng (${shipments.filter((shipment) => shipment.status === 'InTransit' || shipment.status === 'Receiving').length})`,
+      label: `Nhận & cất (${shipments.filter((shipment) => shipment.status === 'InTransit' || shipment.status === 'Receiving').length})`,
     },
     {
       value: 'discrepancies',

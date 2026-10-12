@@ -10,7 +10,6 @@ import type {
   CompleteTransferPickingRequest,
   DispatchTransferShipmentRequest,
   ReopenTransferPickingRequest,
-  SetTransferPutAwaySlotsRequest,
   EscalateTransferPickRequest,
   ReceiveTransferShipmentRequest,
   RecordTransferPickRequest,
@@ -233,20 +232,6 @@ export function useAdjustTransferAllocationMutation() {
   >({
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, request }) => transferService.adjustAllocation(transferId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
-    onError: (error) => logTransferError(error),
-  })
-}
-
-export function useSetTransferPutAwaySlotsMutation() {
-  const queryClient = useQueryClient()
-  return useMutation<
-    ApiResponse<unknown>,
-    ApiErrorResponse,
-    { transferId: string; request: SetTransferPutAwaySlotsRequest }
-  >({
-    mutationKey: TRANSFER_MUTATION_KEY,
-    mutationFn: ({ transferId, request }) => transferService.setPutAwaySlots(transferId, request),
     onSuccess: () => invalidateTransferQueries(queryClient),
     onError: (error) => logTransferError(error),
   })

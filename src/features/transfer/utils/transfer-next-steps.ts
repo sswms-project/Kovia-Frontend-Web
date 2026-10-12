@@ -9,7 +9,7 @@ import {
 export type TransferNextStepAction =
   | { readonly type: 'createShipment' }
   | { readonly type: 'adjustAllocation' }
-  | { readonly type: 'setPutAwaySlots' }
+  | { readonly type: 'openPutAwayPlan' }
   | {
       readonly type: 'assign'
       readonly kind: 'pick' | 'receive'
@@ -77,7 +77,7 @@ export function getTransferNextSteps(
         description:
           'Chia số lượng theo vị trí; nhân viên nhận hàng sẽ thấy kế hoạch riêng cho từng lô.',
         actionLabel: 'Lập kế hoạch cất hàng',
-        action: { type: 'setPutAwaySlots' },
+        action: { type: 'openPutAwayPlan' },
       })
     }
   }
