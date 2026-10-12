@@ -8,6 +8,7 @@ import type {
   CreateStockAdjustmentRequest,
   CycleCountDetail,
   CycleCountListQuery,
+  CycleCountEvidence,
   CycleCountListResponse,
   CycleCountMethod,
   ApproveStockAdjustmentRequest,
@@ -50,6 +51,8 @@ export const cycleCountService = {
     note,
     countMethod,
     scannedBarcode,
+    damageReason,
+    damageEvidenceIds,
   }: {
     cycleCountId: string
     itemId: string
@@ -58,6 +61,8 @@ export const cycleCountService = {
     note: string | null
     countMethod: CycleCountMethod
     scannedBarcode: string | null
+    damageReason: string | null
+    damageEvidenceIds: readonly string[]
   }) =>
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.cycleCounts.recordItem(cycleCountId, itemId), {
@@ -66,8 +71,38 @@ export const cycleCountService = {
         note,
         countMethod,
         scannedBarcode,
+        damageReason,
+        damageEvidenceIds,
       })
       .then((response) => response.data),
+  uploadEvidence: (warehouseId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('warehouseId', warehouseId)
+    formData.append('file', file)
+    return axiosClient
+      .post<ApiResponse<CycleCountEvidence>>(API_ENDPOINTS.cycleCounts.evidence, formData, {
+        // Mặc định của axiosClient là JSON; bỏ đi để trình duyệt tự đặt multipart kèm boundary.
+        headers: { 'Content-Type': null },
+      })
+      .then((response) => response.data)
+  },
+  downloadEvidence: async (evidenceId: string, fileName: string) => {
+    const response = await axiosClient.get<Blob>(
+      API_ENDPOINTS.cycleCounts.evidenceFile(evidenceId),
+      { responseType: 'blob' }
+    )
+    const url = URL.createObjectURL(response.data)
+    try {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  },
   startCycleCount: (cycleCountId: string) =>
     axiosClient
       .post<ApiResponse<unknown>>(API_ENDPOINTS.cycleCounts.start(cycleCountId))
@@ -85,6 +120,12 @@ export const cycleCountService = {
   }) =>
     axiosClient
       .post<ApiResponse<unknown>>(API_ENDPOINTS.cycleCounts.recount(cycleCountId), request)
+      .then((response) => response.data),
+  confirmDamage: ({ cycleCountId, itemIds }: { cycleCountId: string; itemIds: string[] }) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.cycleCounts.confirmDamage(cycleCountId), { itemIds })
       .then((response) => response.data),
   cancelCycleCount: ({
     cycleCountId,

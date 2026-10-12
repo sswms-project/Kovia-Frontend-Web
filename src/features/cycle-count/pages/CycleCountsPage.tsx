@@ -9,31 +9,36 @@ import { CycleCountDirectory } from '../components/CycleCountDirectory'
 import { useCycleCountsQuery, usePrefetchCycleCount } from '../hooks/use-cycle-count'
 import {
   CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER,
-  type CycleCountStatus,
+  CYCLE_COUNT_STATUS_GROUPS,
+  type CycleCountListFilter,
 } from '../types/cycle-count.types'
 
 export default function CycleCountsPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [warehouseId, setWarehouseId] = useState('')
-  const [status, setStatus] = useState<
-    '' | CycleCountStatus | typeof CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER
-  >('')
+  const [sortBy, setSortBy] = useState('priority')
+  const [status, setStatus] = useState<CycleCountListFilter>('')
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearch = useDebouncedValue(searchTerm, 300)
   const params = useMemo(
     () => ({
       pageNumber: page,
       pageSize,
+      sortBy,
       ...(warehouseId ? { warehouseId } : {}),
       ...(status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER
         ? { needsAdjustment: true }
         : status
-          ? { status }
+          ? {
+              status: CYCLE_COUNT_STATUS_GROUPS.find(
+                (group) => group.value === status
+              )?.statuses.join(','),
+            }
           : {}),
       ...(debouncedSearch.trim() ? { searchTerm: debouncedSearch.trim() } : {}),
     }),
-    [page, pageSize, warehouseId, status, debouncedSearch]
+    [page, pageSize, warehouseId, sortBy, status, debouncedSearch]
   )
   const query = useCycleCountsQuery(params)
   const prefetchCycleCount = usePrefetchCycleCount()
@@ -56,6 +61,7 @@ export default function CycleCountsPage() {
       page={page}
       pageSize={pageSize}
       warehouseId={warehouseId}
+      sortBy={sortBy}
       status={status}
       searchTerm={searchTerm}
       warehouses={options}
@@ -65,6 +71,10 @@ export default function CycleCountsPage() {
       isError={query.isError}
       onWarehouseChange={(value) => {
         setWarehouseId(value)
+        setPage(1)
+      }}
+      onSortChange={(value) => {
+        setSortBy(value)
         setPage(1)
       }}
       onStatusChange={(value) => {
