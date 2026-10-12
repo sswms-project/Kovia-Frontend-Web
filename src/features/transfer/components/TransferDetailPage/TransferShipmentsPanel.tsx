@@ -1,10 +1,5 @@
 import { PackageCheck, PackageSearch, UserPlus } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
-import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
-import { TransferSlotMapDialog } from '../TransferFormPage/TransferSlotMapDialog'
-import { mergePutAwayOptions } from '../../utils/transfer-put-away'
-import { ShipmentPutAwayCell } from './ShipmentPutAwayCell'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import {
@@ -38,19 +33,10 @@ interface TransferShipmentsPanelProps {
   readonly onResolveEscalation: (shipment: TransferShipment) => void
   /** ĐVT chính và quy đổi của từng dòng hàng theo mã dòng phiếu; số lượng trong bảng tính theo ĐVT chính. */
   readonly unitsByItem: Readonly<Record<string, { unit: string; conversion: string | null }>>
-  /** Chỉ có khi người xem là quản lý kho nhập được chọn vị trí cất; thêm cột "Cất vào" chọn ngay trong bảng. */
-  readonly putAway?: {
-    readonly warehouseId: string
-    readonly savedSlots: Readonly<Record<string, LookupOption | undefined>>
-    readonly editableItemIds: ReadonlySet<string>
-    readonly slotOptions: readonly LookupOption[]
-    /** Gợi ý theo từng dòng hàng (mã dòng phiếu); đứng đầu danh sách chọn. */
-    readonly suggestionsByItem: Readonly<Record<string, readonly LookupOption[]>>
-    readonly isLoadingSlots: boolean
-    readonly isPending: boolean
-    readonly onSlotSearchChange: (value: string) => void
-    readonly onSave: (itemId: string, slot: LookupOption | undefined) => void
-  }
+  readonly mode?: 'pick' | 'receive'
+  readonly planLabels?: Readonly<Record<string, string>>
+  readonly onOpenPlan?: () => void
+  readonly currentUserId?: string | null
 }
 
 /** Mã công việc kho (TPK-…) chỉ dùng nội bộ nên không hiện; người xem cần biết việc đang ở đâu và giao cho ai. */
@@ -81,9 +67,11 @@ export function TransferShipmentsPanel({
   onAssignTask,
   onResolveEscalation,
   unitsByItem,
-  putAway,
+  mode = 'pick',
+  planLabels = {},
+  onOpenPlan,
+  currentUserId,
 }: TransferShipmentsPanelProps) {
-  const [mapItemId, setMapItemId] = useState<string | null>(null)
   if (shipments.length === 0) {
     return (
       <Empty className="border-0 p-6">
@@ -98,6 +86,13 @@ export function TransferShipmentsPanel({
   }
   return (
     <>
+      {mode === 'receive' && onOpenPlan ? (
+        <div className="border-b p-3">
+          <Button type="button" variant="outline" onClick={onOpenPlan}>
+            Kế hoạch cất hàng
+          </Button>
+        </div>
+      ) : null}
       <ul className="divide-border flex flex-col divide-y">
         {shipments.map((shipment) => {
           const allowed = capabilities[shipment.id]
@@ -132,14 +127,11 @@ export function TransferShipmentsPanel({
                       <TableHead className="text-right">Đã lấy</TableHead>
                       <TableHead className="text-right">Đã xuất</TableHead>
                       <TableHead>Tình trạng</TableHead>
-                      {putAway ? <TableHead>Cất vào</TableHead> : null}
+                      {mode === 'receive' ? <TableHead>Kế hoạch cất hàng</TableHead> : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {shipment.lines.map((line) => {
-                      const editable = putAway?.editableItemIds.has(line.itemId) ?? false
-                      const saved = putAway?.savedSlots[line.itemId]
-                      const slotLabel = saved?.label ?? null
                       return (
                         <TableRow key={line.id}>
                           <TableCell className="font-mono">{line.sku}</TableCell>
@@ -161,25 +153,9 @@ export function TransferShipmentsPanel({
                               ? ` · cần trả ${formatQuantity(line.pendingReturnQuantity)}`
                               : ''}
                           </TableCell>
-                          {putAway ? (
-                            <TableCell className="whitespace-normal">
-                              {putAway && editable ? (
-                                <ShipmentPutAwayCell
-                                  label={line.sku}
-                                  saved={saved}
-                                  options={mergePutAwayOptions(
-                                    putAway.suggestionsByItem[line.itemId] ?? [],
-                                    putAway.slotOptions
-                                  )}
-                                  isLoading={putAway.isLoadingSlots}
-                                  isPending={putAway.isPending}
-                                  onSearchChange={putAway.onSlotSearchChange}
-                                  onOpenMap={() => setMapItemId(line.itemId)}
-                                  onSave={(slot) => putAway.onSave(line.itemId, slot)}
-                                />
-                              ) : (
-                                (slotLabel ?? '—')
-                              )}
+                          {mode === 'receive' ? (
+                            <TableCell className="max-w-72 break-words whitespace-normal">
+                              {planLabels[line.itemId] || 'Chưa có kế hoạch'}
                             </TableCell>
                           ) : null}
                         </TableRow>
@@ -206,7 +182,7 @@ export function TransferShipmentsPanel({
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {allowed?.canResolveEscalation ? (
+                  {mode === 'pick' && allowed?.canResolveEscalation ? (
                     <Button
                       type="button"
                       size="sm"
@@ -216,7 +192,7 @@ export function TransferShipmentsPanel({
                       Xử lý báo cáo lấy hàng
                     </Button>
                   ) : null}
-                  {allowed?.canAssignPick && shipment.pickTaskId ? (
+                  {mode === 'pick' && allowed?.canAssignPick && shipment.pickTaskId ? (
                     <Button
                       type="button"
                       size="sm"
@@ -227,7 +203,7 @@ export function TransferShipmentsPanel({
                       {shipment.pickAssigneeId ? 'Giao lại việc lấy' : 'Giao việc lấy hàng'}
                     </Button>
                   ) : null}
-                  {allowed?.canAssignReceive && shipment.receiveTaskId ? (
+                  {mode === 'receive' && allowed?.canAssignReceive && shipment.receiveTaskId ? (
                     <Button
                       type="button"
                       size="sm"
@@ -238,7 +214,9 @@ export function TransferShipmentsPanel({
                       {shipment.receiveAssigneeId ? 'Giao lại việc nhận' : 'Giao việc nhận hàng'}
                     </Button>
                   ) : null}
-                  {allowed?.canOpenPick ? (
+                  {mode === 'pick' &&
+                  allowed?.canOpenPick &&
+                  shipment.pickAssigneeId === currentUserId ? (
                     <Button asChild size="sm">
                       <Link href={APP_ROUTES.transferPickTask(transferId, shipment.id)}>
                         <PackageSearch aria-hidden="true" />
@@ -246,7 +224,9 @@ export function TransferShipmentsPanel({
                       </Link>
                     </Button>
                   ) : null}
-                  {allowed?.canOpenReceive ? (
+                  {mode === 'receive' &&
+                  allowed?.canOpenReceive &&
+                  shipment.receiveAssigneeId === currentUserId ? (
                     <Button asChild size="sm">
                       <Link href={APP_ROUTES.transferReceiveTask(transferId, shipment.id)}>
                         <PackageCheck aria-hidden="true" />
@@ -254,13 +234,13 @@ export function TransferShipmentsPanel({
                       </Link>
                     </Button>
                   ) : null}
-                  {allowed?.canConfirmDeparture ? (
+                  {mode === 'pick' && allowed?.canConfirmDeparture ? (
                     <Button type="button" size="sm" onClick={() => onConfirmDeparture(shipment)}>
                       <PackageCheck aria-hidden="true" />
                       Xác nhận đã xuất kho
                     </Button>
                   ) : null}
-                  {allowed?.canReopenPicking ? (
+                  {mode === 'pick' && allowed?.canReopenPicking ? (
                     <Button
                       type="button"
                       size="sm"
@@ -270,7 +250,7 @@ export function TransferShipmentsPanel({
                       Mở lại lấy hàng
                     </Button>
                   ) : null}
-                  {allowed?.canCancel ? (
+                  {mode === 'pick' && allowed?.canCancel ? (
                     <Button
                       type="button"
                       size="sm"
@@ -291,18 +271,6 @@ export function TransferShipmentsPanel({
           )
         })}
       </ul>
-      {putAway ? (
-        <TransferSlotMapDialog
-          open={mapItemId !== null}
-          onOpenChange={(next) => !next && setMapItemId(null)}
-          title="Chọn vị trí cất hàng trên sơ đồ kho nhập"
-          description="Chọn ô sẽ cất hàng khi nhận. Nhân viên vẫn quét mã ô khi cất hàng."
-          warehouseId={putAway.warehouseId}
-          onConfirm={({ slotId, label }) => {
-            if (mapItemId) putAway.onSave(mapItemId, { value: slotId, label })
-          }}
-        />
-      ) : null}
     </>
   )
 }

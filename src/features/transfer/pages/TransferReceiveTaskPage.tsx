@@ -8,7 +8,12 @@ import {
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { PutawayPlanNotice } from '@/components/operations/putaway'
+import { receiptPlanStates, receiveScanProgress } from '../utils/transfer-receive-plan'
+import { canSeeWarehouse } from '../utils/transfer-capabilities'
 import { P } from '@/config/permissionCodes'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   formatOperationalDate,
   formatQuantity,
@@ -25,6 +30,7 @@ import {
   TransferConfirmDialog,
 } from '../components/TransferShared'
 import { useTransferReceiveSheetQuery } from '../hooks/use-transfer-fulfillment'
+import { useTransferReceivableSlotsQuery } from '../hooks/use-transfers'
 import { useTransferReceiveForm } from '../hooks/use-transfer-receive-form'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
@@ -49,13 +55,30 @@ export default function TransferReceiveTaskPage({
   const sheetQuery = useTransferReceiveSheetQuery(transferId, shipmentId)
   const sheet = sheetQuery.data
   const realtime = useTransferRealtime({ transferId, autoRefresh: false })
-  const receive = useTransferReceiveForm(transferId, shipmentId, sheet)
 
   const isReceivable =
     sheet?.shipmentStatus === 'InTransit' || sheet?.shipmentStatus === 'Receiving'
   const hasReceivePermission = viewer.permissions.includes(P.TRANSFERS_RECEIVE)
-  const canAct = hasReceivePermission && isReceivable
+  const canAct =
+    hasReceivePermission && isReceivable && canSeeWarehouse(viewer, sheet?.destinationWarehouseId)
+  const receive = useTransferReceiveForm(transferId, shipmentId, sheet, canAct)
+  const [isResetPlanConfirmOpen, setIsResetPlanConfirmOpen] = useState(false)
+  const [isReloading, setIsReloading] = useState(false)
+  const [slotSearch, setSlotSearch] = useState<string | null>(null)
+  const debouncedSlotSearch = useDebouncedValue((slotSearch ?? '').trim(), 300)
+  const receivableSlotsQuery = useTransferReceivableSlotsQuery(
+    {
+      warehouseId: sheet?.destinationWarehouseId ?? '',
+      top: 20,
+      ...(debouncedSlotSearch ? { search: debouncedSlotSearch } : {}),
+    },
+    canAct && slotSearch !== null && Boolean(sheet?.destinationWarehouseId)
+  )
+  const reloadLock = useRef(false)
   const values = receive.form.watch('entries')
+  const planStates = sheet ? receiptPlanStates(sheet, values) : []
+  const progress = receiveScanProgress(values)
+  const offPlanCount = planStates.filter((state) => state.isOffPlan).length
   const totals = values.reduce(
     (sum, entry) => ({
       good: sum.good + (entry.goodQuantity || 0),
@@ -70,7 +93,7 @@ export default function TransferReceiveTaskPage({
   const canUseCamera = useSyncExternalStore(subscribeNothing, isCameraScanSupported, () => false)
   const [cameraOn, setCameraOn] = useState(false)
   const scanTarget = nextReceiveScanTarget(values)
-  const cameraActive = cameraOn && canAct && !receive.isReceiving && scanTarget !== null
+  const cameraActive = cameraOn && canAct && !receive.blocked && !isReloading && scanTarget !== null
   const latest = useRef({ scanTarget, receive, feedback: preferences.feedback })
   useEffect(() => {
     latest.current = { scanTarget, receive, feedback: preferences.feedback }
@@ -90,10 +113,34 @@ export default function TransferReceiveTaskPage({
   const targetEntry = scanTarget ? values[scanTarget.index] : undefined
   const targetLine = targetEntry ? receive.lineById.get(targetEntry.lineId) : undefined
 
-  function reload() {
-    realtime.dismiss()
-    receive.reset()
-    void sheetQuery.refetch()
+  /** Vị trí theo kế hoạch của dòng đứng đầu, sau đó là kết quả tìm trong kho nhập. */
+  function slotOptionsFor(line: NonNullable<typeof sheet>['lines'][number]) {
+    const planned = line.lots.flatMap((lot) =>
+      (lot.plan ?? []).map((plan) => ({ value: plan.slotId, label: plan.path }))
+    )
+    const found = (receivableSlotsQuery.data ?? []).map((slot) => ({
+      value: slot.id,
+      label: slot.path,
+    }))
+    return [...planned, ...found].filter(
+      (option, position, all) => all.findIndex((other) => other.value === option.value) === position
+    )
+  }
+
+  async function reload() {
+    if (reloadLock.current || receive.isReceiving || receive.isFindingSlot) return
+    reloadLock.current = true
+    setIsReloading(true)
+    try {
+      const result = await sheetQuery.refetch()
+      if (result.data && !result.isError) {
+        receive.acceptFresh(result.data)
+        realtime.dismiss()
+      }
+    } finally {
+      reloadLock.current = false
+      setIsReloading(false)
+    }
   }
 
   return (
@@ -109,9 +156,25 @@ export default function TransferReceiveTaskPage({
         />
       ) : null}
       {realtime.hasPendingChange ? (
-        <TransferChangedBanner onReload={reload} onDismiss={realtime.dismiss} />
+        <TransferChangedBanner onReload={() => void reload()} onDismiss={realtime.dismiss} />
       ) : null}
 
+      {receive.notice ? (
+        <div role="status" className="bg-card shrink-0 border p-3 text-sm">
+          <p>{receive.notice}</p>
+          {receive.reloadRequired ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2"
+              disabled={isReloading || receive.isReceiving || receive.isFindingSlot}
+              onClick={() => void reload()}
+            >
+              {isReloading ? 'Đang tải lại…' : 'Tải lại và giữ số lượng đang nhập'}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <div data-slot="transfer-scroll" className="min-h-0 flex-1 overflow-y-auto">
         {sheetQuery.isLoading ? (
           <OperationalLoadingState rows={3} />
@@ -127,7 +190,8 @@ export default function TransferReceiveTaskPage({
           />
         ) : (
           <form
-            className="grid gap-3 pb-3"
+            className="grid gap-3 pb-4"
+            aria-busy={receive.isReceiving || isReloading}
             noValidate
             onSubmit={(event) => {
               event.preventDefault()
@@ -142,6 +206,29 @@ export default function TransferReceiveTaskPage({
                 Đợt này không còn ở trạng thái chờ nhận nên chỉ xem được.
               </p>
             ) : null}
+            <PutawayPlanNotice
+              disabled={receive.blocked || isReloading || receive.isFindingSlot}
+              onApplyPlan={() => {
+                if (receive.form.formState.isDirty) setIsResetPlanConfirmOpen(true)
+                else receive.applyPlan()
+              }}
+              description="Đã điền sẵn vị trí và số lượng; vẫn cần quét xác nhận. Cất khác kế hoạch cần chọn lý do."
+              items={sheet.lines
+                .filter((line) => line.planMode === 'Planned')
+                .map((line) => ({
+                  id: line.lineId,
+                  label: `${line.sku} · ${line.productName}`,
+                  locations:
+                    line.lots
+                      .flatMap((lot) =>
+                        (lot.plan ?? []).map(
+                          (plan) =>
+                            `${plan.path}: ${formatQuantity(plan.plannedQuantity)} ${line.baseUnitName}`
+                        )
+                      )
+                      .join(' · ') || 'Chưa có vị trí theo kế hoạch',
+                }))}
+            />
             {canAct ? <ScanPreferencesBar /> : null}
             {canAct && canUseCamera ? (
               <div className="grid gap-2">
@@ -149,7 +236,7 @@ export default function TransferReceiveTaskPage({
                   type="button"
                   variant="outline"
                   className="h-11"
-                  disabled={receive.isReceiving}
+                  disabled={receive.blocked || isReloading || receive.isFindingSlot}
                   aria-pressed={cameraOn}
                   onClick={() => setCameraOn((current) => !current)}
                 >
@@ -186,19 +273,34 @@ export default function TransferReceiveTaskPage({
                   baseUnitName={line.baseUnitName}
                   canRemove={receive.countEntriesOf(index) > 1}
                   slotLabel={receive.slotPathById[entry.destinationSlotId]}
-                  suggestedSlotId={line.suggestedSlotId ?? undefined}
-                  suggestedSlotLabel={
-                    line.suggestedSlotCode
-                      ? formatTransferLocation({
-                          slotCode: line.suggestedSlotCode,
-                          rackCode: line.suggestedRackCode,
-                          zoneCode: line.suggestedZoneCode,
-                          isSystemDefaultSlot: line.suggestedIsSystemDefaultSlot,
-                        })
-                      : undefined
+                  planState={planStates[index]}
+                  planChanged={receive.changedLines.has(line.lineId)}
+                  planWarnings={
+                    index === values.findIndex((candidate) => candidate.lineId === line.lineId)
+                      ? [...new Set((line.planWarnings ?? []).map((warning) => warning.message))]
+                      : []
                   }
-                  disabled={!canAct || receive.isReceiving}
+                  onSplitExcess={receive.splitExcess}
+                  suggestedSlotId={entry.plannedSlotId || line.suggestedSlotId || undefined}
+                  suggestedSlotLabel={
+                    entry.plannedSlotLabel ||
+                    (line.planMode === 'Planned'
+                      ? 'Chưa có vị trí theo kế hoạch'
+                      : line.suggestedSlotCode
+                        ? formatTransferLocation({
+                            slotCode: line.suggestedSlotCode,
+                            rackCode: line.suggestedRackCode,
+                            zoneCode: line.suggestedZoneCode,
+                            isSystemDefaultSlot: line.suggestedIsSystemDefaultSlot,
+                          })
+                        : undefined)
+                  }
+                  disabled={receive.blocked || isReloading || receive.isFindingSlot}
                   isFindingSlot={receive.isFindingSlot}
+                  slotOptions={slotOptionsFor(line)}
+                  isLoadingSlots={receivableSlotsQuery.isFetching}
+                  onSearchSlots={setSlotSearch}
+                  onMarkUnreadable={receive.markSlotUnreadable}
                   onScanSlot={receive.scanSlot}
                   onScanProduct={receive.scanProduct}
                   onSplit={receive.splitEntry}
@@ -211,7 +313,11 @@ export default function TransferReceiveTaskPage({
       </div>
 
       {canAct && sheet && sheet.lines.length > 0 ? (
-        <footer className="bg-background shrink-0 border-t pt-3">
+        <footer className="bg-background shrink-0 border-t py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <p className="mb-2 text-sm font-medium tabular-nums" role="status">
+            Đã xác nhận {progress.confirmed}/{progress.required} vị trí cần cất
+            {offPlanCount > 0 ? ` · ${offPlanCount} khai báo khác kế hoạch` : ''}.
+          </p>
           <p className="mb-2 text-sm tabular-nums" aria-live="polite">
             Tốt {formatQuantity(totals.good)} · Hỏng {formatQuantity(totals.damaged)} · Thiếu{' '}
             {formatQuantity(totals.missing)}
@@ -219,15 +325,37 @@ export default function TransferReceiveTaskPage({
           <Button
             type="button"
             className="h-12 w-full text-base"
-            disabled={receive.isReceiving}
+            disabled={receive.blocked || isReloading || receive.isFindingSlot}
             onClick={() => void receive.requestConfirm()}
           >
-            <PackageCheck aria-hidden="true" />
-            Xác nhận nhận đợt
+            {receive.isReceiving ? (
+              <Spinner aria-hidden="true" />
+            ) : (
+              <PackageCheck aria-hidden="true" />
+            )}
+            {receive.isReceiving ? 'Đang nhận hàng…' : 'Xác nhận nhận đợt'}
           </Button>
         </footer>
       ) : null}
 
+      <TransferConfirmDialog
+        open={isResetPlanConfirmOpen}
+        onOpenChange={setIsResetPlanConfirmOpen}
+        title="Điền lại theo kế hoạch?"
+        description={
+          <p>
+            Số lượng, vị trí đã quét và ghi chú đang nhập sẽ được thay bằng kế hoạch mới. Chưa có dữ
+            liệu nào được lưu.
+          </p>
+        }
+        confirmLabel="Điền lại theo kế hoạch"
+        pendingLabel="Đang xử lý…"
+        isPending={receive.isReceiving}
+        onConfirm={() => {
+          receive.applyPlan()
+          setIsResetPlanConfirmOpen(false)
+        }}
+      />
       <TransferConfirmDialog
         open={receive.isConfirmOpen}
         title="Xác nhận nhận đợt hàng?"
@@ -236,7 +364,10 @@ export default function TransferReceiveTaskPage({
             Nhận tốt <strong>{formatQuantity(totals.good)}</strong>, hỏng{' '}
             <strong>{formatQuantity(totals.damaged)}</strong>, thiếu{' '}
             <strong>{formatQuantity(totals.missing)}</strong>. Mỗi đợt chỉ nhận một lần; hàng thiếu
-            đến sau được xử lý ở mục chênh lệch.
+            đến sau được xử lý ở mục chênh lệch.{' '}
+            {offPlanCount > 0
+              ? `${offPlanCount} khai báo cất khác kế hoạch được lưu kèm lý do.`
+              : ''}
           </p>
         }
         confirmLabel="Xác nhận nhận"

@@ -118,7 +118,7 @@ describe('receipt units and Vietnamese history', () => {
     expect(screen.getByText('4 Thùng (1 Thùng = 24 Lon)')).toBeInTheDocument()
     expect(screen.getByText('96 Lon')).toBeInTheDocument()
     expect(screen.getByText('Đạt')).toBeInTheDocument()
-    expect(screen.getByText('Kệ KE-01')).toBeInTheDocument()
+    expect(screen.getByText('Kệ KE-01 (không chia ô)')).toBeInTheDocument()
     expect(screen.queryByText('__SYSTEM_DEFAULT__')).not.toBeInTheDocument()
   })
   it('marks put-aways that differ from the plan with their reason and downloadable photos', async () => {

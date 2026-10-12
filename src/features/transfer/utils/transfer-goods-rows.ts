@@ -56,7 +56,11 @@ export function transferGoodsRows(detail: TransferDetail | undefined | null): Tr
       unbatched: item.unbatchedQuantity,
       discrepancy:
         related.length === 0 ? 'none' : related.some((entry) => entry.isOpen) ? 'open' : 'resolved',
-      destinationSlot: item.destinationSlotPath ?? item.destinationSlotCode ?? null,
+      destinationSlot: item.putAwayPlan?.length
+        ? item.putAwayPlan.length === 1
+          ? item.putAwayPlan[0]!.path
+          : `${item.putAwayPlan.length} vị trí theo kế hoạch`
+        : (item.destinationSlotPath ?? item.destinationSlotCode ?? null),
       allocations: item.allocations
         ? item.allocations.map(
             (allocation) =>

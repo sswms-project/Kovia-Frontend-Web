@@ -182,9 +182,12 @@ export const API_ENDPOINTS = {
     allowedActions: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/allowed-actions`,
     recordItem: (cycleCountId: string, itemId: string) =>
       `/cycle-counts/${cycleCountId}/items/${itemId}`,
+    evidence: '/cycle-counts/evidence',
+    evidenceFile: (evidenceId: string) => `/cycle-counts/evidence/${evidenceId}`,
     start: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/start`,
     submit: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/submit`,
     recount: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/recount`,
+    confirmDamage: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/damage/confirm`,
     finalize: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/finalize`,
     cancel: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/cancel`,
     export: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/export`,
@@ -408,8 +411,9 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/shipments/${shipmentId}/returns`,
     completePicking: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/complete-picking`,
-    setPutAwaySlots: (transferId: string) => `/transfers/${transferId}/putaway-slots`,
-    putAwaySuggestions: (transferId: string) => `/transfers/${transferId}/putaway-suggestions`,
+    setPutAwayPlan: (transferId: string) => `/transfers/${transferId}/putaway-plan`,
+    putAwayPlanSuggestions: (transferId: string) =>
+      `/transfers/${transferId}/putaway-plan-suggestions`,
     reopenPicking: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/reopen-picking`,
     dispatchShipment: (transferId: string, shipmentId: string) =>

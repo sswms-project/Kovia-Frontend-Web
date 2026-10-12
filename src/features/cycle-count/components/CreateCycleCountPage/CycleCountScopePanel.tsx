@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Search, X } from 'lucide-react'
 import { useState } from 'react'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
@@ -9,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Table,
   TableBody,
@@ -19,12 +19,18 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { InventoryStock } from '@/features/inventory/types/inventory.types'
+import { APP_ROUTES } from '@/routes/app-routes'
 import { MAX_CYCLE_COUNT_ITEMS } from '../../schemas/cycle-count.schema'
-import { CYCLE_COUNT_QUALITY_LABELS } from '../../utils/cycle-count-format'
+import {
+  CYCLE_COUNT_QUALITY_LABELS,
+  formatCount,
+  formatCycleCountDate,
+} from '../../utils/cycle-count-format'
 import { formatStockLocation, getStockScopeKey } from '../../utils/cycle-count-scope'
+import { OptionSelect } from '../OptionSelect'
 import type { CycleCountFormApi, SelectOption, StockSelection } from './types'
 
-const COLUMN_COUNT = 11
+const COLUMN_COUNT = 12
 
 interface CycleCountScopePanelProps {
   readonly form: CycleCountFormApi
@@ -84,6 +90,7 @@ export function CycleCountScopePanel({
   const [showSelectedOnly, setShowSelectedOnly] = useState(false)
   const { errors } = form.formState
   const warehouseId = form.watch('warehouseId')
+  const zoneId = form.watch('zoneId')
   const selectedItems = form.watch('items')
   const selectedKeys = new Set(selectedItems.map(getStockScopeKey))
   const showingSelected = showSelectedOnly && selectedItems.length > 0
@@ -112,71 +119,60 @@ export function CycleCountScopePanel({
             <FieldLabel htmlFor="warehouseId">
               Kho kiểm kê <span className="text-destructive">*</span>
             </FieldLabel>
-            <NativeSelect
+            <OptionSelect
               id="warehouseId"
-              {...form.register('warehouseId', { onChange: onWarehouseChange })}
-            >
-              <NativeSelectOption value="">Chọn kho</NativeSelectOption>
-              {warehouses.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              value={warehouseId}
+              options={warehouses}
+              emptyLabel="Chọn kho"
+              invalid={Boolean(errors.warehouseId)}
+              onValueChange={(value) => {
+                form.setValue('warehouseId', value, { shouldDirty: true, shouldValidate: true })
+                onWarehouseChange()
+              }}
+            />
             <FieldError errors={errors.warehouseId ? [errors.warehouseId] : undefined} />
           </Field>
           <Field>
             <FieldLabel htmlFor="zoneId">Khu vực</FieldLabel>
-            <NativeSelect
+            <OptionSelect
               id="zoneId"
+              value={zoneId}
+              options={zones}
+              emptyLabel="Toàn kho"
               disabled={!warehouseId}
-              {...form.register('zoneId', { onChange: onZoneChange })}
-            >
-              <NativeSelectOption value="">Toàn kho</NativeSelectOption>
-              {zones.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              onValueChange={(value) => {
+                form.setValue('zoneId', value, { shouldDirty: true })
+                onZoneChange()
+              }}
+            />
           </Field>
           <Field>
             <FieldLabel htmlFor="rackId">Kệ</FieldLabel>
-            <NativeSelect
+            <OptionSelect
               id="rackId"
-              disabled={!warehouseId}
               value={rackId}
-              onChange={(event) => {
-                onRackChange(event.target.value)
+              options={racks}
+              emptyLabel="Tất cả kệ"
+              disabled={!warehouseId}
+              onValueChange={(value) => {
+                onRackChange(value)
                 onInventoryPageChange(1)
               }}
-            >
-              <NativeSelectOption value="">Tất cả kệ</NativeSelectOption>
-              {racks.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+            />
           </Field>
           <Field>
             <FieldLabel htmlFor="categoryId">Nhóm VTHH</FieldLabel>
-            <NativeSelect
+            <OptionSelect
               id="categoryId"
-              disabled={!warehouseId}
               value={categoryId}
-              onChange={(event) => {
-                onCategoryChange(event.target.value)
+              options={categories}
+              emptyLabel="Tất cả nhóm"
+              disabled={!warehouseId}
+              onValueChange={(value) => {
+                onCategoryChange(value)
                 onInventoryPageChange(1)
               }}
-            >
-              <NativeSelectOption value="">Tất cả nhóm</NativeSelectOption>
-              {categories.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+            />
           </Field>
           <Field>
             <FieldLabel htmlFor="inventorySearch">Tìm vật tư</FieldLabel>
@@ -256,6 +252,7 @@ export function CycleCountScopePanel({
             <TableHead className="bg-card sticky top-0 z-10">Chất lượng</TableHead>
             <TableHead className="bg-card sticky top-0 z-10 text-right">Tồn hiện tại</TableHead>
             <TableHead className="bg-card sticky top-0 z-10 text-right">Đang giữ</TableHead>
+            <TableHead className="bg-card sticky top-0 z-10">Kiểm kê gần nhất</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -321,6 +318,9 @@ export function CycleCountScopePanel({
                   <TableCell className="text-muted-foreground text-right font-mono tabular-nums">
                     {row.reservedQuantity + row.holdQuantity}
                   </TableCell>
+                  <TableCell>
+                    <LastCountCell lastCount={row.lastCount} />
+                  </TableCell>
                 </TableRow>
               )
             })
@@ -338,5 +338,29 @@ export function CycleCountScopePanel({
         />
       )}
     </OperationalListPanel>
+  )
+}
+
+function LastCountCell({ lastCount }: { readonly lastCount: InventoryStock['lastCount'] }) {
+  if (!lastCount) return <span className="text-muted-foreground text-xs">Chưa kiểm kê</span>
+  const difference = lastCount.difference ?? 0
+  return (
+    <div className="text-xs">
+      <p className="tabular-nums">{formatCycleCountDate(lastCount.countedAt)}</p>
+      <p className="text-muted-foreground">
+        <Link
+          href={APP_ROUTES.cycleCountDetail(lastCount.cycleCountId)}
+          className="font-mono underline-offset-2 hover:underline"
+        >
+          {lastCount.code}
+        </Link>
+        {lastCount.countedByName ? ` · ${lastCount.countedByName}` : ''}
+      </p>
+      <p className={difference === 0 ? 'text-muted-foreground' : 'text-destructive font-medium'}>
+        {difference === 0
+          ? 'Khớp sổ sách'
+          : `Lệch ${difference > 0 ? '+' : '−'}${formatCount(Math.abs(difference))}`}
+      </p>
+    </div>
   )
 }
