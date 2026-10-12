@@ -206,29 +206,31 @@ export default function TransferReceiveTaskPage({
                 Đợt này không còn ở trạng thái chờ nhận nên chỉ xem được.
               </p>
             ) : null}
-            <PutawayPlanNotice
-              disabled={receive.blocked || isReloading || receive.isFindingSlot}
-              onApplyPlan={() => {
-                if (receive.form.formState.isDirty) setIsResetPlanConfirmOpen(true)
-                else receive.applyPlan()
-              }}
-              description="Đã điền sẵn vị trí và số lượng; vẫn cần quét xác nhận. Cất khác kế hoạch cần chọn lý do."
-              items={sheet.lines
-                .filter((line) => line.planMode === 'Planned')
-                .map((line) => ({
-                  id: line.lineId,
-                  label: `${line.sku} · ${line.productName}`,
-                  locations:
-                    line.lots
-                      .flatMap((lot) =>
-                        (lot.plan ?? []).map(
-                          (plan) =>
-                            `${plan.path}: ${formatQuantity(plan.plannedQuantity)} ${line.baseUnitName}`
+            {isReceivable ? (
+              <PutawayPlanNotice
+                disabled={receive.blocked || isReloading || receive.isFindingSlot}
+                onApplyPlan={() => {
+                  if (receive.form.formState.isDirty) setIsResetPlanConfirmOpen(true)
+                  else receive.applyPlan()
+                }}
+                description="Đã điền sẵn vị trí và số lượng; vẫn cần quét xác nhận. Cất khác kế hoạch cần chọn lý do."
+                items={sheet.lines
+                  .filter((line) => line.planMode === 'Planned')
+                  .map((line) => ({
+                    id: line.lineId,
+                    label: `${line.sku} · ${line.productName}`,
+                    locations:
+                      line.lots
+                        .flatMap((lot) =>
+                          (lot.plan ?? []).map(
+                            (plan) =>
+                              `${plan.path}: ${formatQuantity(plan.plannedQuantity)} ${line.baseUnitName}`
+                          )
                         )
-                      )
-                      .join(' · ') || 'Chưa có vị trí theo kế hoạch',
-                }))}
-            />
+                        .join(' · ') || 'Chưa có vị trí theo kế hoạch',
+                  }))}
+              />
+            ) : null}
             {canAct ? <ScanPreferencesBar /> : null}
             {canAct && canUseCamera ? (
               <div className="grid gap-2">

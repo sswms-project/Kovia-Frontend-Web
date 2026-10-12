@@ -65,6 +65,8 @@ export function TransferPutawayPlanSheet({
   const [isReloading, setIsReloading] = useState(false)
   const reloadLock = useRef(false)
   const contentRef = useRef<HTMLDivElement>(null)
+  const historyTraversal = useRef<'idle' | 'restoring' | 'leaving'>('idle')
+  const [leavingByHistory, setLeavingByHistory] = useState(false)
   // Làm mới trang hoặc đóng tab khi còn nháp chưa lưu phải được hỏi lại; Sheet đã chặn bấm liên kết trong trang.
   useEffect(() => {
     if (!editor.isOpen || !editor.isDirty) return
@@ -72,8 +74,23 @@ export function TransferPutawayPlanSheet({
       event.preventDefault()
       event.returnValue = ''
     }
+    // Back/Forward của trình duyệt không đi qua Sheet: trả lại trang hiện tại rồi hỏi trước khi bỏ nháp.
+    const interceptHistory = () => {
+      if (historyTraversal.current !== 'idle') {
+        historyTraversal.current = 'idle'
+        return
+      }
+      historyTraversal.current = 'restoring'
+      window.history.forward()
+      setLeavingByHistory(true)
+      setConfirmClose(true)
+    }
     window.addEventListener('beforeunload', warnBeforeUnload)
-    return () => window.removeEventListener('beforeunload', warnBeforeUnload)
+    window.addEventListener('popstate', interceptHistory)
+    return () => {
+      window.removeEventListener('beforeunload', warnBeforeUnload)
+      window.removeEventListener('popstate', interceptHistory)
+    }
   }, [editor.isOpen, editor.isDirty])
   const disabled =
     !canManage || editor.isPending || editor.reloadRequired || isReloading || isSuggesting
@@ -445,7 +462,10 @@ export function TransferPutawayPlanSheet({
       />
       <TransferConfirmDialog
         open={confirmClose}
-        onOpenChange={setConfirmClose}
+        onOpenChange={(open) => {
+          setConfirmClose(open)
+          if (!open) setLeavingByHistory(false)
+        }}
         title="Bỏ nội dung đang sửa?"
         description={<p>Kế hoạch chưa lưu sẽ bị bỏ. Dữ liệu đã lưu không thay đổi.</p>}
         confirmLabel="Bỏ thay đổi"
@@ -454,6 +474,11 @@ export function TransferPutawayPlanSheet({
         onConfirm={() => {
           setConfirmClose(false)
           editor.close()
+          if (leavingByHistory) {
+            setLeavingByHistory(false)
+            historyTraversal.current = 'leaving'
+            window.history.back()
+          }
         }}
       />
     </>
