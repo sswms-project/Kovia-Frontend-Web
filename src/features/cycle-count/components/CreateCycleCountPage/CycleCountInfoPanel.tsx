@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DatePickerField } from '@/features/inbound-request/components/InboundRequestFormPage/DatePickerField'
-import { OptionSelect } from './OptionSelect'
+import { OptionSelect } from '../OptionSelect'
 import type { CycleCountFormApi, SelectOption } from './types'
 
 const DEFAULT_START_TIME = '08:00'

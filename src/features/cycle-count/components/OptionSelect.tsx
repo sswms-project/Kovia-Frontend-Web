@@ -7,15 +7,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { SelectOption } from './types'
 
 // Radix Select không nhận value rỗng nên dùng giá trị thay thế cho lựa chọn "Tất cả"/"Chưa chọn".
 const EMPTY_VALUE = '__empty__'
 
+interface OptionSelectItem {
+  readonly value: string
+  readonly label: string
+}
+
 interface OptionSelectProps {
   readonly id: string
   readonly value: string
-  readonly options: readonly SelectOption[]
+  readonly options: readonly OptionSelectItem[]
   /** Bỏ trống khi trường luôn phải có giá trị (ví dụ mức ưu tiên). */
   readonly emptyLabel?: string
   readonly disabled?: boolean

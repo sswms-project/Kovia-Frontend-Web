@@ -9,6 +9,7 @@ export interface InventoryListQuery {
   searchTerm?: string
   categoryId?: string
   includeLastCount?: boolean
+  inStockOnly?: boolean
 }
 
 export type QualityStatus = 'Good' | 'Damaged' | 'Quarantine'

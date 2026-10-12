@@ -54,6 +54,7 @@ export default function CreateCycleCountPage() {
   const zoneId = useWatch({ control: form.control, name: 'zoneId' })
   const inventoryScope = {
     warehouseId,
+    inStockOnly: true,
     ...(zoneId ? { zoneId } : {}),
     ...(rackId ? { rackId } : {}),
     ...(categoryId ? { categoryId } : {}),

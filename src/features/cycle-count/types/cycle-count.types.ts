@@ -21,12 +21,37 @@ export type StockAdjustmentStatus =
 // Tab lọc ảo trên danh sách: phiếu đã hoàn tất còn dòng lệch chưa tạo điều chỉnh tồn.
 export const CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER = 'NeedsAdjustment'
 
+// Tab trên danh sách gom các trạng thái kỹ thuật thành giai đoạn công việc để bớt số tab.
+export const CYCLE_COUNT_STATUS_GROUPS = [
+  { value: 'Scheduled', label: 'Chưa bắt đầu', statuses: [CYCLE_COUNT_STATUSES.scheduled] },
+  {
+    value: 'InProgress',
+    label: 'Đang thực hiện',
+    statuses: [CYCLE_COUNT_STATUSES.counting, CYCLE_COUNT_STATUSES.recount],
+  },
+  { value: 'Submitted', label: 'Chờ duyệt', statuses: [CYCLE_COUNT_STATUSES.submitted] },
+  {
+    value: 'Closed',
+    label: 'Hoàn tất',
+    statuses: [CYCLE_COUNT_STATUSES.completed, CYCLE_COUNT_STATUSES.cancelled],
+  },
+] as const
+
+export type CycleCountStatusGroup = (typeof CYCLE_COUNT_STATUS_GROUPS)[number]['value']
+export type CycleCountListFilter =
+  | ''
+  | CycleCountStatusGroup
+  | typeof CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER
+
 export interface CycleCountListQuery {
   pageNumber: number
   pageSize: number
   warehouseId?: string
-  status?: CycleCountStatus
+  // Một trạng thái hoặc danh sách cách nhau bằng dấu phẩy (BE nhận cả hai).
+  status?: string
   needsAdjustment?: boolean
+  // 'priority' (mặc định, việc cần làm trước) hoặc 'newest'.
+  sortBy?: string
   assignedTo?: string
   dateFrom?: string
   dateTo?: string
@@ -115,6 +140,9 @@ export interface CycleCountItem {
   slotBarcode: string | null
   damageReason: string | null
   damageEvidence: CycleCountDamageEvidence[]
+  damageConfirmedAt: string | null
+  damageCaseId: string | null
+  damageCaseStatus: 'Open' | 'Resolved' | null
 }
 
 // Phản hồi tải ảnh lên; chỉ dùng id và tên tệp.

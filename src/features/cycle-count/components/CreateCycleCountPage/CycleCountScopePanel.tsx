@@ -27,7 +27,7 @@ import {
   formatCycleCountDate,
 } from '../../utils/cycle-count-format'
 import { formatStockLocation, getStockScopeKey } from '../../utils/cycle-count-scope'
-import { OptionSelect } from './OptionSelect'
+import { OptionSelect } from '../OptionSelect'
 import type { CycleCountFormApi, SelectOption, StockSelection } from './types'
 
 const COLUMN_COUNT = 12

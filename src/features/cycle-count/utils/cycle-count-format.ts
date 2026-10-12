@@ -8,7 +8,7 @@ import {
 export const CYCLE_COUNT_STATUS_LABELS: Record<CycleCountStatus, string> = {
   [CYCLE_COUNT_STATUSES.scheduled]: 'Chưa kiểm kê',
   [CYCLE_COUNT_STATUSES.counting]: 'Đang kiểm kê',
-  [CYCLE_COUNT_STATUSES.submitted]: 'Chờ quản lý duyệt',
+  [CYCLE_COUNT_STATUSES.submitted]: 'Chờ duyệt',
   [CYCLE_COUNT_STATUSES.recount]: 'Yêu cầu đếm lại',
   [CYCLE_COUNT_STATUSES.completed]: 'Đã hoàn tất',
   [CYCLE_COUNT_STATUSES.cancelled]: 'Đã huỷ',
@@ -65,4 +65,10 @@ export function getOverdueDays(dueDate: string | null, status: CycleCountStatus)
     return 0
   const elapsedMilliseconds = Date.now() - new Date(dueDate).getTime()
   return elapsedMilliseconds > 0 ? Math.ceil(elapsedMilliseconds / 86_400_000) : 0
+}
+
+// Chênh lệch âm hiển thị trong ngoặc theo cách trình bày kế toán.
+export function formatCountDifference(value: number | null): string {
+  if (value === null) return '—'
+  return value < 0 ? `(${formatCount(-value)})` : formatCount(value)
 }
