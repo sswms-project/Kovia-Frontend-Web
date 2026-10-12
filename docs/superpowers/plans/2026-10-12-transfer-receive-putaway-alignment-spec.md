@@ -536,3 +536,37 @@ Hai vòng rà soát độc lập đã đối chiếu spec với mã BE/FE; các 
 7. Ánh xạ tab cũ là thay đổi có chủ đích; `statusCounts.all` loại phiếu hủy (3.7).
 8. Race ghi đồng thời giữ mức High cho tới khi có test chứng minh (3.6, 8).
 9. Câu AI đồng bộ với quyết định dùng AI ngay (mục 5, 8).
+
+---
+
+## 14. Tiến trình Gate A — 2026-10-12
+
+**Trạng thái: đã triển khai mã Backend; chưa đóng nghiệm thu Gate A.** Còn bằng chứng race đồng thời trên SQL Server ở 3.6. Chưa bắt đầu Gate A+ hoặc Gate B; không tự commit/push.
+
+Đã làm:
+
+- Migration `20261012021015_AddTransferPutAwayPlan` và SQL rà soát: bảng kế hoạch mới, `IsOffPlan` và `DeviationReasonCode`; không sửa migration cũ, không thêm cột phiên bản kế hoạch hay quyền mới. **Chưa áp migration**, chưa kết nối/ghi DB deploy.
+- `SetTransferPutAwayPlan`: tổng theo ô, nhiều ô, độ chính xác ĐVT, phạm vi kho/quyền, giữ lượng tốt đã nhận (kể cả nhận bổ sung), đồng bộ `DestinationSlotId` và thông báo người nhận đang được giao việc.
+- Gợi ý mới dạng object, theo đợt hoặc phần chưa khai báo; lõi quy tắc/AI dùng chung với Nhập kho; giữ endpoint mảng cũ.
+- Phiếu nhận: ngân sách ô dùng chung qua các lô theo thứ tự xác định, `planMode`, `planVersion`, `plan[]`, `unplannedQuantity`. Nhận: kiểm phiên bản, ngân sách cộng dồn toàn request, lý do lệch, bằng chứng thực nhận và thông báo. Lưu kế hoạch/nhận đều cập nhật `StockTransfer` trong cùng lần save.
+- Chi tiết trả kế hoạch và phần đã nhận/còn lại; danh sách trả `statusCounts`, `nextActionCode` mà không tải chi tiết từng phiếu.
+
+Kết quả kiểm thử trên bản sao D, không build trong repo đang dùng chung:
+
+| Kiểm tra                                   | Kết quả / giới hạn                                                                                                                                                                                                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API Release build cuối                     | Đạt, 0 cảnh báo / 0 lỗi.                                                                                                                                                                                                                                  |
+| Transfer + hồi quy cất hàng/gợi ý Nhập kho | **182 đạt / 0 lỗi** ở lượt cuối.                                                                                                                                                                                                                          |
+| Bộ test BE đầy đủ                          | 1.242 đạt / 14 lỗi / 1 bỏ qua, 1.257 tổng; chạy trước chỉnh nhỏ cuối về `nextActionCode` của trạng thái legacy. 14 lỗi đều tái hiện ở baseline `dcc7cc3`: 9 tồn kho, 4 sửa phiếu nhập, 1 cache quyền người dùng ngừng hoạt động. Không sửa ngoài phạm vi. |
+| Model/snapshot                             | `has-pending-model-changes`: không drift. Không kiểm migration history của DB deploy.                                                                                                                                                                     |
+| Concurrency / rollback cô lập              | 3 hoán vị stale-save trên SQLite in-memory + 1 kiểm metadata SQL Server đạt. Chứng minh token chung và rollback companion writes với rowversion mô phỏng; **chưa chứng minh hai handler chạy đồng thời trên SQL Server thật**. Rủi ro mục 8 vẫn giữ High. |
+| GitNexus                                   | BE đã làm mới index tại `dcc7cc3`; DbContext Critical đã báo trước khi sửa. Scan tracked High được rà diff trực tiếp; không bao phủ đầy đủ file mới chưa tracked hoặc caller MediatR.                                                                     |
+
+Bằng chứng: `D:/Kovia-QA/TransferAlignment-20261012-GateA/results/`; nhật ký ở `SSWMS-Backend/docs/AI_REVIEW.md`. Đây là tự kiểm của người triển khai, không phải phê duyệt độc lập. `docs/BUSINESS_RULES.md` được chỉ dẫn nhưng hiện không tồn tại trong hai repo.
+
+### Khác với spec / làm rõ hợp đồng
+
+- API thực tế trước thay đổi dùng `POST .../shipments/{shipmentId}/receipt`, trong khi mục 2/3 ghi `/receive`. Giữ `/receipt` nguyên trạng và thêm alias `/receive`, không phá client cũ.
+- Thống nhất cách hiểu mục 3.2 và 3.6: **thiếu** `planVersion` ở dòng Planned trả `400` với mã `TRANSFER_PUTAWAY_PLAN_VERSION_REQUIRED`; **có gửi nhưng cũ**, kể cả kế hoạch vừa bị xóa, trả `409` với mã `TRANSFER_PUTAWAY_PLAN_CHANGED`.
+- Triển khai trên nhánh làm việc `feat/huytv` hiện có, giữ các thay đổi instruction file đang có. Không tự chuyển nhánh hoặc tạo PR. Migration cũ không đổi; chưa kiểm trạng thái PR #217 trên GitHub nên không kết luận về mergeability của PR.
+- Không có SQL Server QA cô lập để chạy race thực tế. Không tự dùng DB deploy để vượt qua Gate A+/quy trình cho phép migration. Cần kiểm SQL Server plan/receive và hai đợt nhận trước khi đánh dấu Gate A hoàn tất.
