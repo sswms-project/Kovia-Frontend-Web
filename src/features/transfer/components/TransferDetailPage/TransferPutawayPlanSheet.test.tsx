@@ -71,6 +71,26 @@ describe('TransferPutawayPlanSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bỏ thay đổi' }))
     expect(editor.close).toHaveBeenCalledTimes(1)
   })
+  it('is wide enough on desktop because the right-side sheet width overrides its small default', () => {
+    setup()
+    const classes = screen.getByRole('dialog').className
+    expect(classes).toContain('data-[side=right]:sm:max-w-2xl')
+    expect(classes).toContain('data-[side=right]:w-full')
+    expect(classes).not.toContain('data-[side=right]:sm:max-w-sm')
+    expect(classes).not.toContain('data-[side=right]:w-3/4')
+  })
+  it('warns before reload or tab close only while an unsaved draft is open', () => {
+    const first = setup({ isDirty: true })
+    const dirtyEvent = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(dirtyEvent)
+    expect(dirtyEvent.defaultPrevented).toBe(true)
+    expect(first.editor.close).not.toHaveBeenCalled()
+    cleanup()
+    setup({ isDirty: false })
+    const cleanEvent = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(cleanEvent)
+    expect(cleanEvent.defaultPrevented).toBe(false)
+  })
   it('supports viewing without offering write actions', () => {
     setup({ canManage: false })
     expect(screen.getByRole('dialog')).toHaveAccessibleName('Xem kế hoạch cất hàng')
