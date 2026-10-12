@@ -1,4 +1,11 @@
-import { Fragment } from 'react'
+'use client'
+
+import { ChevronDown } from 'lucide-react'
+import { Fragment, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 import type { CycleCountDetail } from '../../types/cycle-count.types'
 import {
   formatCycleCountDate,
@@ -38,6 +45,8 @@ export function CycleCountInfoSection({
   countedCount,
   varianceCount,
 }: CycleCountInfoSectionProps) {
+  const isMobile = useIsMobile()
+  const [isOpen, setIsOpen] = useState(false)
   const showResults = hasCountResults(detail.status)
   const scopeRows: readonly InfoRow[] = [
     ['Mục đích', detail.purpose || '—'],
@@ -64,7 +73,7 @@ export function CycleCountInfoSection({
     ['Chốt phiếu', withPerson(detail.finalizedAt ?? detail.completedAt, detail.finalizedByName)],
   ]
 
-  return (
+  const sections = (
     <div className="grid shrink-0 gap-3 lg:grid-cols-[minmax(0,1fr)_24rem]">
       <section className="bg-card border" aria-label="Thông tin chung">
         <h2 className="border-b px-4 py-2 text-sm font-semibold">Thông tin chung</h2>
@@ -78,5 +87,31 @@ export function CycleCountInfoSection({
         <InfoList rows={trackingRows} />
       </section>
     </div>
+  )
+
+  if (!isMobile) return sections
+
+  // Điện thoại: thu gọn để danh sách dòng đếm chiếm gần hết màn hình; mở ra khi cần xem chi tiết phiếu.
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="bg-card shrink-0 border">
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" className="h-11 w-full justify-between px-4">
+          <span className="text-sm font-semibold">Thông tin phiếu</span>
+          <span className="text-muted-foreground flex items-center gap-2 text-xs font-normal">
+            {showResults ? `${countedCount}/${detail.items.length} dòng` : detail.code}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                'size-4 transition-transform motion-reduce:transition-none',
+                isOpen && 'rotate-180'
+              )}
+            />
+          </span>
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="max-h-[50dvh] overflow-y-auto border-t">
+        {sections}
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

@@ -16,7 +16,7 @@ export interface TransferErrorDescription {
  */
 export function describeTransferError(error: unknown, fallback: string): TransferErrorDescription {
   if (!isApiErrorResponse(error)) {
-    return { kind: 'rejected', message: getApiErrorMessage(error, fallback) }
+    return { kind: 'unknown-result', message: getApiErrorMessage(error, fallback) }
   }
   if (error.statusCode === 409) {
     const message = error.message.trim()
@@ -31,7 +31,11 @@ export function describeTransferError(error: unknown, fallback: string): Transfe
           : sentence,
     }
   }
-  if (NETWORK_FAILURE_PATTERN.test(error.message)) {
+  if (
+    error.statusCode >= 500 ||
+    error.statusCode <= 0 ||
+    NETWORK_FAILURE_PATTERN.test(error.message)
+  ) {
     return {
       kind: 'unknown-result',
       message:

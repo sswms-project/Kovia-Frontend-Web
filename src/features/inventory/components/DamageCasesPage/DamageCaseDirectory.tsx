@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ShieldAlert } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { APP_ROUTES } from '@/routes/app-routes'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -32,7 +33,6 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
-import { APP_ROUTES } from '@/routes/app-routes'
 import { inventoryService } from '../../services/inventory.service'
 import type {
   DamageCase,
@@ -193,6 +193,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                   <TableHead className="sticky top-0 z-10">Kho / vị trí</TableHead>
                   <TableHead className="sticky top-0 z-10 text-right">Số lượng</TableHead>
                   <TableHead className="sticky top-0 z-10">Lý do / bằng chứng</TableHead>
+                  <TableHead className="sticky top-0 z-10">Nguồn</TableHead>
                   <TableHead className="sticky top-0 z-10">Người báo</TableHead>
                   <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
                   <TableHead />
@@ -238,6 +239,18 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                       <p className="text-muted-foreground text-xs">
                         {formatInventoryDate(item.createdAt)}
                       </p>
+                    </TableCell>
+                    <TableCell>
+                      {item.relatedTaskType === 'CycleCount' && item.relatedTaskId ? (
+                        <Link
+                          href={APP_ROUTES.cycleCountDetail(item.relatedTaskId)}
+                          className="text-primary text-xs underline-offset-2 hover:underline"
+                        >
+                          Kiểm kê
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Báo tay</span>
+                      )}
                     </TableCell>
                     <TableCell>{item.reportedByName}</TableCell>
                     <TableCell>

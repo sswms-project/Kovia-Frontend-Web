@@ -19,40 +19,27 @@ import { TransferDirectory } from '../components/TransfersPage'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
 import { useTransferQuery, useTransfersQuery } from '../hooks/use-transfers'
-import type { TransferStatus } from '../types/transfer.types'
 import { transferGoodsRows } from '../utils/transfer-goods-rows'
-import { parseTransferStage } from '../utils/transfer-stage'
+import { readTransferListState } from '../utils/transfer-list-state'
 
 export default function TransferPage() {
-  const [searchText, setSearchText] = useState('')
-  const stage = parseTransferStage(useSearchParams().get('tab'))
-  const [status, setStatus] = useState<TransferStatus | ''>('')
-  // Đổi tab thì về trang đầu và bỏ lọc trạng thái của tab trước (các tab có tập trạng thái khác nhau).
-  const [seenStage, setSeenStage] = useState(stage)
-  const [sourceWarehouseId, setSourceWarehouseId] = useState('')
-  const [destinationWarehouseId, setDestinationWarehouseId] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const searchParams = useSearchParams()
+  const { status, page, pageSize, search: searchText } = readTransferListState(searchParams)
+  const sourceWarehouseId = searchParams.get('source') ?? ''
+  const destinationWarehouseId = searchParams.get('destination') ?? ''
+  const dateFrom = searchParams.get('from') ?? ''
+  const dateTo = searchParams.get('to') ?? ''
   const [previewId, setPreviewId] = useState('')
   const [isDetailExpanded, setIsDetailExpanded] = useLocalStorage(
     TRANSFER_DETAIL_STORAGE_KEY,
     false
   )
 
-  if (stage !== seenStage) {
-    setSeenStage(stage)
-    setStatus('')
-    setPage(1)
-  }
-
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const { viewer } = useTransferViewer()
   const transfersQuery = useTransfersQuery({
     pageNumber: page,
     pageSize,
-    stage,
     ...(status ? { status } : {}),
     ...(sourceWarehouseId ? { sourceWarehouseId } : {}),
     ...(destinationWarehouseId ? { destinationWarehouseId } : {}),
@@ -88,9 +75,17 @@ export default function TransferPage() {
       : undefined
   const previewQuery = useTransferQuery(isDetailExpanded && preview ? preview.id : null)
 
-  function updateFilter<TValue>(setValue: (value: TValue) => void, value: TValue) {
-    setValue(value)
-    setPage(1)
+  function updateFilter(key: string, value: string | number, resetPage = true, replace = false) {
+    const params = new URLSearchParams(window.location.search)
+    params.delete('tab')
+    // Giữ ý nghĩa bookmark cũ khi chuyển sang URL mới.
+    if (status) params.set('status', status)
+    if (String(value)) params.set(key, String(value))
+    else params.delete(key)
+    if (resetPage) params.delete('page')
+    const url = params.size ? `${window.location.pathname}?${params}` : window.location.pathname
+    if (replace) window.history.replaceState(null, '', url)
+    else window.history.pushState(null, '', url)
   }
 
   return (
@@ -111,8 +106,10 @@ export default function TransferPage() {
         }
       >
         <TransferDirectory
-          stage={stage}
-          openDiscrepancyCount={transfersQuery.data?.openDiscrepancyCount ?? 0}
+          query={searchParams.toString()}
+          statusCounts={
+            !transfersQuery.isPlaceholderData ? transfersQuery.data?.statusCounts : undefined
+          }
           items={transfersQuery.data?.items ?? []}
           totalCount={transfersQuery.data?.totalCount ?? 0}
           page={page}
@@ -130,17 +127,13 @@ export default function TransferPage() {
           isLoading={transfersQuery.isLoading}
           isFetching={transfersQuery.isFetching}
           isError={transfersQuery.isError}
-          onSearchChange={(value) => updateFilter(setSearchText, value)}
-          onStatusChange={(value) => updateFilter(setStatus, value)}
-          onSourceWarehouseChange={(value) => updateFilter(setSourceWarehouseId, value)}
-          onDestinationWarehouseChange={(value) => updateFilter(setDestinationWarehouseId, value)}
-          onDateFromChange={(value) => updateFilter(setDateFrom, value)}
-          onDateToChange={(value) => updateFilter(setDateTo, value)}
-          onPageChange={setPage}
-          onPageSizeChange={(value) => {
-            setPageSize(value)
-            setPage(1)
-          }}
+          onSearchChange={(value) => updateFilter('search', value, true, true)}
+          onSourceWarehouseChange={(value) => updateFilter('source', value)}
+          onDestinationWarehouseChange={(value) => updateFilter('destination', value)}
+          onDateFromChange={(value) => updateFilter('from', value)}
+          onDateToChange={(value) => updateFilter('to', value)}
+          onPageChange={(value) => updateFilter('page', value, false)}
+          onPageSizeChange={(value) => updateFilter('pageSize', value)}
           onRetry={() => void transfersQuery.refetch()}
           onPreview={(transfer) => setPreviewId(transfer.id)}
         />

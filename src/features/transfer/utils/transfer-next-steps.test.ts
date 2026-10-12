@@ -153,7 +153,28 @@ describe('getTransferNextSteps', () => {
     expect(allStepsFor(sourceManager, transfer)).not.toContain('set-put-away')
 
     const allChosen = buildTransfer({
-      items: [buildTransferItem({ id: 'i1', quantity: 10, destinationSlotId: 'slot-1' })],
+      items: [
+        buildTransferItem({
+          id: 'i1',
+          quantity: 10,
+          putAwayPlan: [
+            {
+              slotId: 'slot-1',
+              slotCode: 'A1',
+              rackCode: null,
+              zoneName: null,
+              path: 'A1',
+              plannedTotal: 10,
+              receivedQuantity: 0,
+              remainingBudget: 10,
+              isSystemDefaultSlot: false,
+              plannedByUserId: MANAGER_ID,
+              createdAt: '2026-10-12T00:00:00Z',
+              modifiedAt: null,
+            },
+          ],
+        }),
+      ],
     })
     expect(allStepsFor(destinationManager, allChosen)).not.toContain('set-put-away')
   })

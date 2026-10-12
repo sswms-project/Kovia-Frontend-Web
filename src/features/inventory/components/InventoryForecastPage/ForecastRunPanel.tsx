@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, RefreshCw, TrendingUp, PackagePlus } from 'lucide-react'
 import { P } from '@/config/permissionCodes'
+import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,11 +19,16 @@ import {
 } from '@/components/operations/OperationalState'
 import type { ForecastWorkspace } from '../../hooks/use-forecast-workspace'
 import type { InventoryFilterOption } from '../../types/inventory.types'
+import { forecastRunStatusLabel } from '../../utils/forecast-overview'
 import { formatInventoryDateOnly } from '../../utils/inventory-format'
+import { ForecastOverviewView } from './ForecastOverviewView'
 import { ForecastDemandView } from './ForecastDemandView'
 import { ReplenishmentList } from './ReplenishmentList'
 import { ReplenishmentReviewDialog } from './ReplenishmentReviewDialog'
 import { ForecastRebalancingView } from './ForecastRebalancingView'
+
+// Opacity only: a tab swap should feel instant, never shift the layout.
+const TAB_ENTER = 'animate-in fade-in-0 animation-duration-200 motion-reduce:animate-none'
 
 interface ForecastRunPanelProps {
   readonly workspace: ForecastWorkspace
@@ -49,7 +55,7 @@ export function ForecastRunPanel({
   canCreateTransfer,
   permissions,
 }: ForecastRunPanelProps) {
-  const [tab, setTab] = useState('replenishment')
+  const [tab, setTab] = useState('overview')
   const run = workspace.runQuery.data
   const diagnostics = run?.details?.products ?? []
   return (
@@ -178,7 +184,8 @@ export function ForecastRunPanel({
               </NativeSelectOption>
               {(workspace.runsQuery.data ?? []).map((item) => (
                 <NativeSelectOption key={item.id} value={item.id}>
-                  {new Date(item.createdAt).toLocaleString('vi-VN')} · {item.status} ·{' '}
+                  {new Date(item.createdAt).toLocaleString('vi-VN')} ·{' '}
+                  {forecastRunStatusLabel(item.status)} ·{' '}
                   {formatInventoryDateOnly(item.forecastEndDate)}
                 </NativeSelectOption>
               ))}
@@ -261,6 +268,7 @@ export function ForecastRunPanel({
           ) : null}
           <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
             <TabsList className="shrink-0">
+              <TabsTrigger value="overview">Tổng quan ({diagnostics.length})</TabsTrigger>
               <TabsTrigger value="replenishment">
                 Bổ sung hàng ({run.replenishmentSuggestions.length})
               </TabsTrigger>
@@ -269,7 +277,19 @@ export function ForecastRunPanel({
                 <TabsTrigger value="rebalancing">Điều chuyển</TabsTrigger>
               ) : null}
             </TabsList>
-            <TabsContent value="replenishment" className="flex min-h-0 flex-1 flex-col">
+            <TabsContent value="overview" className={cn(TAB_ENTER, 'flex min-h-0 flex-1 flex-col')}>
+              <ForecastOverviewView
+                {...workspace.overview}
+                onSelectProduct={(productId) => {
+                  workspace.setProductId(productId)
+                  setTab('demand')
+                }}
+              />
+            </TabsContent>
+            <TabsContent
+              value="replenishment"
+              className={cn(TAB_ENTER, 'flex min-h-0 flex-1 flex-col')}
+            >
               <ReplenishmentList
                 items={run.replenishmentSuggestions}
                 onReview={workspace.openReview}
@@ -277,14 +297,17 @@ export function ForecastRunPanel({
                 canViewInbound={canViewInbound}
               />
             </TabsContent>
-            <TabsContent value="demand" className="min-h-0 flex-1 overflow-auto">
+            <TabsContent value="demand" className={cn(TAB_ENTER, 'min-h-0 flex-1 overflow-auto')}>
               <ForecastDemandView
                 run={run}
                 productId={workspace.productId}
                 onProductChange={workspace.setProductId}
               />
             </TabsContent>
-            <TabsContent value="rebalancing" className="min-h-0 flex-1 overflow-auto">
+            <TabsContent
+              value="rebalancing"
+              className={cn(TAB_ENTER, 'min-h-0 flex-1 overflow-auto')}
+            >
               <ForecastRebalancingView workspace={workspace} canCreate={canCreateTransfer} />
             </TabsContent>
           </Tabs>

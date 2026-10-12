@@ -6,6 +6,9 @@ import {
   TRANSFER_PICK_REASONS,
 } from '../types/transfer.types'
 import { hasAtMostTwoDecimals } from '../utils/transfer-scan'
+import { PUTAWAY_DEVIATION_REASONS, UNREADABLE_SLOT_REASONS } from '@/types/putaway.types'
+import type { TransferReceiveSheet } from '../types/transfer.types'
+import { receiptPlanStates } from '../utils/transfer-receive-plan'
 
 const note500 = z.string().trim().max(500, 'Ghi chú không được vượt quá 500 ký tự.')
 
@@ -72,6 +75,8 @@ export const transferReceiptEntrySchema = z.object({
   lineId: dotNetGuidSchema('Dòng hàng không hợp lệ.'),
   lotId: z.string().nullable(),
   productLabel: z.string(),
+  plannedSlotId: z.string().optional(),
+  plannedSlotLabel: z.string().optional(),
   destinationSlotId: z.string(),
   scannedSlotCode: z.string().trim().max(100, 'Mã vị trí không được vượt quá 100 ký tự.'),
   scannedProductCode: z.string().trim().max(100, 'Mã hàng không được vượt quá 100 ký tự.'),
@@ -79,6 +84,8 @@ export const transferReceiptEntrySchema = z.object({
   damagedQuantity: z.number('Số lượng phải là số.').min(0, 'Số lượng hỏng không được âm.'),
   missingQuantity: z.number('Số lượng phải là số.').min(0, 'Số lượng thiếu không được âm.'),
   reasonCode: z.string().max(50, 'Nguyên nhân không được vượt quá 50 ký tự.'),
+  deviationReasonCode: z.string().max(40).optional(),
+  slotCodeUnreadable: z.boolean().optional(),
   note: note500,
 })
 
@@ -89,13 +96,17 @@ export function receiptEntryKey(lineId: string, lotId: string | null) {
 }
 
 /** `expected` là số lượng đã xuất của từng dòng/lô; tổng tốt + hỏng + thiếu phải bằng đúng số đó. */
-export function createTransferReceiptSchema(expected: ReadonlyMap<string, number>) {
+export function createTransferReceiptSchema(
+  expected: ReadonlyMap<string, number>,
+  sheet?: TransferReceiveSheet
+) {
   return z
     .object({
       entries: z.array(transferReceiptEntrySchema).min(1, 'Hãy khai báo kết quả nhận hàng.'),
     })
     .superRefine((values, context) => {
       const declared = new Map<string, number>()
+      const plans = sheet ? receiptPlanStates(sheet, values.entries) : []
       values.entries.forEach((entry, index) => {
         const key = receiptEntryKey(entry.lineId, entry.lotId)
         declared.set(
@@ -107,6 +118,50 @@ export function createTransferReceiptSchema(expected: ReadonlyMap<string, number
         )
         const hasProblem = entry.damagedQuantity > 0 || entry.missingQuantity > 0
         const needsSlot = entry.goodQuantity > 0 || entry.damagedQuantity > 0
+        if (!expected.has(key))
+          context.addIssue({
+            code: 'custom',
+            path: ['entries', index, 'goodQuantity'],
+            message: 'Dòng/lô không còn thuộc phiếu nhận; hãy kiểm tra dữ liệu mới.',
+          })
+        if (
+          plans[index]?.isPlanned &&
+          needsSlot &&
+          !entry.scannedSlotCode &&
+          !entry.slotCodeUnreadable
+        )
+          context.addIssue({
+            code: 'custom',
+            path: ['entries', index, 'scannedSlotCode'],
+            message: 'Vị trí theo kế hoạch vẫn cần quét hoặc nhập mã để xác nhận.',
+          })
+        if (entry.slotCodeUnreadable && needsSlot) {
+          if (!UNREADABLE_SLOT_REASONS.some((reason) => reason === entry.deviationReasonCode))
+            context.addIssue({
+              code: 'custom',
+              path: ['entries', index, 'deviationReasonCode'],
+              message: 'Hãy chọn lý do không quét được mã vị trí.',
+            })
+          if (entry.deviationReasonCode === 'Other' && entry.note.trim().length < 5)
+            context.addIssue({
+              code: 'custom',
+              path: ['entries', index, 'note'],
+              message: 'Lý do khác cần mô tả từ 5 đến 500 ký tự.',
+            })
+        } else if (plans[index]?.isOffPlan) {
+          if (!PUTAWAY_DEVIATION_REASONS.some((reason) => reason === entry.deviationReasonCode))
+            context.addIssue({
+              code: 'custom',
+              path: ['entries', index, 'deviationReasonCode'],
+              message: 'Hãy chọn lý do cất khác kế hoạch.',
+            })
+          if (entry.deviationReasonCode === 'Other' && entry.note.trim().length < 5)
+            context.addIssue({
+              code: 'custom',
+              path: ['entries', index, 'note'],
+              message: 'Lý do khác cần mô tả từ 5 đến 500 ký tự.',
+            })
+        }
         if (hasProblem && !entry.reasonCode) {
           context.addIssue({
             code: 'custom',

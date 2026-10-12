@@ -43,6 +43,8 @@ import type {
   InventorySlotOption,
 } from '../types/inventory.types'
 
+const FORECAST_RUN_TIMEOUT_MS = 5 * 60_000
+
 export const inventoryService = {
   downloadEvidence: async (id: string, fileName: string) => {
     const response = await axiosClient.get<Blob>(API_ENDPOINTS.inventory.evidenceFile(id), {
@@ -241,7 +243,10 @@ export const inventoryService = {
       .then((response) => response.data),
   executeForecastRun: (id: string) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.inventory.executeForecastRun(id))
+      // Fits a model per product in the forecasting service; a large warehouse outlasts the default timeout.
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.inventory.executeForecastRun(id), undefined, {
+        timeout: FORECAST_RUN_TIMEOUT_MS,
+      })
       .then((response) => response.data),
   getForecastRun: (id: string) =>
     axiosClient

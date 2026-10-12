@@ -12,8 +12,8 @@ import type {
   CompleteTransferPickingRequest,
   DispatchTransferShipmentRequest,
   ReopenTransferPickingRequest,
-  SetTransferPutAwaySlotsRequest,
-  TransferPutAwayItemSuggestions,
+  SetTransferPutAwayPlanRequest,
+  TransferPutAwayPlanSuggestions,
   EscalateTransferPickRequest,
   ReceiveTransferShipmentRequest,
   RecordTransferPickRequest,
@@ -47,6 +47,21 @@ import type { ReceivableSlot } from '../utils/transfer-receive'
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
 
 export const transferService = {
+  setPutAwayPlan: (transferId: string, request: SetTransferPutAwayPlanRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request)
+      .then(unwrap),
+
+  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string) =>
+    axiosClient
+      .get<ApiResponse<TransferPutAwayPlanSuggestions>>(
+        API_ENDPOINTS.transfers.putAwayPlanSuggestions(transferId),
+        {
+          params: shipmentId ? { shipmentId } : undefined,
+        }
+      )
+      .then(unwrap),
+
   /**
    * Tra vị trí cất hàng của kho nhận theo mã vừa quét; null nếu không có vị trí khớp. Server đối chiếu nhãn
    * ghép khu, mã vạch riêng và mã ngắn, và từ chối (409) khi một mã ngắn trùng ở nhiều kệ.
@@ -88,13 +103,6 @@ export const transferService = {
       .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.receivableSlots, {
         params,
       })
-      .then(unwrap),
-
-  getPutAwaySuggestions: (transferId: string) =>
-    axiosClient
-      .get<
-        ApiResponse<TransferPutAwayItemSuggestions[]>
-      >(API_ENDPOINTS.transfers.putAwaySuggestions(transferId))
       .then(unwrap),
 
   getSourceLocations: (params: TransferSourceLocationsQuery) =>
@@ -254,11 +262,6 @@ export const transferService = {
       .post<
         ApiResponse<unknown>
       >(API_ENDPOINTS.transfers.completePicking(transferId, shipmentId), request)
-      .then(unwrap),
-
-  setPutAwaySlots: (transferId: string, request: SetTransferPutAwaySlotsRequest) =>
-    axiosClient
-      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwaySlots(transferId), request)
       .then(unwrap),
 
   reopenPicking: (transferId: string, shipmentId: string, request: ReopenTransferPickingRequest) =>

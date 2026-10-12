@@ -11,12 +11,10 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Table,
   TableBody,
@@ -26,41 +24,31 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { APP_ROUTES } from '@/routes/app-routes'
-import type { CycleCountStatus, CycleCountSummary } from '../types/cycle-count.types'
+import type { CycleCountListFilter, CycleCountSummary } from '../types/cycle-count.types'
 import {
   CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER,
-  CYCLE_COUNT_STATUSES,
+  CYCLE_COUNT_STATUS_GROUPS,
 } from '../types/cycle-count.types'
 import {
-  CYCLE_COUNT_STATUS_LABELS,
   formatCycleCountDate,
   formatCycleCountDay,
+  getAdjustmentState,
   getOverdueDays,
   hasCountResults,
 } from '../utils/cycle-count-format'
+import { CycleCountCards } from './CycleCountCards'
+import { CycleCountStatsTiles } from './CycleCountStatsTiles'
 import { CycleCountStatusBadge } from './CycleCountStatusBadge'
+import { OptionSelect } from './OptionSelect'
 
 const ALL_STATUSES = 'all'
 
-type ListFilter = '' | CycleCountStatus | typeof CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER
-
-// Phiếu đã hoàn tất chỉ thực sự xong khi mọi dòng lệch đã có điều chỉnh tồn được duyệt.
-function getAdjustmentState(item: CycleCountSummary) {
-  const variance = item.varianceItemCount ?? 0
-  if (item.status !== CYCLE_COUNT_STATUSES.completed || variance === 0) return null
-  if (item.adjustedItemCount < variance)
-    return {
-      label: `Cần tạo điều chỉnh (${item.adjustedItemCount}/${variance})`,
-      variant: 'destructive',
-    } as const
-  if (item.approvedAdjustmentItemCount < variance)
-    return {
-      label: `Chờ duyệt điều chỉnh (${item.approvedAdjustmentItemCount}/${variance})`,
-      variant: 'outline',
-    } as const
-  return { label: 'Đã xử lý', variant: 'secondary' } as const
-}
+const SORT_OPTIONS = [
+  { value: 'priority', label: 'Ưu tiên xử lý' },
+  { value: 'newest', label: 'Mới tạo nhất' },
+] as const
 
 interface Props {
   readonly items: readonly CycleCountSummary[]
@@ -70,7 +58,8 @@ interface Props {
   readonly page: number
   readonly pageSize: number
   readonly warehouseId: string
-  readonly status: ListFilter
+  readonly sortBy: string
+  readonly status: CycleCountListFilter
   readonly searchTerm: string
   readonly warehouses: readonly { value: string; label: string }[]
   readonly canCreate: boolean
@@ -78,7 +67,8 @@ interface Props {
   readonly isFetching: boolean
   readonly isError: boolean
   readonly onWarehouseChange: (value: string) => void
-  readonly onStatusChange: (value: ListFilter) => void
+  readonly onSortChange: (value: string) => void
+  readonly onStatusChange: (value: CycleCountListFilter) => void
   readonly onSearchTermChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
@@ -88,6 +78,7 @@ interface Props {
 
 export function CycleCountDirectory(props: Props) {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const allCount = Object.values(props.statusCounts).reduce((sum, count) => sum + count, 0)
 
   return (
@@ -106,26 +97,21 @@ export function CycleCountDirectory(props: Props) {
           </Button>
         ) : null}
       </header>
-      {props.needsAdjustmentCount > 0 && props.status !== CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER ? (
-        <Alert variant="destructive" className="flex shrink-0 items-center gap-3">
-          <TriangleAlert aria-hidden="true" />
-          <AlertDescription className="flex-1">
-            {props.needsAdjustmentCount} phiếu đã hoàn tất còn dòng lệch chưa tạo điều chỉnh tồn.
-            Tồn kho chỉ thay đổi sau khi phiếu điều chỉnh được duyệt.
-          </AlertDescription>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => props.onStatusChange(CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER)}
-          >
-            Xem phiếu cần xử lý
-          </Button>
-        </Alert>
-      ) : null}
+      <CycleCountStatsTiles
+        statusCounts={props.statusCounts}
+        needsAdjustmentCount={props.needsAdjustmentCount}
+        isLoading={props.isLoading}
+        isError={props.isError}
+      />
       <OperationalListPanel aria-label="Danh sách kiểm kê">
         <div className="flex shrink-0 flex-col gap-3 border-b p-3">
           <Tabs
-            value={props.status || ALL_STATUSES}
+            // Chip "Cần xử lý lệch" là tập con của phiếu đã hoàn tất nên tab đó sáng khi chip bật.
+            value={
+              props.status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER
+                ? 'Closed'
+                : props.status || ALL_STATUSES
+            }
             onValueChange={(value) => props.onStatusChange(parseCycleCountStatus(value))}
             className="overflow-x-auto"
           >
@@ -134,53 +120,87 @@ export function CycleCountDirectory(props: Props) {
                 Tất cả
                 <Badge variant="secondary">{allCount}</Badge>
               </TabsTrigger>
-              {Object.values(CYCLE_COUNT_STATUSES).map((value) => (
-                <TabsTrigger key={value} value={value}>
-                  {CYCLE_COUNT_STATUS_LABELS[value]}
-                  <Badge variant="secondary">{props.statusCounts[value] ?? 0}</Badge>
+              {CYCLE_COUNT_STATUS_GROUPS.map((group) => (
+                <TabsTrigger key={group.value} value={group.value}>
+                  {group.label}
+                  <Badge variant="secondary">
+                    {group.statuses.reduce(
+                      (sum, value) => sum + (props.statusCounts[value] ?? 0),
+                      0
+                    )}
+                  </Badge>
                 </TabsTrigger>
               ))}
-              <TabsTrigger value={CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER}>
-                Cần xử lý lệch
-                <Badge variant={props.needsAdjustmentCount > 0 ? 'destructive' : 'secondary'}>
-                  {props.needsAdjustmentCount}
-                </Badge>
-              </TabsTrigger>
             </TabsList>
           </Tabs>
-          <div className="flex flex-wrap items-end gap-3">
-            <Field className="w-full sm:w-72">
-              <FieldLabel htmlFor="cycleCountSearch">Tìm phiếu</FieldLabel>
+          <div className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap sm:gap-3">
+            <Field className="col-span-2 sm:w-72">
+              <FieldLabel htmlFor="cycleCountSearch" className="max-sm:sr-only">
+                Tìm phiếu
+              </FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
                   <Search aria-hidden="true" />
                 </InputGroupAddon>
                 <InputGroupInput
                   id="cycleCountSearch"
+                  className="max-sm:h-11 max-sm:text-base"
                   placeholder="Số phiếu hoặc mục đích"
                   value={props.searchTerm}
                   onChange={(event) => props.onSearchTermChange(event.target.value)}
                 />
               </InputGroup>
             </Field>
-            <Field className="w-full sm:w-64">
-              <FieldLabel htmlFor="cycleCountWarehouse">Kho</FieldLabel>
-              <NativeSelect
+            <Field className="sm:w-64">
+              <FieldLabel htmlFor="cycleCountWarehouse" className="max-sm:sr-only">
+                Kho
+              </FieldLabel>
+              <OptionSelect
                 id="cycleCountWarehouse"
+                className="max-sm:h-11"
                 value={props.warehouseId}
-                onChange={(event) => props.onWarehouseChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {props.warehouses.map((item) => (
-                  <NativeSelectOption key={item.value} value={item.value}>
-                    {item.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+                options={props.warehouses}
+                emptyLabel="Tất cả kho"
+                onValueChange={props.onWarehouseChange}
+              />
             </Field>
+            <Field className="sm:w-48">
+              <FieldLabel htmlFor="cycleCountSort" className="max-sm:sr-only">
+                Sắp xếp
+              </FieldLabel>
+              <OptionSelect
+                id="cycleCountSort"
+                className="max-sm:h-11"
+                value={props.sortBy}
+                options={SORT_OPTIONS}
+                onValueChange={props.onSortChange}
+              />
+            </Field>
+            {props.needsAdjustmentCount > 0 ||
+            props.status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER ? (
+              <Button
+                className="max-sm:h-11"
+                variant={
+                  props.status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER ? 'default' : 'outline'
+                }
+                aria-pressed={props.status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER}
+                onClick={() =>
+                  props.onStatusChange(
+                    props.status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER
+                      ? ''
+                      : CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER
+                  )
+                }
+              >
+                <TriangleAlert aria-hidden="true" />
+                Cần xử lý lệch
+                <Badge variant="destructive">{props.needsAdjustmentCount}</Badge>
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               size="icon"
+              className="max-sm:h-11 max-sm:w-full"
               aria-label="Làm mới"
               disabled={props.isFetching}
               onClick={props.onRetry}
@@ -199,6 +219,12 @@ export function CycleCountDirectory(props: Props) {
           <OperationalEmptyState
             title="Chưa có phiếu kiểm kê"
             description="Tạo phiếu mới hoặc thay đổi bộ lọc để xem dữ liệu."
+          />
+        ) : isMobile ? (
+          <CycleCountCards
+            items={props.items}
+            isFetching={props.isFetching}
+            onPrefetchDetail={props.onPrefetchDetail}
           />
         ) : (
           <Table
@@ -227,14 +253,16 @@ export function CycleCountDirectory(props: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {props.items.map((item) => {
+              {props.items.map((item, index) => {
                 const overdueDays = getOverdueDays(item.dueDate, item.status)
                 const adjustmentState = getAdjustmentState(item)
                 const detailHref = APP_ROUTES.cycleCountDetail(item.id)
                 return (
                   <TableRow
                     key={item.id}
-                    className="hover:bg-muted/60 cursor-pointer"
+                    style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
+                    // Dòng trượt nhẹ vào khi đổi tab/trang, so le theo thứ tự; tắt khi người dùng giảm chuyển động.
+                    className="hover:bg-muted/60 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 fill-mode-backwards animation-duration-300 cursor-pointer"
                     tabIndex={0}
                     onMouseEnter={() => props.onPrefetchDetail(item.id)}
                     onFocus={() => props.onPrefetchDetail(item.id)}
@@ -338,7 +366,6 @@ export function CycleCountDirectory(props: Props) {
   )
 }
 
-function parseCycleCountStatus(value: string): ListFilter {
-  if (value === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER) return value
-  return Object.values(CYCLE_COUNT_STATUSES).find((status) => status === value) ?? ''
+function parseCycleCountStatus(value: string): CycleCountListFilter {
+  return CYCLE_COUNT_STATUS_GROUPS.find((group) => group.value === value)?.value ?? ''
 }

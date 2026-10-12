@@ -12,7 +12,6 @@ import type {
   SubmitTransferRequest,
   TransferAvailability,
   TransferAvailabilityQuery,
-  TransferPutAwayItemSuggestions,
   TransferReceivableSlotOption,
   TransferReceivableSlotsQuery,
   TransferSourceLocation,
@@ -97,15 +96,6 @@ export function useTransferReceivableSlotsQuery(
     queryFn: () => transferService.getReceivableSlots(query).then((response) => response.data),
     enabled,
     placeholderData: (previousData) => previousData,
-  })
-}
-
-export function useTransferPutAwaySuggestionsQuery(transferId: string, enabled = true) {
-  return useQuery<TransferPutAwayItemSuggestions[], ApiErrorResponse>({
-    queryKey: queryKeys.transfers.putAwaySuggestions(transferId),
-    queryFn: () =>
-      transferService.getPutAwaySuggestions(transferId).then((response) => response.data),
-    enabled: enabled && Boolean(transferId),
   })
 }
 

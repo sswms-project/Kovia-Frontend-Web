@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { transferGoodsRows } from './transfer-goods-rows'
 import { buildTransfer, buildTransferItem } from './transfer-test-fixtures'
+import { planLine, SLOT_B } from './transfer-plan-test-fixtures'
 
 describe('transferGoodsRows', () => {
+  it('shows a single plan path or the multiple-location count without falling back to an obsolete legacy slot', () => {
+    const item = buildTransferItem({ putAwayPlan: [planLine()], destinationSlotCode: 'OLD' })
+    expect(transferGoodsRows(buildTransfer({ items: [item] }))[0]?.destinationSlot).toBe(
+      planLine().path
+    )
+    item.putAwayPlan!.push(planLine({ slotId: SLOT_B }))
+    expect(transferGoodsRows(buildTransfer({ items: [item] }))[0]?.destinationSlot).toBe(
+      '2 vị trí theo kế hoạch'
+    )
+  })
   it('returns no rows without a transfer', () => {
     expect(transferGoodsRows(null)).toEqual([])
     expect(transferGoodsRows(undefined)).toEqual([])

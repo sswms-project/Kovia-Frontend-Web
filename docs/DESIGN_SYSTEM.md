@@ -196,6 +196,11 @@ This design system uses tonal surfaces and borders over heavy shadows.
 
 The shape language is soft but utilitarian. A 4px base radius is used for most controls, with larger radii reserved for badges, larger marketing surfaces, or media containers.
 
+Two shared surfaces use the `xl` radius (12px) so every screen gets it without feature code repeating it:
+
+- **List panels:** `OperationalListPanel` is rounded and clips its table, toolbar and pagination. Do not add radius classes to list panels in feature code.
+- **Dropdown popups:** `DropdownMenuContent`, `SelectContent` and the popup of `NativeSelect` share one template — 12px radius, 4px inner padding, items with a 6px radius, a 200ms fade/zoom on open. The `NativeSelect` popup uses Chromium's customizable select (`src/app/index.css`); other browsers keep their system popup.
+
 ## Components
 
 - **Buttons:** Primary buttons use `bg-primary text-primary-foreground`. Secondary buttons use outline/ghost styles with `border-border`, `text-foreground`, and `hover:bg-muted`.

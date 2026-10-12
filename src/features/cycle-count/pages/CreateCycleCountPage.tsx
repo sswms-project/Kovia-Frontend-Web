@@ -54,6 +54,7 @@ export default function CreateCycleCountPage() {
   const zoneId = useWatch({ control: form.control, name: 'zoneId' })
   const inventoryScope = {
     warehouseId,
+    inStockOnly: true,
     ...(zoneId ? { zoneId } : {}),
     ...(rackId ? { rackId } : {}),
     ...(categoryId ? { categoryId } : {}),
@@ -68,7 +69,12 @@ export default function CreateCycleCountPage() {
     needTotalCount: true,
   })
   const inventory = useInventoryQuery(
-    { pageNumber: inventoryPage, pageSize: inventoryPageSize, ...inventoryScope },
+    {
+      pageNumber: inventoryPage,
+      pageSize: inventoryPageSize,
+      includeLastCount: true,
+      ...inventoryScope,
+    },
     Boolean(warehouseId)
   )
   const warehouseOptions = useMemo(

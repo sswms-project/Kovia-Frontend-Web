@@ -8,6 +8,8 @@ export interface InventoryListQuery {
   productId?: string
   searchTerm?: string
   categoryId?: string
+  includeLastCount?: boolean
+  inStockOnly?: boolean
 }
 
 export type QualityStatus = 'Good' | 'Damaged' | 'Quarantine'
@@ -45,6 +47,16 @@ export interface InventoryStock {
   rackCode?: string | null
   zoneCode?: string | null
   isSystemDefaultSlot?: boolean
+  lastCount?: StockLastCount | null
+}
+
+// Lần kiểm kê đã hoàn tất gần nhất của dòng tồn; chỉ có khi gọi với includeLastCount.
+export interface StockLastCount {
+  cycleCountId: string
+  code: string
+  countedAt: string
+  countedByName: string | null
+  difference: number | null
 }
 
 export interface InventoryStockListResponse {
@@ -585,6 +597,9 @@ export interface ForecastRunResult {
   productName: string
   forecastDate: string
   forecastQuantity: number
+  // Null on runs saved before the model returned a range; absent from a backend that predates it.
+  lowerQuantity?: number | null
+  upperQuantity?: number | null
   actualQuantity: number | null
   accuracyPercent: number | null
 }
@@ -645,6 +660,13 @@ export interface DemandForecastDiagnostics {
   baselineMae: number | null
   holdoutWape: number | null
   history: StockHistoryPoint[]
+  candidates?: DemandForecastCandidate[] | null
+  availableQuantity?: number | null
+}
+
+export interface DemandForecastCandidate {
+  modelName: string
+  mae: number
 }
 
 export interface ForecastRunSummary {
