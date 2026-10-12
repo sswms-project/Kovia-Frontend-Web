@@ -155,7 +155,7 @@ export default function TransferReceiveTaskPage({
           route={`Nhận tại ${sheet.destinationWarehouseName}`}
         />
       ) : null}
-      {realtime.hasPendingChange ? (
+      {realtime.hasPendingChange && !receive.reloadRequired ? (
         <TransferChangedBanner onReload={() => void reload()} onDismiss={realtime.dismiss} />
       ) : null}
 

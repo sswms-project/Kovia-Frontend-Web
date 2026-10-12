@@ -681,6 +681,8 @@ export interface TransferReceiveSheetLine {
   lots: TransferReceiveSheetLot[]
   planMode?: 'Planned' | 'Legacy'
   planWarnings?: TransferReceivePlanWarning[]
+  /** Ngân sách còn lại của mọi vị trí trong kế hoạch, kể cả vị trí chưa được chia số lượng cho đợt này. */
+  planBudgets?: { slotId: string; slotCode: string; path: string; remainingBudget: number }[]
 }
 
 export interface TransferReceiveSheet {

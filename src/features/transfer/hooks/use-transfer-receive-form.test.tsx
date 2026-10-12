@@ -66,6 +66,16 @@ describe('useTransferReceiveForm', () => {
     expect(hook.result.current.changedLines.has(sheet.lines[0]!.lineId)).toBe(true)
     expect(hook.result.current.form.getValues('entries.0.note')).toBe('Giữ ghi chú')
   })
+  it('closes an open confirmation as soon as the plan changes, instead of leaving a dead dialog', () => {
+    const { hook, sheet } = setup()
+    act(() => hook.result.current.setIsConfirmOpen(true))
+    expect(hook.result.current.isConfirmOpen).toBe(true)
+    const fresh = structuredClone(sheet)
+    fresh.planVersion = 'hash2'
+    hook.rerender({ current: fresh })
+    expect(hook.result.current.reloadRequired).toBe(true)
+    expect(hook.result.current.isConfirmOpen).toBe(false)
+  })
   it('retains draft and blocks retries when receipt result is unknown', async () => {
     const { hook } = setup()
     mocks.receive.mockRejectedValue(new Error('Failed to fetch'))

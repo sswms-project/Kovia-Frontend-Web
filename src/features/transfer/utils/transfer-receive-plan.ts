@@ -17,12 +17,18 @@ export function receiptPlanStates(
 ): ReceiptPlanState[] {
   const lines = new Map(sheet.lines.map((line) => [line.lineId, line]))
   const budgets = new Map<string, number>()
-  for (const line of sheet.lines)
+  for (const line of sheet.lines) {
+    // Ô trong kế hoạch nhưng chưa được chia số lượng cho đợt này vẫn có ngân sách thật ở BE.
+    for (const budget of line.planBudgets ?? []) {
+      const key = `${line.itemId}|${budget.slotId}`
+      budgets.set(key, Math.max(budgets.get(key) ?? 0, cents(budget.remainingBudget)))
+    }
     for (const lot of line.lots)
       for (const plan of lot.plan ?? []) {
         const key = `${line.itemId}|${plan.slotId}`
         budgets.set(key, Math.max(budgets.get(key) ?? 0, cents(plan.remainingBudget)))
       }
+  }
   return entries.map((entry) => {
     const line = lines.get(entry.lineId)
     const isPlanned = line?.planMode === 'Planned'
@@ -84,6 +90,7 @@ export function changedReceivePlanLines(
     return JSON.stringify([
       line?.planMode,
       line?.lots.map((lot) => [lot.lotId, lot.plan, lot.unplannedQuantity]),
+      line?.planBudgets,
       line?.planWarnings,
     ])
   }
