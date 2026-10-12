@@ -18,6 +18,7 @@ export const NOTIFICATION_TYPES = [
   'OpeningStockUpdate',
   'DamageCaseUpdate',
   'StockDiscrepancyUpdate',
+  'InboundArrivalUpcoming',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]

@@ -1,12 +1,13 @@
 import { Fragment } from 'react'
 import Link from 'next/link'
-import { Check, X } from 'lucide-react'
+import { Check, Pencil, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { AI_DRAFT_STATUSES, type AiCard, type AiDraftStatus } from '../../types/ai-assistant.types'
 import { getAiActionResultLink } from '../../utils/ai-assistant-links'
+import { AiDraftQuantityEditor, type AiDraftQuantityEdit } from './AiDraftQuantityEditor'
 
 const STATUS_LABELS: Record<AiDraftStatus, string> = {
   [AI_DRAFT_STATUSES.pending]: 'Chờ xác nhận',
@@ -26,6 +27,7 @@ interface AiActionConfirmationCardProps {
   readonly onConfirm: (draftId: string) => void
   readonly onCancel: (draftId: string) => void
   readonly onNavigate: () => void
+  readonly quantityEdit: AiDraftQuantityEdit
 }
 
 export function AiActionConfirmationCard({
@@ -37,6 +39,7 @@ export function AiActionConfirmationCard({
   onConfirm,
   onCancel,
   onNavigate,
+  quantityEdit,
 }: AiActionConfirmationCardProps) {
   const draftId = card.draftId
   if (!draftId) return null
@@ -47,12 +50,20 @@ export function AiActionConfirmationCard({
       ? getAiActionResultLink(card.action, resultEntityId)
       : null
   const details = card.details ?? []
+  const editableLines = details.filter(
+    (detail) => Boolean(detail.productId) && typeof detail.quantity === 'number'
+  )
+  const isEditing = isPending && quantityEdit.editingDraftId === draftId
+  // Đang sửa thì các dòng hàng hiện dưới dạng ô nhập bên dưới, không lặp lại ở phần chi tiết.
+  const shownDetails = isEditing
+    ? details.filter((detail) => !detail.productId && !detail.dateValue)
+    : details
 
   return (
     <section
       aria-label={`Xác nhận thao tác: ${card.summary ?? ''}`}
       className={cn(
-        'rounded-md border p-3',
+        'animate-in fade-in-0 slide-in-from-bottom-1 animation-duration-250 rounded-md border p-3 transition-colors motion-reduce:animate-none',
         isPending ? 'border-tertiary/40 bg-tertiary/5' : 'bg-card'
       )}
     >
@@ -63,9 +74,9 @@ export function AiActionConfirmationCard({
         </Badge>
       </div>
 
-      {details.length > 0 ? (
+      {shownDetails.length > 0 ? (
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-          {details.map((detail, index) => (
+          {shownDetails.map((detail, index) => (
             <Fragment key={`${detail.label}-${index}`}>
               <dt className="text-muted-foreground">{detail.label}</dt>
               <dd className="min-w-0 font-medium break-words">{detail.value}</dd>
@@ -74,14 +85,38 @@ export function AiActionConfirmationCard({
         </dl>
       ) : null}
 
-      {isPending ? (
+      {isEditing ? (
+        <AiDraftQuantityEditor draftId={draftId} lines={editableLines} edit={quantityEdit} />
+      ) : null}
+
+      {isPending && !isEditing ? (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-muted-foreground text-[11px]">
             {card.expiresAt
               ? `Hạn xác nhận ${timeFormatter.format(new Date(card.expiresAt))}`
               : 'Chưa có thay đổi nào được thực hiện.'}
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            {editableLines.length > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={isLocked || quantityEdit.editingDraftId !== null}
+                onClick={() =>
+                  quantityEdit.onStart(draftId, {
+                    expectedDate: details.find((detail) => detail.dateValue)?.dateValue ?? '',
+                    lines: editableLines.map((line) => ({
+                      productId: line.productId ?? '',
+                      quantity: line.quantity ?? 0,
+                    })),
+                  })
+                }
+              >
+                <Pencil aria-hidden="true" />
+                Chỉnh sửa
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"

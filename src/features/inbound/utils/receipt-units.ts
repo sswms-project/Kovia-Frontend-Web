@@ -30,3 +30,29 @@ export function getRemainingReceiptQuantity(line: ReceivingTaskLine, unitId?: st
     ? { unitId: unitId ?? line.baseUnitId, quantity: Number(quantity.toFixed(unit.precision)) }
     : { unitId: line.baseUnitId, quantity: line.remainingQuantity }
 }
+
+export type ScannedReceiptLineMatch =
+  | { readonly status: 'matched'; readonly line: ReceivingTaskLine }
+  | { readonly status: 'error'; readonly message: string }
+
+/**
+ * Tìm dòng hàng ứng với mã vừa quét khi nhận hàng. Mã không thuộc yêu cầu nghĩa là nhà cung cấp
+ * giao nhầm hàng, phải báo ngay thay vì để nhân viên tự dò.
+ */
+export function matchScannedReceiptLine(
+  rawCode: string,
+  lines: readonly ReceivingTaskLine[]
+): ScannedReceiptLineMatch {
+  const code = rawCode.trim().toLowerCase()
+  if (!code) return { status: 'error', message: 'Vui lòng quét hoặc nhập mã hàng.' }
+  const line = lines.find(
+    (candidate) =>
+      candidate.barcodeValue?.toLowerCase() === code || candidate.productSKU.toLowerCase() === code
+  )
+  return line
+    ? { status: 'matched', line }
+    : {
+        status: 'error',
+        message: `Mã ${rawCode.trim()} không thuộc yêu cầu nhập này. Kiểm tra lại hàng vừa giao.`,
+      }
+}

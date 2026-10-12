@@ -19,6 +19,7 @@ import { getReceiptUnit, getRemainingReceiptQuantity } from '../../utils/receipt
 import type { GoodsReceiptFormValues } from '../../schemas/inbound.schema'
 import type { ReceivingTask } from '../../types/inbound.types'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
+import { ReceiveQuickActions } from './ReceiveQuickActions'
 
 interface ReceiveGoodsDialogProps {
   readonly task: ReceivingTask | null
@@ -118,6 +119,9 @@ export function ReceiveGoodsDialog({
                 </div>
               </dl>
             </div>
+            {mode === 'create' && canEditReceivedQuantity ? (
+              <ReceiveQuickActions task={task} form={form} disabled={isPending} />
+            ) : null}
             {task.lines
               .filter((line) =>
                 form

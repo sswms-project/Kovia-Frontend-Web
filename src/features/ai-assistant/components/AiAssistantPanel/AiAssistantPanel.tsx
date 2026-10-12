@@ -13,11 +13,17 @@ import {
   useCancelAiActionMutation,
   useConfirmAiActionMutation,
   useSendAiChatMessageMutation,
+  useUpdateAiDraftQuantitiesMutation,
 } from '../../hooks/use-ai-assistant'
+import {
+  aiDraftQuantitiesSchema,
+  type AiDraftQuantitiesForm,
+} from '../../schemas/ai-draft-quantities.schema'
 import { aiChatMessageSchema, type AiChatMessageForm } from '../../schemas/ai-chat-message.schema'
 import { AiChatComposer } from './AiChatComposer'
 import { AiChatThread } from './AiChatThread'
 import { AiConversationMenu } from './AiConversationMenu'
+import type { AiDraftQuantityEdit } from './AiDraftQuantityEditor'
 
 interface AiAssistantPanelProps {
   readonly conversationId: string | null
@@ -39,6 +45,12 @@ export function AiAssistantPanel({
   const sendMutation = useSendAiChatMessageMutation()
   const confirmMutation = useConfirmAiActionMutation()
   const cancelMutation = useCancelAiActionMutation()
+  const quantitiesMutation = useUpdateAiDraftQuantitiesMutation()
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
+  const quantitiesForm = useForm<AiDraftQuantitiesForm>({
+    resolver: zodResolver(aiDraftQuantitiesSchema),
+    defaultValues: { expectedDate: '', lines: [] },
+  })
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const form = useForm<AiChatMessageForm>({
     resolver: zodResolver(aiChatMessageSchema),
@@ -49,6 +61,7 @@ export function AiAssistantPanel({
   const processingDraftId =
     (confirmMutation.isPending ? confirmMutation.variables?.draftId : undefined) ??
     (cancelMutation.isPending ? cancelMutation.variables?.draftId : undefined) ??
+    (quantitiesMutation.isPending ? quantitiesMutation.variables?.draftId : undefined) ??
     null
 
   const sendMessage = (message: string) => {
@@ -86,6 +99,30 @@ export function AiAssistantPanel({
       }
     )
 
+  const quantityEdit: AiDraftQuantityEdit = {
+    editingDraftId,
+    form: quantitiesForm,
+    isSaving: quantitiesMutation.isPending,
+    onStart: (draftId, values) => {
+      quantitiesForm.reset(values)
+      setEditingDraftId(draftId)
+    },
+    onCancel: () => setEditingDraftId(null),
+    onSubmit: quantitiesForm.handleSubmit(({ lines, expectedDate }) => {
+      if (!editingDraftId) return
+      quantitiesMutation.mutate(
+        { draftId: editingDraftId, conversationId, lines, expectedDate },
+        {
+          onSuccess: () => {
+            toast.success('Đã cập nhật bản nháp.')
+            setEditingDraftId(null)
+          },
+          onError: (error) => toast.error(getApiErrorMessage(error)),
+        }
+      )
+    }),
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <SheetHeader className="shrink-0 gap-2 border-b p-4 pr-12">
@@ -119,6 +156,7 @@ export function AiAssistantPanel({
         onConfirmAction={handleConfirm}
         onCancelAction={handleCancel}
         onNavigate={onNavigate}
+        quantityEdit={quantityEdit}
       />
 
       <AiChatComposer

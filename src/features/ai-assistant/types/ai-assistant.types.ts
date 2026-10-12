@@ -3,6 +3,8 @@
 export const AI_CARD_TYPES = {
   navigation: 'navigation_card',
   actionConfirmation: 'action_confirmation',
+  quickReplies: 'quick_replies',
+  suggestedAction: 'suggested_action',
 } as const
 
 export const AI_ACTIONS = {
@@ -25,6 +27,18 @@ export type AiDraftStatus = (typeof AI_DRAFT_STATUSES)[keyof typeof AI_DRAFT_STA
 export interface AiActionDetail {
   readonly label: string
   readonly value: string
+  /** Có giá trị khi dòng này là một dòng hàng mà người dùng được chỉnh số lượng trước khi xác nhận. */
+  readonly productId?: string | null
+  readonly quantity?: number | null
+  readonly unit?: string | null
+  /** Ngày dự kiến hàng về (yyyy-MM-dd) khi dòng này là dòng ngày của bản nháp; sửa được trước khi xác nhận. */
+  readonly dateValue?: string | null
+}
+
+/** Mirrors UpdateAiActionDraftQuantitiesRequest. */
+export interface UpdateAiDraftQuantitiesRequest {
+  readonly expectedDate?: string
+  readonly lines: readonly { readonly productId: string; readonly quantity: number }[]
 }
 
 export interface AiCard {
@@ -39,6 +53,8 @@ export interface AiCard {
   readonly summary?: string | null
   readonly details?: readonly AiActionDetail[] | null
   readonly expiresAt?: string | null
+  readonly options?: readonly string[] | null
+  readonly message?: string | null
 }
 
 export interface AiMessage {
