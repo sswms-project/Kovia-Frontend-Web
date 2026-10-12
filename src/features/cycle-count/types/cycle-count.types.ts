@@ -78,7 +78,10 @@ export interface CycleCountItemHistory {
   countedByName: string | null
   recountRequestedByName: string | null
   systemQuantity: number | null
+  countMethod: CycleCountMethod
 }
+
+export type CycleCountMethod = 'Manual' | 'Scanned'
 
 export interface CycleCountItem {
   id: string
@@ -106,6 +109,10 @@ export interface CycleCountItem {
   countedByName: string | null
   note: string | null
   countedDamagedQuantity: number | null
+  countMethod: CycleCountMethod
+  scannedBarcode: string | null
+  productBarcode: string | null
+  slotBarcode: string | null
 }
 
 export interface CycleCountDetail {

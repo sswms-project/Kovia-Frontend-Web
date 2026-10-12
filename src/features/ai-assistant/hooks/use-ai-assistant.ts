@@ -10,6 +10,7 @@ import {
   type AiConversation,
   type AiConversationMessages,
   type SendAiChatMessageRequest,
+  type UpdateAiDraftQuantitiesRequest,
 } from '../types/ai-assistant.types'
 import { appendAiChatTurn, updateAiDraftStatus } from '../utils/ai-conversation-cache'
 
@@ -80,6 +81,30 @@ export function useConfirmAiActionMutation() {
           queryKey: queryKeys.aiAssistant.messages(conversationId),
         })
       }
+    },
+  })
+}
+
+export interface AiDraftQuantitiesVariables
+  extends AiDraftActionVariables, UpdateAiDraftQuantitiesRequest {}
+
+export function useUpdateAiDraftQuantitiesMutation() {
+  const queryClient = useQueryClient()
+  // The BE rewrites the card stored in the conversation, so success and failure both reload it.
+  const reload = (conversationId: string | null) => {
+    if (conversationId) {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.aiAssistant.messages(conversationId),
+      })
+    }
+  }
+  return useMutation<unknown, ApiErrorResponse, AiDraftQuantitiesVariables>({
+    mutationFn: ({ draftId, lines, expectedDate }) =>
+      aiAssistantService.updateActionQuantities(draftId, { lines, expectedDate }),
+    onSuccess: (_, { conversationId }) => reload(conversationId),
+    onError: (error, { conversationId }) => {
+      logger.error(error)
+      reload(conversationId)
     },
   })
 }

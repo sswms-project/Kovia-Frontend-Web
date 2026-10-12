@@ -105,6 +105,8 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
                 countedQuantity: entry.quantity,
                 countedDamagedQuantity: entry.damagedQuantity,
                 note: entry.note,
+                countMethod: entry.countMethod,
+                scannedBarcode: entry.scannedBarcode,
               })
           } finally {
             // Dòng đã lưu trước khi lỗi vẫn cần hiện lại, nên invalidate cả khi thất bại.
