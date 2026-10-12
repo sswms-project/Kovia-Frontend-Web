@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { TransferNextActionChip } from './TransferNextActionChip'
 import {
   Table,
   TableBody,
@@ -37,6 +38,7 @@ export function TransferDesktopTable({
             <TableHead className="w-36">Hạn cần hàng</TableHead>
             <TableHead className="w-40">Trạng thái</TableHead>
             <TableHead className="w-36">Tình trạng thực hiện</TableHead>
+            <TableHead className="w-40">Việc cần làm</TableHead>
             <TableHead className="w-64">Cần chú ý</TableHead>
             <TableHead className="w-40">Người tạo</TableHead>
             <TableHead className="w-12">
@@ -73,6 +75,9 @@ export function TransferDesktopTable({
                   dispatch={item.dispatchProgress}
                   receive={item.receiveProgress}
                 />
+              </TableCell>
+              <TableCell>
+                <TransferNextActionChip code={item.nextActionCode} />
               </TableCell>
               <TableCell>
                 <TransferFlagBadges

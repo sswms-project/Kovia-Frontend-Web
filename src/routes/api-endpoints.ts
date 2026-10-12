@@ -410,8 +410,9 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/shipments/${shipmentId}/returns`,
     completePicking: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/complete-picking`,
-    setPutAwaySlots: (transferId: string) => `/transfers/${transferId}/putaway-slots`,
-    putAwaySuggestions: (transferId: string) => `/transfers/${transferId}/putaway-suggestions`,
+    setPutAwayPlan: (transferId: string) => `/transfers/${transferId}/putaway-plan`,
+    putAwayPlanSuggestions: (transferId: string) =>
+      `/transfers/${transferId}/putaway-plan-suggestions`,
     reopenPicking: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/reopen-picking`,
     dispatchShipment: (transferId: string, shipmentId: string) =>
@@ -483,5 +484,6 @@ export const API_ENDPOINTS = {
     messages: (conversationId: string) => `/ai/conversations/${conversationId}/messages`,
     confirmAction: (draftId: string) => `/ai/actions/${draftId}/confirm`,
     cancelAction: (draftId: string) => `/ai/actions/${draftId}/cancel`,
+    updateActionQuantities: (draftId: string) => `/ai/actions/${draftId}/quantities`,
   },
 } as const

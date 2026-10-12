@@ -7,6 +7,7 @@ import type {
   AiConversation,
   AiConversationMessages,
   SendAiChatMessageRequest,
+  UpdateAiDraftQuantitiesRequest,
 } from '../types/ai-assistant.types'
 
 // The assistant may run several tool calls (and a forecast) before answering; the BE allows 90s.
@@ -30,6 +31,10 @@ export const aiAssistantService = {
   confirmAction: (draftId: string) =>
     axiosClient
       .post<ApiResponse<AiActionExecution>>(API_ENDPOINTS.aiAssistant.confirmAction(draftId))
+      .then((response) => response.data),
+  updateActionQuantities: (draftId: string, request: UpdateAiDraftQuantitiesRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.aiAssistant.updateActionQuantities(draftId), request)
       .then((response) => response.data),
   cancelAction: (draftId: string) =>
     axiosClient

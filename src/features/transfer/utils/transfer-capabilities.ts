@@ -154,8 +154,8 @@ export function getTransferCapabilities(
     canSetPutAwaySlots:
       has(viewer, P.TRANSFERS_RECEIVE) &&
       manages(viewer, transfer.destinationWarehouseId) &&
-      isInProgress &&
-      transfer.items.some(canChoosePutAwaySlot),
+      isOpen &&
+      transfer.items.some((item) => item.quantity > item.stoppedQuantity),
     closingAction,
   }
 }

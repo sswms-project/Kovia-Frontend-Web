@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CalendarRange, RefreshCw, Search, X } from 'lucide-react'
+import { CalendarRange, CheckCheck, RefreshCw, Search, X } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -34,6 +34,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   OpeningStockUpdate: 'Tồn đầu kỳ',
   DamageCaseUpdate: 'Hàng hỏng',
   StockDiscrepancyUpdate: 'Chênh lệch tồn kho',
+  InboundArrivalUpcoming: 'Hàng sắp về',
 }
 
 interface NotificationFiltersProps {
@@ -42,6 +43,9 @@ interface NotificationFiltersProps {
   readonly onApply: (filters: NotificationFilterValues) => void
   readonly onClear: () => void
   readonly onRetry: () => void
+  readonly unreadCount: number | null
+  readonly isMarkingAll: boolean
+  readonly onMarkAllRead: () => void
 }
 
 export function NotificationFilters({
@@ -50,6 +54,9 @@ export function NotificationFilters({
   onApply,
   onClear,
   onRetry,
+  unreadCount,
+  isMarkingAll,
+  onMarkAllRead,
 }: NotificationFiltersProps) {
   const [localSearch, setLocalSearch] = useState(filters.search)
 
@@ -173,6 +180,17 @@ export function NotificationFilters({
           Xóa lọc
         </Button>
       ) : null}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={unreadCount === 0 || isMarkingAll}
+        onClick={onMarkAllRead}
+      >
+        <CheckCheck aria-hidden="true" />
+        {isMarkingAll ? 'Đang xử lý…' : 'Đọc tất cả'}
+      </Button>
 
       <Tooltip>
         <TooltipTrigger asChild>

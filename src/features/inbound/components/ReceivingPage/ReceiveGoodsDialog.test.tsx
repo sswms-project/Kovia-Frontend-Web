@@ -164,6 +164,40 @@ describe('ReceiveGoodsDialog operational context', () => {
     await user.click(screen.getByRole('button', { name: 'Nhận toàn bộ còn lại' }))
     expect(screen.getByLabelText('Số lượng thực nhận')).toHaveValue(3)
   })
+  it('fills every line in one tap when the whole delivery arrived in full', async () => {
+    const user = userEvent.setup()
+    render(<ReceiptForm />)
+    await user.click(screen.getByRole('button', { name: 'Nhận đủ tất cả' }))
+    expect(screen.getByLabelText('Số lượng thực nhận')).toHaveValue(10)
+  })
+  it('adds one per scan, stops at the remaining quantity and rejects foreign goods', async () => {
+    const user = userEvent.setup()
+    render(
+      <ReceiptForm
+        receivingTask={{
+          ...task,
+          lines: task.lines.map((line) => ({
+            ...line,
+            barcodeValue: '8930001',
+            remainingQuantity: 120,
+          })),
+        }}
+      />
+    )
+    const scanner = screen.getByLabelText('Quét mã hàng vừa nhận')
+    await user.type(scanner, '8930001{Enter}')
+    expect(screen.getByLabelText('Số lượng thực nhận')).toHaveValue(5)
+    expect(screen.getByRole('status')).toHaveTextContent('Bia: 5/5 Thùng.')
+    await user.type(scanner, 'bia{Enter}')
+    expect(screen.getByLabelText('Số lượng thực nhận')).toHaveValue(5)
+    expect(screen.getByRole('alert')).toHaveTextContent('đã đủ số lượng còn lại')
+    await user.type(scanner, 'LA-KHAC{Enter}')
+    expect(screen.getByRole('alert')).toHaveTextContent('không thuộc yêu cầu nhập này')
+  })
+  it('hides quick receiving while correcting an inspected receipt', () => {
+    render(<ReceiptForm correction />)
+    expect(screen.queryByLabelText('Quét mã hàng vừa nhận')).not.toBeInTheDocument()
+  })
   it('identifies receipt, source and warehouse and previews snapshot conversion', () => {
     render(<ReceiptForm />)
     expect(screen.getByLabelText('Mã phiếu nhận *')).toHaveValue('PN000001')

@@ -45,7 +45,8 @@ export const inboundRequestSchema = z
     supplierId: z.string(),
     sourceName: z.string().trim().max(200, 'Tên nguồn không được vượt quá 200 ký tự.'),
     sourceReference: z.string().trim().max(100, 'Mã tham chiếu không được vượt quá 100 ký tự.'),
-    expectedDate: z.string(),
+    // Kho hẹn giao hàng theo ngày: không có ngày thì nhân viên không biết khi nào phải chừa thời gian.
+    expectedDate: z.string().min(1, 'Vui lòng chọn ngày dự kiến hàng về.'),
     lines: z
       .array(inboundRequestLineSchema)
       .min(1, 'Yêu cầu nhập kho phải có ít nhất một sản phẩm.'),
