@@ -482,5 +482,6 @@ export const API_ENDPOINTS = {
     messages: (conversationId: string) => `/ai/conversations/${conversationId}/messages`,
     confirmAction: (draftId: string) => `/ai/actions/${draftId}/confirm`,
     cancelAction: (draftId: string) => `/ai/actions/${draftId}/cancel`,
+    updateActionQuantities: (draftId: string) => `/ai/actions/${draftId}/quantities`,
   },
 } as const
