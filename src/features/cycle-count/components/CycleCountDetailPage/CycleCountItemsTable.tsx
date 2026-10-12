@@ -7,6 +7,7 @@ import {
   LogOut,
   RotateCcw,
   Save,
+  ScanBarcode,
   Search,
   Send,
   SlidersHorizontal,
@@ -56,6 +57,7 @@ import {
 } from '../../utils/cycle-count-format'
 import { formatStockLocation } from '../../utils/cycle-count-scope'
 import { StockAdjustmentStatusBadge } from '../CycleCountStatusBadge'
+import { CycleCountScanDialog } from './CycleCountScanDialog'
 import type { CycleCountItemFilter, CycleCountRecordEntry } from './types'
 
 const FILTERS: ReadonlyArray<{ readonly value: CycleCountItemFilter; readonly label: string }> = [
@@ -118,6 +120,7 @@ export function CycleCountItemsTable({
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [damagedDrafts, setDamagedDrafts] = useState<Record<string, string>>({})
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
+  const [isScanOpen, setIsScanOpen] = useState(false)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const canRecord = allowedActions.includes('Record')
   const canSelect = allowedActions.includes('RequestRecount')
@@ -153,6 +156,8 @@ export function CycleCountItemsTable({
   const totalDamaged = items.reduce((sum, item) => sum + (getLiveDamaged(item) ?? 0), 0)
   const columnCount = canSelect ? 16 : 15
   const mustStart = allowedActions.includes('Start')
+  // Cờ Scan do BE trả theo gói dịch vụ; không có thì chỉ nhập tay.
+  const canScan = allowedActions.includes('Scan')
 
   function isRecordable(item: CycleCountItem): boolean {
     return (
@@ -213,7 +218,16 @@ export function CycleCountItemsTable({
       note === item.note &&
       (damagedQuantity ?? 0) === (item.countedDamagedQuantity ?? 0)
       ? []
-      : [{ itemId: item.id, quantity: Number(draft), damagedQuantity, note }]
+      : [
+          {
+            itemId: item.id,
+            quantity: Number(draft),
+            damagedQuantity,
+            note,
+            countMethod: 'Manual',
+            scannedBarcode: null,
+          },
+        ]
   })
 
   function discardDrafts() {
@@ -272,7 +286,19 @@ export function CycleCountItemsTable({
             Bấm &quot;Bắt đầu kiểm kê&quot; để chốt tồn sổ sách và nhập số đếm.
           </p>
         ) : null}
-        <InputGroup className="ml-auto w-full sm:w-64">
+        {canScan ? (
+          <Button
+            type="button"
+            size="sm"
+            className="ml-auto"
+            disabled={isPending}
+            onClick={() => setIsScanOpen(true)}
+          >
+            <ScanBarcode aria-hidden="true" />
+            Quét mã
+          </Button>
+        ) : null}
+        <InputGroup className={cn('w-full sm:w-64', !canScan && 'ml-auto')}>
           <InputGroupAddon>
             <Search aria-hidden="true" />
           </InputGroupAddon>
@@ -390,6 +416,12 @@ export function CycleCountItemsTable({
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant={state.variant}>{state.label}</Badge>
+                    {item.countedQuantity !== null && item.countMethod === 'Scanned' ? (
+                      <ScanBarcode
+                        className="text-muted-foreground mx-auto mt-0.5 size-3.5"
+                        aria-label="Đã quét mã"
+                      />
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
                     {item.systemQuantity === null ? (
@@ -509,7 +541,8 @@ export function CycleCountItemsTable({
                               {history.systemQuantity !== null
                                 ? ` / sổ sách ${formatCount(history.systemQuantity)}`
                                 : ''}
-                              {history.countedByName ? ` · ${history.countedByName}` : ''} ·{' '}
+                              {history.countedByName ? ` · ${history.countedByName}` : ''}
+                              {history.countMethod === 'Scanned' ? ' · quét mã' : ''} ·{' '}
                               {history.recountReason}
                             </p>
                           ))}
@@ -635,6 +668,15 @@ export function CycleCountItemsTable({
             </AlertDialog>
           </ItemActions>
         </Item>
+      ) : null}
+      {canScan ? (
+        <CycleCountScanDialog
+          open={isScanOpen}
+          items={items.filter(isRecordable)}
+          isPending={isPending}
+          onOpenChange={setIsScanOpen}
+          onSave={onSaveItems}
+        />
       ) : null}
     </OperationalListPanel>
   )

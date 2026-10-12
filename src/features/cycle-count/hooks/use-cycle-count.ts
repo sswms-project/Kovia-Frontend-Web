@@ -11,6 +11,7 @@ import type {
   CycleCountDetail,
   CycleCountListQuery,
   CycleCountListResponse,
+  CycleCountMethod,
   RejectStockAdjustmentRequest,
   RequestRecountRequest,
   StockAdjustment,
@@ -96,6 +97,8 @@ export function useRecordCycleCountItemMutation() {
       countedQuantity: number
       countedDamagedQuantity: number | null
       note: string | null
+      countMethod: CycleCountMethod
+      scannedBarcode: string | null
     }
   >({
     mutationFn: cycleCountService.recordCycleCountItem,
