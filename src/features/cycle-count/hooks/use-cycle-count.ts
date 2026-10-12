@@ -10,6 +10,7 @@ import type {
   CreateStockAdjustmentRequest,
   CycleCountDetail,
   CycleCountListQuery,
+  CycleCountEvidence,
   CycleCountListResponse,
   CycleCountMethod,
   RejectStockAdjustmentRequest,
@@ -99,9 +100,23 @@ export function useRecordCycleCountItemMutation() {
       note: string | null
       countMethod: CycleCountMethod
       scannedBarcode: string | null
+      damageReason: string | null
+      damageEvidenceIds: readonly string[]
     }
   >({
     mutationFn: cycleCountService.recordCycleCountItem,
+    onError: (error) => logger.error(error),
+  })
+}
+
+// Ảnh hàng hỏng khi đếm; dùng quyền ghi nhận kiểm kê, không cần quyền xem tồn kho.
+export function useUploadCycleCountEvidenceMutation() {
+  return useMutation<
+    ApiResponse<CycleCountEvidence>,
+    ApiErrorResponse,
+    { warehouseId: string; file: File }
+  >({
+    mutationFn: ({ warehouseId, file }) => cycleCountService.uploadEvidence(warehouseId, file),
     onError: (error) => logger.error(error),
   })
 }

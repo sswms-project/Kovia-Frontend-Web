@@ -5,6 +5,7 @@ import { ArrowLeft, Ban, CheckCircle2, FileDown, Play, RotateCcw } from 'lucide-
 import { Button } from '@/components/ui/button'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { CycleCountDetail } from '../../types/cycle-count.types'
+import { formatCycleCountDate } from '../../utils/cycle-count-format'
 import { CycleCountStatusBadge } from '../CycleCountStatusBadge'
 import type { CycleCountDialog } from './types'
 
@@ -13,6 +14,7 @@ interface CycleCountDetailHeaderProps {
   readonly allowedActions: readonly string[]
   readonly isPending: boolean
   readonly recountSelectedCount: number
+  readonly isBeforeSchedule: boolean
   readonly onFinalize: () => Promise<void>
   readonly onExport: () => Promise<void>
   readonly onOpenDialog: (dialog: CycleCountDialog) => void
@@ -23,6 +25,7 @@ export function CycleCountDetailHeader({
   allowedActions,
   isPending,
   recountSelectedCount,
+  isBeforeSchedule,
   onFinalize,
   onExport,
   onOpenDialog,
@@ -60,6 +63,17 @@ export function CycleCountDetailHeader({
             <RotateCcw />
             Yêu cầu đếm lại ({recountSelectedCount})
           </Button>
+        ) : null}
+        {isBeforeSchedule ? (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs">
+              Mở từ {formatCycleCountDate(detail.scheduledDate)}
+            </span>
+            <Button disabled>
+              <Play />
+              Bắt đầu kiểm kê
+            </Button>
+          </div>
         ) : null}
         {allowedActions.includes('Start') ? (
           <Button disabled={isPending} onClick={() => onOpenDialog('start')}>

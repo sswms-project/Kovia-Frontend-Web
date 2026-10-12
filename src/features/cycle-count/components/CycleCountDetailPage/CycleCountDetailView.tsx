@@ -16,12 +16,14 @@ import { CycleCountDetailHeader } from './CycleCountDetailHeader'
 import { CycleCountInfoSection } from './CycleCountInfoSection'
 import { CycleCountItemsTable } from './CycleCountItemsTable'
 import { CycleCountResolutionSummary } from './CycleCountResolutionSummary'
-import type { CycleCountDialog, CycleCountRecordEntry } from './types'
+import type { CycleCountDialog, CycleCountEvidenceActions, CycleCountRecordEntry } from './types'
 
 interface CycleCountDetailViewProps {
   readonly detail: CycleCountDetail
   readonly allowedActions: readonly string[]
   readonly isPending: boolean
+  readonly isBeforeSchedule: boolean
+  readonly evidenceActions: CycleCountEvidenceActions
   readonly canCreateAdjustment: boolean
   readonly recountForm: UseFormReturn<RecountFormValues>
   readonly voucherForm: UseFormReturn<CreateStockAdjustmentVoucherFormValues>
@@ -40,6 +42,8 @@ export function CycleCountDetailView({
   detail,
   allowedActions,
   isPending,
+  isBeforeSchedule,
+  evidenceActions,
   canCreateAdjustment,
   recountForm,
   voucherForm,
@@ -120,6 +124,7 @@ export function CycleCountDetailView({
         allowedActions={allowedActions}
         isPending={isPending}
         recountSelectedCount={selectedItemIds.length}
+        isBeforeSchedule={isBeforeSchedule}
         onFinalize={onFinalize}
         onExport={onExport}
         onOpenDialog={setDialog}
@@ -155,6 +160,8 @@ export function CycleCountDetailView({
         selectedItemIds={selectedItemIds}
         onToggleSelect={toggleSelect}
         canSubmit={allCounted}
+        isBeforeSchedule={isBeforeSchedule}
+        evidenceActions={evidenceActions}
         onSaveItems={onSaveItems}
         onSubmit={onSubmit}
         onCreateAdjustment={(itemId) => openAdjustment([itemId])}

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import {
+  ClipboardCheck,
   History,
   LockKeyhole,
   LogOut,
@@ -55,10 +56,17 @@ import {
   formatCount,
   formatCycleCountDay,
 } from '../../utils/cycle-count-format'
+import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
 import { formatStockLocation } from '../../utils/cycle-count-scope'
 import { StockAdjustmentStatusBadge } from '../CycleCountStatusBadge'
+import { CycleCountDamageDialog } from './CycleCountDamageDialog'
 import { CycleCountScanDialog } from './CycleCountScanDialog'
-import type { CycleCountItemFilter, CycleCountRecordEntry } from './types'
+import type {
+  CycleCountDamageDraft,
+  CycleCountEvidenceActions,
+  CycleCountItemFilter,
+  CycleCountRecordEntry,
+} from './types'
 
 const FILTERS: ReadonlyArray<{ readonly value: CycleCountItemFilter; readonly label: string }> = [
   { value: 'all', label: 'Tất cả' },
@@ -98,6 +106,8 @@ interface CycleCountItemsTableProps {
   readonly selectedItemIds: readonly string[]
   readonly onToggleSelect: (itemId: string, checked: boolean) => void
   readonly canSubmit: boolean
+  readonly isBeforeSchedule: boolean
+  readonly evidenceActions: CycleCountEvidenceActions
   readonly onSaveItems: (entries: readonly CycleCountRecordEntry[]) => Promise<boolean>
   readonly onSubmit: () => Promise<void>
   readonly onCreateAdjustment: (itemId: string) => void
@@ -111,6 +121,8 @@ export function CycleCountItemsTable({
   selectedItemIds,
   onToggleSelect,
   canSubmit,
+  isBeforeSchedule,
+  evidenceActions,
   onSaveItems,
   onSubmit,
   onCreateAdjustment,
@@ -120,6 +132,8 @@ export function CycleCountItemsTable({
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [damagedDrafts, setDamagedDrafts] = useState<Record<string, string>>({})
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
+  const [damageDrafts, setDamageDrafts] = useState<Record<string, CycleCountDamageDraft>>({})
+  const [damageDialogItemId, setDamageDialogItemId] = useState<string | null>(null)
   const [isScanOpen, setIsScanOpen] = useState(false)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const canRecord = allowedActions.includes('Record')
@@ -207,16 +221,42 @@ export function CycleCountItemsTable({
     return noteDrafts[item.id] ?? item.note ?? ''
   }
 
+  function getDamageDraft(item: CycleCountItem): CycleCountDamageDraft {
+    return damageDrafts[item.id] ?? { reason: item.damageReason ?? '', evidence: [] }
+  }
+
+  // Ảnh đã lưu chỉ còn hiệu lực khi dòng đã lưu với số hỏng > 0 (BE trả theo vòng đếm hiện tại).
+  function getSavedDamageEvidence(item: CycleCountItem) {
+    return (item.countedDamagedQuantity ?? 0) > 0 ? item.damageEvidence : []
+  }
+
+  // Hàng hỏng cần lý do và ít nhất một ảnh trước khi lưu.
+  function isDamageIncomplete(item: CycleCountItem): boolean {
+    if ((getLiveDamaged(item) ?? 0) <= 0) return false
+    const damageDraft = getDamageDraft(item)
+    return !isDamageDetailComplete(
+      damageDraft.reason,
+      getSavedDamageEvidence(item).length + damageDraft.evidence.length
+    )
+  }
+
   // Chỉ lưu các dòng có số đếm hợp lệ và khác giá trị đã lưu trên server.
   const dirtyEntries: CycleCountRecordEntry[] = items.flatMap((item) => {
     const draft = getDraft(item)
     if (!isRecordable(item) || !recordCycleCountItemSchema.safeParse(draft).success) return []
-    if (isDamagedInvalid(item)) return []
+    if (isDamagedInvalid(item) || isDamageIncomplete(item)) return []
     const note = getNoteDraft(item).trim() || null
     const damagedQuantity = getLiveDamaged(item)
+    const hasDamage = (damagedQuantity ?? 0) > 0
+    const damageDraft = getDamageDraft(item)
+    const damageReason = hasDamage ? damageDraft.reason.trim() : null
+    const isDamageUnchanged =
+      !hasDamage ||
+      (damageReason === (item.damageReason ?? '') && damageDraft.evidence.length === 0)
     return Number(draft) === item.countedQuantity &&
       note === item.note &&
-      (damagedQuantity ?? 0) === (item.countedDamagedQuantity ?? 0)
+      (damagedQuantity ?? 0) === (item.countedDamagedQuantity ?? 0) &&
+      isDamageUnchanged
       ? []
       : [
           {
@@ -226,14 +266,39 @@ export function CycleCountItemsTable({
             note,
             countMethod: 'Manual',
             scannedBarcode: null,
+            damageReason,
+            damageEvidenceIds: hasDamage ? damageDraft.evidence.map((file) => file.id) : [],
           },
         ]
   })
+
+  const incompleteDamageCount = items.filter(
+    (item) => isRecordable(item) && getDraft(item) !== '' && isDamageIncomplete(item)
+  ).length
+  const damageDialogItem = items.find((item) => item.id === damageDialogItemId) ?? null
+
+  // Kiểm kê mù ẩn số sổ sách nên không có số để điền; điền sẵn chỉ cho dòng chưa đếm và chưa gõ gì.
+  const canFillFromBook = canRecord && !mustStart && !hasHiddenQuantity
+  const fillableItems = items.filter(
+    (item) =>
+      isRecordable(item) &&
+      item.countedQuantity === null &&
+      item.systemQuantity !== null &&
+      getDraft(item) === ''
+  )
+
+  function fillFromBook() {
+    setDrafts((current) => ({
+      ...current,
+      ...Object.fromEntries(fillableItems.map((item) => [item.id, String(item.systemQuantity)])),
+    }))
+  }
 
   function discardDrafts() {
     setDrafts({})
     setDamagedDrafts({})
     setNoteDrafts({})
+    setDamageDrafts({})
   }
 
   async function saveAll() {
@@ -286,19 +351,38 @@ export function CycleCountItemsTable({
             Bấm &quot;Bắt đầu kiểm kê&quot; để chốt tồn sổ sách và nhập số đếm.
           </p>
         ) : null}
-        {canScan ? (
-          <Button
-            type="button"
-            size="sm"
-            className="ml-auto"
-            disabled={isPending}
-            onClick={() => setIsScanOpen(true)}
-          >
-            <ScanBarcode aria-hidden="true" />
-            Quét mã
-          </Button>
+        {isBeforeSchedule ? (
+          <p className="text-muted-foreground text-xs">
+            Phiếu chưa đến thời gian kiểm kê nên chưa thể nhập số đếm.
+          </p>
         ) : null}
-        <InputGroup className={cn('w-full sm:w-64', !canScan && 'ml-auto')}>
+        <div className="ml-auto flex items-center gap-2">
+          {canFillFromBook ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isPending || fillableItems.length === 0}
+              onClick={fillFromBook}
+            >
+              <ClipboardCheck aria-hidden="true" />
+              Điền đủ theo sổ sách
+              {fillableItems.length > 0 ? ` (${fillableItems.length})` : ''}
+            </Button>
+          ) : null}
+          {canScan ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={isPending}
+              onClick={() => setIsScanOpen(true)}
+            >
+              <ScanBarcode aria-hidden="true" />
+              Quét mã
+            </Button>
+          ) : null}
+        </div>
+        <InputGroup className="w-full sm:w-64">
           <InputGroupAddon>
             <Search aria-hidden="true" />
           </InputGroupAddon>
@@ -458,26 +542,42 @@ export function CycleCountItemsTable({
                   </TableCell>
                   <TableCell>
                     {recordable ? (
-                      <Input
-                        aria-label={`Số lượng hỏng của ${item.productName} tại ${formatStockLocation(item)}`}
-                        className="ml-auto block h-6 w-full text-right font-mono"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0"
-                        value={getDamagedDraft(item)}
-                        disabled={isPending || draft === ''}
-                        aria-invalid={isDamagedInvalid(item)}
-                        onChange={(event) =>
-                          setDamagedDrafts((current) => ({
-                            ...current,
-                            [item.id]: event.target.value,
-                          }))
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') focusNext(rowIndex)
-                        }}
-                      />
+                      <>
+                        <Input
+                          aria-label={`Số lượng hỏng của ${item.productName} tại ${formatStockLocation(item)}`}
+                          className="ml-auto block h-6 w-full text-right font-mono"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0"
+                          value={getDamagedDraft(item)}
+                          disabled={isPending || draft === ''}
+                          aria-invalid={isDamagedInvalid(item)}
+                          onChange={(event) =>
+                            setDamagedDrafts((current) => ({
+                              ...current,
+                              [item.id]: event.target.value,
+                            }))
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') focusNext(rowIndex)
+                          }}
+                        />
+                        {(getLiveDamaged(item) ?? 0) > 0 ? (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="xs"
+                            className={cn(
+                              'mt-0.5 h-auto w-full justify-end p-0 text-xs',
+                              isDamageIncomplete(item) && 'text-destructive'
+                            )}
+                            onClick={() => setDamageDialogItemId(item.id)}
+                          >
+                            {isDamageIncomplete(item) ? 'Thêm ảnh & lý do' : 'Ảnh & lý do'}
+                          </Button>
+                        ) : null}
+                      </>
                     ) : (
                       <span
                         className={cn(
@@ -608,9 +708,11 @@ export function CycleCountItemsTable({
             <ItemDescription aria-live="polite">
               {dirtyEntries.length > 0
                 ? `${dirtyEntries.length} dòng chưa lưu. Lưu trước khi hoàn thành kiểm kê.`
-                : canSubmit
-                  ? 'Mọi thay đổi đã được lưu.'
-                  : 'Mọi thay đổi đã được lưu. Nhập đủ số đếm tất cả dòng để hoàn thành.'}
+                : incompleteDamageCount > 0
+                  ? `${incompleteDamageCount} dòng hàng hỏng cần thêm ảnh và lý do trước khi lưu.`
+                  : canSubmit
+                    ? 'Mọi thay đổi đã được lưu.'
+                    : 'Mọi thay đổi đã được lưu. Nhập đủ số đếm tất cả dòng để hoàn thành.'}
             </ItemDescription>
           </ItemContent>
           <ItemActions>
@@ -647,7 +749,11 @@ export function CycleCountItemsTable({
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button disabled={!canSubmit || dirtyEntries.length > 0 || isPending}>
+                <Button
+                  disabled={
+                    !canSubmit || dirtyEntries.length > 0 || incompleteDamageCount > 0 || isPending
+                  }
+                >
                   <Send />
                   Hoàn thành kiểm kê
                 </Button>
@@ -669,12 +775,28 @@ export function CycleCountItemsTable({
           </ItemActions>
         </Item>
       ) : null}
+      {damageDialogItem ? (
+        <CycleCountDamageDialog
+          open
+          productName={damageDialogItem.productName}
+          draft={getDamageDraft(damageDialogItem)}
+          savedEvidence={getSavedDamageEvidence(damageDialogItem)}
+          evidenceActions={evidenceActions}
+          onChange={(next) =>
+            setDamageDrafts((current) => ({ ...current, [damageDialogItem.id]: next }))
+          }
+          onOpenChange={(open) => {
+            if (!open) setDamageDialogItemId(null)
+          }}
+        />
+      ) : null}
       {canScan ? (
         <CycleCountScanDialog
           open={isScanOpen}
           items={items.filter(isRecordable)}
           isPending={isPending}
           onOpenChange={setIsScanOpen}
+          evidenceActions={evidenceActions}
           onSave={onSaveItems}
         />
       ) : null}

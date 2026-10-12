@@ -68,7 +68,12 @@ export default function CreateCycleCountPage() {
     needTotalCount: true,
   })
   const inventory = useInventoryQuery(
-    { pageNumber: inventoryPage, pageSize: inventoryPageSize, ...inventoryScope },
+    {
+      pageNumber: inventoryPage,
+      pageSize: inventoryPageSize,
+      includeLastCount: true,
+      ...inventoryScope,
+    },
     Boolean(warehouseId)
   )
   const warehouseOptions = useMemo(

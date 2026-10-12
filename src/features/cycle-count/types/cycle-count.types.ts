@@ -113,6 +113,19 @@ export interface CycleCountItem {
   scannedBarcode: string | null
   productBarcode: string | null
   slotBarcode: string | null
+  damageReason: string | null
+  damageEvidence: CycleCountDamageEvidence[]
+}
+
+// Phản hồi tải ảnh lên; chỉ dùng id và tên tệp.
+export interface CycleCountEvidence {
+  id: string
+  fileName: string
+}
+
+export interface CycleCountDamageEvidence {
+  id: string
+  fileName: string
 }
 
 export interface CycleCountDetail {

@@ -4,14 +4,18 @@ import { LockKeyhole } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DatePickerField } from '@/features/inbound-request/components/InboundRequestFormPage/DatePickerField'
+import { OptionSelect } from './OptionSelect'
 import type { CycleCountFormApi, SelectOption } from './types'
 
 const DEFAULT_START_TIME = '08:00'
 const PURPOSE_MAX_LENGTH = 500
+const PRIORITY_OPTIONS: readonly SelectOption[] = [
+  { value: 'Normal', label: 'Bình thường' },
+  { value: 'Urgent', label: 'Khẩn' },
+]
 
 interface CycleCountInfoPanelProps {
   readonly form: CycleCountFormApi
@@ -32,6 +36,8 @@ export function CycleCountInfoPanel({
   const scheduledDate = form.watch('scheduledDate')
   const dueDate = form.watch('dueDate')
   const purpose = form.watch('purpose')
+  const priority = form.watch('priority')
+  const assignedTo = form.watch('assignedTo')
   const isBlindCount = form.watch('isBlindCount')
   const scheduledTime = scheduledDate.slice(11, 16) || DEFAULT_START_TIME
 
@@ -94,24 +100,34 @@ export function CycleCountInfoPanel({
         </div>
         <Field data-invalid={Boolean(errors.priority)}>
           <FieldLabel htmlFor="priority">Mức ưu tiên</FieldLabel>
-          <NativeSelect id="priority" {...form.register('priority')}>
-            <NativeSelectOption value="Normal">Bình thường</NativeSelectOption>
-            <NativeSelectOption value="Urgent">Khẩn</NativeSelectOption>
-          </NativeSelect>
+          <OptionSelect
+            id="priority"
+            value={priority}
+            options={PRIORITY_OPTIONS}
+            onValueChange={(value) =>
+              form.setValue('priority', value === 'Urgent' ? 'Urgent' : 'Normal', {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+          />
           <FieldError errors={errors.priority ? [errors.priority] : undefined} />
         </Field>
         <Field data-invalid={Boolean(errors.assignedTo)}>
           <FieldLabel htmlFor="assignedTo">
             Nhân viên phụ trách <span className="text-destructive">*</span>
           </FieldLabel>
-          <NativeSelect id="assignedTo" disabled={!hasWarehouse} {...form.register('assignedTo')}>
-            <NativeSelectOption value="">Chọn nhân viên</NativeSelectOption>
-            {staff.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          <OptionSelect
+            id="assignedTo"
+            value={assignedTo}
+            options={staff}
+            emptyLabel="Chọn nhân viên"
+            disabled={!hasWarehouse}
+            invalid={Boolean(errors.assignedTo)}
+            onValueChange={(value) =>
+              form.setValue('assignedTo', value, { shouldDirty: true, shouldValidate: true })
+            }
+          />
           <FieldError errors={errors.assignedTo ? [errors.assignedTo] : undefined} />
         </Field>
         {hasWarehouse && staff.length === 0 ? (

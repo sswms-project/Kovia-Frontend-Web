@@ -8,6 +8,7 @@ export interface InventoryListQuery {
   productId?: string
   searchTerm?: string
   categoryId?: string
+  includeLastCount?: boolean
 }
 
 export type QualityStatus = 'Good' | 'Damaged' | 'Quarantine'
@@ -45,6 +46,16 @@ export interface InventoryStock {
   rackCode?: string | null
   zoneCode?: string | null
   isSystemDefaultSlot?: boolean
+  lastCount?: StockLastCount | null
+}
+
+// Lần kiểm kê đã hoàn tất gần nhất của dòng tồn; chỉ có khi gọi với includeLastCount.
+export interface StockLastCount {
+  cycleCountId: string
+  code: string
+  countedAt: string
+  countedByName: string | null
+  difference: number | null
 }
 
 export interface InventoryStockListResponse {
