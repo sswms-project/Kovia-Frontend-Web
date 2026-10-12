@@ -86,31 +86,38 @@ Migration mới, tên đề xuất `AddTransferPutAwayPlan`:
 Quyết định thiết kế:
 
 - **`Quantity` của dòng kế hoạch là tổng số lượng dự kiến cho ô đó trên cả dòng phiếu**, không bị giảm khi nhận. Phần còn lại tính khi đọc: `còn lại(ô) = Quantity − Σ GoodQuantity đã nhận vào ô đó của dòng`. Cách này tránh ghi hai nơi trong giao dịch nhận và an toàn khi một dòng phiếu chia nhiều đợt xuất (khác `PutAwayPlanLine` của Nhập kho, nơi `Quantity` là phần còn phải cất).
-- **Giữ cột `StockTransferItem.DestinationSlotId`** để tương thích bảng hàng hóa, thông báo, test hiện có: khi kế hoạch có đúng một ô thì ghi ô đó, nhiều ô thì để `null` (giao diện hiển thị "N vị trí"). Dòng cũ chỉ có `DestinationSlotId`, chưa có dòng kế hoạch, được xem như **một dòng kế hoạch ảo** với số lượng = số lượng còn lại của dòng. Không chuyển dữ liệu cũ.
+- **Giữ cột `StockTransferItem.DestinationSlotId`** để tương thích bảng hàng hóa, thông báo, test hiện có: khi kế hoạch có đúng một ô thì ghi ô đó, nhiều ô thì để `null` (giao diện hiển thị "N vị trí"). Dòng chỉ có `DestinationSlotId` (chưa có dòng kế hoạch) ở chế độ `Legacy` (3.5), giữ hành vi cũ. Không chuyển dữ liệu cũ.
 - **Không thêm quyền mới.** Dùng `transfers:receive` + phạm vi kho nhập: ghi kế hoạch cần `Manage`, đọc gợi ý/kế hoạch cần `View` (nhân viên được giao nhận hàng). Lý do: sự cố 2026-10-08 cho thấy việc seed/đồng bộ quyền mới trên `db71143` rất dễ lỗi; spec này không cần phân quyền mới.
 - `AGENTS.md`: **không áp migration lên `db71143`** khi chưa có lệnh rõ ràng. Giai đoạn A chỉ tạo migration, SQL rà soát tại `docs/migrations/<timestamp>_AddTransferPutAwayPlan.sql`, kiểm thử trên cơ sở dữ liệu cục bộ đặt tên riêng, rồi **dừng chờ duyệt**.
 
 ### 3.2. API
 
-| Endpoint                                                          | Thay đổi                                                                                                                                                                                             |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PUT /api/transfers/{id}/putaway-plan` (mới, `transfers:receive`) | Thay toàn bộ kế hoạch của các dòng gửi lên: `{ expectedVersion, items: [{ itemId, lines: [{ slotId, quantity }] }] }`; `lines` rỗng = bỏ kế hoạch của dòng. Command `SetTransferPutAwayPlanCommand`. |
-| `PUT /api/transfers/{id}/putaway-slots`                           | Giữ **một bản phát hành** làm bộ chuyển đổi (mỗi ô → một dòng kế hoạch với số lượng còn lại của dòng), đánh dấu `[Obsolete]` và ghi chú Swagger; gỡ ở bản sau khi FE đã chuyển.                      |
-| `GET /api/transfers/{id}/putaway-suggestions?shipmentId=`         | Mở rộng, xem 3.3. Quyền `transfers:receive`, kho nhập `View`.                                                                                                                                        |
-| `GET /api/transfers/{id}/shipments/{shipmentId}/receive-sheet`    | Mỗi dòng/lô thêm `plan[]` (xem 3.5); **giữ** `suggestedSlot*` để FE cũ không vỡ.                                                                                                                     |
-| `POST /api/transfers/{id}/shipments/{shipmentId}/receive`         | Entry thêm `deviationReasonCode` (tùy chọn). Xem 3.6.                                                                                                                                                |
-| `GET /api/transfers`                                              | Thêm `statusCounts` vào response (xem 3.7). `stage` giữ, đánh dấu cũ.                                                                                                                                |
+| Endpoint                                                                                                             | Thay đổi                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUT /api/transfers/{id}/putaway-plan` (mới, `transfers:receive`)                                                    | Thay kế hoạch của các dòng gửi lên: `{ expectedVersion, items: [{ itemId, lines: [{ slotId, plannedTotal }] }] }`. **`plannedTotal` là tổng kế hoạch của ô trên cả dòng phiếu**, không phải phần còn lại. `lines` rỗng = bỏ kế hoạch của dòng (chỉ khi dòng chưa có hàng nhận tốt vào ô nào). Không bao giờ xóa hay giảm dưới số đã nhận ở ô đã có hàng. Command `SetTransferPutAwayPlanCommand`. |
+| `GET /api/transfers/{id}/putaway-plan-suggestions?shipmentId=` (**mới**, quyền `transfers:receive`, kho nhập `View`) | Gợi ý dạng object (xem 3.3). FE mới dùng endpoint này.                                                                                                                                                                                                                                                                                                                                            |
+| `GET /api/transfers/{id}/putaway-suggestions` (**giữ nguyên**)                                                       | Vẫn trả **mảng** như hiện nay, không đổi hình dạng, để FE cũ không lỗi khi BE phát hành trước. Đánh dấu `[Obsolete]`, gỡ cùng `putaway-slots` ở bản sau khi FE mới đã lên.                                                                                                                                                                                                                        |
+| `PUT /api/transfers/{id}/putaway-slots` (**chế độ cũ**)                                                              | Hành vi **không đổi**: chỉ ghi `StockTransferItem.DestinationSlotId`, không bao giờ tạo hay sửa `StockTransferPutAwayPlanLines`, vẫn chặn đổi ô của dòng đã bắt đầu nhận. Nếu dòng đã có kế hoạch mới thì trả `409` "Dòng hàng này đã dùng kế hoạch mới, hãy tải lại giao diện." Đánh dấu `[Obsolete]`; có thời hạn gỡ cùng endpoint gợi ý cũ.                                                    |
+| `GET /api/transfers/{id}/shipments/{shipmentId}/receive-sheet`                                                       | Mỗi dòng/lô thêm `plan[]` đã phân bổ theo lô, `unplannedQuantity`, `planMode` và `planVersion` (3.5); **giữ** `suggestedSlot*` cho dòng ở chế độ cũ.                                                                                                                                                                                                                                              |
+| `POST /api/transfers/{id}/shipments/{shipmentId}/receive`                                                            | Thêm `planVersion` (phiên bản kế hoạch đã dùng để dựng form) và `deviationReasonCode` mỗi entry. Quy tắc bắt buộc quyết định theo **dữ liệu BE** (3.5, 3.6), không theo việc client có gửi trường hay không.                                                                                                                                                                                      |
+| `GET /api/transfers`                                                                                                 | Thêm `statusCounts` vào response (3.7). `stage` giữ, đánh dấu cũ.                                                                                                                                                                                                                                                                                                                                 |
 
 Mỗi action mới có `/// <summary>` một dòng tiếng Việt và `[HasPermission(TransferPermissions.Receive)]`, không chuỗi quyền cứng.
+
+**Giới hạn tương thích có chủ đích:** FE cũ vẫn chạy với dòng ở chế độ kế hoạch cũ. Khi quản lý (dùng FE mới) tạo kế hoạch mới cho một dòng, nhân viên còn dùng FE cũ sẽ bị từ chối khi nhận dòng đó (thiếu `planVersion`) và phải **tải lại/cập nhật giao diện**. Thông báo lỗi phải nói rõ điều này (tiếng Việt, mã `TRANSFER_PUTAWAY_PLAN_VERSION_REQUIRED`). Không khẳng định FE cũ tương thích trong mọi trường hợp.
 
 ### 3.3. Gợi ý vị trí cất (mở rộng, dùng chung với Nhập kho)
 
 Mục tiêu: cùng một "động cơ gợi ý" cho hai luồng, khác nguồn dữ liệu đầu vào.
 
-- Tách phần lõi của `GetPutAwaySlotSuggestionsQueryHandler` (xếp hạng → `Allocate` → rủi ro → ô gần đầy → tóm tắt theo quy tắc) thành thành phần dùng chung trong `Application/Features/Inbound/Shared/` (cạnh `PutAwaySuggestionRules`), nhận danh sách `PutAwaySuggestionItem` và `PutAwaySuggestionContext`, trả cấu trúc trung lập. Mỗi handler chỉ còn: nạp dữ liệu → gọi lõi → ánh xạ Response. Tên cụ thể (không dùng `Helper/Manager/Service`): `PutAwayPlanBuilder`. Thêm vào tệp có sẵn trước khi tạo tệp mới (`.rules`).
-- Đầu vào Điều chuyển: các dòng phiếu còn phải nhận; nếu có `shipmentId` thì số lượng = số lượng của đợt chưa nhận, ngược lại = `Quantity − Stopped − ReceivedGood`. **Bỏ điều kiện "chỉ dòng chưa nhận gì"**: dòng đã nhận một phần vẫn được gợi ý cho phần còn lại.
-- Lọc ô: chỉ ô `TransferReceivableSlots` của kho nhập (hiện tại giữ nguyên).
-- Response (DTO mới ở `Contract/Models/Transfer/`) mỗi ô: `slotId, slotCode, rackCode, zoneName, path, suggestedQuantity, available, reason, warnings`; mỗi dòng: `itemId, remaining, suggestions[], unallocatedQuantity`; cả phiếu: `summary, risks[], heldSlots[]`. Dạng gần giống `PutAwaySuggestionResponse` để FE dùng chung được kiểu dữ liệu.
+- Tách phần lõi của `GetPutAwaySlotSuggestionsQueryHandler` (xếp hạng → gọi AI nếu có → `Allocate` → rủi ro → ô gần đầy → tóm tắt) thành thành phần dùng chung trong `Application/Features/Inbound/Shared/` (cạnh `PutAwaySuggestionRules`); tên `PutAwayPlanBuilder`. Mỗi handler chỉ còn: nạp dữ liệu → gọi lõi → ánh xạ Response. Thêm vào tệp có sẵn trước khi tạo tệp mới (`.rules`).
+- Số lượng cần gợi ý của một dòng:
+  - có `shipmentId`: số lượng đã xuất của đợt chưa khai báo nhận;
+  - không có: **`Chưa khai báo nhận = Quantity − StoppedQuantity − ReceivedQuantity − DamagedQuantity − MissingQuantity − ResolvedMissingQuantity`**. Phải trừ cả `ResolvedMissingQuantity`: xác nhận thất thoát giảm `MissingQuantity` và tăng `ResolvedMissingQuantity`, nên bỏ trường này thì hàng đã xác nhận mất sẽ quay lại thành "cần nhận".
+  - Hàng thiếu đang chờ xử lý **không** thuộc kế hoạch; nhận bổ sung tăng `ReceivedQuantity` (và tính vào ngân sách ô nếu nhận tốt vào ô đó).
+  - **Bỏ điều kiện "chỉ dòng chưa nhận gì"**: dòng đã nhận một phần vẫn được gợi ý cho phần còn lại.
+- Lọc ô: chỉ ô `TransferReceivableSlots` của kho nhập.
+- Response (DTO mới ở `Contract/Models/Transfer/`) mỗi ô: `slotId, slotCode, rackCode, zoneName, path, suggestedQuantity, available, reason, warnings`; mỗi dòng: `itemId, remaining, suggestions[], unallocatedQuantity`; cả phiếu: `summary, risks[], heldSlots[], isAiAssisted, notice`. Dạng gần giống `PutAwaySuggestionResponse` để FE dùng chung kiểu.
 - Rủi ro lấy từ `DescribeRisks`, ô gần đầy, lô sắp hết hạn (30 ngày) như Nhập kho.
 - Kiểm thử hành vi Nhập kho **không đổi** (`PutAwayLocationPlanTests`, `DirectReceivingWorkflowTests`, `PutAwaySuggestionRules` tests) là điều kiện nghiệm thu.
 
@@ -122,34 +129,55 @@ Người dùng chọn **dùng AI ngay** (2026-10-12). Dùng lại `IPutAwaySugge
 
 `SetTransferPutAwayPlanCommandHandler` (thư mục `SetTransferPutAwayPlan/`, kèm Validator hình dạng):
 
-- Validator: `transferId`, `itemId`, `slotId` đúng định dạng; `quantity > 0` và đúng độ chính xác số lượng của đơn vị chính; không trùng `(itemId, slotId)` trong cùng yêu cầu; tối đa 20 ô/dòng.
-- Handler: `TransferAggregate.LoadAsync` → `TransferRules.EnsureOpen` → kho nhập `Manage` → `InventoryCommandSafety.EnsureVersion` → mọi `itemId` thuộc phiếu → `TransferReceivableSlots.EnsureReceivableAsync` → với mỗi dòng: tổng kế hoạch ≤ `Quantity − StoppedQuantity`; với ô đã có hàng nhận tốt, `Quantity ≥ đã nhận vào ô đó` (không rút kế hoạch dưới số đã nhận) → ghi/xóa dòng kế hoạch, cập nhật `DestinationSlotId` theo 3.1 → cảnh báo (không chặn) sức chứa/trộn hàng như Nhập kho → audit `SetPutAwayPlan` (dùng `IAuditLog.RecordStateChangeAsync` như hiện tại) → thông báo cho nhân viên đang được giao task nhận (giữ `StageNotificationsAsync`) → `SaveChangesWithConflictHandlingAsync` → realtime `Updated`. **Gọi `EnsureSaveAsync`/lưu một lần.**
-- Cho phép sửa kế hoạch khi dòng đã nhận một phần (khác quy tắc cũ "không đổi ô đã bắt đầu nhận"), vì phần còn lại vẫn cần kế hoạch; phần đã nhận không bị đổi.
+- Validator: `transferId`, `itemId`, `slotId` đúng định dạng; `plannedTotal > 0` và đúng độ chính xác số lượng của đơn vị chính; không trùng `(itemId, slotId)` trong cùng yêu cầu; tối đa 20 ô/dòng.
+- Handler: `TransferAggregate.LoadAsync` → `TransferRules.EnsureOpen` → kho nhập `Manage` → `InventoryCommandSafety.EnsureVersion` → mọi `itemId` thuộc phiếu → `TransferReceivableSlots.EnsureReceivableAsync` → với mỗi dòng: `Σ plannedTotal ≤ Quantity − StoppedQuantity`; với ô đã có hàng nhận tốt, `plannedTotal ≥ đã nhận tốt vào ô đó` (không rút dưới số đã nhận, **không xóa ô đã nhận**) → ghi/xóa dòng kế hoạch, cập nhật `DestinationSlotId` (1 ô → ghi ô đó; nhiều ô → `null`) → cảnh báo (không chặn) sức chứa/trộn hàng như Nhập kho → **cập nhật `StockTransfer.ModifiedAt`** → audit `SetPutAwayPlan` → thông báo cho nhân viên đang được giao task nhận → `SaveChangesWithConflictHandlingAsync` (một lần) → realtime `Updated`.
+- Cho phép sửa kế hoạch khi dòng đã nhận một phần (phần còn lại vẫn cần kế hoạch); phần đã nhận không bị đổi.
 - Lỗi: `NotFoundException` / `BadRequestException` / `ConflictException`, message tiếng Việt, ví dụ "Tổng số lượng kế hoạch vượt số lượng còn phải nhận của dòng hàng."
 
-Đọc: `GetTransfer` và `GetTransferReceiveSheet` trả kế hoạch của dòng/đợt:
+**Chế độ kế hoạch (`planMode`) do BE quyết định theo dữ liệu từng dòng phiếu:**
+
+| Dòng phiếu                                                                       | `planMode` | Hành vi khi nhận                                                        |
+| -------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------- |
+| Có ít nhất một `StockTransferPutAwayPlanLine`                                    | `Planned`  | Bắt buộc `planVersion` hợp lệ và lý do lệch (3.6).                      |
+| Không có dòng kế hoạch (kể cả chỉ có `DestinationSlotId` hoặc ô mặc định của kệ) | `Legacy`   | Như hiện nay: không đòi lý do; vẫn tính và ghi `IsOffPlan` để thống kê. |
+
+Chế độ `Legacy` có thời hạn gỡ cùng các endpoint cũ (3.2).
+
+**Đọc kế hoạch.** `GetTransfer` trả kế hoạch cả dòng; `GetTransferReceiveSheet` trả kế hoạch **đã phân bổ theo lô** cho một đợt:
 
 ```
-plan: [{ slotId, slotCode, rackCode, zoneName, path, plannedQuantity, receivedQuantity, remainingQuantity, isSystemDefaultSlot }]
+line.lots[i].plan: [{ slotId, slotCode, rackCode, zoneName, path, plannedQuantity, remainingBudget }]
+line.lots[i].unplannedQuantity
+line.planMode, sheet.planVersion
 ```
 
-Cho một đợt: số lượng đề xuất ở mỗi ô = lần lượt lấp các dòng kế hoạch theo `remainingQuantity` cho tới khi hết số lượng đã xuất của đợt, để nhân viên thấy sẵn "ô A: 30, ô B: 20".
+Thuật toán phân bổ (xác định, lặp lại được):
+
+1. Ngân sách từng ô = `plannedTotal − Σ nhận tốt đã ghi vào ô đó của dòng` (gồm cả nhận bổ sung).
+2. Sắp các lô của đợt theo: hạn dùng gần nhất trước; lô **không có hạn dùng** sau cùng trong nhóm có lô; rồi số lô; rồi `lotId`. Entry **không theo lô** (`LotId = null`) là một nhóm riêng, xử lý sau cùng.
+3. Với từng lô theo thứ tự, lấy lần lượt từ các ô còn ngân sách (ô nhiều ngân sách trước, rồi `slotId`) cho tới khi đủ số lượng đã xuất của lô; trừ vào ngân sách chung. Không áp cùng một kế hoạch cho mỗi lô.
+4. Phần lô không còn ngân sách ở ô nào là `unplannedQuantity`; FE hiển thị thành khai báo điền sẵn số lượng nhưng để trống vị trí (nhân viên phải chọn ô thì mới xác nhận được).
+
+**`planVersion`:** SHA-256 của chuỗi chuẩn hóa gồm `itemId|slotId|plannedTotal` của **các dòng phiếu thuộc đợt nhận**, sắp xếp cố định theo `itemId` rồi `slotId`, số decimal định dạng cố định (2 chữ số thập phân, dấu chấm, không phụ thuộc culture). Không dùng `GetHashCode()`. Chỉ băm các dòng liên quan tới đợt để quản lý sửa dòng không liên quan không gây `409`. Dòng ở `Legacy` vào băm như tập kế hoạch rỗng. **Không cần cột mới**: giá trị luôn tính lại từ `StockTransferPutAwayPlanLines`, nên migration `AddTransferPutAwayPlan` (PR #217) không đổi.
 
 ### 3.6. Nhận hàng: so với kế hoạch và ghi nhận lệch
 
 Trong `ReceiveTransferShipmentCommandHandler`:
 
-- Với dòng **có kế hoạch**: entry được coi là **khác kế hoạch** khi `DestinationSlotId` không có trong kế hoạch, hoặc lượng `GoodQuantity` đưa vào ô vượt `remainingQuantity` của ô đó. Dòng **không có kế hoạch** (kể cả chỉ có ô mặc định của kệ): hành vi giữ nguyên, không đòi lý do.
-- Khác kế hoạch → bắt buộc `deviationReasonCode` thuộc nhóm có sẵn; `Other` bắt buộc `Note` 5–500 ký tự (dùng trường `Note` hiện có). Thiếu → `400` mã `TRANSFER_PUTAWAY_DEVIATION_REASON_REQUIRED`, message tiếng Việt. Ghi `IsOffPlan = true` và `DeviationReasonCode`.
-- Hàng hỏng/thiếu không tính "khác kế hoạch" (vẫn theo luồng nguyên nhân hiện có).
-- Thông báo `TransferUpdate` cho người lập kế hoạch gần nhất và manager kho nhập khi có dòng khác kế hoạch (trừ người nhận). Dùng `IPlatformNotificationService` như các thông báo hiện có.
-- Quét ô: giữ `TransferScanRules.EnsureSlotMatchesAsync`. Không đổi quy tắc "bắt buộc/không bắt buộc quét" hiện tại. Chừa điểm cắm cho công tắc quét (đã hoãn).
+- **Kiểm `planVersion` luôn được thực hiện khi đợt có dòng `Planned`, và cả khi kế hoạch hiện tại vừa bị xóa hết.** BE tính lại băm từ dữ liệu hiện tại và so với `planVersion` client gửi: thiếu hoặc lệch → `409` mã `TRANSFER_PUTAWAY_PLAN_CHANGED`. Nếu client gửi băm khác rỗng nhưng kế hoạch hiện tại đã rỗng, vẫn phải `409`; không bỏ qua chỉ vì DB không còn dòng kế hoạch. Dòng `Legacy` không bị đòi `planVersion`.
+- **So kế hoạch bằng cộng dồn toàn request.** Gộp mọi entry tốt của cùng dòng phiếu theo `(itemId, slotId)` (kể cả khác lô), cấp ngân sách ô theo thứ tự entry trong request. Entry nào làm vượt ngân sách của ô, hoặc vào ô không có trong kế hoạch, bị coi là **khác kế hoạch** (`IsOffPlan = true`). Ví dụ ô A có kế hoạch 100, nhận 60 + 60: entry thứ nhất đúng, entry thứ hai lệch. Kiểm tổng hiện có theo từng `(line, lot)` vẫn giữ.
+- **Lý do:** dòng `Planned` có entry khác kế hoạch thì bắt buộc `deviationReasonCode` thuộc `PutAwayDeviationReasonCode`; `Other` bắt buộc `Note` 5–500 ký tự (dùng trường `Note` hiện có). Thiếu → `400` mã `TRANSFER_PUTAWAY_DEVIATION_REASON_REQUIRED`. Dòng `Legacy` giữ như cũ.
+- Hàng hỏng/thiếu không tính "khác kế hoạch" (vẫn theo luồng nguyên nhân hiện có); ngân sách ô chỉ trừ bằng **số nhận tốt**.
+- **Nhận bổ sung** qua `ResolveTransferDiscrepancy` ngoài phạm vi kiểm lệch kế hoạch lần này; nhưng lượng tốt đã nhận bổ sung vẫn làm giảm ngân sách ô.
+- Thông báo `TransferUpdate` cho người lập kế hoạch gần nhất và manager kho nhập khi có dòng khác kế hoạch (trừ người nhận).
+- Quét ô: giữ `TransferScanRules.EnsureSlotMatchesAsync`; không đổi quy tắc "bắt buộc/không bắt buộc quét"; chừa điểm cắm cho công tắc quét (đã hoãn).
+- **Kiểm soát ghi đồng thời.** Cả lưu kế hoạch và nhận hàng đều cập nhật dòng `StockTransfer` (`ModifiedAt`) trong cùng giao dịch, để `StockTransfer.RowVersion` bắt xung đột; xung đột rollback toàn bộ và trả `409`. Phiên bản riêng của đợt xuất không đủ vì ngân sách ô dùng chung giữa nhiều đợt. Race này còn có thể bỏ lọt lý do bắt buộc hoặc ghi sai bằng chứng lệch kế hoạch, nên **giữ mức High cho tới khi Gate A chứng minh bằng test đồng thời** (đổi kế hoạch trong lúc nhận; hai đợt nhận cùng lúc) rằng hai thao tác cùng được bảo vệ bởi `StockTransfer.RowVersion` và xung đột rollback toàn bộ.
 - Giữ nguyên: kiểm sức chứa `StorageCapacityPolicy`, `TransferIn`, tạo discrepancy, một lần nhận mỗi đợt.
 
 ### 3.7. Danh sách: số đếm theo trạng thái
 
 - Thêm `statusCounts` vào `StockTransferListResponse`: `{ all, draft, inProgress, awaitingResolution, completed, cancelled }`, tính **trên cùng bộ lọc** (tìm kiếm, kho, ngày) **trừ trạng thái**, và theo phạm vi kho + phiếu nháp chỉ người tạo thấy (đúng quy tắc hiện có của `GetTransfers`). Một truy vấn gom nhóm, không N+1.
-- `Stage` giữ để không vỡ FE cũ trong một bản; thêm ghi chú Swagger "đã thay bằng `status`". Quy ước quy đổi cho FE: `request` → mọi trạng thái trừ `Cancelled`; `transfer` → `InProgress`; `discrepancy` → `AwaitingResolution`.
+- `Stage` giữ để không vỡ FE cũ trong một bản; thêm ghi chú Swagger "đã thay bằng `status`". Quy đổi cho FE: `request` → mọi trạng thái trừ `Cancelled`; `transfer` → `InProgress`; `discrepancy` → `AwaitingResolution`. **Đây là thay đổi ý nghĩa có chủ đích, không phải tương thích nguyên vẹn:** tab `transfer` cũ là "phiếu đã có đợt xác nhận rời kho", gồm cả phiếu hoàn tất và chờ chênh lệch; sau thay đổi các phiếu đó xem ở "Hoàn tất" và "Chờ xử lý chênh lệch". `statusCounts.all` **loại phiếu đã hủy** để khớp danh sách mặc định.
 - Cần xác nhận bằng GitNexus (`GetTransfersQueryHandler`) mọi nơi gọi `Stage` trước khi đánh dấu cũ (mục 9).
 
 ### 3.8. Kiểm thử Backend (thêm vào `Application.Tests/Features/Transfer/`)
@@ -157,9 +185,14 @@ Trong `ReceiveTransferShipmentCommandHandler`:
 Ghi chú: file hiện có `TransferPutAwaySlotTests.cs`, `TransferDestinationSlotTests.cs`, `TransferFlowFixture.cs`; mở rộng trước khi tạo file mới.
 
 - Lưu kế hoạch: nhiều ô một dòng; tổng vượt → lỗi; ô không thuộc kho nhập → lỗi; phiên bản cũ → `409`; sửa kế hoạch khi đã nhận một phần (không rút dưới số đã nhận); bỏ kế hoạch (`lines` rỗng); `DestinationSlotId` đồng bộ (1 ô → ghi, nhiều ô → null).
-- Dòng cũ chỉ có `DestinationSlotId` được coi là một dòng kế hoạch ảo.
+- Dòng chỉ có `DestinationSlotId` là `planMode = Legacy`; endpoint cũ không đổi hành vi, và trả `409` khi dòng đã có kế hoạch mới.
 - Gợi ý: có `shipmentId`; dòng đã nhận một phần; tách số lượng nhiều ô; thiếu chỗ → `unallocatedQuantity`; nhân viên có `View` gọi được, người ngoài kho bị `403`; cross-tenant bị từ chối.
 - Nhận hàng: đúng kế hoạch (không lý do); khác ô không lý do → `400`; khác ô có lý do → ghi `IsOffPlan`; vượt số lượng ô; `Other` thiếu ghi chú; dòng không kế hoạch không bị đòi lý do; thông báo gửi đúng người; chia nhiều đợt xuất vẫn tính `remainingQuantity` đúng.
+- Quyết định chế độ theo dữ liệu: bỏ `planVersion` hoặc bỏ lý do ở dòng `Planned` vẫn bị từ chối; dòng `Legacy` không bị đòi.
+- `planVersion`: băm ổn định (cùng dữ liệu cho cùng giá trị, bất kể thứ tự); chỉ gồm dòng của đợt; **kế hoạch bị xóa hết sau khi form được dựng vẫn trả `409`**; sửa dòng không liên quan không gây `409`.
+- Cộng dồn ngân sách: ô A kế hoạch 100, nhận 60 + 60 (kể cả khác lô) → entry thứ hai lệch; nhiều lô dùng chung ngân sách, không nhân đôi; lô không hạn dùng và entry không lô theo đúng thứ tự; `unplannedQuantity` đúng.
+- Công thức chưa khai báo nhận: hỏng, thiếu, **thất thoát đã xác nhận**, nhận bổ sung, dừng hàng.
+- Đồng thời: đổi kế hoạch trong lúc nhận; hai đợt cùng nhận một dòng; xung đột rollback toàn bộ.
 - Danh sách: `statusCounts` đúng theo bộ lọc, phạm vi kho, nháp chỉ người tạo.
 - Hồi quy Nhập kho: bộ test cất hàng/gợi ý hiện có phải xanh sau khi tách lõi dùng chung.
 - Quyền: cho phép/từ chối/khác tenant/khác kho cho `putaway-plan`, `putaway-suggestions`.
@@ -194,8 +227,8 @@ Không tạo thêm tệp ngoài những gì nêu ở đây; sửa tệp có sẵ
 ### 4.2. Kế hoạch cất của Điều chuyển
 
 - `transfer/types/transfer.types.ts`: thêm `TransferPutAwayPlanLine`, `TransferPutAwayPlanRequest`, mở rộng `TransferReceiveSheetLine.plan[]`, `TransferListResponse.statusCounts`; giữ `suggestedSlot*`.
-- `transfer/schemas/`: `transfer-putaway-plan.schema.ts` (Zod): `quantity > 0`, độ chính xác theo đơn vị, tổng ≤ số lượng còn phải nhận, không trùng ô, tối đa 20 ô/dòng.
-- `transfer/services/`: `setPutAwayPlan`, mở rộng `getPutAwaySuggestions(transferId, shipmentId?)`.
+- `transfer/schemas/`: `transfer-putaway-plan.schema.ts` (Zod): `quantity > 0`, độ chính xác theo đơn vị, không trùng ô, tối đa 20 ô/dòng. **Payload luôn gửi `plannedTotal` (tổng kế hoạch của ô trên cả dòng)**. UI hiển thị "Đã nhận" (khóa) và "Còn lại"; người dùng sửa tổng với ràng buộc `plannedTotal ≥ đã nhận vào ô` và `Σ plannedTotal ≤ Quantity − Stopped`. Quy đổi giữa "còn lại" và "tổng" chỉ ở một hàm thuần duy nhất trong `transfer-put-away.ts`, có test.
+- `transfer/services/`: `setPutAwayPlan`, thêm `getPutAwayPlanSuggestions(transferId, shipmentId?)` gọi endpoint mới (3.2); giữ `getPutAwaySuggestions` cho tới khi gỡ endpoint cũ.
 - `transfer/hooks/use-transfer-put-away-actions.ts` (có sẵn): thêm `useSetTransferPutAwayPlanMutation` (`retry: false`, 409 → hiện lý do + tải lại), `useTransferPutAwaySuggestionsQuery`.
 - `transfer/hooks/use-transfer-putaway-plan-editor.ts`: trạng thái nháp kế hoạch, mô phỏng `inbound/hooks/use-putaway-plan-editor.ts` (183 dòng). Cân nhắc dùng chung phần thuần tính toán (`putaway-plan.ts`, `putaway-plan-draft.ts`); chỉ thăng cấp nếu logic thực sự giống (đã kiểm: Nhập kho tính theo `Remaining`, Điều chuyển theo `planned − received`, nên **chỉ chia sẻ hàm thuần phân bổ/kiểm tổng**, không chia sẻ hook).
 - `PutAwaySlotsDialog` + `ShipmentPutAwayCell` được thay bằng `TransferPutAwayPlanSheet` (4.3). Gỡ mã cũ sau khi chuyển xong (không để mã chết).
@@ -204,6 +237,8 @@ Không tạo thêm tệp ngoài những gì nêu ở đây; sửa tệp có sẵ
 
 `useTransferReceiveForm` + `ReceiveEntryCard` (ảnh hưởng thấp theo GitNexus: chỉ `TransferReceiveTaskPage`):
 
+- Gửi `planVersion` của phiếu nhận trong request; `409` `TRANSFER_PUTAWAY_PLAN_CHANGED` → tải lại phiếu nhận, **giữ số lượng và ô nhân viên đã nhập** cho các khai báo còn hợp lệ, chỉ đánh dấu dòng kế hoạch đã đổi, không âm thầm mất bản nháp.
+- Phần `unplannedQuantity` hiện thành khai báo điền sẵn số lượng, **vị trí trống** nhãn "Chưa có vị trí theo kế hoạch".
 - Khởi tạo khai báo từ `plan[]`: mỗi ô kế hoạch còn lại → một khai báo với `goodQuantity` = số lượng đề xuất của đợt (thay cho "một khai báo cho cả lô"); dòng không có kế hoạch giữ nguyên hành vi hiện tại.
 - Quét mã ô: nếu khớp một ô kế hoạch → tự gán khai báo tương ứng và đánh dấu đã xác nhận; khớp ô ngoài kế hoạch → mở lựa chọn "Cất khác kế hoạch" (4.4) thay vì chỉ cảnh báo.
 - Thêm trạng thái `isOffPlan` và `deviationReasonCode` vào giá trị khai báo; schema Zod: khác kế hoạch ⇒ cần nhóm lý do; `Other` ⇒ ghi chú 5–500 ký tự.
@@ -212,7 +247,7 @@ Không tạo thêm tệp ngoài những gì nêu ở đây; sửa tệp có sẵ
 
 ### 4.4. Danh sách và trang chi tiết
 
-- `TransferTabs.tsx` được thay bằng `TransferStatusFilter` (4.5 của spec UI). `parseTransferStage`/`transferStatusOptions` đơn giản hóa; `?tab=` cũ được ánh xạ sang `?status=` để liên kết cũ không chết (`request` → mặc định, `transfer` → `InProgress`, `discrepancy` → `AwaitingResolution`).
+- `TransferTabs.tsx` được thay bằng `TransferStatusFilter` (4.5 của spec UI). `parseTransferStage`/`transferStatusOptions` đơn giản hóa; `?tab=` cũ được ánh xạ sang `?status=` để liên kết cũ không chết (đổi ý nghĩa có chủ đích, xem 3.7) (`request` → mặc định, `transfer` → `InProgress`, `discrepancy` → `AwaitingResolution`).
 - `TransferPage` giữ trách nhiệm đọc `status`, `page`, `pageSize`, tìm kiếm trong URL; `TransferDirectory` nhận `statusCounts` qua props.
 - Trang chi tiết: đổi danh sách tab và gộp `Phản hồi` (UI mục 5.3). `DetailTab` mở rộng, mặc định chọn theo `nextSteps` (UI mục 5.3).
 
@@ -231,7 +266,7 @@ Không thêm mã quyền FE. Trang tính cờ `canPlanPutAway` (= `transfers:rec
 
 ## 5. Thiết kế UI/UX
 
-Mục tiêu: người dùng chỉ phải trả lời "việc kế tiếp của tôi là gì" và làm ngay; thao tác chính ít bước, rõ ràng, an toàn khi sai. Áp dụng `docs/DESIGN_SYSTEM.md`: token Tailwind (không màu cứng), Inter + JetBrains Mono cho mã/số, viền thay bóng, bo 4px, trạng thái có icon + chữ (không chỉ màu), tertiary tím **chỉ** cho tính năng AI (giai đoạn này chưa có AI, nên gợi ý quy tắc dùng `primary`/`secondary`).
+Mục tiêu: người dùng chỉ phải trả lời "việc kế tiếp của tôi là gì" và làm ngay; thao tác chính ít bước, rõ ràng, an toàn khi sai. Áp dụng `docs/DESIGN_SYSTEM.md`: token Tailwind (không màu cứng), Inter + JetBrains Mono cho mã/số, viền thay bóng, bo 4px, trạng thái có icon + chữ (không chỉ màu), tertiary tím **chỉ** cho tính năng AI (gợi ý có AI hỗ trợ dùng tertiary; phần quy tắc kho thuần dùng `primary`/`secondary`, và khi AI lỗi phải hiện `notice` rằng đang dùng quy tắc kho).
 
 ### 5.1. Nguyên tắc chung
 
@@ -353,13 +388,13 @@ Giữ nguyên trải nghiệm hiện có (`TransferPickTaskPage`, quét, đổi 
 
 Theo `AGENTS.md`: nhánh làm việc bắt đầu từ `origin/dev` mới fetch; PR vào `dev`; chỉ leader đưa `dev` → `main`; không commit/push/PR/đổi Jira khi chưa được yêu cầu rõ ràng; không ghi "Generated by Claude" vào PR (xác nhận 2026-10-11); handoff qua `docs/AI_REVIEW.md` ở mỗi repo (không ghi đè phát hiện của agent khác; không commit file của phiên khác).
 
-| Gate                   | Nội dung                                                                                                                                                                                                                                                             | Điều kiện ra                                                                                                                                                 |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **0 — Chuẩn bị**       | Re-index GitNexus 2 repo; chạy `impact` cho từng ký hiệu sẽ sửa; ghi kết quả vào PR. Chốt các điểm ở mục 10. Tạo nhánh từ `origin/dev`.                                                                                                                              | Người dùng duyệt spec và mục 10.                                                                                                                             |
-| **A — Backend**        | 3.1–3.8: migration (chỉ tạo + rà SQL), `SetTransferPutAwayPlan`, gợi ý dùng chung, so kế hoạch khi nhận, `statusCounts`, test.                                                                                                                                       | `dotnet build -c Release` + test liên quan xanh; hồi quy Nhập kho xanh; `gitnexus detect_changes` chỉ chạm ký hiệu dự kiến; **dừng trước khi áp migration**. |
-| **A+ — Áp migration**  | Chỉ khi người dùng ra lệnh rõ cho đúng mục tiêu. `Database:ApplyMigrationsOnStartup=false` khi chạy; in và xác nhận provider/server/database hiệu lực (ẩn mật khẩu); ưu tiên dùng cơ sở dữ liệu cục bộ riêng để kiểm. **Không** xóa/reset/`EnsureDeleted` `db71143`. | Migration áp xong, kiểm tra `__EFMigrationsHistory`, không drift model.                                                                                      |
-| **B — Frontend logic** | 4.1–4.6: rút thành phần dùng chung (Nhập kho không đổi hành vi) → kế hoạch + gợi ý Điều chuyển → nhận hàng theo kế hoạch + lệch → lọc nhanh danh sách + tab chi tiết.                                                                                                | `pnpm lint`, `pnpm test`, `pnpm build` xanh; test Nhập kho xanh.                                                                                             |
-| **C — UI/UX & QA**     | Mục 5, chạy trình duyệt qua toàn vòng đời trên cơ sở dữ liệu cho phép; kiểm 360/768/1280, zoom 200%, bàn phím, đọc màn hình cơ bản, `web-design-guidelines`.                                                                                                         | Checklist 7 đạt, ghi vào mục Ghi chú Gate C.                                                                                                                 |
+| Gate                   | Nội dung                                                                                                                                                                                                                                                             | Điều kiện ra                                                                                                                                                                                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **0 — Chuẩn bị**       | Re-index GitNexus 2 repo; chạy `impact` cho từng ký hiệu sẽ sửa; ghi kết quả vào PR. Chốt các điểm ở mục 10. Tạo nhánh từ `origin/dev`.                                                                                                                              | Người dùng duyệt spec và mục 10.                                                                                                                                                                                                                       |
+| **A — Backend**        | 3.1–3.8: migration (chỉ tạo + rà SQL), `SetTransferPutAwayPlan`, gợi ý dùng chung, so kế hoạch khi nhận, `statusCounts`, test.                                                                                                                                       | `dotnet build -c Release` + test liên quan xanh; hồi quy Nhập kho xanh; `gitnexus detect_changes` chỉ chạm ký hiệu dự kiến; **dừng trước khi áp migration**; xác nhận qua diff migration thực tế rằng PR #217 không cần đổi; test đồng thời ở 3.6 đạt. |
+| **A+ — Áp migration**  | Chỉ khi người dùng ra lệnh rõ cho đúng mục tiêu. `Database:ApplyMigrationsOnStartup=false` khi chạy; in và xác nhận provider/server/database hiệu lực (ẩn mật khẩu); ưu tiên dùng cơ sở dữ liệu cục bộ riêng để kiểm. **Không** xóa/reset/`EnsureDeleted` `db71143`. | Migration áp xong, kiểm tra `__EFMigrationsHistory`, không drift model.                                                                                                                                                                                |
+| **B — Frontend logic** | 4.1–4.6: rút thành phần dùng chung (Nhập kho không đổi hành vi) → kế hoạch + gợi ý Điều chuyển → nhận hàng theo kế hoạch + lệch → lọc nhanh danh sách + tab chi tiết.                                                                                                | `pnpm lint`, `pnpm test`, `pnpm build` xanh; test Nhập kho xanh.                                                                                                                                                                                       |
+| **C — UI/UX & QA**     | Mục 5, chạy trình duyệt qua toàn vòng đời trên cơ sở dữ liệu cho phép; kiểm 360/768/1280, zoom 200%, bàn phím, đọc màn hình cơ bản, `web-design-guidelines`.                                                                                                         | Checklist 7 đạt, ghi vào mục Ghi chú Gate C.                                                                                                                                                                                                           |
 
 Phụ thuộc: B cần hợp đồng API của A (gửi kiểu TS sớm sau khi A chốt DTO); C cần A+ nếu muốn kiểm thử trên dữ liệu thật; có thể kiểm bằng cơ sở dữ liệu cục bộ khi chưa được phép áp lên `db71143`.
 
@@ -406,16 +441,19 @@ Kỹ thuật
 
 ## 8. Rủi ro và cách giảm
 
-| Rủi ro                                                                                                    | Cách giảm                                                                                                          |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Rút thành phần dùng chung làm vỡ cất hàng Nhập kho (`PutawaySlotCodeConfirm` được GitNexus đánh giá HIGH) | Rút theo từng bước nhỏ không đổi hành vi, chạy `PutawayForm.test.tsx` mỗi bước, bộ chuyển đổi kiểu ở biên feature. |
-| Tách lõi gợi ý BE làm đổi kết quả Nhập kho                                                                | Tách thuần túy (không đổi thuật toán) và khóa bằng test hồi quy hiện có trước khi sửa.                             |
-| Migration trên `db71143`                                                                                  | Chỉ tạo + rà SQL; áp khi có lệnh rõ; kiểm local trước. Cột thêm đều nullable/mặc định.                             |
-| Đồng bộ quyền (sự cố seed 2026-10-08)                                                                     | Không thêm quyền; dùng `transfers:receive` + phạm vi kho.                                                          |
-| Dữ liệu cũ chỉ có `DestinationSlotId`                                                                     | Coi là dòng kế hoạch ảo, không chuyển dữ liệu.                                                                     |
-| Người dùng thấy "đòi lý do" là rườm rà                                                                    | Chỉ đòi khi thật sự khác kế hoạch; chọn một nhóm là đủ; không đòi ở dòng không có kế hoạch.                        |
-| Liên kết `?tab=`/API `stage` cũ                                                                           | Giữ một bản làm tương thích và ánh xạ; gỡ ở bản sau.                                                               |
-| Mở rộng phạm vi sang Xuất kho/AI                                                                          | Đã loại khỏi phạm vi (1.1).                                                                                        |
+| Rủi ro                                                                                                    | Cách giảm                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rút thành phần dùng chung làm vỡ cất hàng Nhập kho (`PutawaySlotCodeConfirm` được GitNexus đánh giá HIGH) | Rút theo từng bước nhỏ không đổi hành vi, chạy `PutawayForm.test.tsx` mỗi bước, bộ chuyển đổi kiểu ở biên feature.                                  |
+| Tách lõi gợi ý BE làm đổi kết quả Nhập kho                                                                | Tách thuần túy (không đổi thuật toán) và khóa bằng test hồi quy hiện có trước khi sửa.                                                              |
+| Migration trên `db71143`                                                                                  | Chỉ tạo + rà SQL; áp khi có lệnh rõ; kiểm local trước. Cột thêm đều nullable/mặc định.                                                              |
+| Đồng bộ quyền (sự cố seed 2026-10-08)                                                                     | Không thêm quyền; dùng `transfers:receive` + phạm vi kho.                                                                                           |
+| Dữ liệu cũ chỉ có `DestinationSlotId`                                                                     | `planMode = Legacy`, không chuyển dữ liệu, không đòi lý do; có thời hạn gỡ.                                                                         |
+| Người dùng thấy "đòi lý do" là rườm rà                                                                    | Chỉ đòi khi thật sự khác kế hoạch; chọn một nhóm là đủ; không đòi ở dòng không có kế hoạch.                                                         |
+| Liên kết `?tab=`/API `stage` cũ                                                                           | Giữ một bản và ánh xạ; **ý nghĩa tab `transfer` thay đổi có chủ đích** (3.7); gỡ ở bản sau.                                                         |
+| Mở rộng phạm vi sang Xuất kho                                                                             | Đã loại khỏi phạm vi (1.1).                                                                                                                         |
+| AI gợi ý lỗi hoặc chậm                                                                                    | Dùng quy tắc kho và trả `notice`; AI không tự lưu kế hoạch; hợp đồng `IPutAwaySuggestionModelClient` không đổi để thay bằng model Python riêng sau. |
+| Race giữa lưu kế hoạch và nhận hàng bỏ lọt lý do/ghi sai bằng chứng lệch                                  | **High** cho tới khi test đồng thời ở Gate A chứng minh hai thao tác cùng được bảo vệ bởi `StockTransfer.RowVersion` (3.6).                         |
+| FE cũ gặp dòng đã có kế hoạch mới                                                                         | Giới hạn tương thích có chủ đích: bị từ chối với mã `TRANSFER_PUTAWAY_PLAN_VERSION_REQUIRED` và thông báo yêu cầu tải lại/cập nhật giao diện (3.2). |
 
 ---
 
@@ -482,3 +520,19 @@ Frontend
 - Sau mỗi cụm thay đổi: `gitnexus detect_changes` ở repo tương ứng; cảnh báo người dùng nếu `impact` ra HIGH/CRITICAL (hiện có `PutawaySlotCodeConfirm`).
 - Không commit/push/PR khi chưa được yêu cầu; PR không có dòng "Generated with Claude Code".
 - Khi gặp hành vi hiện tại khác spec, ghi vào mục "Khác với spec" ở cuối file này (theo cách các spec 19–22 của điều chuyển đã làm), không sửa âm thầm.
+
+---
+
+## 13. Lịch sử rà soát spec (2026-10-12)
+
+Hai vòng rà soát độc lập đã đối chiếu spec với mã BE/FE; các điều chỉnh đã áp dụng ở trên:
+
+1. Tổng kế hoạch và phần còn lại thống nhất: payload và DB lưu **tổng**, UI quy đổi (3.2, 4.2).
+2. Kế hoạch nhiều lô: phân bổ ngân sách chung theo thứ tự xác định, có `unplannedQuantity` (3.5).
+3. So lệch cộng dồn theo `(itemId, slotId)` toàn request (3.6).
+4. `planVersion` băm SHA-256 theo dòng của đợt; luôn kiểm kể cả kế hoạch vừa bị xóa; chế độ `Planned`/`Legacy` do **BE quyết định theo dữ liệu**, không theo việc client có gửi `planVersion` (3.5, 3.6).
+5. Tương thích: endpoint gợi ý mới song song với endpoint cũ (giữ mảng); endpoint `putaway-slots` cũ không đổi hành vi; giới hạn tương thích với FE cũ được nêu rõ (3.2).
+6. Công thức "chưa khai báo nhận" trừ cả `ResolvedMissingQuantity` (3.3).
+7. Ánh xạ tab cũ là thay đổi có chủ đích; `statusCounts.all` loại phiếu hủy (3.7).
+8. Race ghi đồng thời giữ mức High cho tới khi có test chứng minh (3.6, 8).
+9. Câu AI đồng bộ với quyết định dùng AI ngay (mục 5, 8).
