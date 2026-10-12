@@ -73,9 +73,6 @@ export const TRANSFER_DISCREPANCY_ACTIONS = [
 ] as const
 export type TransferDiscrepancyAction = (typeof TRANSFER_DISCREPANCY_ACTIONS)[number]
 
-export const TRANSFER_STAGES = ['request', 'transfer', 'discrepancy'] as const
-export type TransferStage = (typeof TRANSFER_STAGES)[number]
-
 export interface TransferListQuery {
   pageNumber: number
   pageSize: number
@@ -85,8 +82,6 @@ export interface TransferListQuery {
   destinationWarehouseId?: string
   dateFrom?: string
   dateTo?: string
-  /** Tab: request = mọi yêu cầu đã tạo, transfer = đã có đợt rời kho, discrepancy = còn chênh lệch chưa xử lý. */
-  stage?: TransferStage
 }
 
 export interface TransferSourceWarehouseQuery {
@@ -121,6 +116,7 @@ export interface TransferSourceProduct {
 
 export interface TransferSummary {
   id: string
+  nextActionCode?: string | null
   transferCode: string
   sourceWarehouseId: string
   sourceWarehouseName: string
@@ -147,11 +143,21 @@ export interface TransferSummary {
 
 export interface TransferListResponse {
   items: TransferSummary[]
+  statusCounts?: TransferStatusCounts
   totalCount: number
   pageNumber: number
   pageSize: number
   /** Số phiếu còn chênh lệch chưa xử lý (hiện trên tab chờ xử lý chênh lệch). */
   openDiscrepancyCount: number
+}
+
+export interface TransferStatusCounts {
+  all: number
+  draft: number
+  inProgress: number
+  awaitingResolution: number
+  completed: number
+  cancelled: number
 }
 
 export interface TransferRequesterOption {
@@ -162,6 +168,10 @@ export interface TransferRequesterOption {
 
 export interface TransferItem {
   id: string
+  putAwayPlan?: TransferPutAwayPlanLine[] | null
+  planMode?: 'Planned' | 'Legacy'
+  baseQuantityPrecision?: number
+  receivedPutAwayLocations?: { slotId: string; path: string; receivedQuantity: number }[] | null
   productId: string
   productName: string
   sku: string
@@ -217,20 +227,6 @@ export interface TransferSourceLocation {
 export interface TransferSourceLocationsQuery {
   sourceWarehouseId: string
   productId: string
-}
-
-export interface TransferPutAwaySlotSuggestion {
-  slotId: string
-  path: string
-  reason: string
-  /** Số lượng còn nhận được (đơn vị chính); null khi vị trí không giới hạn sức chứa. */
-  available: number | null
-  warnings: string[]
-}
-
-export interface TransferPutAwayItemSuggestions {
-  itemId: string
-  suggestions: TransferPutAwaySlotSuggestion[]
 }
 
 export interface TransferReceivableSlotOption {
@@ -527,11 +523,6 @@ export interface AdjustTransferAllocationRequest {
   commandId: string
 }
 
-export interface SetTransferPutAwaySlotsRequest {
-  expectedVersion: string
-  slots: { itemId: string; destinationSlotId: string | null }[]
-}
-
 export interface ReopenTransferPickingRequest {
   expectedVersion: string
   reason: string
@@ -552,10 +543,13 @@ export interface TransferReceiptEntryRequest {
   note: string | null
   scannedSlotCode: string | null
   scannedProductCode: string | null
+  deviationReasonCode?: string | null
+  slotCodeUnreadable?: boolean
 }
 
 export interface ReceiveTransferShipmentRequest {
   expectedVersion: string
+  planVersion?: string | null
   entries: TransferReceiptEntryRequest[]
 }
 
@@ -667,6 +661,8 @@ export interface TransferReceiveSheetLot {
   expiryDate: string | null
   dispatchedQuantity: number
   receivedQuantity: number
+  plan?: TransferReceivePlanLine[] | null
+  unplannedQuantity?: number
 }
 
 export interface TransferReceiveSheetLine {
@@ -683,6 +679,8 @@ export interface TransferReceiveSheetLine {
   suggestedIsSystemDefaultSlot: boolean
   suggestedZoneCode?: string | null
   lots: TransferReceiveSheetLot[]
+  planMode?: 'Planned' | 'Legacy'
+  planWarnings?: TransferReceivePlanWarning[]
 }
 
 export interface TransferReceiveSheet {
@@ -694,5 +692,68 @@ export interface TransferReceiveSheet {
   destinationWarehouseName: string
   shipmentStatus: TransferShipmentStatus
   version: string | null
+  planVersion?: string | null
   lines: TransferReceiveSheetLine[]
+}
+
+export interface TransferPutAwayPlanLine {
+  slotId: string
+  slotCode: string
+  rackCode: string | null
+  zoneName: string | null
+  path: string
+  plannedTotal: number
+  receivedQuantity: number
+  remainingBudget: number
+  isSystemDefaultSlot: boolean
+  plannedByUserId: string
+  createdAt: string
+  modifiedAt: string | null
+}
+
+export interface TransferReceivePlanLine {
+  slotId: string
+  slotCode: string
+  rackCode: string | null
+  zoneName: string | null
+  path: string
+  plannedQuantity: number
+  remainingBudget: number
+  isSystemDefaultSlot: boolean
+}
+
+export interface TransferReceivePlanWarning {
+  slotId: string
+  slotCode: string
+  path: string | null
+  remainingBudget: number
+  message: string
+}
+
+export interface SetTransferPutAwayPlanRequest {
+  expectedVersion: string
+  items: { itemId: string; lines: { slotId: string; plannedTotal: number }[] }[]
+}
+
+export interface TransferPutAwayPlanSuggestions {
+  items: {
+    itemId: string
+    remaining: number
+    unallocatedQuantity: number
+    suggestions: {
+      slotId: string
+      slotCode: string
+      rackCode: string | null
+      zoneName: string | null
+      path: string
+      suggestedQuantity: number
+      available: number | null
+      reason: string
+      warnings: string[]
+    }[]
+  }[]
+  isAiAssisted: boolean
+  notice: string | null
+  summary: string | null
+  risks: string[]
 }

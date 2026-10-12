@@ -1,5 +1,17 @@
 # AI Review Handoff
 
+## 2026-10-12 — Transfer receive/putaway alignment Gate B
+
+- State: `READY_FOR_CODEX_REVIEW` for implementation/self-verification, not end-to-end or merge approval. Spec checkpoint 16: `docs/superpowers/plans/2026-10-12-transfer-receive-putaway-alignment-spec.md`. No commit/push.
+- Shared neutral putaway components with inbound adapters; inbound evidence/hooks/API remain feature-owned. New multislot plan Sheet validates total/received floor/precision/unique locations; manual AI only fills a draft. Receive form prefills plans but still requires confirmed slot lookup, budgets across lots, off-plan reasons, Other note, overflow splitting, adjacent disabled-location warnings and dirty-plan-reset confirmation.
+- Version/hash and draft are a snapshot: refetch never silently upgrades tokens. Immediate write/scan guards and retry=false; 409/network/5xx unknown outcomes require reload/reconciliation while preserving inputs. List status counts/next-action chips and URL filters; detail stage tabs/pending counts; actual task links remain permission/scope/assignment gated.
+- Additive BE read contract supplies base-unit precision and all good-received locations, including off-plan/late receipts; new fields masked outside destination scope. No DB schema/permission/migration change.
+- Final full FE **929 tests / 166 files passed**; TypeScript and whole-src ESLint passed. Isolated production **Webpack and Turbopack builds passed, 70 static pages**. Turbopack initially rejected the QA dependency junction; setting filesystem root to D:/ in the QA copy only resolved it. Original Next config/dev output untouched; no install.
+- Corrected one stale ReceiptTables test expectation after reproducing the same failure on original HEAD: existing label includes `(không chia ô)`. Production inbound UI unchanged by that correction. Shared-component inbound regression tests pass.
+- GitNexus pre-impact and final detect_changes reviewed: FE Critical, 125 changed symbols/16 affected flows (includes existing instruction-file edits); manual review covers untracked files and shared receive/pick error classification. query-keys/api-endpoints are additive-only (2 lines each). No independent review approval claimed.
+- Limitations: Gate C browser/responsive/zoom/keyboard/screen-reader/network QA not run; full-page navigation discard guard not certified. Existing BE View/Manage policy does not distinguish assignment levels; no role blacklist added, and employee read-only AI-suggestions acceptance remains open. Gate A SQL Server handler-race proof remains High/open; no deployed DB access/startup/write/migration/seed. Both repositories' existing instruction-file edits preserved.
+- QA copies on D: `D:/Kovia-QA/Transfer-GateB-20261012` and `D:/Kovia-QA/Transfer-GateB-20261012-BE`. Backend targeted Transfer suite **129 passed**; full BE suite not rerun for this Gate B snapshot.
+
 ## 2026-10-09 — Natural step-three preview height across catalog imports
 
 - State: `READY_FOR_CODEX_REVIEW`; self-verification only, no commit/push. User-requested import-specific exception to viewport-constrained lists: units, categories, suppliers and stock recipients now reuse the product review's natural panel/table height through shared `BulkImportPage`. Vertical scrolling belongs to the import workspace; horizontal table scrolling remains. Global list primitives, API contracts, page-size defaults and selected-row payloads unchanged.

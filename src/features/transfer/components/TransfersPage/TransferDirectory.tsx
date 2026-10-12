@@ -13,16 +13,18 @@ import { OperationalListPanel } from '@/components/operations/OperationalListPan
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { Button } from '@/components/ui/button'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { APP_ROUTES } from '@/routes/app-routes'
-import type { TransferStage, TransferStatus, TransferSummary } from '../../types/transfer.types'
-import { transferStatusOptions } from '../../utils/transfer-stage'
+import type {
+  TransferStatusCounts,
+  TransferWorkflowStatus,
+  TransferSummary,
+} from '../../types/transfer.types'
 import { TransferDesktopTable } from './TransferDesktopTable'
 import { TransferFilterSheet } from './TransferFilterSheet'
 import { TransferMobileList } from './TransferMobileList'
 import { TransferRowActions } from './TransferRowActions'
-import { TRANSFER_STAGE_LABELS, TransferTabs } from './TransferTabs'
+import { TransferStatusFilter } from './TransferStatusFilter'
 
 interface WarehouseOption {
   readonly id: string
@@ -30,14 +32,14 @@ interface WarehouseOption {
 }
 
 interface TransferDirectoryProps {
-  readonly stage: TransferStage
-  readonly openDiscrepancyCount: number
+  readonly query: string
+  readonly statusCounts?: TransferStatusCounts
   readonly items: readonly TransferSummary[]
   readonly totalCount: number
   readonly page: number
   readonly pageSize: number
   readonly searchText: string
-  readonly status: TransferStatus | ''
+  readonly status: TransferWorkflowStatus | ''
   readonly sourceWarehouseId: string
   readonly destinationWarehouseId: string
   readonly dateFrom: string
@@ -50,7 +52,6 @@ interface TransferDirectoryProps {
   readonly isFetching: boolean
   readonly isError: boolean
   readonly onSearchChange: (value: string) => void
-  readonly onStatusChange: (value: TransferStatus | '') => void
   readonly onSourceWarehouseChange: (value: string) => void
   readonly onDestinationWarehouseChange: (value: string) => void
   readonly onDateFromChange: (value: string) => void
@@ -62,8 +63,8 @@ interface TransferDirectoryProps {
 }
 
 export function TransferDirectory({
-  stage,
-  openDiscrepancyCount,
+  query,
+  statusCounts,
   items,
   totalCount,
   page,
@@ -82,7 +83,6 @@ export function TransferDirectory({
   isFetching,
   isError,
   onSearchChange,
-  onStatusChange,
   onSourceWarehouseChange,
   onDestinationWarehouseChange,
   onDateFromChange,
@@ -93,7 +93,6 @@ export function TransferDirectory({
   onPreview,
 }: TransferDirectoryProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const statusOptions = transferStatusOptions(stage)
   const activeFilterCount =
     (sourceWarehouseId ? 1 : 0) +
     (destinationWarehouseId ? 1 : 0) +
@@ -114,7 +113,7 @@ export function TransferDirectory({
       <header className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="sr-only">Điều chuyển kho</h1>
         <div className="min-w-0 flex-1">
-          <TransferTabs stage={stage} openDiscrepancyCount={openDiscrepancyCount} />
+          <TransferStatusFilter status={status} counts={statusCounts} query={query} />
         </div>
         {canCreate ? (
           <Button asChild size="sm" className="shrink-0">
@@ -128,7 +127,7 @@ export function TransferDirectory({
 
       <OperationalListPanel>
         <div className="flex shrink-0 flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-sm font-semibold">{TRANSFER_STAGE_LABELS[stage]}</h2>
+          <h2 className="text-sm font-semibold">Danh sách phiếu điều chuyển</h2>
           <div className="flex w-full gap-2 sm:w-auto">
             <InputGroup className="min-w-0 flex-1 sm:w-72">
               <InputGroupAddon>
@@ -141,20 +140,6 @@ export function TransferDirectory({
                 onChange={(event) => onSearchChange(event.target.value)}
               />
             </InputGroup>
-            {statusOptions.length > 0 ? (
-              <NativeSelect
-                aria-label="Lọc theo trạng thái"
-                className="w-44 shrink-0"
-                value={status}
-                onChange={(event) => onStatusChange(event.target.value as TransferStatus | '')}
-              >
-                {statusOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            ) : null}
             <Button type="button" variant="outline" onClick={() => setIsFilterOpen(true)}>
               <ListFilter aria-hidden="true" />
               Bộ lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
