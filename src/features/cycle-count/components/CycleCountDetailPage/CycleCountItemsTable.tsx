@@ -4,6 +4,7 @@ import Link from 'next/link'
 import {
   ClipboardCheck,
   History,
+  ImagePlus,
   LockKeyhole,
   LogOut,
   RotateCcw,
@@ -44,6 +45,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
@@ -54,17 +56,20 @@ import type { CycleCountDetail, CycleCountItem } from '../../types/cycle-count.t
 import {
   CYCLE_COUNT_QUALITY_LABELS,
   formatCount,
+  formatCountDifference,
   formatCycleCountDay,
 } from '../../utils/cycle-count-format'
 import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
 import { formatStockLocation } from '../../utils/cycle-count-scope'
 import { StockAdjustmentStatusBadge } from '../CycleCountStatusBadge'
 import { CycleCountDamageDialog } from './CycleCountDamageDialog'
+import { CycleCountItemCards } from './CycleCountItemCards'
 import { CycleCountScanDialog } from './CycleCountScanDialog'
 import type {
   CycleCountDamageDraft,
   CycleCountEvidenceActions,
   CycleCountItemFilter,
+  CycleCountItemRowModel,
   CycleCountRecordEntry,
 } from './types'
 
@@ -91,11 +96,6 @@ function getItemState(item: CycleCountItem, detail: CycleCountDetail) {
   if (detail.status === 'Recount' && item.requestedRecountRound === detail.recountRound)
     return { label: 'Cần đếm lại', variant: 'destructive' } as const
   return { label: 'Chưa kiểm kê', variant: 'outline' } as const
-}
-
-function formatDifference(value: number | null): string {
-  if (value === null) return '—'
-  return value < 0 ? `(${formatCount(-value)})` : formatCount(value)
 }
 
 interface CycleCountItemsTableProps {
@@ -137,6 +137,7 @@ export function CycleCountItemsTable({
   const [isScanOpen, setIsScanOpen] = useState(false)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const canRecord = allowedActions.includes('Record')
+  const isMobile = useIsMobile()
   const canSelect = allowedActions.includes('RequestRecount')
   const items = detail.items
   const hasHiddenQuantity = items.some((item) => item.systemQuantity === null)
@@ -311,11 +312,34 @@ export function CycleCountItemsTable({
     if (nextItem) inputRefs.current[nextItem.id]?.focus()
   }
 
+  const rowModels: CycleCountItemRowModel[] = rows.map((item) => {
+    const draft = getDraft(item)
+    return {
+      item,
+      state: getItemState(item, detail),
+      recordable: isRecordable(item),
+      selected: selectedItemIds.includes(item.id),
+      quantity: draft,
+      quantityInvalid: draft !== '' && !recordCycleCountItemSchema.safeParse(draft).success,
+      damaged: getDamagedDraft(item),
+      damagedInvalid: isDamagedInvalid(item),
+      hasDamage: (getLiveDamaged(item) ?? 0) > 0,
+      damageIncomplete: isDamageIncomplete(item),
+      note: getNoteDraft(item),
+      liveDifference: getLiveDifference(item),
+      hasVariance: item.difference !== null && item.difference !== 0,
+    }
+  })
+
   return (
     <OperationalListPanel aria-label="Dòng kiểm kê">
       <Item size="xs" className="border-b-border shrink-0 p-3">
         <h2 className="mr-2 text-sm font-semibold">Chi tiết kiểm đếm</h2>
-        <Tabs value={filter} onValueChange={(value) => setFilter(parseFilter(value))}>
+        <Tabs
+          value={filter}
+          onValueChange={(value) => setFilter(parseFilter(value))}
+          className="max-w-full overflow-x-auto"
+        >
           <TabsList variant="line">
             {FILTERS.map((option) => {
               const hasVarianceTab = option.value === 'variance' && counts.variance > 0
@@ -356,12 +380,13 @@ export function CycleCountItemsTable({
             Phiếu chưa đến thời gian kiểm kê nên chưa thể nhập số đếm.
           </p>
         ) : null}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
           {canFillFromBook ? (
             <Button
               type="button"
               size="sm"
               variant="outline"
+              className="max-sm:h-11 max-sm:flex-1"
               disabled={isPending || fillableItems.length === 0}
               onClick={fillFromBook}
             >
@@ -374,6 +399,7 @@ export function CycleCountItemsTable({
             <Button
               type="button"
               size="sm"
+              className="max-sm:h-11 max-sm:flex-1"
               disabled={isPending}
               onClick={() => setIsScanOpen(true)}
             >
@@ -382,179 +408,288 @@ export function CycleCountItemsTable({
             </Button>
           ) : null}
         </div>
-        <InputGroup className="w-full sm:w-64">
+        <InputGroup className="w-full max-sm:h-11 sm:w-64">
           <InputGroupAddon>
             <Search aria-hidden="true" />
           </InputGroupAddon>
           <InputGroupInput
             aria-label="Tìm vật tư trong phiếu"
+            className="max-sm:text-base"
             placeholder="Mã, tên VTHH hoặc số lô"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
           />
         </InputGroup>
       </Item>
-      <Table
-        aria-label="Dòng kiểm kê"
-        className="[&_td]:border-border [&_th]:border-border min-w-[1200px] [&_td]:border [&_td]:px-1.5 [&_td]:py-0.5 [&_th]:h-7 [&_th]:border [&_th]:px-1.5 [&_th]:text-center"
-      >
-        <TableHeader>
-          <TableRow>
-            {canSelect ? (
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-10">
-                <span className="sr-only">Chọn dòng kiểm đếm lại</span>
-              </TableHead>
-            ) : null}
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-10">
-              #
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-              Mã VTHH
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-              Tên VTHH
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-              ĐVT
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-              Vị trí
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-              Lô / HSD
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-              Chất lượng sổ sách
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-              Tình trạng kiểm kê
-            </TableHead>
-            <TableHead colSpan={4} className="bg-muted sticky top-0 z-10 text-center">
-              Số lượng
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 min-w-48">
-              Ghi chú
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-              Lịch sử
-            </TableHead>
-            <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-              Xử lý
-            </TableHead>
-          </TableRow>
-          <TableRow>
-            <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo sổ sách</TableHead>
-            <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo kiểm kê</TableHead>
-            <TableHead className="bg-muted sticky top-7 z-10 w-24">Trong đó hỏng</TableHead>
-            <TableHead className="bg-muted sticky top-7 z-10 w-24">Chênh lệch</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 ? (
+      {isMobile ? (
+        <>
+          <p className="text-muted-foreground bg-muted/40 flex shrink-0 flex-wrap gap-x-4 gap-y-0.5 border-b px-3 py-2 text-xs">
+            <span>{items.length} dòng</span>
+            <span>
+              Sổ sách <b className="text-foreground tabular-nums">{formatCount(totalSystem)}</b>
+            </span>
+            <span>
+              Kiểm kê <b className="text-foreground tabular-nums">{formatCount(totalCounted)}</b>
+            </span>
+            <span className={cn(totalDamaged > 0 && 'text-destructive')}>
+              Hỏng{' '}
+              <b className="tabular-nums">{totalDamaged > 0 ? formatCount(totalDamaged) : '—'}</b>
+            </span>
+            <span className={cn((totalDifference ?? 0) < 0 && 'text-destructive')}>
+              Lệch <b className="tabular-nums">{formatCountDifference(totalDifference)}</b>
+            </span>
+          </p>
+          <CycleCountItemCards
+            rows={rowModels}
+            isPending={isPending}
+            canSelect={canSelect}
+            canCreateAdjustment={canCreateAdjustment}
+            isCompleted={detail.status === 'Completed'}
+            onQuantityChange={(itemId, value) =>
+              setDrafts((current) => ({ ...current, [itemId]: value }))
+            }
+            onDamagedChange={(itemId, value) =>
+              setDamagedDrafts((current) => ({ ...current, [itemId]: value }))
+            }
+            onNoteChange={(itemId, value) =>
+              setNoteDrafts((current) => ({ ...current, [itemId]: value }))
+            }
+            onOpenDamage={setDamageDialogItemId}
+            onToggleSelect={onToggleSelect}
+            onCreateAdjustment={onCreateAdjustment}
+          />
+        </>
+      ) : (
+        <Table
+          aria-label="Dòng kiểm kê"
+          className="[&_td]:border-border [&_th]:border-border min-w-[1200px] [&_td]:border [&_td]:px-1.5 [&_td]:py-0.5 [&_td]:align-middle [&_th]:h-7 [&_th]:border [&_th]:px-1.5 [&_th]:text-center"
+        >
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={columnCount} className="text-muted-foreground h-24 text-center">
-                Không có dòng kiểm kê phù hợp.
-              </TableCell>
+              {canSelect ? (
+                <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-10">
+                  <span className="sr-only">Chọn dòng kiểm đếm lại</span>
+                </TableHead>
+              ) : null}
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-10">
+                #
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
+                Mã VTHH
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
+                Tên VTHH
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
+                ĐVT
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
+                Vị trí
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
+                Lô / HSD
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
+                Chất lượng sổ sách
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
+                Tình trạng kiểm kê
+              </TableHead>
+              <TableHead colSpan={4} className="bg-muted sticky top-0 z-10 text-center">
+                Số lượng
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 min-w-48">
+                Ghi chú
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
+                Lịch sử
+              </TableHead>
+              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
+                Xử lý
+              </TableHead>
             </TableRow>
-          ) : (
-            rows.map((item, rowIndex) => {
-              const recordable = isRecordable(item)
-              const draft = getDraft(item)
-              const hasVariance = item.difference !== null && item.difference !== 0
-              const liveDifference = getLiveDifference(item)
-              const state = getItemState(item, detail)
-              return (
-                <TableRow key={item.id}>
-                  {canSelect ? (
+            <TableRow>
+              <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo sổ sách</TableHead>
+              <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo kiểm kê</TableHead>
+              <TableHead className="bg-muted sticky top-7 z-10 w-24">Trong đó hỏng</TableHead>
+              <TableHead className="bg-muted sticky top-7 z-10 w-24">Chênh lệch</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={columnCount} className="text-muted-foreground h-24 text-center">
+                  Không có dòng kiểm kê phù hợp.
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((item, rowIndex) => {
+                const recordable = isRecordable(item)
+                const draft = getDraft(item)
+                const hasVariance = item.difference !== null && item.difference !== 0
+                const liveDifference = getLiveDifference(item)
+                const state = getItemState(item, detail)
+                return (
+                  <TableRow key={item.id}>
+                    {canSelect ? (
+                      <TableCell>
+                        <Checkbox
+                          aria-label={`Chọn ${item.productName} để kiểm đếm lại`}
+                          checked={selectedItemIds.includes(item.id)}
+                          // Dòng đang có phiếu điều chỉnh chờ duyệt/đã duyệt không được đếm lại.
+                          disabled={
+                            detail.status === 'Completed' && Boolean(item.activeAdjustmentId)
+                          }
+                          onCheckedChange={(checked) => onToggleSelect(item.id, checked === true)}
+                        />
+                      </TableCell>
+                    ) : null}
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {rowIndex + 1}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{item.productSku}</TableCell>
+                    <TableCell className="font-medium">{item.productName}</TableCell>
+                    <TableCell className="text-center">{item.unitName ?? '—'}</TableCell>
+                    <TableCell className="text-center font-mono">
+                      {formatStockLocation(item)}
+                    </TableCell>
                     <TableCell>
-                      <Checkbox
-                        aria-label={`Chọn ${item.productName} để kiểm đếm lại`}
-                        checked={selectedItemIds.includes(item.id)}
-                        // Dòng đang có phiếu điều chỉnh chờ duyệt/đã duyệt không được đếm lại.
-                        disabled={detail.status === 'Completed' && Boolean(item.activeAdjustmentId)}
-                        onCheckedChange={(checked) => onToggleSelect(item.id, checked === true)}
+                      <p className="font-mono text-xs">{item.lotNumber ?? 'Theo số lượng'}</p>
+                      {item.expiryDate ? (
+                        <p className="text-muted-foreground text-xs">
+                          HSD {formatCycleCountDay(item.expiryDate)}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={item.qualityStatus === 'Good' ? 'secondary' : 'outline'}>
+                        {CYCLE_COUNT_QUALITY_LABELS[item.qualityStatus] ?? item.qualityStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={state.variant}>{state.label}</Badge>
+                      {item.countedQuantity !== null && item.countMethod === 'Scanned' ? (
+                        <ScanBarcode
+                          className="text-muted-foreground mx-auto mt-0.5 size-3.5"
+                          aria-label="Đã quét mã"
+                        />
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {item.systemQuantity === null ? (
+                        <span className="text-muted-foreground inline-flex items-center gap-1">
+                          <LockKeyhole className="size-3" aria-hidden="true" />
+                          Đã ẩn
+                        </span>
+                      ) : (
+                        formatCount(item.systemQuantity)
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        ref={(element) => {
+                          inputRefs.current[item.id] = element
+                        }}
+                        aria-label={`Số đếm thực tế của ${item.productName} tại ${formatStockLocation(item)}`}
+                        className="ml-auto block h-6 w-full text-right font-mono"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draft}
+                        disabled={!recordable || isPending}
+                        aria-invalid={
+                          draft !== '' && !recordCycleCountItemSchema.safeParse(draft).success
+                        }
+                        onChange={(event) =>
+                          setDrafts((current) => ({ ...current, [item.id]: event.target.value }))
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') focusNext(rowIndex)
+                        }}
                       />
                     </TableCell>
-                  ) : null}
-                  <TableCell className="text-muted-foreground tabular-nums">
-                    {rowIndex + 1}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{item.productSku}</TableCell>
-                  <TableCell className="font-medium">{item.productName}</TableCell>
-                  <TableCell className="text-center">{item.unitName ?? '—'}</TableCell>
-                  <TableCell className="text-center font-mono">
-                    {formatStockLocation(item)}
-                  </TableCell>
-                  <TableCell>
-                    <p className="font-mono text-xs">{item.lotNumber ?? 'Theo số lượng'}</p>
-                    {item.expiryDate ? (
-                      <p className="text-muted-foreground text-xs">
-                        HSD {formatCycleCountDay(item.expiryDate)}
-                      </p>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={item.qualityStatus === 'Good' ? 'secondary' : 'outline'}>
-                      {CYCLE_COUNT_QUALITY_LABELS[item.qualityStatus] ?? item.qualityStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={state.variant}>{state.label}</Badge>
-                    {item.countedQuantity !== null && item.countMethod === 'Scanned' ? (
-                      <ScanBarcode
-                        className="text-muted-foreground mx-auto mt-0.5 size-3.5"
-                        aria-label="Đã quét mã"
-                      />
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {item.systemQuantity === null ? (
-                      <span className="text-muted-foreground inline-flex items-center gap-1">
-                        <LockKeyhole className="size-3" aria-hidden="true" />
-                        Đã ẩn
-                      </span>
-                    ) : (
-                      formatCount(item.systemQuantity)
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      ref={(element) => {
-                        inputRefs.current[item.id] = element
-                      }}
-                      aria-label={`Số đếm thực tế của ${item.productName} tại ${formatStockLocation(item)}`}
-                      className="ml-auto block h-6 w-full text-right font-mono"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={draft}
-                      disabled={!recordable || isPending}
-                      aria-invalid={
-                        draft !== '' && !recordCycleCountItemSchema.safeParse(draft).success
-                      }
-                      onChange={(event) =>
-                        setDrafts((current) => ({ ...current, [item.id]: event.target.value }))
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') focusNext(rowIndex)
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {recordable ? (
-                      <>
+                    <TableCell>
+                      {recordable ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            aria-label={`Số lượng hỏng của ${item.productName} tại ${formatStockLocation(item)}`}
+                            className="ml-auto block h-6 w-full min-w-0 text-right font-mono"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0"
+                            value={getDamagedDraft(item)}
+                            disabled={isPending || draft === ''}
+                            aria-invalid={isDamagedInvalid(item)}
+                            onChange={(event) =>
+                              setDamagedDrafts((current) => ({
+                                ...current,
+                                [item.id]: event.target.value,
+                              }))
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') focusNext(rowIndex)
+                            }}
+                          />
+                          {(getLiveDamaged(item) ?? 0) > 0 ? (
+                            // Icon cạnh ô nhập để dòng không cao thêm; chấm đỏ báo còn thiếu ảnh/lý do.
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon-xs"
+                              className="relative shrink-0"
+                              aria-label={
+                                isDamageIncomplete(item)
+                                  ? `Thêm ảnh và lý do hàng hỏng của ${item.productName}`
+                                  : `Xem ảnh và lý do hàng hỏng của ${item.productName}`
+                              }
+                              title={isDamageIncomplete(item) ? 'Thêm ảnh & lý do' : 'Ảnh & lý do'}
+                              onClick={() => setDamageDialogItemId(item.id)}
+                            >
+                              <ImagePlus aria-hidden="true" />
+                              {isDamageIncomplete(item) ? (
+                                <span
+                                  aria-hidden="true"
+                                  className="bg-destructive absolute -top-0.5 -right-0.5 size-2 rounded-full"
+                                />
+                              ) : null}
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span
+                          className={cn(
+                            'block text-right font-mono tabular-nums',
+                            (item.countedDamagedQuantity ?? 0) > 0
+                              ? 'text-destructive font-semibold'
+                              : 'text-muted-foreground'
+                          )}
+                        >
+                          {item.countedDamagedQuantity === null
+                            ? '—'
+                            : formatCount(item.countedDamagedQuantity)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'text-right font-mono font-semibold tabular-nums',
+                        (liveDifference ?? 0) < 0 && 'text-destructive'
+                      )}
+                    >
+                      {formatCountDifference(liveDifference)}
+                    </TableCell>
+                    <TableCell>
+                      {recordable ? (
                         <Input
-                          aria-label={`Số lượng hỏng của ${item.productName} tại ${formatStockLocation(item)}`}
-                          className="ml-auto block h-6 w-full text-right font-mono"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0"
-                          value={getDamagedDraft(item)}
-                          disabled={isPending || draft === ''}
-                          aria-invalid={isDamagedInvalid(item)}
+                          aria-label={`Ghi chú của ${item.productName} tại ${formatStockLocation(item)}`}
+                          className="h-6 w-full"
+                          maxLength={CYCLE_COUNT_NOTE_MAX_LENGTH}
+                          placeholder="Ghi chú (nếu có)"
+                          value={getNoteDraft(item)}
+                          disabled={isPending}
                           onChange={(event) =>
-                            setDamagedDrafts((current) => ({
+                            setNoteDrafts((current) => ({
                               ...current,
                               [item.id]: event.target.value,
                             }))
@@ -563,144 +698,88 @@ export function CycleCountItemsTable({
                             if (event.key === 'Enter') focusNext(rowIndex)
                           }}
                         />
-                        {(getLiveDamaged(item) ?? 0) > 0 ? (
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="xs"
-                            className={cn(
-                              'mt-0.5 h-auto w-full justify-end p-0 text-xs',
-                              isDamageIncomplete(item) && 'text-destructive'
-                            )}
-                            onClick={() => setDamageDialogItemId(item.id)}
-                          >
-                            {isDamageIncomplete(item) ? 'Thêm ảnh & lý do' : 'Ảnh & lý do'}
-                          </Button>
-                        ) : null}
-                      </>
-                    ) : (
-                      <span
-                        className={cn(
-                          'block text-right font-mono tabular-nums',
-                          (item.countedDamagedQuantity ?? 0) > 0
-                            ? 'text-destructive font-semibold'
-                            : 'text-muted-foreground'
-                        )}
-                      >
-                        {item.countedDamagedQuantity === null
-                          ? '—'
-                          : formatCount(item.countedDamagedQuantity)}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell
-                    className={cn(
-                      'text-right font-mono font-semibold tabular-nums',
-                      (liveDifference ?? 0) < 0 && 'text-destructive'
-                    )}
-                  >
-                    {formatDifference(liveDifference)}
-                  </TableCell>
-                  <TableCell>
-                    {recordable ? (
-                      <Input
-                        aria-label={`Ghi chú của ${item.productName} tại ${formatStockLocation(item)}`}
-                        className="h-6 w-full"
-                        maxLength={CYCLE_COUNT_NOTE_MAX_LENGTH}
-                        placeholder="Ghi chú (nếu có)"
-                        value={getNoteDraft(item)}
-                        disabled={isPending}
-                        onChange={(event) =>
-                          setNoteDrafts((current) => ({
-                            ...current,
-                            [item.id]: event.target.value,
-                          }))
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') focusNext(rowIndex)
-                        }}
-                      />
-                    ) : (
-                      <span className="text-xs">{item.note ?? '—'}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {item.countHistory.length ? (
-                      <Collapsible>
-                        <CollapsibleTrigger asChild>
-                          <Button variant="link" size="xs" className="h-auto p-0 text-xs">
-                            <History aria-hidden="true" />
-                            {item.countHistory.length} lần trước
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="text-muted-foreground mt-2 space-y-1 text-xs">
-                          {item.countHistory.map((history) => (
-                            <p key={history.id}>
-                              Vòng {history.recountRound}:{' '}
-                              <b>{formatCount(history.countedQuantity)}</b>
-                              {history.systemQuantity !== null
-                                ? ` / sổ sách ${formatCount(history.systemQuantity)}`
-                                : ''}
-                              {history.countedByName ? ` · ${history.countedByName}` : ''}
-                              {history.countMethod === 'Scanned' ? ' · quét mã' : ''} ·{' '}
-                              {history.recountReason}
-                            </p>
-                          ))}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">Chưa có</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {item.activeAdjustmentId && item.activeAdjustmentStatus ? (
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={APP_ROUTES.stockAdjustmentDetail(item.activeAdjustmentId)}>
-                          <StockAdjustmentStatusBadge status={item.activeAdjustmentStatus} />
-                          Xem điều chỉnh
-                        </Link>
-                      </Button>
-                    ) : detail.status === 'Completed' && hasVariance && canCreateAdjustment ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onCreateAdjustment(item.id)}
-                      >
-                        <SlidersHorizontal />
-                        Điều chỉnh dòng này
-                      </Button>
-                    ) : null}
-                  </TableCell>
-                </TableRow>
-              )
-            })
-          )}
-        </TableBody>
-        <TableFooter>
-          <TableRow>
-            <TableCell colSpan={canSelect ? 9 : 8} className="font-semibold">
-              Tổng cộng ({items.length} dòng)
-            </TableCell>
-            <TableCell className="text-right font-mono font-semibold tabular-nums">
-              {formatCount(totalSystem)}
-            </TableCell>
-            <TableCell className="text-right font-mono font-semibold tabular-nums">
-              {formatCount(totalCounted)}
-            </TableCell>
-            <TableCell className="text-right font-mono font-semibold tabular-nums">
-              <span className={cn(totalDamaged > 0 && 'text-destructive')}>
-                {totalDamaged > 0 ? formatCount(totalDamaged) : '—'}
-              </span>
-            </TableCell>
-            <TableCell className="text-right font-mono font-semibold tabular-nums">
-              <span className={cn((totalDifference ?? 0) < 0 && 'text-destructive')}>
-                {formatDifference(totalDifference)}
-              </span>
-            </TableCell>
-            <TableCell colSpan={3} />
-          </TableRow>
-        </TableFooter>
-      </Table>
+                      ) : (
+                        <span className="text-xs">{item.note ?? '—'}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.countHistory.length ? (
+                        <Collapsible>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="link" size="xs" className="h-auto p-0 text-xs">
+                              <History aria-hidden="true" />
+                              {item.countHistory.length} lần trước
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="text-muted-foreground mt-2 space-y-1 text-xs">
+                            {item.countHistory.map((history) => (
+                              <p key={history.id}>
+                                Vòng {history.recountRound}:{' '}
+                                <b>{formatCount(history.countedQuantity)}</b>
+                                {history.systemQuantity !== null
+                                  ? ` / sổ sách ${formatCount(history.systemQuantity)}`
+                                  : ''}
+                                {history.countedByName ? ` · ${history.countedByName}` : ''}
+                                {history.countMethod === 'Scanned' ? ' · quét mã' : ''} ·{' '}
+                                {history.recountReason}
+                              </p>
+                            ))}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Chưa có</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.activeAdjustmentId && item.activeAdjustmentStatus ? (
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={APP_ROUTES.stockAdjustmentDetail(item.activeAdjustmentId)}>
+                            <StockAdjustmentStatusBadge status={item.activeAdjustmentStatus} />
+                            Xem điều chỉnh
+                          </Link>
+                        </Button>
+                      ) : detail.status === 'Completed' && hasVariance && canCreateAdjustment ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onCreateAdjustment(item.id)}
+                        >
+                          <SlidersHorizontal />
+                          Điều chỉnh dòng này
+                        </Button>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={canSelect ? 9 : 8} className="font-semibold">
+                Tổng cộng ({items.length} dòng)
+              </TableCell>
+              <TableCell className="text-right font-mono font-semibold tabular-nums">
+                {formatCount(totalSystem)}
+              </TableCell>
+              <TableCell className="text-right font-mono font-semibold tabular-nums">
+                {formatCount(totalCounted)}
+              </TableCell>
+              <TableCell className="text-right font-mono font-semibold tabular-nums">
+                <span className={cn(totalDamaged > 0 && 'text-destructive')}>
+                  {totalDamaged > 0 ? formatCount(totalDamaged) : '—'}
+                </span>
+              </TableCell>
+              <TableCell className="text-right font-mono font-semibold tabular-nums">
+                <span className={cn((totalDifference ?? 0) < 0 && 'text-destructive')}>
+                  {formatCountDifference(totalDifference)}
+                </span>
+              </TableCell>
+              <TableCell colSpan={3} />
+            </TableRow>
+          </TableFooter>
+        </Table>
+      )}
       {canRecord ? (
         // pr-16 chừa chỗ cho nút chatbot nổi ở góc phải dưới, tránh che nút hành động.
         <Item size="xs" className="bg-card border-t-border shrink-0 p-3 pr-16">
@@ -715,9 +794,10 @@ export function CycleCountItemsTable({
                     : 'Mọi thay đổi đã được lưu. Nhập đủ số đếm tất cả dòng để hoàn thành.'}
             </ItemDescription>
           </ItemContent>
-          <ItemActions>
+          <ItemActions className="max-sm:w-full max-sm:flex-wrap">
             <Button
               variant="ghost"
+              className="max-sm:h-11 max-sm:flex-1"
               disabled={dirtyEntries.length === 0 || isPending}
               onClick={discardDrafts}
             >
