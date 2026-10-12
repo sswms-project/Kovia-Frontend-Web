@@ -1,4 +1,5 @@
 export { ReceiveGoodsDialog } from './ReceiveGoodsDialog'
+export { ReceiveQuickActions } from './ReceiveQuickActions'
 export { ReceivingTaskDirectory } from './ReceivingTaskDirectory'
 export { ReceivingTaskStatsCards } from './ReceivingTaskStatsCards'
 export type { ReceivingAssignmentFilter } from './ReceivingTaskDirectory'

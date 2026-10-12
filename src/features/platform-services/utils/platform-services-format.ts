@@ -81,6 +81,7 @@ const notificationTypeQueryRoots: Partial<
     queryKeys.inventory.all,
   ],
   InboundRequestUpdate: [queryKeys.inboundRequests.all],
+  InboundArrivalUpcoming: [queryKeys.inboundRequests.all],
   GoodsReceiptUpdate: [queryKeys.goodsReceipts.all, queryKeys.inboundRequests.all],
   TransferUpdate: [queryKeys.transfers.all],
   StockIssueRequestUpdate: [queryKeys.stockIssueRequests.all],

@@ -5,8 +5,10 @@ import {
   type AiMessage,
 } from '../../types/ai-assistant.types'
 import { AiActionConfirmationCard } from './AiActionConfirmationCard'
+import type { AiDraftQuantityEdit } from './AiDraftQuantityEditor'
+import { cn } from '@/lib/utils'
 import { AiMarkdown } from './AiMarkdown'
-import { AiNavigationCard } from './AiNavigationCard'
+import { AiNextSteps } from './AiNextSteps'
 
 export interface AiDraftCallbacks {
   readonly drafts: ReadonlyMap<string, AiDraftStatusInfo>
@@ -14,15 +16,29 @@ export interface AiDraftCallbacks {
   readonly onConfirmAction: (draftId: string) => void
   readonly onCancelAction: (draftId: string) => void
   readonly onNavigate: () => void
+  readonly quantityEdit: AiDraftQuantityEdit
 }
 
 interface AiChatMessageBubbleProps extends AiDraftCallbacks {
   readonly message: AiMessage
+  /** Chỉ truyền cho tin nhắn mới nhất: lựa chọn của các lượt cũ không còn đúng ngữ cảnh. */
+  readonly onQuickReply?: (reply: string) => void
+  /** Chỉ câu trả lời mới nhất chạy hiệu ứng; lịch sử cũ hiện ngay. */
+  readonly animateEntrance?: boolean
 }
 
-export function AiUserBubble({ content }: { readonly content: string }) {
+const MESSAGE_ENTRANCE =
+  'animate-in fade-in-0 slide-in-from-bottom-1 animation-duration-250 motion-reduce:animate-none'
+
+interface AiUserBubbleProps {
+  readonly content: string
+  /** Chỉ bong bóng vừa gửi mới chạy hiệu ứng; bản đã lưu thay thế nó thì đứng yên để không nháy. */
+  readonly animateEntrance?: boolean
+}
+
+export function AiUserBubble({ content, animateEntrance = false }: AiUserBubbleProps) {
   return (
-    <div className="flex justify-end">
+    <div className={cn('flex justify-end', animateEntrance && MESSAGE_ENTRANCE)}>
       <p className="bg-primary text-primary-foreground max-w-[85%] rounded-lg rounded-br-sm px-3 py-2 text-sm break-words whitespace-pre-wrap">
         {content}
       </p>
@@ -83,26 +99,20 @@ export function AiChatMessageBubble({
   onConfirmAction,
   onCancelAction,
   onNavigate,
+  quantityEdit,
+  onQuickReply,
+  animateEntrance = false,
 }: AiChatMessageBubbleProps) {
   if (message.role === 'User') return <AiUserBubble content={message.content} />
 
   return (
-    <div className="flex gap-2">
+    <div className={cn('flex gap-2', animateEntrance && MESSAGE_ENTRANCE)}>
       <AiAssistantAvatar />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="bg-muted/60 rounded-lg rounded-tl-sm px-3 py-2">
           <AiMarkdown content={message.content} />
         </div>
-        {message.cards.map((card, index) => {
-          if (card.type === AI_CARD_TYPES.navigation) {
-            return (
-              <AiNavigationCard
-                key={card.routeKey ?? `navigation-${index}`}
-                card={card}
-                onNavigate={onNavigate}
-              />
-            )
-          }
+        {message.cards.map((card) => {
           if (card.type === AI_CARD_TYPES.actionConfirmation && card.draftId) {
             const draft = drafts.get(card.draftId)
             return (
@@ -116,11 +126,14 @@ export function AiChatMessageBubble({
                 onConfirm={onConfirmAction}
                 onCancel={onCancelAction}
                 onNavigate={onNavigate}
+                quantityEdit={quantityEdit}
               />
             )
           }
           return null
         })}
+        {/* Thẻ xác nhận thay đổi dữ liệu đứng trước; các bước tiếp theo gom thành một nhóm bên dưới. */}
+        <AiNextSteps cards={message.cards} onNavigate={onNavigate} onSend={onQuickReply} />
       </div>
     </div>
   )

@@ -32,9 +32,14 @@ export function AiChatThread({
   ...draftCallbacks
 }: AiChatThreadProps) {
   const endRef = useRef<HTMLDivElement>(null)
+  const hasScrolledOnce = useRef(false)
 
   useEffect(() => {
-    endRef.current?.scrollIntoView?.({ block: 'end' })
+    // Lần đầu mở thì nhảy thẳng xuống cuối; từ đó về sau trượt tới tin mới để mắt theo kịp.
+    const glide =
+      hasScrolledOnce.current && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    endRef.current?.scrollIntoView?.({ block: 'end', behavior: glide ? 'smooth' : 'auto' })
+    hasScrolledOnce.current = messages.length > 0
   }, [messages.length, pendingMessage])
 
   if (isLoading) {
@@ -72,16 +77,29 @@ export function AiChatThread({
         <AiSuggestedPrompts disabled={false} onSelect={onSuggestion} />
       ) : null}
 
-      {messages.map((message) => (
-        <AiChatMessageBubble key={message.id} message={message} {...draftCallbacks} />
+      {messages.map((message, index) => (
+        <AiChatMessageBubble
+          key={message.id}
+          message={message}
+          onQuickReply={index === messages.length - 1 && !pendingMessage ? onSuggestion : undefined}
+          animateEntrance={index === messages.length - 1}
+          {...draftCallbacks}
+        />
       ))}
 
       {pendingMessage ? (
         <>
-          <AiUserBubble content={pendingMessage} />
-          <div className="text-muted-foreground flex items-center gap-2 text-xs" role="status">
+          <AiUserBubble content={pendingMessage} animateEntrance />
+          <div
+            className="text-muted-foreground animate-in fade-in-0 animation-duration-200 flex items-center gap-2 text-xs motion-reduce:animate-none"
+            role="status"
+          >
             <AiAssistantAvatar />
-            <Spinner />
+            <span className="flex items-center gap-1" aria-hidden="true">
+              <span className="bg-primary/70 size-1.5 animate-bounce rounded-full [animation-delay:-0.3s] motion-reduce:animate-none" />
+              <span className="bg-primary/70 size-1.5 animate-bounce rounded-full [animation-delay:-0.15s] motion-reduce:animate-none" />
+              <span className="bg-primary/70 size-1.5 animate-bounce rounded-full motion-reduce:animate-none" />
+            </span>
             Trợ lý đang xử lý…
           </div>
         </>
