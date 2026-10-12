@@ -170,6 +170,19 @@ export function useRequestRecountMutation() {
   })
 }
 
+export function useConfirmCycleCountDamageMutation() {
+  const invalidate = useInvalidateCycleCount()
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    { cycleCountId: string; itemIds: string[] }
+  >({
+    mutationFn: cycleCountService.confirmDamage,
+    onSuccess: async () => invalidate(),
+    onError: (error) => logger.error(error),
+  })
+}
+
 export function useStockAdjustmentsQuery(params: StockAdjustmentListQuery) {
   return useQuery<StockAdjustmentListResponse, ApiErrorResponse>({
     queryKey: queryKeys.stockAdjustments.list(params),

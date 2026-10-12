@@ -187,6 +187,7 @@ export const API_ENDPOINTS = {
     start: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/start`,
     submit: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/submit`,
     recount: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/recount`,
+    confirmDamage: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/damage/confirm`,
     finalize: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/finalize`,
     cancel: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/cancel`,
     export: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/export`,

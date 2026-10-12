@@ -121,6 +121,12 @@ export const cycleCountService = {
     axiosClient
       .post<ApiResponse<unknown>>(API_ENDPOINTS.cycleCounts.recount(cycleCountId), request)
       .then((response) => response.data),
+  confirmDamage: ({ cycleCountId, itemIds }: { cycleCountId: string; itemIds: string[] }) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.cycleCounts.confirmDamage(cycleCountId), { itemIds })
+      .then((response) => response.data),
   cancelCycleCount: ({
     cycleCountId,
     request,

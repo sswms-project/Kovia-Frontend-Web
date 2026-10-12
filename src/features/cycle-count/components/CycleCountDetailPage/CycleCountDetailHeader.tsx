@@ -15,6 +15,7 @@ interface CycleCountDetailHeaderProps {
   readonly isPending: boolean
   readonly recountSelectedCount: number
   readonly isBeforeSchedule: boolean
+  readonly pendingDamageCount: number
   readonly onFinalize: () => Promise<void>
   readonly onExport: () => Promise<void>
   readonly onOpenDialog: (dialog: CycleCountDialog) => void
@@ -26,6 +27,7 @@ export function CycleCountDetailHeader({
   isPending,
   recountSelectedCount,
   isBeforeSchedule,
+  pendingDamageCount,
   onFinalize,
   onExport,
   onOpenDialog,
@@ -43,7 +45,7 @@ export function CycleCountDetailHeader({
       </h1>
       <span className="text-muted-foreground text-sm">{detail.warehouseName}</span>
       <CycleCountStatusBadge status={detail.status} />
-      <div className="ml-auto flex flex-wrap gap-2">
+      <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1">
         <Button variant="outline" disabled={isPending} onClick={() => void onExport()}>
           <FileDown />
           Xuất Excel
@@ -82,7 +84,15 @@ export function CycleCountDetailHeader({
           </Button>
         ) : null}
         {allowedActions.includes('Finalize') ? (
-          <Button disabled={isPending} onClick={() => void onFinalize()}>
+          <Button
+            disabled={isPending || pendingDamageCount > 0}
+            title={
+              pendingDamageCount > 0
+                ? `Còn ${pendingDamageCount} dòng hàng hỏng chưa xác nhận`
+                : undefined
+            }
+            onClick={() => void onFinalize()}
+          >
             <CheckCircle2 />
             Hoàn tất kiểm kê
           </Button>

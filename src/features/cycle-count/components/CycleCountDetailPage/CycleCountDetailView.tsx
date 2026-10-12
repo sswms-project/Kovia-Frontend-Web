@@ -13,6 +13,7 @@ import { formatCycleCountDate } from '../../utils/cycle-count-format'
 import { CycleCountActionDialog } from './CycleCountActionDialog'
 import { CycleCountAdjustmentBanner } from './CycleCountAdjustmentBanner'
 import { CycleCountDetailHeader } from './CycleCountDetailHeader'
+import { CycleCountDamagePanel } from './CycleCountDamagePanel'
 import { CycleCountInfoSection } from './CycleCountInfoSection'
 import { CycleCountItemsTable } from './CycleCountItemsTable'
 import { CycleCountResolutionSummary } from './CycleCountResolutionSummary'
@@ -24,6 +25,9 @@ interface CycleCountDetailViewProps {
   readonly isPending: boolean
   readonly isBeforeSchedule: boolean
   readonly evidenceActions: CycleCountEvidenceActions
+  readonly canConfirmDamage: boolean
+  readonly canOpenDamageCases: boolean
+  readonly onConfirmDamage: (itemIds: string[]) => Promise<boolean>
   readonly canCreateAdjustment: boolean
   readonly recountForm: UseFormReturn<RecountFormValues>
   readonly voucherForm: UseFormReturn<CreateStockAdjustmentVoucherFormValues>
@@ -44,6 +48,9 @@ export function CycleCountDetailView({
   isPending,
   isBeforeSchedule,
   evidenceActions,
+  canConfirmDamage,
+  canOpenDamageCases,
+  onConfirmDamage,
   canCreateAdjustment,
   recountForm,
   voucherForm,
@@ -91,6 +98,13 @@ export function CycleCountDetailView({
     setDialog('adjustment')
   }
 
+  const pendingDamageCount =
+    detail.status === 'Submitted'
+      ? detail.items.filter(
+          (item) => (item.countedDamagedQuantity ?? 0) > 0 && item.damageConfirmedAt === null
+        ).length
+      : 0
+
   async function confirmDialog() {
     if (dialog === 'start') {
       if (await onStart()) setDialog(null)
@@ -125,6 +139,7 @@ export function CycleCountDetailView({
         isPending={isPending}
         recountSelectedCount={selectedItemIds.length}
         isBeforeSchedule={isBeforeSchedule}
+        pendingDamageCount={pendingDamageCount}
         onFinalize={onFinalize}
         onExport={onExport}
         onOpenDialog={setDialog}
@@ -147,6 +162,18 @@ export function CycleCountDetailView({
           onCreateAll={() => openAdjustment(adjustableItems.map((item) => item.id))}
         />
       ) : null}
+      <CycleCountDamagePanel
+        detail={detail}
+        canConfirm={canConfirmDamage}
+        canOpenDamageCases={canOpenDamageCases}
+        isPending={isPending}
+        evidenceActions={evidenceActions}
+        onConfirm={onConfirmDamage}
+        onRecountItem={(itemId) => {
+          recountForm.setValue('itemIds', [itemId], { shouldValidate: true })
+          setDialog('recount')
+        }}
+      />
       <CycleCountInfoSection
         detail={detail}
         countedCount={countedCount}

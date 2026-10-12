@@ -24,6 +24,7 @@ import {
   useFinalizeCycleCountMutation,
   useRecordCycleCountItemMutation,
   useRequestRecountMutation,
+  useConfirmCycleCountDamageMutation,
   useStartCycleCountMutation,
   useUploadCycleCountEvidenceMutation,
   useSubmitCycleCountMutation,
@@ -48,6 +49,7 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
   const start = useStartCycleCountMutation()
   const submit = useSubmitCycleCountMutation()
   const recount = useRequestRecountMutation()
+  const confirmDamage = useConfirmCycleCountDamageMutation()
   const finalize = useFinalizeCycleCountMutation()
   const cancel = useCancelCycleCountMutation()
   const createVoucher = useCreateStockAdjustmentVoucherMutation()
@@ -116,6 +118,14 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
       allowedActions={actions.data?.allowedActions ?? []}
       isPending={pending}
       isBeforeSchedule={actions.data?.denialReasonCode === 'NOT_YET_SCHEDULED'}
+      canConfirmDamage={actions.data?.allowedActions.includes('ConfirmDamage') ?? false}
+      canOpenDamageCases={me.data?.permissions.includes(P.INVENTORY_VIEW) ?? false}
+      onConfirmDamage={(itemIds) =>
+        perform(
+          () => confirmDamage.mutateAsync({ cycleCountId, itemIds }),
+          'Đã xác nhận hàng hỏng.'
+        )
+      }
       evidenceActions={{
         onUpload: handleUploadEvidence,
         onDownload: (evidenceId, fileName) => void handleDownloadEvidence(evidenceId, fileName),
