@@ -8,7 +8,7 @@ export function OperationalListPanel({ className, ...props }: OperationalListPan
     <section
       data-slot="operational-list-panel"
       className={cn(
-        'bg-card flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden border',
+        'bg-card flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl border',
         '[&>[data-slot=table-container]]:min-h-0 [&>[data-slot=table-container]]:flex-1 [&>[data-slot=table-container]]:overflow-auto',
         '[&>[data-slot=operational-list-body]]:min-h-0 [&>[data-slot=operational-list-body]]:flex-1 [&>[data-slot=operational-list-body]]:overflow-auto',
         className
