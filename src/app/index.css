@@ -643,6 +643,90 @@ body {
   --y: translateX(-115%) !important;
 }
 
+/* ── Thông báo: chuông, huy hiệu, danh sách ──────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes notification-bell-ring {
+    0%,
+    100% {
+      transform: rotate(0);
+    }
+    15% {
+      transform: rotate(14deg);
+    }
+    30% {
+      transform: rotate(-12deg);
+    }
+    45% {
+      transform: rotate(9deg);
+    }
+    60% {
+      transform: rotate(-6deg);
+    }
+    75% {
+      transform: rotate(3deg);
+    }
+  }
+
+  @keyframes notification-badge-pop {
+    0% {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.25);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes notification-item-enter {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+  }
+
+  [data-notification-bell-ring] {
+    transform-origin: 50% 0;
+    animation: notification-bell-ring 0.8s ease-in-out;
+  }
+
+  [data-notification-badge] {
+    animation: notification-badge-pop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  [data-notification-item] {
+    animation: notification-item-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  [data-notification-item]:nth-child(2) {
+    animation-delay: 30ms;
+  }
+  [data-notification-item]:nth-child(3) {
+    animation-delay: 60ms;
+  }
+  [data-notification-item]:nth-child(4) {
+    animation-delay: 90ms;
+  }
+  [data-notification-item]:nth-child(5) {
+    animation-delay: 120ms;
+  }
+  [data-notification-item]:nth-child(6) {
+    animation-delay: 150ms;
+  }
+  [data-notification-item]:nth-child(7) {
+    animation-delay: 180ms;
+  }
+  [data-notification-item]:nth-child(8) {
+    animation-delay: 210ms;
+  }
+  [data-notification-item]:nth-child(n + 9) {
+    animation-delay: 240ms;
+  }
+}
+
 /* Nhãn mã vạch in từ lớp riêng gắn vào body; trên màn hình luôn ẩn. */
 [data-barcode-print-root] {
   display: none;
