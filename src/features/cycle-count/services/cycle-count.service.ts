@@ -9,6 +9,7 @@ import type {
   CycleCountDetail,
   CycleCountListQuery,
   CycleCountListResponse,
+  CycleCountMethod,
   ApproveStockAdjustmentRequest,
   ApproveStockAdjustmentVoucherRequest,
   CreateStockAdjustmentVoucherRequest,
@@ -47,18 +48,24 @@ export const cycleCountService = {
     countedQuantity,
     countedDamagedQuantity,
     note,
+    countMethod,
+    scannedBarcode,
   }: {
     cycleCountId: string
     itemId: string
     countedQuantity: number
     countedDamagedQuantity: number | null
     note: string | null
+    countMethod: CycleCountMethod
+    scannedBarcode: string | null
   }) =>
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.cycleCounts.recordItem(cycleCountId, itemId), {
         countedQuantity,
         countedDamagedQuantity,
         note,
+        countMethod,
+        scannedBarcode,
       })
       .then((response) => response.data),
   startCycleCount: (cycleCountId: string) =>
