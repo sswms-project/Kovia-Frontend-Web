@@ -48,6 +48,39 @@ const destinationManager: TransferViewer = {
 }
 
 describe('getTransferNextSteps', () => {
+  it('offers one destination assignment for both receive and put-away tasks', () => {
+    const shipment = buildShipment({
+      id: 's1',
+      status: 'Receiving',
+      receiveTaskId: 'r1',
+      putAwayTaskId: 'p1',
+    })
+    const transfer = buildTransfer({ shipments: [shipment] })
+    const capabilities = getTransferCapabilities(destinationManager, transfer)
+    const steps = getTransferNextSteps(destinationManager, transfer, capabilities, {
+      s1: getShipmentCapabilities(destinationManager, shipment, transfer),
+    }).filter((step) => step.action.type === 'assign')
+    expect(steps).toHaveLength(1)
+    expect(steps[0]?.actionLabel).toBe('Giao việc nhận và cất hàng')
+    expect(steps[0]?.action).toMatchObject({ type: 'assign', kind: 'receive' })
+  })
+
+  it('keeps a single put-away assignment after receiving is completed', () => {
+    const transfer = buildTransfer({
+      shipments: [
+        buildShipment({
+          id: 's1',
+          status: 'AwaitingPutAway',
+          receiveTaskId: 'r1',
+          receiveTaskStatus: 'Completed',
+          putAwayTaskId: 'p1',
+        }),
+      ],
+    })
+    const steps = stepsFor(destinationManager, transfer)
+    expect(steps).toContain('assign-putaway-s1')
+    expect(steps).not.toContain('assign-receive-s1')
+  })
   it('tells the source manager to create a shipment, then to assign the pick task', () => {
     const open = buildTransfer({
       items: [buildTransferItem({ quantity: 10, batchedQuantity: 0, unbatchedQuantity: 10 })],

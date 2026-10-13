@@ -56,6 +56,16 @@ export interface ShipmentCapabilities {
   readonly canResolveEscalation: boolean
 }
 
+/** Một lối giao việc ở kho nhập; sau khi kiểm nhận xong chỉ còn giao việc cất. */
+export function getDestinationAssignmentKind(
+  shipment: TransferShipment,
+  allowed: ShipmentCapabilities | undefined
+): 'receive' | 'putaway' | null {
+  if (allowed?.canAssignReceive && shipment.receiveTaskId) return 'receive'
+  if (allowed?.canAssignPutAway && shipment.putAwayTaskId) return 'putaway'
+  return null
+}
+
 const NONE: TransferCapabilities = {
   canEditDraft: false,
   canEdit: false,

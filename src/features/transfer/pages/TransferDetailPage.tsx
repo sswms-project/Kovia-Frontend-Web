@@ -52,8 +52,8 @@ import { useTransferViewer } from '../hooks/use-transfer-viewer'
 import { useTransferQuery } from '../hooks/use-transfers'
 import { useTransferStartReceiving } from '../hooks/use-transfer-start-receiving'
 import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import {
   getShipmentCapabilities,
   getTransferCapabilities,
@@ -490,6 +490,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onSubmit={(values) => void requestActions.cancelShipment.submit(values)}
       />
       <AssignWarehouseTaskDialog
+        title={resolutionActions.assign.alsoPutAway ? 'Giao việc nhận và cất hàng' : undefined}
         target={resolutionActions.assign.target}
         form={resolutionActions.assign.form}
         staff={resolutionActions.assign.staff}
@@ -503,23 +504,42 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onOpenChange={resolutionActions.assign.onOpenChange}
         onSubmit={resolutionActions.assign.onSubmit}
       >
-        {resolutionActions.assign.canAlsoPutAway ? (
-          <Field orientation="horizontal">
-            <Checkbox
-              id="assign-both"
-              checked={resolutionActions.assign.alsoPutAway}
+        {resolutionActions.assign.canChooseDestinationScope ? (
+          <Field>
+            <FieldLabel htmlFor="assign-destination-scope">Giao cho nhân viên này</FieldLabel>
+            <NativeSelect
+              id="assign-destination-scope"
+              value={resolutionActions.assign.destinationAssignmentScope}
               disabled={
                 resolutionActions.assign.isPending ||
                 Object.keys(resolutionActions.assign.results).length > 0
               }
-              onCheckedChange={(value) => resolutionActions.assign.setAlsoPutAway(value === true)}
-            />
-            <FieldLabel htmlFor="assign-both">Giao cùng người kiểm hàng và cất hàng</FieldLabel>
+              onChange={(event) => {
+                const scope = event.target.value
+                if (scope === 'both' || scope === 'receive' || scope === 'putaway')
+                  resolutionActions.assign.selectDestinationScope(scope)
+              }}
+            >
+              <NativeSelectOption value="both">
+                Kiểm nhận và cất hàng — cùng một người
+              </NativeSelectOption>
+              <NativeSelectOption value="receive">Chỉ kiểm nhận</NativeSelectOption>
+              <NativeSelectOption value="putaway">Chỉ cất hàng</NativeSelectOption>
+            </NativeSelect>
+            <FieldDescription>
+              Đang giao kiểm nhận: {resolutionActions.assign.destinationAssignees.receive} · Cất
+              hàng: {resolutionActions.assign.destinationAssignees.putaway}. Chọn riêng từng phần
+              nếu cần giao cho hai người khác nhau.
+            </FieldDescription>
           </Field>
+        ) : resolutionActions.assign.target?.kind === 'TransferReceive' ? (
+          <p className="text-muted-foreground text-xs">
+            Giao người kiểm nhận trước. Công việc cất được tạo khi bắt đầu nhận hàng.
+          </p>
         ) : null}
         {Object.entries(resolutionActions.assign.results).map(([kind, message]) => (
           <p key={kind} role="status" className="text-sm">
-            {kind === 'receive' ? 'Nhận hàng' : kind === 'putaway' ? 'Cất hàng' : 'Lấy hàng'}:{' '}
+            {kind === 'receive' ? 'Kiểm nhận' : kind === 'putaway' ? 'Cất hàng' : 'Lấy hàng'}:{' '}
             {message}
           </p>
         ))}
