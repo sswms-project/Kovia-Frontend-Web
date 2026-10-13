@@ -23,6 +23,7 @@ export interface DiscrepancyLotOption {
 }
 
 interface ResolveDiscrepancyDialogProps {
+  readonly unknownResult?: boolean
   readonly discrepancy: TransferDiscrepancy | null
   readonly form: UseFormReturn<TransferDiscrepancyFormValues>
   readonly lotOptions: readonly DiscrepancyLotOption[]
@@ -42,6 +43,7 @@ export function ResolveDiscrepancyDialog({
   isPending,
   onOpenChange,
   onSubmit,
+  unknownResult = false,
 }: ResolveDiscrepancyDialogProps) {
   const errors = form.formState.errors
   const action = form.watch('action')
@@ -50,7 +52,18 @@ export function ResolveDiscrepancyDialog({
     <Dialog open={Boolean(discrepancy)} onOpenChange={(next) => !isPending && onOpenChange(next)}>
       <DialogContent size="lg" className="sm:max-w-lg">
         {discrepancy ? (
-          <form noValidate className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+          <form
+            noValidate
+            className="grid gap-4"
+            onSubmit={
+              unknownResult
+                ? (event) => {
+                    event.preventDefault()
+                    onSubmit(form.getValues())
+                  }
+                : form.handleSubmit(onSubmit)
+            }
+          >
             <DialogHeader>
               <DialogTitle>Xử lý chênh lệch</DialogTitle>
               <DialogDescription>
@@ -59,90 +72,106 @@ export function ResolveDiscrepancyDialog({
                 xử lý
               </DialogDescription>
             </DialogHeader>
-            <Field data-invalid={Boolean(errors.action)}>
-              <FieldLabel htmlFor="discrepancy-action">Cách xử lý</FieldLabel>
-              <NativeSelect id="discrepancy-action" className="w-full" {...form.register('action')}>
-                {actionsFor(discrepancy).map((value) => (
-                  <NativeSelectOption key={value} value={value}>
-                    {DISCREPANCY_ACTION_LABELS[value]}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <FieldError>{errors.action?.message}</FieldError>
-            </Field>
-            <Field data-invalid={Boolean(errors.quantity)}>
-              <FieldLabel htmlFor="discrepancy-quantity">Số lượng xử lý</FieldLabel>
-              <Input
-                id="discrepancy-quantity"
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                aria-invalid={Boolean(errors.quantity)}
-                {...form.register('quantity', { valueAsNumber: true })}
-              />
-              <FieldError>{errors.quantity?.message}</FieldError>
-            </Field>
-            {action === 'LateReceipt' ? (
-              <>
-                {lotOptions.length > 0 ? (
-                  <Field>
-                    <FieldLabel htmlFor="discrepancy-lot">Lô nhận bổ sung</FieldLabel>
-                    <NativeSelect
-                      id="discrepancy-lot"
-                      className="w-full"
-                      {...form.register('lotId')}
-                    >
-                      {lotOptions.map((lot) => (
-                        <NativeSelectOption key={lot.id} value={lot.id}>
-                          {lot.label}
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
-                  </Field>
-                ) : null}
-                <Field data-invalid={Boolean(errors.scannedSlotCode)}>
-                  <FieldLabel htmlFor="discrepancy-slot">
-                    Quét mã vị trí nhận hàng bổ sung
-                  </FieldLabel>
-                  <Input
-                    id="discrepancy-slot"
-                    autoComplete="off"
-                    autoCapitalize="characters"
-                    aria-invalid={Boolean(errors.scannedSlotCode)}
-                    {...form.register('scannedSlotCode')}
-                  />
-                  <FieldDescription>
-                    Nhập hoặc quét mã vị trí thuộc kho nhập; hàng được nhập thành tồn tốt.
-                  </FieldDescription>
-                  <FieldError>{errors.scannedSlotCode?.message}</FieldError>
-                </Field>
-              </>
+            {unknownResult ? (
+              <p role="status" className="text-sm">
+                Chưa rõ kết quả nhận bổ sung/xử lý. Chỉ kiểm tra lại đúng thao tác trước, không gửi
+                một khai báo mới.
+              </p>
             ) : null}
-            <Field data-invalid={Boolean(errors.note)}>
-              <FieldLabel htmlFor="discrepancy-note">
-                {action === 'LateReceipt' ? 'Ghi chú' : 'Lý do và bằng chứng'}
-              </FieldLabel>
-              <Textarea
-                id="discrepancy-note"
-                rows={3}
-                maxLength={500}
-                aria-invalid={Boolean(errors.note)}
-                {...form.register('note')}
-              />
-              <FieldError>{errors.note?.message}</FieldError>
-            </Field>
+            <fieldset disabled={isPending || unknownResult} className="grid gap-4">
+              <Field data-invalid={Boolean(errors.action)}>
+                <FieldLabel htmlFor="discrepancy-action">Cách xử lý</FieldLabel>
+                <NativeSelect
+                  id="discrepancy-action"
+                  className="w-full"
+                  {...form.register('action')}
+                >
+                  {actionsFor(discrepancy).map((value) => (
+                    <NativeSelectOption key={value} value={value}>
+                      {DISCREPANCY_ACTION_LABELS[value]}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                <FieldError>{errors.action?.message}</FieldError>
+              </Field>
+              <Field data-invalid={Boolean(errors.quantity)}>
+                <FieldLabel htmlFor="discrepancy-quantity">Số lượng xử lý</FieldLabel>
+                <Input
+                  id="discrepancy-quantity"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  aria-invalid={Boolean(errors.quantity)}
+                  {...form.register('quantity', { valueAsNumber: true })}
+                />
+                <FieldError>{errors.quantity?.message}</FieldError>
+              </Field>
+              {action === 'LateReceipt' ? (
+                <>
+                  {lotOptions.length > 0 ? (
+                    <Field>
+                      <FieldLabel htmlFor="discrepancy-lot">Lô nhận bổ sung</FieldLabel>
+                      <NativeSelect
+                        id="discrepancy-lot"
+                        className="w-full"
+                        {...form.register('lotId')}
+                      >
+                        {lotOptions.map((lot) => (
+                          <NativeSelectOption key={lot.id} value={lot.id}>
+                            {lot.label}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </Field>
+                  ) : null}
+                  <Field data-invalid={Boolean(errors.scannedSlotCode)}>
+                    <FieldLabel htmlFor="discrepancy-slot">
+                      Quét mã vị trí nhận hàng bổ sung
+                    </FieldLabel>
+                    <Input
+                      id="discrepancy-slot"
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      aria-invalid={Boolean(errors.scannedSlotCode)}
+                      {...form.register('scannedSlotCode')}
+                    />
+                    <FieldDescription>
+                      Nhập hoặc quét mã vị trí thuộc kho nhập; hàng được nhập thành tồn tốt.
+                    </FieldDescription>
+                    <FieldError>{errors.scannedSlotCode?.message}</FieldError>
+                  </Field>
+                </>
+              ) : null}
+              <Field data-invalid={Boolean(errors.note)}>
+                <FieldLabel htmlFor="discrepancy-note">
+                  {action === 'LateReceipt' ? 'Ghi chú' : 'Lý do và bằng chứng'}
+                </FieldLabel>
+                <Textarea
+                  id="discrepancy-note"
+                  rows={3}
+                  maxLength={500}
+                  aria-invalid={Boolean(errors.note)}
+                  {...form.register('note')}
+                />
+                <FieldError>{errors.note?.message}</FieldError>
+              </Field>
+            </fieldset>
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
-                disabled={isPending}
+                disabled={isPending || unknownResult}
                 onClick={() => onOpenChange(false)}
               >
                 Đóng
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Đang xử lý…' : 'Xác nhận xử lý'}
+                {isPending
+                  ? 'Đang xử lý…'
+                  : unknownResult
+                    ? 'Kiểm tra lại đúng thao tác trước'
+                    : 'Xác nhận xử lý'}
               </Button>
             </DialogFooter>
           </form>

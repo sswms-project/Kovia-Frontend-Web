@@ -67,6 +67,18 @@ function Harness({
 }
 
 describe('AssignWarehouseTaskDialog unassign', () => {
+  it('allows the current transfer worker to keep their assignment and change its schedule', () => {
+    render(
+      <Harness
+        task={target({ kind: 'TransferPick' })}
+        staff={[person(CURRENT_ID, 'Nhân viên A')]}
+      />
+    )
+    expect(screen.getByRole('radio')).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Lưu giao việc' })).not.toBeDisabled()
+    expect(screen.getByLabelText('Mức ưu tiên')).toBeInTheDocument()
+    expect(screen.getByLabelText('Hạn hoàn thành')).toBeInTheDocument()
+  })
   it('offers "Hủy giao việc" for an assigned receiving task and calls the handler', async () => {
     const onUnassign = vi.fn()
     render(

@@ -56,6 +56,7 @@ export const SHIPMENT_STATUS_LABELS: Record<TransferShipmentStatus, string> = {
   ReadyToDispatch: 'Chờ xuất kho',
   InTransit: 'Đang vận chuyển',
   Receiving: 'Đang nhận hàng',
+  AwaitingPutAway: 'Chờ cất hàng',
   Received: 'Đã nhận',
   ReceivedWithDiscrepancy: 'Đã nhận, có chênh lệch',
   Cancelled: 'Đã hủy',

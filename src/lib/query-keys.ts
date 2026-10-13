@@ -228,6 +228,12 @@ export const queryKeys = {
     detail: (id: string) => ['inbound-document-imports', 'detail', id] as const,
   },
   transfers: {
+    receiptSheet: (transferId: string, shipmentId: string) =>
+      ['transfers', 'receipt-sheet', transferId, shipmentId] as const,
+    putAwaySheet: (transferId: string, shipmentId: string) =>
+      ['transfers', 'putaway-sheet', transferId, shipmentId] as const,
+    assignableStaff: (warehouseId: string, taskType: string) =>
+      ['transfers', 'assignable-staff', warehouseId, taskType] as const,
     all: ['transfers'] as const,
     lists: ['transfers', 'list'] as const,
     list: (params: TransferListQuery) => ['transfers', 'list', params] as const,

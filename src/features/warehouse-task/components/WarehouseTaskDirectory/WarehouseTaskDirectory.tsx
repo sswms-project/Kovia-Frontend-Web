@@ -89,6 +89,7 @@ export const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
   Relocation: 'Điều chuyển vị trí',
   TransferPick: 'Lấy hàng điều chuyển',
   TransferReceive: 'Nhận hàng điều chuyển',
+  TransferPutAway: 'Cất hàng điều chuyển',
   Picking: 'Lấy hàng xuất kho',
 }
 
@@ -100,6 +101,7 @@ export const taskTypeIcon: Record<MyWarehouseTask['taskType'], LucideIcon> = {
   Relocation: ArrowLeftRight,
   TransferPick: Truck,
   TransferReceive: PackageOpen,
+  TransferPutAway: PackagePlus,
   Picking: PackageSearch,
 }
 

@@ -20,7 +20,7 @@ import type { ShipmentCapabilities } from '../../utils/transfer-capabilities'
 import { SHIPMENT_LINE_STATUS_LABELS, TASK_EXECUTION_LABELS } from '../../utils/transfer-format'
 import { ShipmentStatusBadge } from '../TransfersPage'
 
-export type TransferTaskKind = 'pick' | 'receive'
+export type TransferTaskKind = 'pick' | 'receive' | 'putaway'
 
 interface TransferShipmentsPanelProps {
   readonly transferId: string
@@ -31,9 +31,11 @@ interface TransferShipmentsPanelProps {
   readonly onReopenPicking: (shipment: TransferShipment) => void
   readonly onAssignTask: (shipment: TransferShipment, kind: TransferTaskKind) => void
   readonly onResolveEscalation: (shipment: TransferShipment) => void
+  readonly onStartReceiving?: (shipment: TransferShipment) => void
+  readonly isStartingReceive?: boolean
   /** ĐVT chính và quy đổi của từng dòng hàng theo mã dòng phiếu; số lượng trong bảng tính theo ĐVT chính. */
   readonly unitsByItem: Readonly<Record<string, { unit: string; conversion: string | null }>>
-  readonly mode?: 'pick' | 'receive'
+  readonly mode?: 'pick' | 'receive' | 'putaway'
   readonly planLabels?: Readonly<Record<string, string>>
   readonly onOpenPlan?: () => void
   readonly currentUserId?: string | null
@@ -71,6 +73,8 @@ export function TransferShipmentsPanel({
   planLabels = {},
   onOpenPlan,
   currentUserId,
+  onStartReceiving,
+  isStartingReceive,
 }: TransferShipmentsPanelProps) {
   if (shipments.length === 0) {
     return (
@@ -166,6 +170,20 @@ export function TransferShipmentsPanel({
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
                 <div className="flex flex-col gap-0.5">
+                  {mode === 'putaway' ? (
+                    <p className="text-sm tabular-nums">
+                      Đã nhận {formatQuantity(shipment.receivedPhysicalQuantity ?? 0)} · Đã cất{' '}
+                      {formatQuantity(shipment.putAwayQuantity ?? 0)} · Chưa cất{' '}
+                      {formatQuantity(shipment.pendingPutAwayQuantity ?? 0)}
+                    </p>
+                  ) : null}
+                  {taskSummary(
+                    'Cất hàng',
+                    Boolean(shipment.putAwayTaskId),
+                    shipment.putAwayTaskStatus ?? null,
+                    shipment.putAwayAssigneeId ?? null,
+                    shipment.putAwayAssigneeName
+                  )}
                   {taskSummary(
                     'Lấy hàng',
                     Boolean(shipment.pickTaskCode),
@@ -182,6 +200,27 @@ export function TransferShipmentsPanel({
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {mode === 'putaway' && allowed?.canAssignPutAway && shipment.putAwayTaskId ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onAssignTask(shipment, 'putaway')}
+                    >
+                      <UserPlus aria-hidden="true" />
+                      {shipment.putAwayAssigneeId ? 'Giao lại việc cất' : 'Giao việc cất hàng'}
+                    </Button>
+                  ) : null}
+                  {mode === 'putaway' ? (
+                    <Button
+                      asChild
+                      variant={allowed?.canOpenPutAway ? 'default' : 'outline'}
+                      size="sm"
+                    >
+                      <Link href={APP_ROUTES.transferPutAwayTask(transferId, shipment.id)}>
+                        {allowed?.canOpenPutAway ? 'Cất hàng' : 'Xem cất hàng'}
+                      </Link>
+                    </Button>
+                  ) : null}
                   {mode === 'pick' && allowed?.canResolveEscalation ? (
                     <Button
                       type="button"
@@ -226,11 +265,22 @@ export function TransferShipmentsPanel({
                   ) : null}
                   {mode === 'receive' &&
                   allowed?.canOpenReceive &&
-                  shipment.receiveAssigneeId === currentUserId ? (
+                  shipment.status === 'InTransit' &&
+                  onStartReceiving ? (
+                    <Button
+                      size="sm"
+                      disabled={isStartingReceive}
+                      onClick={() => onStartReceiving(shipment)}
+                    >
+                      <PackageCheck aria-hidden="true" />
+                      {isStartingReceive ? 'Đang bắt đầu…' : 'Nhận hàng'}
+                    </Button>
+                  ) : null}
+                  {mode === 'receive' && shipment.status !== 'InTransit' ? (
                     <Button asChild size="sm">
                       <Link href={APP_ROUTES.transferReceiveTask(transferId, shipment.id)}>
                         <PackageCheck aria-hidden="true" />
-                        Nhận hàng
+                        {allowed?.canOpenReceive ? 'Tiếp tục kiểm hàng' : 'Xem phiếu nhập'}
                       </Link>
                     </Button>
                   ) : null}

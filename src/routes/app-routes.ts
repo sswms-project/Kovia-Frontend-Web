@@ -56,7 +56,8 @@ export const APP_ROUTES = {
   warehouseLayoutDesigner: (warehouseId: string): Route =>
     `/warehouse-layouts/${warehouseId}/designer` as Route,
   warehouseLocations: (warehouseId: string) => `/warehouses/${warehouseId}/locations`,
-  warehouseLocationImport: (warehouseId: string): Route => `/warehouses/${warehouseId}/locations/import` as Route,
+  warehouseLocationImport: (warehouseId: string): Route =>
+    `/warehouses/${warehouseId}/locations/import` as Route,
   warehouseLocationBarcode: (warehouseId: string, locationType: string, locationId: string) =>
     `/warehouses/${warehouseId}/locations/${locationType.toLowerCase()}/${locationId}/barcode`,
   inventory: '/inventory',
@@ -87,6 +88,11 @@ export const APP_ROUTES = {
     `/tasks/transfers/${transferId}/shipments/${shipmentId}/pick` as Route,
   transferReceiveTask: (transferId: string, shipmentId: string): Route =>
     `/tasks/transfers/${transferId}/shipments/${shipmentId}/receive` as Route,
+  transferPutAway: (transferId: string, shipmentId: string): Route =>
+    `/transfers/${transferId}/shipments/${shipmentId}/putaway` as Route,
+  transferPutAwayTask: (transferId: string, shipmentId: string): Route =>
+    `/tasks/transfers/${transferId}/shipments/${shipmentId}/putaway` as Route,
+  transferPlan: (transferId: string): Route => `/transfers/${transferId}/putaway` as Route,
   stockIssueRequests: '/stock-issue-requests',
   stockIssueRequestCreate: '/stock-issue-requests/new',
   goodsReturnRequests: '/goods-return-requests',

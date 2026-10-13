@@ -26,6 +26,7 @@ export type TransferShipmentStatus =
   | 'ReadyToDispatch'
   | 'InTransit'
   | 'Receiving'
+  | 'AwaitingPutAway'
   | 'Received'
   | 'ReceivedWithDiscrepancy'
   | 'Cancelled'
@@ -168,6 +169,8 @@ export interface TransferRequesterOption {
 
 export interface TransferItem {
   id: string
+  putAwayQuantity?: number
+  pendingPutAwayQuantity?: number
   putAwayPlan?: TransferPutAwayPlanLine[] | null
   planMode?: 'Planned' | 'Legacy'
   baseQuantityPrecision?: number
@@ -256,6 +259,12 @@ export interface TransferShipmentLine {
 }
 
 export interface TransferShipment {
+  readonly pickTaskPriority?: 'Normal' | 'Urgent' | null
+  readonly pickTaskDueAt?: string | null
+  readonly receiveTaskPriority?: 'Normal' | 'Urgent' | null
+  readonly receiveTaskDueAt?: string | null
+  readonly putAwayTaskPriority?: 'Normal' | 'Urgent' | null
+  readonly putAwayTaskDueAt?: string | null
   id: string
   shipmentNumber: number
   status: TransferShipmentStatus
@@ -277,6 +286,20 @@ export interface TransferShipment {
   receiveTaskVersion: string | null
   pickAssigneeName?: string | null
   receiveAssigneeName?: string | null
+  receiptFlowVersion?: number
+  arrivedAt?: string | null
+  arrivedBy?: string | null
+  receiptSubmittedAt?: string | null
+  receiptSubmittedBy?: string | null
+  putAwayTaskId?: string | null
+  putAwayTaskCode?: string | null
+  putAwayTaskStatus?: string | null
+  putAwayAssigneeId?: string | null
+  putAwayAssigneeName?: string | null
+  putAwayTaskVersion?: string | null
+  receivedPhysicalQuantity?: number
+  putAwayQuantity?: number
+  pendingPutAwayQuantity?: number
 }
 
 export interface TransferDiscrepancy {
@@ -554,6 +577,7 @@ export interface ReceiveTransferShipmentRequest {
 }
 
 export interface ResolveTransferDiscrepancyRequest {
+  commandId?: string
   action: TransferDiscrepancyAction
   quantity: number | null
   lotId: string | null

@@ -1,6 +1,6 @@
 # Kovia — Tách "Nhận & cất" của Điều chuyển thành Phiếu nhập điều chuyển và Chờ cất hàng
 
-Ngày: 2026-10-12 (sửa sau review và triển khai 2026-10-13) · Trạng thái: **Gate A có code BE và kiểm thử tự động; chưa áp migration, chưa nghiệm thu SQL race** · Nối tiếp: `2026-10-12-transfer-receive-putaway-alignment-spec.md`
+Ngày: 2026-10-12 (sửa sau review và triển khai 2026-10-13) · Trạng thái: **Gate A/B có code và tự kiểm; Gate C chưa nghiệm thu; chưa áp migration, chưa nghiệm thu SQL race** · Nối tiếp: `2026-10-12-transfer-receive-putaway-alignment-spec.md`
 
 ## 1. Mục tiêu và các điểm đã chốt với người dùng
 
@@ -238,3 +238,20 @@ Tất cả build/test chạy ở bản sao riêng `D:/Kovia-QA/Transfer-ReceiptS
 - Chưa QA API HTTP/trình duyệt với migration mới; chưa kiểm responsive, bàn phím, reduced motion hoặc hồi quy hộp thoại FE. Gate B/C chưa thực hiện.
 - GitNexus impact đã chạy trước các symbol dùng chung (DbContext/metadata Critical đã cảnh báo); `detect_changes` quét diff tracked. File mới chưa được index phải đối chiếu trực tiếp với source, build và test; không coi báo cáo phạm vi/risk của công cụ là chứng nhận nghiệp vụ.
 - Bằng chứng: `build-final.log`, `new-cases.log`, `transfer-tests-final.log`, `full-tests-final.log`, `baseline-tests.log`, `model-check-final.log`, `db-readonly.log` và các TRX trong thư mục `results` dưới QA root. Biên bản BE: `SSWMS-Backend/docs/AI_REVIEW.md`.
+
+## 12. Bàn giao Gate B — 2026-10-13
+
+**READY_FOR_CODEX_REVIEW** — tự kiểm của người triển khai; chưa duyệt độc lập, chưa commit/push. Các ghi nhận Gate A/mục 2 là lịch sử, không đổi thành kết quả nghiệm thu mới.
+
+- Đã tích hợp Start Receiving bằng thao tác người dùng, phiếu kiểm tốt/hỏng/thiếu không chọn vị trí, tab Phiếu nhập điều chuyển và Chờ cất hàng; kế hoạch mở thành trang riêng thay Sheet đang dùng. Cất thực tế có quét mã, lối thoát nhãn không đọc được, ngân sách chung qua lô chỉ cho hàng tốt, lý do lệch và tách phần vượt. Lịch sử đợt phiên bản 0 hoàn tất giữ cách đọc cũ.
+- Giao lấy/nhận/cất dùng hộp thoại Nhập kho chung: nhân viên đủ quyền, số việc, ưu tiên và hạn. Giao hai việc có kết quả riêng; chỉ thử lại phần chưa xong, tải lại/xác minh khi phiên bản đổi hoặc phản hồi chưa rõ. Bổ sung BE sáu trường lịch vào DTO chi tiết đợt để giữ lịch hiện tại; không thay schema.
+- Chống bấm lặp tại handler, không tự retry ghi. Nộp phiếu/cất/nhận bổ sung giữ nguyên mã thao tác và payload khi kiểm tra lại kết quả chưa rõ. Khi 409, giữ số lượng đang nhập; sau cất thành công mới dựng phần còn lại. Tra mã lỗi xóa xác nhận quét cũ. Dùng guard rời phiên chung, không thêm animation chuyển trang/remount.
+- Test FE trên bản sao D: **180 file, 1.039 ca đạt**, baseline 175 file/996 ca; TypeScript và lint phạm vi sửa đạt. Có hồi quy hộp thoại/PutawayForm Nhập kho. Production build Webpack đạt; Turbopack chưa chứng nhận do junction node_modules nằm ngoài root bản sao. BE Release 0 lỗi/0 cảnh báo; nhóm Điều chuyển **166 đạt, 4 race SQL bỏ qua**, chưa chạy toàn bộ BE trong lượt Gate B.
+- Bằng chứng: `D:/Kovia-QA/Transfer-ReceiptSplit-GateB-20261013`, chi tiết tên log trong `docs/AI_REVIEW.md` của hai repo. Không chia sẻ ZIP/config bản sao vì có thể chứa cấu hình triển khai.
+
+### Việc còn lại — không ghi là đã đạt
+
+1. Review độc lập code Gate B, đặc biệt giao việc thành công một phần, unknown-result và hồi quy primitive/guard dùng chung.
+2. Gate C: QA trình duyệt API thật theo mục 6, responsive 360/768px, bàn phím, screen reader cơ bản, reduced motion; Back/Forward/làm mới khi có nội dung chưa lưu. Rà nhãn, focus/tab semantics và bố cục trang kế hoạch/cất trên thiết bị thật. Chưa có ảnh hoặc biên bản trình duyệt ở Gate B.
+3. **Chưa áp `20261013052038_SplitTransferReceiptPutAway`.** Không khởi động API mới với schema cũ. Cần user duyệt riêng migration trước QA API thật; tắt migration/seed tự động. Gate B không kết nối/ghi DB deploy.
+4. SQL Server race/rollback trên DB local cô lập vẫn hoãn theo người dùng; rủi ro High, không coi test bỏ qua hoặc SQLite là bằng chứng đạt.
