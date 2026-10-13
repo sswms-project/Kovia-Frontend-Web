@@ -105,3 +105,39 @@ export function getRecountBlockReason(
   if (item.damageCaseId) return 'Đã có hồ sơ hàng hỏng'
   return null
 }
+
+// Phiếu khẩn chỉ cần nổi bật khi còn việc phải làm; phiếu chờ duyệt, đã hoàn tất hay đã huỷ thì không còn gấp với nhân viên kho.
+export function isUrgentOpen(priority: CycleCountSummary['priority'], status: CycleCountStatus) {
+  return (
+    priority === 'Urgent' &&
+    (status === CYCLE_COUNT_STATUSES.scheduled ||
+      status === CYCLE_COUNT_STATUSES.counting ||
+      status === CYCLE_COUNT_STATUSES.recount)
+  )
+}
+
+export interface DeadlineHint {
+  readonly label: string
+  readonly tone: 'overdue' | 'soon' | 'normal'
+}
+
+function formatDuration(milliseconds: number): string {
+  const minutes = Math.max(1, Math.floor(milliseconds / 60_000))
+  if (minutes < 60) return `${minutes} phút`
+  if (minutes < 1_440) {
+    const rest = minutes % 60
+    return rest ? `${Math.floor(minutes / 60)} giờ ${rest} phút` : `${Math.floor(minutes / 60)} giờ`
+  }
+  return `${Math.floor(minutes / 1_440)} ngày`
+}
+
+// "Còn 5 giờ" / "Quá hạn 2 giờ" so với hạn xử lý của việc; dưới 24 giờ là sắp đến hạn.
+export function getDeadlineHint(dueAt: string | null, now = Date.now()): DeadlineHint | null {
+  if (!dueAt) return null
+  const remaining = new Date(dueAt).getTime() - now
+  if (remaining < 0) return { label: `Quá hạn ${formatDuration(-remaining)}`, tone: 'overdue' }
+  return {
+    label: `Còn ${formatDuration(remaining)}`,
+    tone: remaining < 86_400_000 ? 'soon' : 'normal',
+  }
+}

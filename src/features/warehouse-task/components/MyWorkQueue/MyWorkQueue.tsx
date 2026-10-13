@@ -87,7 +87,7 @@ function MyWorkQueueItem({ task }: { readonly task: MyWarehouseTask }) {
         <Badge variant="secondary">
           {EXECUTION_LABEL[task.executionStatus] ?? task.executionStatus}
         </Badge>
-        {task.priority === 'Urgent' ? <Badge variant="destructive">Gấp</Badge> : null}
+        {task.priority === 'Urgent' ? <Badge variant="destructive">Khẩn</Badge> : null}
         {isOverdue ? <Badge variant="destructive">Quá hạn</Badge> : null}
         {task.deadlineStatus === 'DueSoon' ? <Badge variant="outline">Sắp đến hạn</Badge> : null}
       </div>

@@ -19,6 +19,7 @@ export default function CycleCountsPage() {
   const [warehouseId, setWarehouseId] = useState('')
   const [sortBy, setSortBy] = useState('priority')
   const [status, setStatus] = useState<CycleCountListFilter>('')
+  const [urgentOnly, setUrgentOnly] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearch = useDebouncedValue(searchTerm, 300)
   const params = useMemo(
@@ -27,6 +28,7 @@ export default function CycleCountsPage() {
       pageSize,
       sortBy,
       ...(warehouseId ? { warehouseId } : {}),
+      ...(urgentOnly ? { urgent: true } : {}),
       ...(status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER
         ? { needsAdjustment: true }
         : status
@@ -38,7 +40,7 @@ export default function CycleCountsPage() {
           : {}),
       ...(debouncedSearch.trim() ? { searchTerm: debouncedSearch.trim() } : {}),
     }),
-    [page, pageSize, warehouseId, sortBy, status, debouncedSearch]
+    [page, pageSize, warehouseId, sortBy, status, urgentOnly, debouncedSearch]
   )
   const query = useCycleCountsQuery(params)
   const prefetchCycleCount = usePrefetchCycleCount()
@@ -58,6 +60,8 @@ export default function CycleCountsPage() {
       totalCount={query.data?.totalCount ?? 0}
       statusCounts={query.data?.statusCounts ?? {}}
       needsAdjustmentCount={query.data?.needsAdjustmentCount ?? 0}
+      urgentOpenCount={query.data?.urgentOpenCount ?? 0}
+      urgentOnly={urgentOnly}
       page={page}
       pageSize={pageSize}
       warehouseId={warehouseId}
@@ -79,6 +83,10 @@ export default function CycleCountsPage() {
       }}
       onStatusChange={(value) => {
         setStatus(value)
+        setPage(1)
+      }}
+      onUrgentOnlyChange={(value) => {
+        setUrgentOnly(value)
         setPage(1)
       }}
       onSearchTermChange={(value) => {
