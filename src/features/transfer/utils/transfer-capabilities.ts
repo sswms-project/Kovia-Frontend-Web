@@ -169,16 +169,22 @@ export function canChoosePutAwaySlot(item: TransferItem) {
 
 export function getShipmentCapabilities(
   viewer: TransferViewer,
-  shipment: Pick<TransferShipment, 'status' | 'lines'>,
+  shipment: Pick<TransferShipment, 'status' | 'lines'> &
+    Partial<Pick<TransferShipment, 'receiveAssigneeId' | 'putAwayAssigneeId'>>,
   warehouses?: TransferWarehouses
 ): ShipmentCapabilities {
   const isPicking = shipment.status === 'Picking'
   const isReady = shipment.status === 'ReadyToDispatch'
   const isReceivable = shipment.status === 'InTransit' || shipment.status === 'Receiving'
+  // BE chỉ cho người được giao việc hoặc người quản lý kho nhập (có quyền giao việc) thao tác nhận và cất.
+  const isAssignedTo = (assigneeId: string | null | undefined) =>
+    viewer.currentUserId !== null && assigneeId === viewer.currentUserId
+  const canManageTasks = has(viewer, P.WAREHOUSE_TASKS_ASSIGN)
   return {
     canOpenPutAway:
       has(viewer, P.TRANSFERS_RECEIVE) &&
       shipment.status === 'AwaitingPutAway' &&
+      (canManageTasks || isAssignedTo(shipment.putAwayAssigneeId)) &&
       manages(viewer, warehouses?.destinationWarehouseId),
     canAssignPutAway:
       has(viewer, P.WAREHOUSE_TASKS_ASSIGN) &&
@@ -203,6 +209,7 @@ export function getShipmentCapabilities(
     canOpenReceive:
       has(viewer, P.TRANSFERS_RECEIVE) &&
       isReceivable &&
+      (canManageTasks || isAssignedTo(shipment.receiveAssigneeId)) &&
       manages(viewer, warehouses?.destinationWarehouseId),
     canAssignPick:
       has(viewer, P.WAREHOUSE_TASKS_ASSIGN) &&

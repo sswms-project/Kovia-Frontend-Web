@@ -73,6 +73,9 @@ export default function TransferPutAwayPage({
     sheet?.receipt.receiptFlowVersion === 1
   )
   const [tab, setTab] = useState(initialTab)
+  const [applyPlanOpen, setApplyPlanOpen] = useState(false)
+  const applyPlanButton = useRef<HTMLButtonElement>(null)
+  const executionTab = useRef<HTMLButtonElement>(null)
   const precision = useMemo(
     () =>
       new Map(
@@ -119,7 +122,7 @@ export default function TransferPutAwayPage({
   const busy = editor.isPending || putAway.isPending || putAway.isFindingSlot || reloading
   const entries = putAway.form.watch('entries')
   const planStates = sheet ? transferPutAwayPlanStates(sheet, entries) : []
-  async function reload() {
+  async function reload(source: 'reload' | 'saved' = 'reload') {
     if (reloadLock.current || editor.isPending || putAway.isPending || putAway.isFindingSlot) return
     reloadLock.current = true
     setReloading(true)
@@ -128,7 +131,7 @@ export default function TransferPutAwayPage({
         detail.refetch(),
         shipmentId ? query.refetch() : Promise.resolve(null),
       ])
-      if (fresh.data && !fresh.isError) editor.rebase(fresh.data)
+      if (fresh.data && !fresh.isError) editor.rebase(fresh.data, source)
       if (newSheet?.data && !newSheet.isError) putAway.acceptFresh(newSheet.data)
       if (!fresh.isError && !newSheet?.isError) realtime.dismiss()
     } finally {
@@ -152,7 +155,7 @@ export default function TransferPutAwayPage({
     )
   const remaining = sheet?.rows.reduce((sum, row) => sum + row.remainingQuantity, 0) ?? 0
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 max-md:[&_[role=tab]]:min-h-11 pointer-coarse:[&_[role=tab]]:min-h-11 max-md:[&_a]:min-h-11 pointer-coarse:[&_a]:min-h-11 max-md:[&_button]:min-h-11 pointer-coarse:[&_button]:min-h-11">
       {shipment ? (
         <TransferWorkHeader
           heading="Chờ cất hàng điều chuyển"
@@ -184,12 +187,16 @@ export default function TransferPutAwayPage({
         <Tabs
           value={tab}
           onValueChange={(value) => {
-            if (value === 'plan' || value === 'execution') setTab(value)
+            if (!busy && (value === 'plan' || value === 'execution')) setTab(value)
           }}
         >
-          <TabsList variant="workspace" aria-label="Chế độ cất hàng">
-            <TabsTrigger value="plan">Kế hoạch của quản lý</TabsTrigger>
-            <TabsTrigger value="execution">Cất hàng thực tế</TabsTrigger>
+          <TabsList variant="workspace" aria-label="Chế độ cất hàng" className="h-auto flex-wrap">
+            <TabsTrigger value="plan" disabled={busy}>
+              Kế hoạch của quản lý
+            </TabsTrigger>
+            <TabsTrigger ref={executionTab} value="execution" disabled={busy}>
+              Cất hàng thực tế
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       ) : null}
@@ -197,7 +204,7 @@ export default function TransferPutAwayPage({
         aria-label={tab === 'plan' ? 'Kế hoạch cất hàng' : 'Thực hiện cất hàng'}
         aria-busy={busy}
       >
-        <div data-slot="operational-list-body" className="space-y-3 p-3">
+        <div data-slot="operational-list-body" className="flex flex-col gap-3 p-3">
           {tab === 'plan' ? (
             <>
               <TransferPutawayPlanWorkspace
@@ -216,6 +223,7 @@ export default function TransferPutAwayPage({
                 }
                 onSuggest={() => void suggest()}
                 onReload={reload}
+                onSaved={() => reload('saved')}
               />
               {!editor.isOpen && canPlan ? (
                 <Button variant="outline" onClick={() => editor.open()}>
@@ -236,9 +244,21 @@ export default function TransferPutAwayPage({
                 <Alert role="status">
                   <AlertDescription>{putAway.notice}</AlertDescription>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <Button variant="outline" disabled={busy} onClick={() => void reload()}>
-                      Tải lại và giữ số lượng đang nhập
-                    </Button>
+                    {putAway.reloadRequired || putAway.unknownResult ? (
+                      <Button variant="outline" disabled={busy} onClick={() => void reload()}>
+                        Tải lại và giữ số lượng đang nhập
+                      </Button>
+                    ) : null}
+                    {putAway.planUpdateAvailable ? (
+                      <Button
+                        ref={applyPlanButton}
+                        variant="outline"
+                        disabled={busy || putAway.blocked}
+                        onClick={() => setApplyPlanOpen(true)}
+                      >
+                        Áp dụng kế hoạch mới
+                      </Button>
+                    ) : null}
                     {putAway.unknownResult ? (
                       <Button
                         variant="outline"
@@ -354,6 +374,7 @@ export default function TransferPutAwayPage({
         ) : null}
       </OperationalListPanel>
       <TransferConfirmDialog
+        actionClassName="h-11 md:h-8 pointer-coarse:h-11"
         open={putAway.confirmOpen}
         onOpenChange={putAway.setConfirmOpen}
         title="Ghi nhận cất hàng?"
@@ -366,6 +387,27 @@ export default function TransferPutAwayPage({
             if (done) void reload()
           })
         }
+      />
+      <TransferConfirmDialog
+        open={applyPlanOpen}
+        onOpenChange={setApplyPlanOpen}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          const target = applyPlanButton.current ?? executionTab.current
+          target?.focus()
+        }}
+        title="Áp dụng kế hoạch mới?"
+        description="Khai báo cất sẽ được dựng lại theo số thực nhận còn lại. Số lượng đang chỉnh, vị trí chọn thủ công và mã quét sẽ được bỏ; bạn cần kiểm tra và quét lại trước khi cất."
+        confirmLabel="Áp dụng kế hoạch mới"
+        pendingLabel="Đang xử lý…"
+        isPending={busy}
+        actionClassName="h-11 md:h-8 pointer-coarse:h-11"
+        onConfirm={() => {
+          if (!busy && !putAway.blocked) {
+            putAway.applyPlan()
+            setApplyPlanOpen(false)
+          }
+        }}
       />
       <TransferUnsavedChanges
         dirty={editor.isDirty || putAway.form.formState.isDirty || putAway.unknownResult}

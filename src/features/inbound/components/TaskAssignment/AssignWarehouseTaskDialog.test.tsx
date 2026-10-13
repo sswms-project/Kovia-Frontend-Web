@@ -67,6 +67,20 @@ function Harness({
 }
 
 describe('AssignWarehouseTaskDialog unassign', () => {
+  it('labels a first transfer assignment as an optional note, not reassignment', () => {
+    render(
+      <Harness
+        task={target({
+          kind: 'TransferReceive',
+          currentAssigneeId: null,
+          currentAssigneeName: null,
+        })}
+        staff={[person(CURRENT_ID, 'Nhân viên A')]}
+      />
+    )
+    expect(screen.getByLabelText('Ghi chú giao việc (nếu có)')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Lý do đổi người nhận việc (nếu có)')).not.toBeInTheDocument()
+  })
   it('allows the current transfer worker to keep their assignment and change its schedule', () => {
     render(
       <Harness

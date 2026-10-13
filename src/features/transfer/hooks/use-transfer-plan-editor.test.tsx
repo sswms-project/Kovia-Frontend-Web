@@ -51,6 +51,18 @@ describe('useTransferPlanEditor', () => {
     expect(mocks.save.mock.calls[0]![0].request.expectedVersion).toBe('v1')
     expect(hook.result.current.isOpen).toBe(false)
   })
+  it('loads the saved server plan without a misleading conflict/review warning', async () => {
+    const { hook, transfer } = setup()
+    mocks.save.mockResolvedValue(undefined)
+    await act(async () => {
+      await hook.result.current.submit()
+    })
+    act(() => hook.result.current.rebase({ ...transfer, version: 'v2' }, 'saved'))
+    expect(hook.result.current.draft).toEqual(buildTransferPlanDraft(transfer.items))
+    expect(hook.result.current.errorMessage).toBeNull()
+    expect(hook.result.current.isDirty).toBe(false)
+    expect(hook.result.current.isOpen).toBe(false)
+  })
   it.each([
     { statusCode: 409, message: 'Kế hoạch đã thay đổi.' },
     new Error('Failed to fetch'),

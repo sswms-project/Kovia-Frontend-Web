@@ -34,6 +34,7 @@ interface Props {
   readonly suggestionError?: string | null
   readonly onSuggest: () => void
   readonly onReload: () => Promise<void>
+  readonly onSaved: () => Promise<void>
 }
 
 export function TransferPutawayPlanWorkspace({
@@ -48,6 +49,7 @@ export function TransferPutawayPlanWorkspace({
   suggestionError,
   onSuggest,
   onReload,
+  onSaved,
 }: Props) {
   const id = useId()
   const content = useRef<HTMLDivElement>(null)
@@ -289,7 +291,8 @@ export function TransferPutawayPlanWorkspace({
             disabled={disabled || !editor.isDirty}
             onClick={async () => {
               const done = await editor.submit()
-              if (!done)
+              if (done) await onSaved()
+              else
                 requestAnimationFrame(() =>
                   content.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
                 )

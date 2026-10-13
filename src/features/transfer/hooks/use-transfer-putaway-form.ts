@@ -40,6 +40,7 @@ export function useTransferPutAwayForm(
   const [unknownResult, setUnknownResult] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [changedLines, setChangedLines] = useState<ReadonlySet<string>>(new Set())
+  const [planUpdateAvailable, setPlanUpdateAvailable] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const mutation = usePutAwayTransferShipmentMutation()
   const findSlot = useFindReceivableSlotMutation()
@@ -49,6 +50,7 @@ export function useTransferPutAwayForm(
       zodResolver(createTransferPutAwaySchema(snapshot.current))(values, context, options),
   })
   const fields = useFieldArray({ control: form.control, name: 'entries' })
+  const isDirty = form.formState.isDirty
   useEffect(() => {
     if (!sheet) return
     if (!snapshot.current || snapshot.current.receipt.shipmentId !== sheet.receipt.shipmentId) {
@@ -122,6 +124,7 @@ export function useTransferPutAwayForm(
     changedLines,
     reloadRequired,
     unknownResult,
+    planUpdateAvailable,
     confirmOpen,
     setConfirmOpen,
     isPending: mutation.isPending,
@@ -162,6 +165,8 @@ export function useTransferPutAwayForm(
     acceptFresh: (fresh: TransferPutAwaySheet) => {
       if (lock.current || scanLock.current) return
       const previous = snapshot.current
+      const planChanged = previous?.planVersion !== fresh.planVersion
+      const useFreshPlan = planChanged && !isDirty && !intent.current && !unknownResult
       const fingerprint = (source: TransferPutAwaySheet, lineId: string) =>
         JSON.stringify(
           source.rows
@@ -186,11 +191,18 @@ export function useTransferPutAwayForm(
       )
       snapshot.current = fresh
       setConfirmOpen(false)
-      if (lastWriteSucceeded.current || fresh.receipt.status !== 'AwaitingPutAway') {
+      if (
+        lastWriteSucceeded.current ||
+        fresh.receipt.status !== 'AwaitingPutAway' ||
+        useFreshPlan
+      ) {
         form.reset({ entries: buildTransferPutAwayEntries(fresh) })
         intent.current = null
         setUnknownResult(false)
         lastWriteSucceeded.current = false
+        setPlanUpdateAvailable(false)
+      } else if (planChanged) {
+        setPlanUpdateAvailable(true)
       }
       setReloadRequired(false)
       writeBlocked.current = Boolean(unknownResult && intent.current)
@@ -205,6 +217,8 @@ export function useTransferPutAwayForm(
       if (canEdit() && snapshot.current) {
         form.reset({ entries: buildTransferPutAwayEntries(snapshot.current) })
         setChangedLines(new Set())
+        setPlanUpdateAvailable(false)
+        setNotice('Đã áp dụng kế hoạch mới. Kiểm tra số lượng và quét lại vị trí trước khi cất.')
       }
     },
     split: (index: number) => {

@@ -13,7 +13,11 @@ describe('Tab kiểm hàng và cất hàng', () => {
     expect(parseTransferDetailTab('feedback')).toBe('discrepancies')
   })
   it('chooses the putaway tab when stock has been counted but not stored', () => {
-    const shipment = buildShipment({ status: 'AwaitingPutAway', putAwayTaskId: 'task' })
+    const shipment = buildShipment({
+      status: 'AwaitingPutAway',
+      putAwayTaskId: 'task',
+      putAwayAssigneeId: 'worker',
+    })
     const transfer = buildTransfer({ shipments: [shipment] })
     const viewer = {
       permissions: [P.TRANSFERS_RECEIVE],

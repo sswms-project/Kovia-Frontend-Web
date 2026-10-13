@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
-import { TransferReceiptCountTable, TransferWorkHeader } from '../components/TransferWork'
+import { TransferReceiptCountCards, TransferWorkHeader } from '../components/TransferWork'
 import {
   TransferChangedBanner,
   TransferConfirmDialog,
@@ -148,7 +148,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
   const busy = count.isPending || start.isPending || isReloading
   const readOnly = sheet.status !== 'Receiving'
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 max-md:[&_a]:min-h-11 pointer-coarse:[&_a]:min-h-11 max-md:[&_button]:min-h-11 pointer-coarse:[&_button]:min-h-11">
       <TransferWorkHeader
         heading="Phiếu nhập điều chuyển"
         transferId={transferId}
@@ -205,13 +205,13 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         </Alert>
       ) : null}
       <OperationalListPanel aria-label="Đối chiếu hàng điều chuyển" aria-busy={busy}>
-        <TransferReceiptCountTable
+        <TransferReceiptCountCards
           form={count.form}
           sheet={sheet}
           disabled={readOnly || count.blocked || busy}
         />
         <footer className="bg-card flex shrink-0 flex-wrap items-center justify-between gap-3 border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <p role="status" aria-live="polite" className="text-sm tabular-nums">
+          <p className="text-sm tabular-nums">
             Tốt {formatQuantity(totals.good)} · Hỏng {formatQuantity(totals.damaged)} · Thiếu{' '}
             {formatQuantity(totals.missing)}
           </p>
@@ -230,6 +230,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         </footer>
       </OperationalListPanel>
       <TransferConfirmDialog
+        actionClassName="h-11 md:h-8 pointer-coarse:h-11"
         open={count.confirmOpen}
         onOpenChange={count.setConfirmOpen}
         title="Nộp phiếu kiểm hàng?"

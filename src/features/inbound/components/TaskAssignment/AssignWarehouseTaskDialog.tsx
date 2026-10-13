@@ -220,7 +220,9 @@ export function AssignWarehouseTaskDialog({
                   {canUnassign
                     ? 'Lý do giao lại hoặc hủy giao'
                     : isTransfer
-                      ? 'Lý do đổi người nhận việc (nếu có)'
+                      ? isReassignment
+                        ? 'Lý do đổi người nhận việc (nếu có)'
+                        : 'Ghi chú giao việc (nếu có)'
                       : 'Lý do giao lại'}
                 </FieldLabel>
                 <Textarea
@@ -235,7 +237,9 @@ export function AssignWarehouseTaskDialog({
                 <FieldDescription>
                   {canUnassign
                     ? 'Lý do được ghi vào nhật ký hoạt động và gửi thông báo cho nhân viên đang được giao.'
-                    : 'Lý do được ghi vào nhật ký hoạt động và gửi thông báo cho cả hai nhân viên.'}
+                    : isReassignment
+                      ? 'Lý do được ghi vào nhật ký hoạt động và gửi thông báo cho cả hai nhân viên.'
+                      : 'Ghi chú được ghi cùng lần giao công việc.'}
                 </FieldDescription>
                 <FieldError>{errors.reason?.message}</FieldError>
               </Field>

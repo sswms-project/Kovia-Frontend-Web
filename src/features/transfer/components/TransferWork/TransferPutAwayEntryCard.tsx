@@ -200,6 +200,7 @@ export function TransferPutAwayEntryCard({
           <FieldLabel htmlFor={quantityId}>Số lượng cất ({row.baseUnitName})</FieldLabel>
           <Input
             id={quantityId}
+            className="h-11 md:h-8 pointer-coarse:h-11"
             type="number"
             min={0}
             max={row.remainingQuantity}
