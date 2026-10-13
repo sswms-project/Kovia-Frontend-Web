@@ -622,6 +622,11 @@ export function CycleCountItemsTable({
                             value={getDamagedDraft(item)}
                             disabled={isPending || draft === ''}
                             aria-invalid={isDamagedInvalid(item)}
+                            title={
+                              isDamagedInvalid(item)
+                                ? 'Số hỏng phải từ 0 và không vượt số đếm'
+                                : undefined
+                            }
                             onChange={(event) =>
                               setDamagedDrafts((current) => ({
                                 ...current,
@@ -632,7 +637,7 @@ export function CycleCountItemsTable({
                               if (event.key === 'Enter') focusNext(rowIndex)
                             }}
                           />
-                          {(getLiveDamaged(item) ?? 0) > 0 ? (
+                          {(getLiveDamaged(item) ?? 0) > 0 && !isDamagedInvalid(item) ? (
                             // Icon cạnh ô nhập để dòng không cao thêm; chấm đỏ báo còn thiếu ảnh/lý do.
                             <Button
                               type="button"
@@ -836,20 +841,23 @@ export function CycleCountItemsTable({
                   }
                 >
                   <Send />
-                  Hoàn thành kiểm kê
+                  Gửi kết quả cho quản lý
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Cảnh báo!</AlertDialogTitle>
+                  <AlertDialogTitle>Gửi kết quả kiểm kê cho quản lý?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Khi chuyển trạng thái hoàn thành kiểm kê sẽ không thể sửa lại kết quả kiểm kê,
-                    bạn có chắc chắn không?
+                    {items.length} dòng
+                    {hasHiddenQuantity ? '' : `, ${counts.variance} dòng lệch`}
+                    {totalDamaged > 0 ? `, ${formatCount(totalDamaged)} hàng hỏng` : ''}. Phiếu sẽ
+                    chuyển sang Chờ duyệt; bạn không sửa được số đếm nữa trừ khi quản lý yêu cầu đếm
+                    lại.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Không</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => void onSubmit()}>Đã kiểm kê</AlertDialogAction>
+                  <AlertDialogCancel>Quay lại</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void onSubmit()}>Gửi kết quả</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

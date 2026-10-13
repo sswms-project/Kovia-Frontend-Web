@@ -188,7 +188,13 @@ export function CycleCountItemCards({
               </div>
             </div>
 
-            {row.recordable && row.hasDamage ? (
+            {row.recordable && row.damagedInvalid ? (
+              <p role="alert" className="text-destructive text-xs">
+                Số hỏng phải từ 0 và không vượt số đếm.
+              </p>
+            ) : null}
+
+            {row.recordable && row.hasDamage && !row.damagedInvalid ? (
               <Button
                 type="button"
                 variant={row.damageIncomplete ? 'destructive' : 'outline'}
