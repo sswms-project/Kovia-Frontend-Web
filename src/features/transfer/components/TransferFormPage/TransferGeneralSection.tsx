@@ -1,4 +1,5 @@
 import type { UseFormReturn } from 'react-hook-form'
+import { DatePickerField } from '@/components/forms/DatePickerField'
 import {
   BusinessCodeField,
   type BusinessCodeFieldProps,
@@ -138,11 +139,26 @@ export function TransferGeneralSection({
           />
           <FieldError>{errors.requestingDepartment?.message}</FieldError>
         </Field>
-        <Field data-invalid={Boolean(errors.requiredBy)}>
-          <FieldLabel htmlFor="transfer-required-by">Hạn cần hàng</FieldLabel>
-          <Input id="transfer-required-by" type="date" {...form.register('requiredBy')} />
-          <FieldError>{errors.requiredBy?.message}</FieldError>
-        </Field>
+        <DatePickerField
+          id="transfer-planned-date"
+          label="Ngày dự kiến điều chuyển"
+          withTime
+          value={form.watch('plannedTransferDate') ?? ''}
+          error={errors.plannedTransferDate?.message}
+          onChange={(value) =>
+            form.setValue('plannedTransferDate', value, { shouldDirty: true, shouldValidate: true })
+          }
+        />
+        <DatePickerField
+          id="transfer-required-by"
+          label="Ngày hàng dự kiến về kho nhập"
+          withTime
+          value={form.watch('requiredBy')}
+          error={errors.requiredBy?.message}
+          onChange={(value) =>
+            form.setValue('requiredBy', value, { shouldDirty: true, shouldValidate: true })
+          }
+        />
         <Field data-invalid={Boolean(errors.destinationWarehouseId)}>
           <FieldLabel htmlFor="transfer-destination">Kho nhập</FieldLabel>
           <NativeSelect

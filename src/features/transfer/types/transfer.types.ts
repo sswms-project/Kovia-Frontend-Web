@@ -116,6 +116,7 @@ export interface TransferSourceProduct {
 }
 
 export interface TransferSummary {
+  plannedTransferDate?: string | null
   id: string
   nextActionCode?: string | null
   transferCode: string
@@ -333,6 +334,7 @@ export interface TransferFeedback {
 }
 
 export interface TransferDetail {
+  plannedTransferDate?: string | null
   id: string
   transferCode: string
   requesterName: string | null
@@ -419,6 +421,7 @@ export interface TransferLineInput {
 }
 
 export interface SaveTransferDraftRequest {
+  plannedTransferDate?: string | null
   expectedVersion: string | null
   transferCode: string | null
   requesterName: string | null
@@ -432,6 +435,9 @@ export interface SaveTransferDraftRequest {
 }
 
 export interface UpdateTransferRequest {
+  plannedTransferDate?: string | null
+  clearPlannedTransferDate?: boolean
+  clearRequiredBy?: boolean
   expectedVersion: string
   requesterName: string
   requestingDepartment: string

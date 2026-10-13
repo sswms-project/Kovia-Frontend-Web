@@ -55,6 +55,7 @@ import {
   dispatchedInEnteredUnit,
   emptyTransferForm,
   findWarehouseName,
+  transferToFormValues,
   visibleTransferItems,
 } from '../utils/transfer-form'
 import { canSeeWarehouse } from '../utils/transfer-capabilities'
@@ -86,7 +87,12 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
 
   const form = useForm<TransferRequestFormValues>({
     resolver: (values, context, options) =>
-      zodResolver(transferRequestSchemaWithLocks(locksRef.current))(values, context, options),
+      zodResolver(
+        transferRequestSchemaWithLocks(
+          locksRef.current,
+          mode === 'edit' && detail ? transferToFormValues(detail) : undefined
+        )
+      )(values, context, options),
     defaultValues: emptyTransferForm(),
   })
   const fieldArray = useFieldArray({ control: form.control, name: 'lines' })

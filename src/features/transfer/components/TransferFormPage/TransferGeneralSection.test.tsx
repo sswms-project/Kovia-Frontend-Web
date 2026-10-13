@@ -41,6 +41,18 @@ function Harness({
 }
 
 describe('TransferGeneralSection', () => {
+  it('shows both date/time pickers and keeps a date-only arrival distinct from midnight', () => {
+    render(
+      <Harness defaults={{ plannedTransferDate: '2026-10-20T00:00', requiredBy: '2026-10-20' }} />
+    )
+    expect(screen.getByRole('button', { name: 'Ngày dự kiến điều chuyển' })).toHaveTextContent(
+      '20/10/2026 00:00'
+    )
+    expect(screen.getByRole('button', { name: 'Ngày hàng dự kiến về kho nhập' })).toHaveTextContent(
+      '20/10/2026'
+    )
+    expect(screen.queryByText('Hạn cần hàng')).not.toBeInTheDocument()
+  })
   it('fills the warehouse addresses from the chosen warehouses', () => {
     render(<Harness defaults={{ destinationWarehouseId: 'dst', sourceWarehouseId: 'src' }} />)
 

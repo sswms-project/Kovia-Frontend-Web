@@ -159,4 +159,5 @@ Nêu rõ: các commit, các test đã chạy và kết quả, tên migration m�
 - A: đã thay placeholder, gộp giải thích vào Popover dùng được bằng bàn phím/mobile; 5 test của trường vị trí đạt, ESLint các file thay đổi đạt. Không ghi DB.
 - B: tái sử dụng `ClickableTableRow`, giữ Link tên kho trên desktop và một Link phủ thẻ mobile; 7 test danh sách kho/dòng dùng chung đạt, ESLint đạt.
 - C: đã chuyển ô ngày dùng chung sang `components/forms`, bổ sung giờ tùy chọn và giữ chế độ chỉ ngày. 10 test (ô ngày/giờ, chuyển đổi thời gian và form Nhập kho) đạt; TypeScript và ESLint đạt. Kiểm kê chỉ đổi import, không có suite riêng hiện hữu. TypeScript cũng phát hiện và đã sửa kiểu truy cập phần tử trong test bước B.
-- D–E: chưa hoàn thành. Migration chưa được tạo hoặc áp; QA API thật chưa chạy.
+- D: đã triển khai hai ngày BE/FE, cờ xóa của Update, kiểm lại ngày lưu trong Submit, giữ nguyên timestamp cũ và không sửa hạn của việc đã tạo. BE 187 test đạt/4 race SQL Server bỏ qua; FE 311 test điều chuyển đạt; TypeScript/ESLint đạt; build BE Release 0 lỗi/0 cảnh báo. Migration `20261013132528_AddTransferPlannedTransferDate` chỉ thêm `StockTransfers.PlannedTransferDate datetimeoffset NULL`; SQL đã rà, snapshot chỉ thêm 3 dòng, model drift không còn. Migration **chưa áp** lên database nào.
+- E: chưa hoàn thành. QA API thật chưa chạy vì chưa được phép áp migration mới.

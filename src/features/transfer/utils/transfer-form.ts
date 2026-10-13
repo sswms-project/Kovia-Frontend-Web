@@ -1,7 +1,4 @@
-import {
-  toOperationalDateInputValue,
-  toOperationalDateTimeEnd,
-} from '@/features/inbound-request/utils/inbound-request-format'
+import { toOperationalDateTimeInput, toOperationalDateTimeApi } from '@/lib/operational-date-time'
 import type {
   TransferRequestFormValues,
   TransferLineFormValues,
@@ -32,6 +29,7 @@ export function emptyTransferForm(): TransferRequestFormValues {
     destinationWarehouseId: '',
     reason: '',
     requiredBy: '',
+    plannedTransferDate: '',
     note: '',
     lines: [{ ...EMPTY_TRANSFER_LINE }],
   }
@@ -51,7 +49,8 @@ export function transferToFormValues(detail: TransferDetail): TransferRequestFor
     sourceWarehouseId: detail.sourceWarehouseId,
     destinationWarehouseId: detail.destinationWarehouseId,
     reason: detail.reason ?? '',
-    requiredBy: toOperationalDateInputValue(detail.requiredBy),
+    requiredBy: toOperationalDateTimeInput(detail.requiredBy),
+    plannedTransferDate: toOperationalDateTimeInput(detail.plannedTransferDate),
     note: detail.note ?? '',
     lines:
       items.length > 0
@@ -88,13 +87,10 @@ export function toTransferLineInputs(
   }))
 }
 
-function toRequiredByIso(value: string): string | null {
-  return value ? toOperationalDateTimeEnd(value) : null
-}
-
 export function toSaveDraftRequest(
   values: TransferRequestFormValues,
-  expectedVersion: string | null
+  expectedVersion: string | null,
+  original?: Pick<TransferDetail, 'requiredBy' | 'plannedTransferDate'>
 ): SaveTransferDraftRequest {
   return {
     expectedVersion,
@@ -104,7 +100,11 @@ export function toSaveDraftRequest(
     sourceWarehouseId: values.sourceWarehouseId,
     destinationWarehouseId: values.destinationWarehouseId,
     reason: values.reason || null,
-    requiredBy: toRequiredByIso(values.requiredBy),
+    requiredBy: toOperationalDateTimeApi(values.requiredBy, original?.requiredBy),
+    plannedTransferDate: toOperationalDateTimeApi(
+      values.plannedTransferDate ?? '',
+      original?.plannedTransferDate
+    ),
     note: values.note || null,
     items: toTransferLineInputs(values.lines),
   }
@@ -112,7 +112,8 @@ export function toSaveDraftRequest(
 
 export function toUpdateTransferRequest(
   values: TransferRequestFormValues,
-  original: Pick<TransferDetail, 'sourceWarehouseId' | 'destinationWarehouseId'>,
+  original: Pick<TransferDetail, 'sourceWarehouseId' | 'destinationWarehouseId'> &
+    Partial<Pick<TransferDetail, 'requiredBy' | 'plannedTransferDate'>>,
   expectedVersion: string
 ): UpdateTransferRequest {
   return {
@@ -126,7 +127,13 @@ export function toUpdateTransferRequest(
         ? values.destinationWarehouseId
         : null,
     reason: values.reason || null,
-    requiredBy: toRequiredByIso(values.requiredBy),
+    requiredBy: toOperationalDateTimeApi(values.requiredBy, original.requiredBy),
+    plannedTransferDate: toOperationalDateTimeApi(
+      values.plannedTransferDate ?? '',
+      original.plannedTransferDate
+    ),
+    clearRequiredBy: !values.requiredBy && Boolean(original.requiredBy),
+    clearPlannedTransferDate: !values.plannedTransferDate && Boolean(original.plannedTransferDate),
     note: values.note || null,
     items: toTransferLineInputs(values.lines),
   }
