@@ -33,11 +33,11 @@ export function TransferDesktopTable({
             <TableHead className="w-44">Mã yêu cầu</TableHead>
             <TableHead className="w-44">Ngày tạo</TableHead>
             <TableHead className="w-72">Kho xuất → Kho nhập</TableHead>
-            <TableHead className="w-44">Ngày dự kiến điều chuyển</TableHead>
-            <TableHead className="w-44">Ngày hàng dự kiến về kho nhập</TableHead>
             <TableHead className="w-40">Trạng thái</TableHead>
             <TableHead className="w-36">Tình trạng thực hiện</TableHead>
             <TableHead className="w-44 min-w-44">Việc cần làm</TableHead>
+            <TableHead className="w-44">Ngày dự kiến điều chuyển</TableHead>
+            <TableHead className="w-44">Ngày hàng dự kiến về kho nhập</TableHead>
             <TableHead className="w-64">Cần chú ý</TableHead>
             <TableHead className="w-40">Người tạo</TableHead>
             <TableHead className="w-12">
@@ -63,8 +63,6 @@ export function TransferDesktopTable({
               <TableCell className="whitespace-normal">
                 {item.sourceWarehouseName} → {item.destinationWarehouseName}
               </TableCell>
-              <TableCell>{formatOperationalOptionalTime(item.plannedTransferDate)}</TableCell>
-              <TableCell>{formatOperationalOptionalTime(item.requiredBy)}</TableCell>
               <TableCell>
                 <TransferStatusBadge status={item.status} />
               </TableCell>
@@ -77,6 +75,8 @@ export function TransferDesktopTable({
               <TableCell>
                 <TransferNextActionChip code={item.nextActionCode} />
               </TableCell>
+              <TableCell>{formatOperationalOptionalTime(item.plannedTransferDate)}</TableCell>
+              <TableCell>{formatOperationalOptionalTime(item.requiredBy)}</TableCell>
               <TableCell>
                 <TransferFlagBadges
                   hasOpenFeedback={item.hasOpenFeedback}

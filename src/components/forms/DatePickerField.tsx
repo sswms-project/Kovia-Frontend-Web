@@ -93,8 +93,9 @@ export function DatePickerField({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="max-h-[80dvh] w-auto max-w-[calc(100vw-2rem)] overflow-y-auto p-0 motion-reduce:animate-none"
+          className="max-h-(--radix-popover-content-available-height) w-auto max-w-[calc(100vw-2rem)] overflow-y-auto p-0 motion-reduce:animate-none"
           align="start"
+          collisionPadding={16}
         >
           <Calendar
             className={withTime ? '[--cell-size:--spacing(11)]' : undefined}
