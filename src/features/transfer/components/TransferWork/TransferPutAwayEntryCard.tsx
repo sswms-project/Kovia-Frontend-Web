@@ -110,14 +110,15 @@ export function TransferPutAwayEntryCard({
           <ScanInput
             id={`putaway-slot-${index}`}
             label="Quét mã vị trí cất hàng"
-            hideCamera
             confirmedValue={confirmed ? entry.slotLabel || entry.scannedSlotCode : undefined}
             error={errors?.scannedSlotCode?.message ?? errors?.destinationSlotId?.message ?? null}
             disabled={disabled}
             pending={pendingScan}
             onScan={async (code) => {
               const done = await onScanSlot(index, code)
-              if (done) document.getElementById(quantityId)?.focus()
+              // Let the camera dialog release its focus trap before moving to quantity.
+              if (done)
+                window.requestAnimationFrame(() => document.getElementById(quantityId)?.focus())
               return done
             }}
           />
@@ -188,7 +189,6 @@ export function TransferPutAwayEntryCard({
             <ScanInput
               id={`putaway-product-${index}`}
               label="Quét mã hàng (không bắt buộc)"
-              hideCamera
               disabled={disabled}
               confirmedValue={entry.scannedProductCode || undefined}
               error={errors?.scannedProductCode?.message ?? null}
