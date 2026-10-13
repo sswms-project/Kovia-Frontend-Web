@@ -16,7 +16,7 @@ export function TransferAllocationHelp() {
           <Info aria-hidden="true" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="max-w-[calc(100vw-2rem)]">
+      <PopoverContent align="start" className="max-w-[calc(100vw-2rem)] motion-reduce:animate-none">
         <div className="flex flex-col gap-2 text-sm">
           <p className="font-semibold">Hệ thống phân bổ như thế nào?</p>
           <p>FEFO: lấy lô hết hạn trước. Không có hạn dùng: lấy lô nhập trước (FIFO).</p>

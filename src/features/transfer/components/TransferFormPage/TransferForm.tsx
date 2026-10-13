@@ -3,7 +3,7 @@ import type { FieldArrayWithId, UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
-import type { TransferLineUnits } from '../../types/transfer.types'
+import type { TransferLineUnits, TransferDestinationLoad } from '../../types/transfer.types'
 import {
   TransferGeneralSection,
   type TransferFormMode,
@@ -18,6 +18,7 @@ import { TransferAllocationHelp } from './TransferAllocationHelp'
 export type { TransferFormMode, WarehouseSelectOption }
 
 interface TransferFormProps {
+  readonly destinationLoad?: TransferDestinationLoad
   readonly form: UseFormReturn<TransferRequestFormValues>
   readonly fields: readonly FieldArrayWithId<TransferRequestFormValues, 'lines', 'id'>[]
   readonly mode: TransferFormMode
@@ -59,6 +60,7 @@ interface TransferFormProps {
 }
 
 export function TransferForm({
+  destinationLoad,
   form,
   fields,
   mode,
@@ -117,6 +119,7 @@ export function TransferForm({
       }}
     >
       <TransferGeneralSection
+        destinationLoad={destinationLoad}
         form={form}
         mode={mode}
         destinationOptions={destinationOptions}

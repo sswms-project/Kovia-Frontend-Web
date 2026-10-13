@@ -1,4 +1,18 @@
 export const OPERATIONAL_TIME_ZONE = 'Asia/Ho_Chi_Minh'
+const ISO_FRACTION = /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/i
+
+function subMillisecondDigits(value: string): string {
+  return (value.match(ISO_FRACTION)?.[1] ?? '').slice(3).padEnd(4, '0')
+}
+
+/** Preserve the remaining .NET timestamp precision when milliseconds compare equal. */
+export function compareOperationalInstants(left: string, right: string): number {
+  const milliseconds = Date.parse(left) - Date.parse(right)
+  if (milliseconds) return milliseconds
+  const leftFraction = subMillisecondDigits(left)
+  const rightFraction = subMillisecondDigits(right)
+  return leftFraction === rightFraction ? 0 : leftFraction < rightFraction ? -1 : 1
+}
 const dateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: OPERATIONAL_TIME_ZONE,
   year: 'numeric',
@@ -23,7 +37,8 @@ export function toOperationalDateTimeInput(value: string | null | undefined): st
     parts.hour === '23' &&
     parts.minute === '59' &&
     parts.second === '59' &&
-    instant.getUTCMilliseconds() === 999
+    instant.getUTCMilliseconds() === 999 &&
+    !/[1-9]/.test(subMillisecondDigits(value))
   return isDateOnly ? day : `${day}T${parts.hour}:${parts.minute}`
 }
 

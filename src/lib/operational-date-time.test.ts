@@ -4,9 +4,28 @@ import {
   isOperationalDateTimeInput,
   toOperationalDateTimeApi,
   toOperationalDateTimeInput,
+  compareOperationalInstants,
 } from './operational-date-time'
 
 describe('operational date/time', () => {
+  it('recognizes the exact date-only sentinel without losing sub-millisecond time', () => {
+    expect(toOperationalDateTimeInput('2026-10-20T23:59:59.9990000+07:00')).toBe('2026-10-20')
+    expect(toOperationalDateTimeInput('2026-10-20T23:59:59.9991234+07:00')).toBe('2026-10-20T23:59')
+  })
+  it('compares preserved .NET fractional precision across equivalent timezone offsets', () => {
+    expect(
+      compareOperationalInstants(
+        '2026-10-20T10:00:00.0000000+07:00',
+        '2026-10-20T03:00:00.0000001Z'
+      )
+    ).toBeLessThan(0)
+    expect(
+      compareOperationalInstants(
+        '2026-10-20T10:00:00.1234567+07:00',
+        '2026-10-20T03:00:00.1234567Z'
+      )
+    ).toBe(0)
+  })
   it('keeps legacy end-of-day dates separate from explicitly selected midnight', () => {
     expect(toOperationalDateTimeInput('2026-10-20T23:59:59.999+07:00')).toBe('2026-10-20')
     expect(formatOperationalOptionalTime('2026-10-20T16:59:59.999Z')).toBe('20/10/2026')

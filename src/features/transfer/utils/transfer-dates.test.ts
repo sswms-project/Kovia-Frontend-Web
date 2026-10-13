@@ -42,16 +42,20 @@ describe('transfer date validation', () => {
   })
 
   it('does not block unchanged past dates during an update but checks effective ordering on date changes', () => {
-    const original = { plannedTransferDate: '2026-10-12', requiredBy: '2026-10-12' }
-    expect(transferDateIssues(original, original, now)).toEqual([])
+    const original = {
+      plannedTransferDate: '2026-10-12T23:59:59.999+07:00',
+      requiredBy: '2026-10-12T23:59:59.999+07:00',
+    }
+    const values = { plannedTransferDate: '2026-10-12', requiredBy: '2026-10-12' }
+    expect(transferDateIssues(values, original, now)).toEqual([])
     expect(
-      transferDateIssues({ ...original, plannedTransferDate: '2026-10-15' }, original, now)
+      transferDateIssues({ ...values, plannedTransferDate: '2026-10-15' }, original, now)
     ).toEqual([
       { path: 'requiredBy', message: 'Ngày hàng về không được trước ngày dự kiến điều chuyển.' },
     ])
-    expect(
-      transferDateIssues({ ...original, requiredBy: '2026-10-11' }, original, now)
-    ).toHaveLength(1)
+    expect(transferDateIssues({ ...values, requiredBy: '2026-10-11' }, original, now)).toHaveLength(
+      1
+    )
   })
 
   it('applies the rules in the form schema, including invalid dates and clear values', () => {
@@ -68,12 +72,44 @@ describe('transfer date validation', () => {
     expect(
       transferRequestSchema.safeParse({ ...form, plannedTransferDate: '2026-02-30' }).success
     ).toBe(false)
-    const original = { plannedTransferDate: '2026-10-12', requiredBy: '2026-10-12' }
-    expect(transferRequestSchema.safeParse({ ...form, ...original }).success).toBe(false)
+    const original = {
+      plannedTransferDate: '2026-10-12T23:59:59.999+07:00',
+      requiredBy: '2026-10-12T23:59:59.999+07:00',
+    }
+    const values = { plannedTransferDate: '2026-10-12', requiredBy: '2026-10-12' }
+    expect(transferRequestSchema.safeParse({ ...form, ...values }).success).toBe(false)
     const editSchema = transferRequestSchemaWithLocks(new Map(), original)
-    expect(editSchema.safeParse({ ...form, ...original, reason: 'Sửa ghi chú' }).success).toBe(true)
+    expect(editSchema.safeParse({ ...form, ...values, reason: 'Sửa ghi chú' }).success).toBe(true)
     expect(editSchema.safeParse({ ...form, plannedTransferDate: '', requiredBy: '' }).success).toBe(
       true
     )
+  })
+
+  it('compares an edited date against the untouched seconds and fractional precision of the other date', () => {
+    const original = {
+      plannedTransferDate: '2026-10-14T15:00:30+07:00',
+      requiredBy: '2026-10-14T16:00:00+07:00',
+    }
+    expect(
+      transferDateIssues(
+        { plannedTransferDate: '2026-10-14T15:00', requiredBy: '2026-10-14T15:00' },
+        original,
+        now
+      )
+    ).toHaveLength(1)
+    expect(
+      transferDateIssues(
+        { plannedTransferDate: '2026-10-14T15:00', requiredBy: '2026-10-14T15:01' },
+        original,
+        now
+      )
+    ).toEqual([])
+    expect(
+      transferDateIssues(
+        { plannedTransferDate: '2026-10-14T15:00', requiredBy: '2026-10-14T15:00' },
+        { ...original, plannedTransferDate: '2026-10-14T15:00:00.0000001+07:00' },
+        now
+      )
+    ).toHaveLength(1)
   })
 })

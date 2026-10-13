@@ -2,6 +2,8 @@ import {
   isOperationalDateTimeInput,
   operationalToday,
   toOperationalDateTimeApi,
+  toOperationalDateTimeInput,
+  compareOperationalInstants,
 } from '@/lib/operational-date-time'
 
 export interface TransferFormDates {
@@ -9,16 +11,21 @@ export interface TransferFormDates {
   readonly requiredBy: string
 }
 
+export interface TransferStoredDates {
+  readonly plannedTransferDate?: string | null
+  readonly requiredBy?: string | null
+}
+
 const PAST_TOLERANCE_MS = 5 * 60 * 1000
 
 export function transferDateIssues(
   values: TransferFormDates,
-  original?: TransferFormDates,
+  original?: TransferStoredDates,
   now = new Date()
 ) {
   const issues: { path: 'plannedTransferDate' | 'requiredBy'; message: string }[] = []
   const changed = (key: keyof TransferFormDates) =>
-    !original || (values[key] ?? '') !== (original[key] ?? '')
+    !original || (values[key] ?? '') !== toOperationalDateTimeInput(original[key])
   for (const key of ['plannedTransferDate', 'requiredBy'] as const) {
     const value = values[key] ?? ''
     if (!value) continue
@@ -42,7 +49,10 @@ export function transferDateIssues(
     const wrongOrder =
       !planned.includes('T') || !values.requiredBy.includes('T')
         ? values.requiredBy.slice(0, 10) < planned.slice(0, 10)
-        : values.requiredBy < planned
+        : compareOperationalInstants(
+            toOperationalDateTimeApi(values.requiredBy, original?.requiredBy)!,
+            toOperationalDateTimeApi(planned, original?.plannedTransferDate)!
+          ) < 0
     if (wrongOrder)
       issues.push({
         path: 'requiredBy',

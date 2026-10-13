@@ -3,6 +3,7 @@
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
+import type { Ref } from 'react'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
@@ -22,6 +23,8 @@ interface DatePickerFieldProps {
   readonly error?: string
   readonly value: string
   readonly onChange: (value: string) => void
+  readonly onBlur?: () => void
+  readonly triggerRef?: Ref<HTMLButtonElement>
 }
 
 function parseDateInputValue(value: string): Date | undefined {
@@ -46,6 +49,8 @@ export function DatePickerField({
   value,
   onChange,
   withTime = false,
+  onBlur,
+  triggerRef,
 }: DatePickerFieldProps) {
   const selectedDate = parseDateInputValue(value)
   const today = withTime ? parseDateInputValue(operationalToday())! : new Date()
@@ -67,6 +72,8 @@ export function DatePickerField({
       <Popover>
         <PopoverTrigger asChild>
           <Button
+            ref={triggerRef}
+            onBlur={onBlur}
             id={id}
             type="button"
             variant="outline"
@@ -85,8 +92,12 @@ export function DatePickerField({
             {time ? ` ${time}` : ''}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent
+          className="max-h-[80dvh] w-auto max-w-[calc(100vw-2rem)] overflow-y-auto p-0 motion-reduce:animate-none"
+          align="start"
+        >
           <Calendar
+            className={withTime ? '[--cell-size:--spacing(11)]' : undefined}
             mode="single"
             selected={selectedDate}
             defaultMonth={selectedDate}
@@ -102,6 +113,8 @@ export function DatePickerField({
                 <FieldLabel htmlFor={`${id}-time`}>Thời gian (không bắt buộc)</FieldLabel>
                 <Input
                   id={`${id}-time`}
+                  name={`${id}-time`}
+                  autoComplete="off"
                   type="time"
                   step={60}
                   className="min-h-11"

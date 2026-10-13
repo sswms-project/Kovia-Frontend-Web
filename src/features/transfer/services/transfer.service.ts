@@ -3,6 +3,8 @@ import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
 import type {
+  TransferDestinationLoadQuery,
+  TransferDestinationLoad,
   AdjustTransferAllocationRequest,
   TransferAllocationOption,
   AddTransferFeedbackRequest,
@@ -56,6 +58,12 @@ import type {
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
 
 export const transferService = {
+  getDestinationLoad: (query: TransferDestinationLoadQuery, signal?: AbortSignal) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferDestinationLoad>
+      >(API_ENDPOINTS.transfers.destinationLoad, { params: query, signal })
+      .then(unwrap),
   getAssignableStaff: (warehouseId: string, taskType: TransferTaskType) =>
     axiosClient
       .get<

@@ -85,6 +85,19 @@ export interface TransferListQuery {
   dateTo?: string
 }
 
+export interface TransferDestinationLoadQuery {
+  warehouseId: string
+  date: string
+  excludeTransferId?: string
+}
+
+export interface TransferDestinationLoad {
+  inboundRequestCount: number
+  transferCount: number
+  total: number
+  threshold: number
+}
+
 export interface TransferSourceWarehouseQuery {
   destinationWarehouseId: string
   top: number

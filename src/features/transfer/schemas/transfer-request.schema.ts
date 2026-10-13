@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
-import { transferDateIssues, type TransferFormDates } from '../utils/transfer-dates'
+import { transferDateIssues, type TransferStoredDates } from '../utils/transfer-dates'
 
 export const MAX_TRANSFER_LINES = 200
 
@@ -21,7 +21,7 @@ export const transferLineSchema = z.object({
   quantity: z.number('Số lượng phải là số.').positive('Số lượng phải lớn hơn 0.'),
 })
 
-function buildTransferRequestSchema(originalDates?: TransferFormDates) {
+function buildTransferRequestSchema(originalDates?: TransferStoredDates) {
   return z
     .object({
       /** Để trống thì BE tự cấp mã kế tiếp; có nhập thì phải duy nhất trong doanh nghiệp. */
@@ -79,7 +79,7 @@ export interface TransferLineLock {
 
 export function transferRequestSchemaWithLocks(
   locks: ReadonlyMap<string, TransferLineLock>,
-  originalDates?: TransferFormDates
+  originalDates?: TransferStoredDates
 ) {
   return buildTransferRequestSchema(originalDates).superRefine((values, context) => {
     values.lines.forEach((line, index) => {
