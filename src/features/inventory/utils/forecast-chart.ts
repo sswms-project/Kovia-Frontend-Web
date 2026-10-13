@@ -1,4 +1,4 @@
-import type { ForecastPoint, StockHistoryPoint } from '../types/inventory.types'
+import type { ForecastPoint, ForecastRunResult, StockHistoryPoint } from '../types/inventory.types'
 
 export interface ForecastChartPoint {
   date: string
@@ -37,4 +37,38 @@ export function mergeHistoryAndForecast(
   }))
 
   return [...actualPoints, ...forecastPoints]
+}
+
+export interface DemandChartPoint {
+  date: string
+  actual: number | null
+  forecast: number | null
+  range: [number, number] | null
+}
+
+/**
+ * Daily issue history followed by the forecast of one product. Unlike the stock chart above there
+ * is no joining point: both series are daily quantities, and a line between them would be invented.
+ */
+export function buildDemandChartData(
+  history: readonly StockHistoryPoint[],
+  results: readonly ForecastRunResult[]
+): DemandChartPoint[] {
+  return [
+    ...history.map((point) => ({
+      date: point.date,
+      actual: point.quantity,
+      forecast: null,
+      range: null,
+    })),
+    ...results.map((point) => ({
+      date: point.forecastDate,
+      actual: point.actualQuantity,
+      forecast: point.forecastQuantity,
+      range:
+        point.lowerQuantity == null || point.upperQuantity == null
+          ? null
+          : ([point.lowerQuantity, point.upperQuantity] satisfies [number, number]),
+    })),
+  ]
 }

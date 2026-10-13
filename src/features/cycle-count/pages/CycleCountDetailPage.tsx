@@ -10,6 +10,8 @@ import {
 } from '@/components/operations/OperationalState'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
+import { getApiErrorMessage } from '@/lib/api-error'
+import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { CycleCountDetailView } from '../components/CycleCountDetailPage'
 import { cycleCountService } from '../services/cycle-count.service'
@@ -22,7 +24,9 @@ import {
   useFinalizeCycleCountMutation,
   useRecordCycleCountItemMutation,
   useRequestRecountMutation,
+  useConfirmCycleCountDamageMutation,
   useStartCycleCountMutation,
+  useUploadCycleCountEvidenceMutation,
   useSubmitCycleCountMutation,
 } from '../hooks/use-cycle-count'
 import {
@@ -40,10 +44,12 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
   const actions = useCycleCountAllowedActionsQuery(cycleCountId)
   const me = useMeQuery()
   const record = useRecordCycleCountItemMutation()
+  const uploadEvidence = useUploadCycleCountEvidenceMutation()
   const invalidateCycleCount = useInvalidateCycleCount()
   const start = useStartCycleCountMutation()
   const submit = useSubmitCycleCountMutation()
   const recount = useRequestRecountMutation()
+  const confirmDamage = useConfirmCycleCountDamageMutation()
   const finalize = useFinalizeCycleCountMutation()
   const cancel = useCancelCycleCountMutation()
   const createVoucher = useCreateStockAdjustmentVoucherMutation()
@@ -77,6 +83,27 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
       return false
     }
   }
+  async function handleUploadEvidence(file: File) {
+    const warehouseId = detail.data?.warehouseId
+    if (!warehouseId) return null
+    try {
+      const response = await uploadEvidence.mutateAsync({ warehouseId, file })
+      return { id: response.data.id, fileName: response.data.fileName }
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Không thể tải ảnh lên. Vui lòng thử lại.'))
+      return null
+    }
+  }
+
+  async function handleDownloadEvidence(evidenceId: string, fileName: string) {
+    try {
+      await cycleCountService.downloadEvidence(evidenceId, fileName)
+    } catch (error) {
+      logger.error(error)
+      toast.error(getApiErrorMessage(error, 'Không thể tải ảnh. Vui lòng thử lại.'))
+    }
+  }
+
   if (detail.isLoading || actions.isLoading) return <OperationalLoadingState rows={8} />
   if (detail.isError || actions.isError || !detail.data)
     return (
@@ -90,6 +117,19 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
       detail={detail.data}
       allowedActions={actions.data?.allowedActions ?? []}
       isPending={pending}
+      isBeforeSchedule={actions.data?.denialReasonCode === 'NOT_YET_SCHEDULED'}
+      canConfirmDamage={actions.data?.allowedActions.includes('ConfirmDamage') ?? false}
+      canOpenDamageCases={me.data?.permissions.includes(P.INVENTORY_VIEW) ?? false}
+      onConfirmDamage={(itemIds) =>
+        perform(
+          () => confirmDamage.mutateAsync({ cycleCountId, itemIds }),
+          'Đã xác nhận hàng hỏng.'
+        )
+      }
+      evidenceActions={{
+        onUpload: handleUploadEvidence,
+        onDownload: (evidenceId, fileName) => void handleDownloadEvidence(evidenceId, fileName),
+      }}
       canCreateAdjustment={me.data?.permissions.includes(P.STOCK_ADJUSTMENTS_CREATE) ?? false}
       recountForm={recountForm}
       voucherForm={voucherForm}
@@ -107,6 +147,8 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
                 note: entry.note,
                 countMethod: entry.countMethod,
                 scannedBarcode: entry.scannedBarcode,
+                damageReason: entry.damageReason,
+                damageEvidenceIds: entry.damageEvidenceIds,
               })
           } finally {
             // Dòng đã lưu trước khi lỗi vẫn cần hiện lại, nên invalidate cả khi thất bại.

@@ -16,16 +16,23 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { ScanInput } from '@/features/transfer/components/TransferWork/ScanInput'
+import {
+  useDamageEvidenceUpload,
+  type DamageEvidenceFile,
+} from '../../hooks/use-damage-evidence-upload'
 import { recordCycleCountItemSchema } from '../../schemas/cycle-count.schema'
 import type { CycleCountItem } from '../../types/cycle-count.types'
+import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
 import { formatCount } from '../../utils/cycle-count-format'
 import { formatStockLocation } from '../../utils/cycle-count-scope'
-import type { CycleCountRecordEntry } from './types'
+import { CycleCountDamageFields } from './CycleCountDamageFields'
+import type { CycleCountEvidenceActions, CycleCountRecordEntry } from './types'
 
 interface CycleCountScanDialogProps {
   readonly open: boolean
   readonly items: readonly CycleCountItem[]
   readonly isPending: boolean
+  readonly evidenceActions: CycleCountEvidenceActions
   readonly onOpenChange: (open: boolean) => void
   readonly onSave: (entries: readonly CycleCountRecordEntry[]) => Promise<boolean>
 }
@@ -58,6 +65,7 @@ export function CycleCountScanDialog({
   open,
   items,
   isPending,
+  evidenceActions,
   onOpenChange,
   onSave,
 }: CycleCountScanDialogProps) {
@@ -72,7 +80,14 @@ export function CycleCountScanDialog({
           </DialogDescription>
         </DialogHeader>
         {/* Gắn khi mở để mỗi lần quét bắt đầu lại từ bước chọn vị trí. */}
-        {open ? <ScanSession items={items} isPending={isPending} onSave={onSave} /> : null}
+        {open ? (
+          <ScanSession
+            items={items}
+            isPending={isPending}
+            evidenceActions={evidenceActions}
+            onSave={onSave}
+          />
+        ) : null}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Đóng
@@ -86,10 +101,11 @@ export function CycleCountScanDialog({
 interface ScanSessionProps {
   readonly items: readonly CycleCountItem[]
   readonly isPending: boolean
+  readonly evidenceActions: CycleCountEvidenceActions
   readonly onSave: (entries: readonly CycleCountRecordEntry[]) => Promise<boolean>
 }
 
-function ScanSession({ items, isPending, onSave }: ScanSessionProps) {
+function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionProps) {
   const [slotId, setSlotId] = useState<string | null>(null)
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [scannedCode, setScannedCode] = useState<string | null>(null)
@@ -98,6 +114,9 @@ function ScanSession({ items, isPending, onSave }: ScanSessionProps) {
   const [damaged, setDamaged] = useState('')
   const [message, setMessage] = useState<ScanMessage | null>(null)
   const [isIncrementMode, setIsIncrementMode] = useState(false)
+  const [damageReason, setDamageReason] = useState('')
+  const [addedEvidence, setAddedEvidence] = useState<readonly DamageEvidenceFile[]>([])
+  const evidenceUpload = useDamageEvidenceUpload(evidenceActions.onUpload)
 
   const slotItems = slotId === null ? [] : items.filter((item) => item.slotId === slotId)
   const activeItem = items.find((item) => item.id === activeItemId) ?? null
@@ -114,6 +133,12 @@ function ScanSession({ items, isPending, onSave }: ScanSessionProps) {
       (quantityError === null && quantity !== '' && Number(damaged) > Number(quantity)))
       ? 'Số hỏng phải từ 0 và không vượt số đếm.'
       : null
+  const hasDamage = damaged !== '' && damagedError === null && Number(damaged) > 0
+  // Ảnh đã lưu chỉ còn hiệu lực khi dòng đã lưu với số hỏng > 0 (BE trả theo vòng đếm hiện tại).
+  const savedEvidence =
+    (activeItem?.countedDamagedQuantity ?? 0) > 0 ? (activeItem?.damageEvidence ?? []) : []
+  const isDamageComplete =
+    !hasDamage || isDamageDetailComplete(damageReason, savedEvidence.length + addedEvidence.length)
 
   function selectItem(item: CycleCountItem, code: string | null) {
     setActiveItemId(item.id)
@@ -121,6 +146,13 @@ function ScanSession({ items, isPending, onSave }: ScanSessionProps) {
     setCandidateIds([])
     setQuantity(item.countedQuantity === null ? '' : String(item.countedQuantity))
     setDamaged(item.countedDamagedQuantity === null ? '' : String(item.countedDamagedQuantity))
+    setDamageReason(item.damageReason ?? '')
+    setAddedEvidence([])
+  }
+
+  async function addEvidence(file: File) {
+    const uploaded = await evidenceUpload.upload(file, savedEvidence.length + addedEvidence.length)
+    if (uploaded) setAddedEvidence((current) => [...current, uploaded])
   }
 
   function handleSlotScan(raw: string): boolean {
@@ -176,7 +208,7 @@ function ScanSession({ items, isPending, onSave }: ScanSessionProps) {
   }
 
   async function handleSave() {
-    if (!activeItem || quantity === '' || quantityError || damagedError) return
+    if (!activeItem || quantity === '' || quantityError || damagedError || !isDamageComplete) return
     const saved = await onSave([
       {
         itemId: activeItem.id,
@@ -185,6 +217,8 @@ function ScanSession({ items, isPending, onSave }: ScanSessionProps) {
         note: activeItem.note,
         countMethod: scannedCode === null ? 'Manual' : 'Scanned',
         scannedBarcode: scannedCode,
+        damageReason: hasDamage ? damageReason.trim() : null,
+        damageEvidenceIds: hasDamage ? addedEvidence.map((file) => file.id) : [],
       },
     ])
     if (!saved) return
@@ -193,6 +227,8 @@ function ScanSession({ items, isPending, onSave }: ScanSessionProps) {
     setScannedCode(null)
     setQuantity('')
     setDamaged('')
+    setDamageReason('')
+    setAddedEvidence([])
   }
 
   return (
@@ -304,10 +340,32 @@ function ScanSession({ items, isPending, onSave }: ScanSessionProps) {
             />
             {damagedError ? <FieldError>{damagedError}</FieldError> : null}
           </Field>
+          {hasDamage ? (
+            <CycleCountDamageFields
+              reason={damageReason}
+              savedEvidence={savedEvidence}
+              addedEvidence={addedEvidence}
+              isUploading={evidenceUpload.isUploading}
+              error={evidenceUpload.error}
+              disabled={isPending}
+              onReasonChange={setDamageReason}
+              onAddFile={(file) => void addEvidence(file)}
+              onRemoveAdded={(id) =>
+                setAddedEvidence((current) => current.filter((file) => file.id !== id))
+              }
+              onDownload={evidenceActions.onDownload}
+            />
+          ) : null}
           <Button
             type="button"
             className="h-11"
-            disabled={isPending || quantity === '' || Boolean(quantityError || damagedError)}
+            disabled={
+              isPending ||
+              quantity === '' ||
+              Boolean(quantityError || damagedError) ||
+              !isDamageComplete ||
+              evidenceUpload.isUploading
+            }
             onClick={() => void handleSave()}
           >
             Lưu và quét tiếp
