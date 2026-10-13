@@ -90,7 +90,7 @@ describe('MyWorkQueue', () => {
     render(<MyWorkQueue tasks={tasks} isLoading={false} />)
     expect(screen.queryByText('DA-XONG')).not.toBeInTheDocument()
     expect(screen.getByText('Quá hạn')).toBeInTheDocument()
-    expect(screen.getByText('Gấp')).toBeInTheDocument()
+    expect(screen.getByText('Khẩn')).toBeInTheDocument()
     expect(screen.getByText('Còn 2 việc khác trong danh sách bên dưới.')).toBeInTheDocument()
   })
 })

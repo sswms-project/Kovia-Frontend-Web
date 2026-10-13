@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronDown } from 'lucide-react'
-import { Fragment, useState } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -11,9 +11,11 @@ import {
   formatCycleCountDate,
   formatCycleCountDay,
   hasCountResults,
+  isUrgentOpen,
 } from '../../utils/cycle-count-format'
+import { CycleCountPriorityBadge } from '../CycleCountUrgency'
 
-type InfoRow = readonly [label: string, value: string]
+type InfoRow = readonly [label: string, value: ReactNode]
 
 interface CycleCountInfoSectionProps {
   readonly detail: CycleCountDetail
@@ -60,7 +62,16 @@ export function CycleCountInfoSection({
     ['Ngày lập', withPerson(detail.createdAt, detail.createdByName)],
     ['Lịch kiểm kê', formatCycleCountDate(detail.scheduledDate)],
     ['Kiểm kê đến ngày', detail.dueDate ? formatCycleCountDay(detail.dueDate) : '—'],
-    ['Mức ưu tiên', detail.priority === 'Urgent' ? 'Khẩn' : 'Bình thường'],
+    [
+      'Mức ưu tiên',
+      isUrgentOpen(detail.priority, detail.status) ? (
+        <CycleCountPriorityBadge priority={detail.priority} status={detail.status} />
+      ) : detail.priority === 'Urgent' ? (
+        'Khẩn'
+      ) : (
+        'Bình thường'
+      ),
+    ],
   ]
   const trackingRows: readonly InfoRow[] = [
     ['Vòng đếm', String(detail.recountRound + 1)],

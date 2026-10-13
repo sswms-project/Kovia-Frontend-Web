@@ -50,6 +50,8 @@ export interface CycleCountListQuery {
   // Một trạng thái hoặc danh sách cách nhau bằng dấu phẩy (BE nhận cả hai).
   status?: string
   needsAdjustment?: boolean
+  // Chỉ phiếu khẩn còn phải làm (chưa bắt đầu, đang đếm, đang đếm lại).
+  urgent?: boolean
   // 'priority' (mặc định, việc cần làm trước) hoặc 'newest'.
   sortBy?: string
   assignedTo?: string
@@ -89,6 +91,7 @@ export interface CycleCountListResponse {
   pageSize: number
   statusCounts: Record<string, number>
   needsAdjustmentCount: number
+  urgentOpenCount: number
 }
 
 export interface CycleCountItemHistory {

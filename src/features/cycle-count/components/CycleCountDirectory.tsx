@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ClipboardCheck, Eye, Plus, RefreshCw, Search, TriangleAlert } from 'lucide-react'
+import { ClipboardCheck, Eye, Flame, Plus, RefreshCw, Search, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   OperationalEmptyState,
@@ -37,11 +37,18 @@ import {
   getAdjustmentState,
   getOverdueDays,
   hasCountResults,
+  isUrgentOpen,
 } from '../utils/cycle-count-format'
 import { CycleCountCards } from './CycleCountCards'
 import { CycleCountStatsTiles } from './CycleCountStatsTiles'
 import { CycleCountStatusBadge } from './CycleCountStatusBadge'
 import { OptionSelect } from './OptionSelect'
+import {
+  CycleCountDeadlineHint,
+  CycleCountPriorityBadge,
+  URGENT_FIRST_CELL_CLASS,
+  URGENT_ROW_CLASS,
+} from './CycleCountUrgency'
 
 const ALL_STATUSES = 'all'
 
@@ -55,6 +62,8 @@ interface Props {
   readonly totalCount: number
   readonly statusCounts: Readonly<Record<string, number>>
   readonly needsAdjustmentCount: number
+  readonly urgentOpenCount: number
+  readonly urgentOnly: boolean
   readonly page: number
   readonly pageSize: number
   readonly warehouseId: string
@@ -69,6 +78,7 @@ interface Props {
   readonly onWarehouseChange: (value: string) => void
   readonly onSortChange: (value: string) => void
   readonly onStatusChange: (value: CycleCountListFilter) => void
+  readonly onUrgentOnlyChange: (value: boolean) => void
   readonly onSearchTermChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
@@ -176,6 +186,18 @@ export function CycleCountDirectory(props: Props) {
                 onValueChange={props.onSortChange}
               />
             </Field>
+            {props.urgentOpenCount > 0 || props.urgentOnly ? (
+              <Button
+                className="max-sm:h-11"
+                variant={props.urgentOnly ? 'default' : 'outline'}
+                aria-pressed={props.urgentOnly}
+                onClick={() => props.onUrgentOnlyChange(!props.urgentOnly)}
+              >
+                <Flame aria-hidden="true" />
+                Khẩn
+                <Badge variant="destructive">{props.urgentOpenCount}</Badge>
+              </Button>
+            ) : null}
             {props.needsAdjustmentCount > 0 ||
             props.status === CYCLE_COUNT_NEEDS_ADJUSTMENT_FILTER ? (
               <Button
@@ -257,12 +279,16 @@ export function CycleCountDirectory(props: Props) {
                 const overdueDays = getOverdueDays(item.dueDate, item.status)
                 const adjustmentState = getAdjustmentState(item)
                 const detailHref = APP_ROUTES.cycleCountDetail(item.id)
+                const isUrgent = isUrgentOpen(item.priority, item.status)
                 return (
                   <TableRow
                     key={item.id}
                     style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
                     // Dòng trượt nhẹ vào khi đổi tab/trang, so le theo thứ tự; tắt khi người dùng giảm chuyển động.
-                    className="hover:bg-muted/60 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 fill-mode-backwards animation-duration-300 cursor-pointer"
+                    className={cn(
+                      'hover:bg-muted/60 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 fill-mode-backwards animation-duration-300 cursor-pointer',
+                      isUrgent && URGENT_ROW_CLASS
+                    )}
                     tabIndex={0}
                     onMouseEnter={() => props.onPrefetchDetail(item.id)}
                     onFocus={() => props.onPrefetchDetail(item.id)}
@@ -271,14 +297,17 @@ export function CycleCountDirectory(props: Props) {
                       if (event.key === 'Enter') router.push(detailHref)
                     }}
                   >
-                    <TableCell>
-                      <Link
-                        href={detailHref}
-                        className="font-mono text-xs font-medium underline-offset-2 hover:underline"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {item.code}
-                      </Link>
+                    <TableCell className={cn(isUrgent && URGENT_FIRST_CELL_CLASS)}>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={detailHref}
+                          className="font-mono text-xs font-medium underline-offset-2 hover:underline"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {item.code}
+                        </Link>
+                        <CycleCountPriorityBadge priority={item.priority} status={item.status} />
+                      </div>
                       <p className="font-medium">{item.warehouseName}</p>
                       <p className="text-muted-foreground text-xs">
                         {item.zoneName || 'Toàn kho'} ·{' '}
@@ -297,6 +326,12 @@ export function CycleCountDirectory(props: Props) {
                           Quá hạn {overdueDays} ngày
                         </Badge>
                       ) : null}
+                      <CycleCountDeadlineHint
+                        className="block"
+                        priority={item.priority}
+                        status={item.status}
+                        dueAt={item.dueAt}
+                      />
                     </TableCell>
                     <TableCell className="min-w-32">
                       {hasCountResults(item.status) ? (
