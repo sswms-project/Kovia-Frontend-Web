@@ -55,6 +55,11 @@ export function TransferGeneralSection({
   onSelectInternalRelocation,
 }: TransferGeneralSectionProps) {
   const errors = form.formState.errors
+  /** Lỗi thứ tự ngày gắn ở ô "ngày về"; đổi một trong hai ngày phải kiểm lại cả hai để lỗi hiện ngay. */
+  const setPlannedDate = (name: 'plannedTransferDate' | 'requiredBy', value: string) => {
+    form.setValue(name, value, { shouldDirty: true })
+    void form.trigger(['plannedTransferDate', 'requiredBy'])
+  }
   const destinationWarehouseId = form.watch('destinationWarehouseId')
   const sourceWarehouseId = form.watch('sourceWarehouseId')
   const destinationAddress =
@@ -157,12 +162,7 @@ export function TransferGeneralSection({
               onBlur={field.onBlur}
               value={field.value ?? ''}
               error={errors.plannedTransferDate?.message}
-              onChange={(value) =>
-                form.setValue('plannedTransferDate', value, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                })
-              }
+              onChange={(value) => setPlannedDate('plannedTransferDate', value)}
             />
           )}
         />
@@ -180,9 +180,7 @@ export function TransferGeneralSection({
                 onBlur={field.onBlur}
                 value={field.value}
                 error={errors.requiredBy?.message}
-                onChange={(value) =>
-                  form.setValue('requiredBy', value, { shouldDirty: true, shouldValidate: true })
-                }
+                onChange={(value) => setPlannedDate('requiredBy', value)}
               />
             )}
           />
