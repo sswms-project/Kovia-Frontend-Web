@@ -153,10 +153,18 @@ export default function MyWarehouseTasksPage({
     },
     scope
   )
-  const canSeeOwnWork = canManageOwnTasks || permissions.includes(P.STOCK_ISSUE_REQUESTS_PICK)
-  // Việc được giao riêng cho người dùng, không theo bộ lọc của danh sách chính bên dưới.
+  const canSeeOwnWork = permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN)
+  // Lọc trước khi lấy sáu việc mới nhất để việc vừa giao không bị khuất sau trang đầu.
   const ownWorkQuery = useMyWarehouseTasksQuery(
-    { pageNumber: 1, pageSize: 50 },
+    {
+      pageNumber: 1,
+      pageSize: 6,
+      recentlyAssignedFirst: true,
+      warehouseId: warehouseFilter,
+      taskType: taskTypeFilter || undefined,
+      executionStatus: executionStatusFilter || undefined,
+      deadlineStatus: deadlineFilter || undefined,
+    },
     'mine',
     canSeeOwnWork
   )
@@ -474,7 +482,16 @@ export default function MyWarehouseTasksPage({
           </div>
         ) : null}
         {canSeeOwnWork ? (
-          <MyWorkQueue tasks={ownWorkQuery.data?.items ?? []} isLoading={ownWorkQuery.isLoading} />
+          <MyWorkQueue
+            tasks={ownWorkQuery.data?.items ?? []}
+            totalCount={ownWorkQuery.data?.totalCount ?? 0}
+            isLoading={ownWorkQuery.isFetching}
+            isError={ownWorkQuery.isError}
+            hasFilters={Boolean(
+              warehouseFilter || taskTypeFilter || executionStatusFilter || deadlineFilter
+            )}
+            onRetry={() => void ownWorkQuery.refetch()}
+          />
         ) : null}
         <WarehouseTaskDirectory
           title={managesWarehouseTasks ? 'Công việc kho' : 'Công việc của tôi'}
@@ -558,7 +575,10 @@ export default function MyWarehouseTasksPage({
             setPageSize(nextPageSize)
             setPage(1)
           }}
-          onRetry={() => void query.refetch()}
+          onRetry={() => {
+            void query.refetch()
+            if (canSeeOwnWork) void ownWorkQuery.refetch()
+          }}
           canManage={canManageOwnTasks}
           onAction={manage}
           onOpenRelocation={(task) => setSelectedTaskId(task.id)}
