@@ -35,6 +35,7 @@ import type {
   TransferSourceWarehouseQuery,
 } from '@/features/transfer/types/transfer.types'
 import type {
+  StockIssueProductOptionQuery,
   StockIssueRequestListQuery,
   GoodsReturnRequestListQuery,
 } from '@/features/stock-issue/types/stock-issue.types'
@@ -268,6 +269,8 @@ export const queryKeys = {
     lists: ['stock-issue-requests', 'list'] as const,
     list: (params: StockIssueRequestListQuery) => ['stock-issue-requests', 'list', params] as const,
     detail: (id: string) => ['stock-issue-requests', 'detail', id] as const,
+    productOptions: (params: StockIssueProductOptionQuery) =>
+      ['stock-issue-requests', 'product-options', params] as const,
     auditLogs: (id: string, params: { pageNumber: number; pageSize: number }) =>
       ['stock-issue-requests', 'detail', id, 'audit-logs', params] as const,
   },

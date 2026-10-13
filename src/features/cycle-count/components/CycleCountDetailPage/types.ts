@@ -44,4 +44,5 @@ export interface CycleCountItemRowModel {
   readonly note: string
   readonly liveDifference: number | null
   readonly hasVariance: boolean
+  readonly recountBlockReason: string | null
 }

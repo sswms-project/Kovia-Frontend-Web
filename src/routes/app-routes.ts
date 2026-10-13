@@ -95,6 +95,13 @@ export const APP_ROUTES = {
   transferPlan: (transferId: string): Route => `/transfers/${transferId}/putaway` as Route,
   stockIssueRequests: '/stock-issue-requests',
   stockIssueRequestCreate: '/stock-issue-requests/new',
+  stockIssueRequestImport: '/stock-issue-requests/import',
+  stockIssueRequestDetail: (stockIssueRequestId: string) =>
+    `/stock-issue-requests/${stockIssueRequestId}`,
+  stockIssueRequestEdit: (stockIssueRequestId: string) =>
+    `/stock-issue-requests/${stockIssueRequestId}/edit`,
+  stockIssueRequestPrint: (stockIssueRequestId: string) =>
+    `/stock-issue-requests/${stockIssueRequestId}/print`,
   goodsReturnRequests: '/goods-return-requests',
   stockRecipients: '/stock-recipients',
   stockRecipientImport: '/stock-recipients/import' as Route,

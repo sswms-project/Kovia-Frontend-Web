@@ -15,7 +15,7 @@ export interface AiDraftQuantityEdit {
   readonly editingDraftId: string | null
   readonly form: UseFormReturn<AiDraftQuantitiesForm>
   readonly isSaving: boolean
-  readonly onStart: (draftId: string, values: AiDraftQuantitiesForm) => void
+  readonly onStart: (draftId: string, values: AiDraftQuantitiesForm, action?: string | null) => void
   readonly onCancel: () => void
   readonly onSubmit: () => void
 }
@@ -25,13 +25,20 @@ interface AiDraftQuantityEditorProps {
   /** Các dòng hàng sửa được, theo đúng thứ tự đã nạp vào form. */
   readonly lines: readonly AiActionDetail[]
   readonly edit: AiDraftQuantityEdit
+  /** Bản nháp nhập kho có ngày dự kiến sửa được; phiếu xuất kho thì không. */
+  readonly showDate?: boolean
 }
 
 /**
  * Sửa ngày dự kiến hàng về và số lượng của bản nháp. Hệ thống đề xuất số lượng tối thiểu để đủ ngưỡng; người dùng thường muốn nhập nhiều hơn (tròn thùng,
  * tròn xe). Chỉ sửa số lượng — thêm bớt mặt hàng phải làm trên yêu cầu nhập sau khi xác nhận.
  */
-export function AiDraftQuantityEditor({ draftId, lines, edit }: AiDraftQuantityEditorProps) {
+export function AiDraftQuantityEditor({
+  draftId,
+  lines,
+  edit,
+  showDate = true,
+}: AiDraftQuantityEditorProps) {
   const {
     register,
     formState: { errors },
@@ -49,26 +56,28 @@ export function AiDraftQuantityEditor({ draftId, lines, edit }: AiDraftQuantityE
         edit.onSubmit()
       }}
     >
-      <Field data-invalid={Boolean(errors.expectedDate)}>
-        <FieldLabel htmlFor={dateInputId} className="text-xs font-normal">
-          Ngày dự kiến hàng về
-          <span className="text-destructive" aria-hidden="true">
-            {' '}
-            *
-          </span>
-        </FieldLabel>
-        <Input
-          id={dateInputId}
-          type="date"
-          min={getTodayInputValue()}
-          required
-          disabled={edit.isSaving}
-          aria-invalid={Boolean(errors.expectedDate)}
-          className="h-8"
-          {...register('expectedDate')}
-        />
-        <FieldError>{errors.expectedDate?.message}</FieldError>
-      </Field>
+      {showDate ? (
+        <Field data-invalid={Boolean(errors.expectedDate)}>
+          <FieldLabel htmlFor={dateInputId} className="text-xs font-normal">
+            Ngày dự kiến hàng về
+            <span className="text-destructive" aria-hidden="true">
+              {' '}
+              *
+            </span>
+          </FieldLabel>
+          <Input
+            id={dateInputId}
+            type="date"
+            min={getTodayInputValue()}
+            required
+            disabled={edit.isSaving}
+            aria-invalid={Boolean(errors.expectedDate)}
+            className="h-8"
+            {...register('expectedDate')}
+          />
+          <FieldError>{errors.expectedDate?.message}</FieldError>
+        </Field>
+      ) : null}
       {lines.map((line, index) => {
         const inputId = `ai-draft-${draftId}-quantity-${index}`
         const error = errors.lines?.[index]?.quantity

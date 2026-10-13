@@ -24,6 +24,7 @@ import type {
 } from '../../schemas/cycle-count.schema'
 import type { CycleCountItem } from '../../types/cycle-count.types'
 import { formatCount } from '../../utils/cycle-count-format'
+import { formatStockLocation } from '../../utils/cycle-count-scope'
 import type { CycleCountDialog } from './types'
 
 interface ReasonFieldProps {
@@ -158,7 +159,7 @@ export function CycleCountActionDialog({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium">{item.productName}</span>
                         <span className="text-muted-foreground block truncate font-mono text-xs">
-                          {item.productSku} · {item.slotCode}
+                          {item.productSku} · {formatStockLocation(item)}
                           {item.lotNumber ? ` · Lô ${item.lotNumber}` : ''}
                         </span>
                       </span>

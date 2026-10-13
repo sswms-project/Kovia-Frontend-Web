@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Sparkles } from 'lucide-react'
@@ -17,8 +17,10 @@ import {
 } from '../../hooks/use-ai-assistant'
 import {
   aiDraftQuantitiesSchema,
+  aiStockIssueDraftQuantitiesSchema,
   type AiDraftQuantitiesForm,
 } from '../../schemas/ai-draft-quantities.schema'
+import { AI_ACTIONS } from '../../types/ai-assistant.types'
 import { aiChatMessageSchema, type AiChatMessageForm } from '../../schemas/ai-chat-message.schema'
 import { AiChatComposer } from './AiChatComposer'
 import { AiChatThread } from './AiChatThread'
@@ -47,8 +49,15 @@ export function AiAssistantPanel({
   const cancelMutation = useCancelAiActionMutation()
   const quantitiesMutation = useUpdateAiDraftQuantitiesMutation()
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
+  // Bản nháp nhập kho cần ngày dự kiến, phiếu xuất kho thì không; chọn luật theo bản nháp đang sửa.
+  const editingAction = useRef<string | null>(null)
   const quantitiesForm = useForm<AiDraftQuantitiesForm>({
-    resolver: zodResolver(aiDraftQuantitiesSchema),
+    resolver: (values, context, options) =>
+      zodResolver(
+        editingAction.current === AI_ACTIONS.createStockIssueRequest
+          ? aiStockIssueDraftQuantitiesSchema
+          : aiDraftQuantitiesSchema
+      )(values, context, options),
     defaultValues: { expectedDate: '', lines: [] },
   })
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
@@ -103,7 +112,8 @@ export function AiAssistantPanel({
     editingDraftId,
     form: quantitiesForm,
     isSaving: quantitiesMutation.isPending,
-    onStart: (draftId, values) => {
+    onStart: (draftId, values, action) => {
+      editingAction.current = action ?? null
       quantitiesForm.reset(values)
       setEditingDraftId(draftId)
     },
@@ -111,7 +121,7 @@ export function AiAssistantPanel({
     onSubmit: quantitiesForm.handleSubmit(({ lines, expectedDate }) => {
       if (!editingDraftId) return
       quantitiesMutation.mutate(
-        { draftId: editingDraftId, conversationId, lines, expectedDate },
+        { draftId: editingDraftId, conversationId, lines, expectedDate: expectedDate || undefined },
         {
           onSuccess: () => {
             toast.success('Đã cập nhật bản nháp.')
