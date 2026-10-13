@@ -35,17 +35,39 @@ export interface StockIssueRequestListQuery {
   assignedToMe?: boolean
 }
 
+/** Một vị trí và lô hệ thống đã giữ hàng cho dòng phiếu: nơi nhân viên phải đến lấy. */
+export interface StockIssuePickLocation {
+  inventoryStockId: string
+  slotId: string
+  slotCode: string
+  zoneCode: string
+  rackCode: string
+  lotId: string | null
+  lotNumber: string | null
+  expiryDate: string | null
+  /** Tính theo đơn vị cơ sở. */
+  reservedQuantity: number
+}
+
 export interface StockIssueRequestItem {
   id: string
   productId: string
   productName: string
   sku: string
+  /** Số lượng theo đơn vị cơ sở của sản phẩm (cũng là đơn vị của pickedQuantity). */
   quantity: number
   pickedQuantity: number
   returnedQuantity: number
   returnableQuantity: number
   note: string | null
   barcode: string | null
+  /** Số lượng theo đơn vị đã chọn khi lập phiếu (thùng, kiện…). */
+  enteredQuantity: number
+  enteredUnitId: string
+  enteredUnitName: string
+  /** Số đơn vị cơ sở trong một đơn vị đã chọn; hàng được giữ và lấy theo nguyên đơn vị này. */
+  conversionFactor: number
+  pickLocations: StockIssuePickLocation[]
   pickDetails: StockIssuePickDetail[]
 }
 
@@ -129,8 +151,14 @@ export interface StockIssueAuditLogQuery {
   pageSize: number
 }
 
+export interface StockIssueRequestStatusCount {
+  status: StockIssueRequestStatus
+  count: number
+}
+
 export interface StockIssueRequestListResponse {
   items: StockIssueRequestSummary[]
+  statusCounts: StockIssueRequestStatusCount[]
   totalCount: number
   pageNumber: number
   pageSize: number
@@ -138,8 +166,38 @@ export interface StockIssueRequestListResponse {
 
 export interface CreateStockIssueRequestItemRequest {
   productId: string
+  /** Theo đơn vị unitId; bỏ trống unitId thì theo đơn vị cơ sở. */
   quantity: number
+  unitId?: string | null
   note?: string | null
+}
+
+export interface StockIssueProductUnit {
+  unitId: string
+  unitName: string
+  conversionFactor: number
+  quantityPrecision: number
+}
+
+/** Sản phẩm còn tồn khả dụng tại kho xuất. */
+export interface StockIssueProductOption {
+  id: string
+  sku: string
+  productName: string
+  barcode: string | null
+  unitId: string
+  unitName: string
+  /** Theo đơn vị cơ sở. */
+  availableQuantity: number
+  firstExpiringLotNumber: string | null
+  firstExpiringLotDate: string | null
+  units: StockIssueProductUnit[]
+}
+
+export interface StockIssueProductOptionQuery {
+  warehouseId: string
+  searchTerm?: string
+  pageSize?: number
 }
 
 export interface CreateStockIssueRequestRequest {
@@ -150,6 +208,24 @@ export interface CreateStockIssueRequestRequest {
   referenceCode?: string | null
   issueDate?: string | null
   note?: string | null
+}
+
+export interface UpdateStockIssueRequestRequest extends CreateStockIssueRequestRequest {
+  stockIssueRequestId: string
+  expectedVersion: string
+}
+
+export interface ImportStockIssueRequestGroup {
+  stockRecipientId: string
+  referenceCode: string | null
+  purpose: string | null
+  items: CreateStockIssueRequestItemRequest[]
+}
+
+/** Tạo mọi phiếu của tệp nhập trong một giao dịch: tất cả hoặc không phiếu nào. */
+export interface ImportStockIssueRequestsRequest {
+  warehouseId: string
+  requests: ImportStockIssueRequestGroup[]
 }
 
 export interface StockIssueImportPreviewRow {
@@ -167,6 +243,10 @@ export interface StockIssueImportPreviewRow {
   productId: string | null
   productName: string | null
   errors: string[]
+  unitId: string | null
+  unitName: string | null
+  availableQuantity: number | null
+  warnings: string[] | null
 }
 
 export interface StockIssueImportPreview {
@@ -179,10 +259,6 @@ export interface RecordStockPickingItemRequest {
   pickedQuantity: number
   scannedBarcode?: string | null
   scannedSlotCode?: string | null
-}
-
-export interface ConfirmStockDispatchRequest {
-  scannedBarcodes: string[]
 }
 
 export interface ReportStockIssuePickIssueRequest {
@@ -270,4 +346,25 @@ export interface RestockGoodsReturnRequest {
 export interface StockIssueRequestFilters {
   status: StockIssueRequestStatus | ''
   warehouseId: string
+}
+
+/** Quyền thao tác trên phiếu xuất, do trang suy ra từ quyền hiệu lực rồi truyền xuống component. */
+export interface StockIssueCapabilities {
+  readonly canCreate: boolean
+  readonly canAssignPicker: boolean
+  readonly canPick: boolean
+  readonly canAuthorizeDispatch: boolean
+  readonly canDispatch: boolean
+  readonly canCancel: boolean
+  readonly canReturn: boolean
+}
+
+export interface StockIssueRowActionHandlers {
+  readonly onReleaseForPicking: (order: StockIssueRequestSummary) => void
+  readonly onRecordStockPicking: (order: StockIssueRequestSummary) => void
+  readonly onReportPickIssue: (order: StockIssueRequestSummary) => void
+  readonly onAuthorizeDispatch: (order: StockIssueRequestSummary) => void
+  readonly onConfirmDispatch: (order: StockIssueRequestSummary) => void
+  readonly onCreateGoodsReturnRequest: (order: StockIssueRequestSummary) => void
+  readonly onCancel: (order: StockIssueRequestSummary) => void
 }

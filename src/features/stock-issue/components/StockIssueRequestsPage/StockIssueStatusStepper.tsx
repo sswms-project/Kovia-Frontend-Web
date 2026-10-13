@@ -15,6 +15,16 @@ const FLOW_STEPS: readonly StockIssueRequestStatus[] = [
   'Dispatched',
 ]
 
+/** Ai thực hiện thao tác đưa phiếu vào từng bước; khớp quyền và vai trò mà backend kiểm tra. */
+const STEP_ACTORS: Partial<Record<StockIssueRequestStatus, string>> = {
+  Pending: 'Người lập phiếu tạo',
+  ReleasedForPicking: 'Quản lý kho giao việc',
+  Picking: 'Nhân viên kho lấy hàng',
+  Picked: 'Nhân viên kho lấy đủ hàng',
+  AuthorizedForDispatch: 'Chủ doanh nghiệp cho phép',
+  Dispatched: 'Nhân viên kho xác nhận rời kho',
+}
+
 interface StockIssueStatusStepperProps {
   readonly status: StockIssueRequestStatus
   readonly hasAssignedPicker?: boolean
@@ -29,12 +39,14 @@ export function StockIssueStatusStepper({
   const effectiveStatus: StockIssueRequestStatus =
     status === 'Pending' && hasAssignedPicker ? 'ReleasedForPicking' : status
   const currentIndex = isCancelled ? -1 : FLOW_STEPS.indexOf(effectiveStatus)
+  // Đã xuất kho là bước cuối: không còn việc nào phía sau nên bước đó cũng đã xong.
+  const isFinished = status === 'Dispatched'
 
   return (
     <ol aria-label="Tiến trình xuất kho" className="space-y-0">
       {FLOW_STEPS.map((step, index) => {
-        const isDone = index < currentIndex
-        const isCurrent = index === currentIndex
+        const isDone = isFinished || index < currentIndex
+        const isCurrent = !isFinished && index === currentIndex
         const isLast = index === FLOW_STEPS.length - 1
         return (
           <motion.li
@@ -72,13 +84,16 @@ export function StockIssueStatusStepper({
             >
               {isDone ? <Check className="size-3.5" /> : index + 1}
             </motion.span>
-            <span
-              className={cn(
-                'pt-0.5 text-sm',
-                isCurrent ? 'font-semibold' : isDone ? 'font-medium' : 'text-muted-foreground'
-              )}
-            >
-              {STOCK_ISSUE_REQUEST_STATUS_LABELS[step]}
+            <span className="flex min-w-0 flex-col pt-0.5">
+              <span
+                className={cn(
+                  'text-sm',
+                  isCurrent ? 'font-semibold' : isDone ? 'font-medium' : 'text-muted-foreground'
+                )}
+              >
+                {STOCK_ISSUE_REQUEST_STATUS_LABELS[step]}
+              </span>
+              <span className="text-muted-foreground text-xs">{STEP_ACTORS[step]}</span>
             </span>
           </motion.li>
         )

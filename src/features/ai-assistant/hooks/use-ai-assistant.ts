@@ -24,6 +24,7 @@ const ACTION_RESULT_QUERY_KEYS: Record<string, QueryKey> = {
   [AI_ACTIONS.createInboundRequest]: queryKeys.inboundRequests.all,
   [AI_ACTIONS.createTransfer]: queryKeys.transfers.all,
   [AI_ACTIONS.createStockAdjustment]: queryKeys.stockAdjustments.all,
+  [AI_ACTIONS.createStockIssueRequest]: queryKeys.stockIssueRequests.all,
 }
 
 export function useAiConversationsQuery() {

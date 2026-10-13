@@ -1,5 +1,5 @@
-import StockIssueRequestCreatePage from '@/features/stock-issue/pages/StockIssueRequestCreatePage'
+import StockIssueRequestFormPage from '@/features/stock-issue/pages/StockIssueRequestFormPage'
 
 export default function StockIssueRequestCreateRoutePage() {
-  return <StockIssueRequestCreatePage />
+  return <StockIssueRequestFormPage />
 }
