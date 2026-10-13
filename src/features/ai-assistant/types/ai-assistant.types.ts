@@ -11,6 +11,7 @@ export const AI_ACTIONS = {
   createInboundRequest: 'create_inbound_request',
   createTransfer: 'create_transfer',
   createStockAdjustment: 'create_stock_adjustment',
+  createStockIssueRequest: 'create_stock_issue_request',
 } as const
 
 export type AiAction = (typeof AI_ACTIONS)[keyof typeof AI_ACTIONS]

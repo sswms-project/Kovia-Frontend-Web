@@ -36,4 +36,9 @@ export const aiDraftQuantitiesSchema = z.object({
     .max(AI_DRAFT_MAX_LINES, `Tối đa ${AI_DRAFT_MAX_LINES} dòng hàng.`),
 })
 
+/** Phiếu xuất kho không có ngày dự kiến nên chỉ sửa số lượng. */
+export const aiStockIssueDraftQuantitiesSchema = aiDraftQuantitiesSchema.extend({
+  expectedDate: z.string(),
+})
+
 export type AiDraftQuantitiesForm = z.infer<typeof aiDraftQuantitiesSchema>

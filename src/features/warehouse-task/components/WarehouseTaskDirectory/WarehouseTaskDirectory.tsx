@@ -550,7 +550,7 @@ export function getTaskRoute(task: MyWarehouseTask): Route {
       ? APP_ROUTES.transferPickTask(task.transferId, task.transferShipmentId)
       : APP_ROUTES.transferReceiveTask(task.transferId, task.transferShipmentId)
   }
-  if (task.taskType === 'Picking') return `${APP_ROUTES.stockIssueRequests}?id=${task.id}` as Route
+  if (task.taskType === 'Picking') return APP_ROUTES.stockIssueRequestDetail(task.id) as Route
   // Mở màn nhận hàng đã lọc sẵn theo mã yêu cầu nhập kho được giao.
   return `${APP_ROUTES.inbound}?search=${encodeURIComponent(task.referenceCode)}` as Route
 }

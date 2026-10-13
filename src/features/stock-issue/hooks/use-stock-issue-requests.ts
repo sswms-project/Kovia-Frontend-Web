@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
@@ -9,12 +9,16 @@ import type {
   CancelStockIssueRequestRequest,
   StockIssueAuditLogQuery,
   CreateStockIssueRequestRequest,
+  ImportStockIssueRequestsRequest,
   StockIssueImportPreview,
   RecordStockPickingRequest,
   ReportStockIssuePickIssueRequest,
   StockIssueRequestListQuery,
   StockIssueRequestListResponse,
+  StockIssueProductOption,
+  StockIssueProductOptionQuery,
   StockIssueRequestSummary,
+  UpdateStockIssueRequestRequest,
   CreateGoodsReturnRequestRequest,
   RejectGoodsReturnRequestRequest,
   GoodsReturnRequestListQuery,
@@ -28,11 +32,6 @@ import type {
   StockRecipientListResponse,
 } from '@/features/stock-recipient/types/stock-recipient.types'
 import { stockRecipientService } from '@/features/stock-recipient/services/stock-recipient.service'
-
-interface ConfirmStockDispatchVariables {
-  stockIssueRequestId: string
-  scannedBarcodes: string[]
-}
 
 interface RecordStockPickingVariables {
   stockIssueRequestId: string
@@ -81,8 +80,37 @@ export function useStockIssueRequestQuery(stockIssueRequestId: string | null) {
 }
 
 export function useStockIssueImportPreviewMutation() {
-  return useMutation<ApiResponse<StockIssueImportPreview>, ApiErrorResponse, File>({
+  return useMutation<
+    ApiResponse<StockIssueImportPreview>,
+    ApiErrorResponse,
+    Parameters<typeof stockIssueService.previewImport>[0]
+  >({
     mutationFn: stockIssueService.previewImport,
+    retry: false,
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useInspectStockIssueImportMutation() {
+  return useMutation({
+    mutationFn: stockIssueService.inspectImport,
+    retry: false,
+  })
+}
+
+export function useStockIssueImportTemplateMutation() {
+  return useMutation<void, ApiErrorResponse, void>({
+    mutationFn: stockIssueService.downloadImportTemplate,
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useImportStockIssueRequestsMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, ImportStockIssueRequestsRequest>({
+    mutationFn: stockIssueService.importRequests,
+    retry: false,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
     onError: (error) => logger.error(error),
   })
 }
@@ -96,6 +124,15 @@ export function useCreateStockIssueRequestMutation() {
         queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.stockRecipients.all }),
       ]),
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useUpdateStockIssueRequestMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, UpdateStockIssueRequestRequest>({
+    mutationFn: stockIssueService.updateStockIssueRequest,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
     onError: (error) => logger.error(error),
   })
 }
@@ -197,9 +234,8 @@ export function useRemovePickDetailMutation() {
 
 export function useConfirmStockDispatchMutation() {
   const queryClient = useQueryClient()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, ConfirmStockDispatchVariables>({
-    mutationFn: ({ stockIssueRequestId, scannedBarcodes }) =>
-      stockIssueService.confirmDispatch(stockIssueRequestId, { scannedBarcodes }),
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
+    mutationFn: stockIssueService.confirmDispatch,
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
@@ -310,5 +346,34 @@ export function useReportStockIssuePickIssueMutation() {
     mutationFn: stockIssueService.reportPickIssue,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
     onError: (error) => logger.error(error),
+  })
+}
+
+/** Sản phẩm còn tồn khả dụng tại kho xuất; chưa chọn kho thì không tải. */
+export function useStockIssueProductOptionsQuery(params: StockIssueProductOptionQuery) {
+  return useQuery<StockIssueProductOption[], ApiErrorResponse>({
+    queryKey: queryKeys.stockIssueRequests.productOptions(params),
+    queryFn: () =>
+      stockIssueService.getProductOptions(params).then((response) => response.data.items),
+    placeholderData: (previousData) => previousData,
+    enabled: Boolean(params.warehouseId),
+  })
+}
+
+/**
+ * Đơn vị và tồn của các sản phẩm đã có trong phiếu đang sửa. API chỉ tra theo từ khóa nên mỗi sản
+ * phẩm được tra bằng SKU; sản phẩm đã hết tồn sẽ không có kết quả.
+ */
+export function useStockIssueSavedProductOptions(skus: readonly string[], warehouseId: string) {
+  return useQueries({
+    queries: skus.map((sku) => {
+      const params = { warehouseId, searchTerm: sku, pageSize: 20 }
+      return {
+        queryKey: queryKeys.stockIssueRequests.productOptions(params),
+        queryFn: () =>
+          stockIssueService.getProductOptions(params).then((response) => response.data.items),
+        enabled: Boolean(warehouseId),
+      }
+    }),
   })
 }

@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import StockIssueRequestsRoutePage from './page'
 
+const redirect = vi.hoisted(() =>
+  vi.fn((path: string) => {
+    throw new Error(`redirect:${path}`)
+  })
+)
+
+vi.mock('next/navigation', () => ({ redirect }))
 vi.mock('@/features/stock-issue/pages/StockIssueRequestPage', () => ({ default: () => null }))
 
 describe('stock issue deep links', () => {
@@ -8,11 +15,18 @@ describe('stock issue deep links', () => {
     [{ requestId: 'report-request' }, 'report-request'],
     [{ id: 'notification-request' }, 'notification-request'],
     [{ requestId: 'report-request', id: 'notification-request' }, 'report-request'],
-    [{}, undefined],
-  ])('opens the linked request and keys the workspace for %j', async (params, requestId) => {
-    const page = await StockIssueRequestsRoutePage({ searchParams: Promise.resolve(params) })
+  ])('redirects %j to the request detail page', async (params, requestId) => {
+    await expect(
+      StockIssueRequestsRoutePage({ searchParams: Promise.resolve(params) })
+    ).rejects.toThrow(`redirect:/stock-issue-requests/${requestId}`)
+  })
 
-    expect(page.props.initialRequestId).toBe(requestId)
-    expect(page.key).toBe(requestId ?? 'list')
+  it('renders the list when no request is linked', async () => {
+    redirect.mockClear()
+
+    const page = await StockIssueRequestsRoutePage({ searchParams: Promise.resolve({}) })
+
+    expect(page).toBeTruthy()
+    expect(redirect).not.toHaveBeenCalled()
   })
 })
