@@ -23,13 +23,13 @@ afterEach(() => {
 describe('WarehouseList', () => {
   it('navigates from a plain cell once, while the real link owns link clicks', () => {
     render(<WarehouseList warehouses={warehouses} />)
-    fireEvent.click(screen.getAllByText('KHO-01')[0])
+    fireEvent.click(screen.getAllByText('KHO-01')[0]!)
     expect(push).toHaveBeenCalledExactlyOnceWith('/warehouses/warehouse-1')
     push.mockClear()
-    fireEvent.click(screen.getAllByRole('link', { name: 'Kho trung tâm' })[0])
+    fireEvent.click(screen.getAllByRole('link', { name: 'Kho trung tâm' })[0]!)
     expect(push).not.toHaveBeenCalled()
     expect(screen.queryByText('Xem chi tiết')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('link')[1].querySelector('a')).toBeNull()
+    expect(screen.getAllByRole('link')[1]!.querySelector('a')).toBeNull()
   })
 
   it('does not navigate when selecting text; modifier row click opens a new tab', () => {
@@ -37,11 +37,11 @@ describe('WarehouseList', () => {
     const selection = vi
       .spyOn(window, 'getSelection')
       .mockReturnValue({ toString: () => 'KHO' } as Selection)
-    fireEvent.click(screen.getAllByText('KHO-01')[0])
+    fireEvent.click(screen.getAllByText('KHO-01')[0]!)
     expect(push).not.toHaveBeenCalled()
     selection.mockRestore()
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
-    fireEvent.click(screen.getAllByText('KHO-01')[0], { ctrlKey: true })
+    fireEvent.click(screen.getAllByText('KHO-01')[0]!, { ctrlKey: true })
     expect(open).toHaveBeenCalledWith('/warehouses/warehouse-1', '_blank', 'noopener')
     expect(push).not.toHaveBeenCalled()
   })

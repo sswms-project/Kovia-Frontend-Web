@@ -158,4 +158,5 @@ Nêu rõ: các commit, các test đã chạy và kết quả, tên migration m�
 - Baseline vừa fetch từ `origin/dev`: FE `99e6c3b` — 179 file / 1008 test đạt; BE `e04412f9` — 1350 đạt, 5 lỗi, 1 bỏ qua. Biên bản và TRX nằm tại `D:/Kovia-QA/Transfer-Dates-FormPolish-20261013-1900`. Các lỗi baseline: bốn ca `InboundOperationalEditingTests.EditsPreserveSnapshotsUnlessTheUserChangesTheLine` và `TenantRolePermissionTests.Inactive_user_cannot_reuse_a_cached_permission_set`.
 - A: đã thay placeholder, gộp giải thích vào Popover dùng được bằng bàn phím/mobile; 5 test của trường vị trí đạt, ESLint các file thay đổi đạt. Không ghi DB.
 - B: tái sử dụng `ClickableTableRow`, giữ Link tên kho trên desktop và một Link phủ thẻ mobile; 7 test danh sách kho/dòng dùng chung đạt, ESLint đạt.
-- C–E: chưa hoàn thành. Migration chưa được tạo hoặc áp; QA API thật chưa chạy.
+- C: đã chuyển ô ngày dùng chung sang `components/forms`, bổ sung giờ tùy chọn và giữ chế độ chỉ ngày. 10 test (ô ngày/giờ, chuyển đổi thời gian và form Nhập kho) đạt; TypeScript và ESLint đạt. Kiểm kê chỉ đổi import, không có suite riêng hiện hữu. TypeScript cũng phát hiện và đã sửa kiểu truy cập phần tử trong test bước B.
+- D–E: chưa hoàn thành. Migration chưa được tạo hoặc áp; QA API thật chưa chạy.
