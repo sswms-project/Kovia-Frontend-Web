@@ -255,3 +255,26 @@ Tất cả build/test chạy ở bản sao riêng `D:/Kovia-QA/Transfer-ReceiptS
 2. Gate C: QA trình duyệt API thật theo mục 6, responsive 360/768px, bàn phím, screen reader cơ bản, reduced motion; Back/Forward/làm mới khi có nội dung chưa lưu. Rà nhãn, focus/tab semantics và bố cục trang kế hoạch/cất trên thiết bị thật. Chưa có ảnh hoặc biên bản trình duyệt ở Gate B.
 3. **Chưa áp `20261013052038_SplitTransferReceiptPutAway`.** Không khởi động API mới với schema cũ. Cần user duyệt riêng migration trước QA API thật; tắt migration/seed tự động. Gate B không kết nối/ghi DB deploy.
 4. SQL Server race/rollback trên DB local cô lập vẫn hoãn theo người dùng; rủi ro High, không coi test bỏ qua hoặc SQLite là bằng chứng đạt.
+
+## 12. Ghi chú Gate C — QA trình duyệt thật (2026-10-13)
+
+Môi trường: BE cục bộ `:7070` build từ `feat/huytv` (kèm thay đổi chưa commit ở `AssignWarehouseTaskCommandHandler`; việc nền Quartz tắt trong bản chạy), FE `:3000`, DB `db71143` với migration `20261013052038` đã áp (ghi qua luồng ứng dụng, không xóa/reset). Tài khoản seed: Owner, Warehouse Staff.
+
+**Phiếu QA đã tạo** (ghi thật vào DB dùng chung, để lại): `QA-GC-261013-1651`, `QA-GC-261013-B1706`, `QA-GC-261013-C1717`.
+
+| Hạng mục                                                                                                             | Kết quả                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Giao việc lấy hàng bằng hộp thoại kiểu Nhập kho (nhân viên + số việc, ưu tiên, hạn, lý do)                           | Đạt                                                                                               |
+| Giao nhận + cất cho cùng một người (hai lệnh, báo từng kết quả)                                                      | Đạt                                                                                               |
+| "Nhận hàng" = xác nhận xe đến (`InTransit→Receiving`), bắt buộc lý do khi hỏng/thiếu, xác nhận nộp                   | Đạt; tồn kho không đổi sau nộp phiếu                                                              |
+| Phiếu lệch (8 tốt, 1 hỏng, 1 thiếu) sang `AwaitingPutAway`, mở 2 chênh lệch, không chặn cất                          | Đạt                                                                                               |
+| Cất theo trang riêng: quét mã, cất một phần rồi tiếp tục, vượt thực nhận bị chặn, hàng hỏng cất riêng                | Đạt; kết thúc `ReceivedWithDiscrepancy`                                                           |
+| Kế hoạch cất (gợi ý quy tắc khi AI không phản hồi), cất khác kế hoạch bắt buộc lý do, trong kế hoạch không bị gắn cờ | Đạt; phiếu không lệch kết thúc `Received`, phiếu `Completed`                                      |
+| Nhận bổ sung từ chênh lệch thiếu                                                                                     | Đạt; một nguồn lượng đã cất (đã cất 9 → 10, còn chờ 0)                                            |
+| Đợt phiên bản 0 đã nhận mở trang chỉ xem                                                                             | Đạt                                                                                               |
+| 360px: trang cất hàng (thẻ)                                                                                          | Đạt, không tràn ngang                                                                             |
+| 360px/768px: bảng kiểm hàng                                                                                          | **Chưa đạt**: bảng rộng 896–910px, phải cuộn ngang; cột Hỏng/Thiếu/Nguyên nhân nằm ngoài màn hình |
+
+Phát hiện chưa sửa: (1) bảng kiểm hàng không có bố cục thẻ ở màn nhỏ; (2) sau khi quản lý lưu kế hoạch, tab "Cất hàng thực tế" của cùng trang vẫn hiện "Chưa có vị trí theo kế hoạch" kể cả sau Tải lại vì `applyPlan` của `use-transfer-putaway-form` không được gọi ở đâu; (3) lỗi nghiệp vụ 409 khi sản phẩm chưa có quy đổi sang đơn vị sức chứa của vị trí buộc phải bấm Tải lại (dữ liệu đã nhập được giữ); (4) nhãn "Lý do đổi người nhận việc (nếu có)" xuất hiện cả khi giao lần đầu; (5) nút, tab, link dưới 44px (tab 21px, nút 28–32px).
+
+Chưa kiểm: zoom 200% thật, đọc màn hình, reduced motion thật, Back/Forward trên trang mới, nhiều lô, phiên bản 1 với kế hoạch bị đổi giữa chừng khi hai người cùng mở.
