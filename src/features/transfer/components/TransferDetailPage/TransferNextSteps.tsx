@@ -14,6 +14,8 @@ function linkOf(transferId: string, action: TransferNextStepAction) {
   if (action.type === 'openPick') return APP_ROUTES.transferPickTask(transferId, action.shipmentId)
   if (action.type === 'openReceive')
     return APP_ROUTES.transferReceiveTask(transferId, action.shipmentId)
+  if (action.type === 'openPutAway')
+    return APP_ROUTES.transferPutAwayTask(transferId, action.shipmentId)
   return null
 }
 

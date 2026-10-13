@@ -62,14 +62,20 @@ export function useTransferPlanEditor(
     ) => {
       if (transfer) change(applyTransferPlanSuggestions(draft, transfer.items, suggestions, only))
     },
-    rebase: (fresh: TransferDetail) => {
+    rebase: (fresh: TransferDetail, source: 'reload' | 'saved' = 'reload') => {
       if (locked.current) return
       version.current = fresh.version
-      setDraft(reconcileTransferPlanDraft(draft, fresh.items))
+      setDraft(
+        source === 'saved'
+          ? buildTransferPlanDraft(fresh.items)
+          : reconcileTransferPlanDraft(draft, fresh.items)
+      )
       setErrors({})
       setReloadRequired(false)
       setErrorMessage(
-        'Đã tải kế hoạch mới; số lượng đang sửa được giữ lại. Hãy kiểm tra trước khi lưu.'
+        source === 'saved'
+          ? null
+          : 'Đã tải kế hoạch mới; số lượng đang sửa được giữ lại. Hãy kiểm tra trước khi lưu.'
       )
     },
     submit: async () => {

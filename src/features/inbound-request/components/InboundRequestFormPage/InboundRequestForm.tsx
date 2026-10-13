@@ -37,7 +37,7 @@ import {
   type InboundRequestFormValues,
 } from '../../schemas/inbound-request.schema'
 import { INBOUND_SOURCE_TYPE, type LookupOption } from '../../types/inbound-request.types'
-import { DatePickerField } from './DatePickerField'
+import { DatePickerField } from '@/components/forms/DatePickerField'
 import { FormActions } from './FormActions'
 import { InboundRequestLineRow } from './InboundRequestLineRow'
 import { LookupCombobox } from './LookupCombobox'

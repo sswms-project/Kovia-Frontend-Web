@@ -8,10 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  formatOperationalDate,
-  formatOperationalDateTime,
-} from '@/features/inbound-request/utils/inbound-request-format'
+import { formatOperationalDateTime } from '@/features/inbound-request/utils/inbound-request-format'
 import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
@@ -20,6 +17,7 @@ import {
   TransferStatusBadge,
 } from './TransferStatusBadge'
 import type { TransferListPartProps } from './TransferMobileList'
+import { formatOperationalOptionalTime } from '@/lib/operational-date-time'
 
 export function TransferDesktopTable({
   items,
@@ -35,10 +33,11 @@ export function TransferDesktopTable({
             <TableHead className="w-44">Mã yêu cầu</TableHead>
             <TableHead className="w-44">Ngày tạo</TableHead>
             <TableHead className="w-72">Kho xuất → Kho nhập</TableHead>
-            <TableHead className="w-36">Hạn cần hàng</TableHead>
+            <TableHead className="w-44">Ngày dự kiến điều chuyển</TableHead>
+            <TableHead className="w-44">Ngày hàng dự kiến về kho nhập</TableHead>
             <TableHead className="w-40">Trạng thái</TableHead>
             <TableHead className="w-36">Tình trạng thực hiện</TableHead>
-            <TableHead className="w-40">Việc cần làm</TableHead>
+            <TableHead className="w-44 min-w-44">Việc cần làm</TableHead>
             <TableHead className="w-64">Cần chú ý</TableHead>
             <TableHead className="w-40">Người tạo</TableHead>
             <TableHead className="w-12">
@@ -64,9 +63,8 @@ export function TransferDesktopTable({
               <TableCell className="whitespace-normal">
                 {item.sourceWarehouseName} → {item.destinationWarehouseName}
               </TableCell>
-              <TableCell>
-                {item.requiredBy ? formatOperationalDate(item.requiredBy) : '—'}
-              </TableCell>
+              <TableCell>{formatOperationalOptionalTime(item.plannedTransferDate)}</TableCell>
+              <TableCell>{formatOperationalOptionalTime(item.requiredBy)}</TableCell>
               <TableCell>
                 <TransferStatusBadge status={item.status} />
               </TableCell>

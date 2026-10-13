@@ -80,7 +80,10 @@ describe('getTransferNextSteps', () => {
         }),
       ],
     })
-    expect(stepsFor(destinationManager, inTransit)).toEqual(['assign-receive-s1'])
+    expect(stepsFor(destinationManager, inTransit)).toEqual([
+      'assign-receive-s1',
+      'open-receive-s1',
+    ])
     expect(stepsFor(sourceManager, inTransit)).toEqual([])
   })
 
@@ -109,7 +112,10 @@ describe('getTransferNextSteps', () => {
         }),
       ],
     })
-    expect(stepsFor(destinationManager, received)).toEqual(['reassign-receive-s1'])
+    expect(stepsFor(destinationManager, received)).toEqual([
+      'reassign-receive-s1',
+      'open-receive-s1',
+    ])
   })
 
   it('puts a pending pick report in front of the source manager first', () => {

@@ -69,6 +69,7 @@ export function useTransferReceiveForm(
       setSlotPathById({})
     } else if (old.version !== sheet.version || old.planVersion !== sheet.planVersion) {
       setReloadRequired(true)
+      setIsConfirmOpen(false)
       setNotice(
         'Phiếu hoặc kế hoạch đã thay đổi. Tải lại để đối chiếu; số lượng đang nhập sẽ được giữ lại.'
       )
@@ -189,6 +190,7 @@ export function useTransferReceiveForm(
   }
 
   async function confirm() {
+    if (reloadRequired) setIsConfirmOpen(false)
     if (!snapshot.current?.version || !mayEdit()) return
     if (
       snapshot.current.lines.some((line) => line.planMode === 'Planned') &&

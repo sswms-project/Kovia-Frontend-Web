@@ -1,9 +1,8 @@
 'use client'
 
-import { ListFilter, Plus, RefreshCw, Search } from 'lucide-react'
+import { Plus, RefreshCw, Search } from 'lucide-react'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -21,7 +20,7 @@ import type {
   TransferSummary,
 } from '../../types/transfer.types'
 import { TransferDesktopTable } from './TransferDesktopTable'
-import { TransferFilterSheet } from './TransferFilterSheet'
+import { TransferFilterBar } from './TransferFilterBar'
 import { TransferMobileList } from './TransferMobileList'
 import { TransferRowActions } from './TransferRowActions'
 import { TransferStatusFilter } from './TransferStatusFilter'
@@ -92,13 +91,6 @@ export function TransferDirectory({
   onRetry,
   onPreview,
 }: TransferDirectoryProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const activeFilterCount =
-    (sourceWarehouseId ? 1 : 0) +
-    (destinationWarehouseId ? 1 : 0) +
-    (dateFrom ? 1 : 0) +
-    (dateTo ? 1 : 0)
-
   const renderRowActions = (transfer: TransferSummary): ReactNode => (
     <TransferRowActions
       transfer={transfer}
@@ -127,9 +119,11 @@ export function TransferDirectory({
 
       <OperationalListPanel>
         <div className="flex shrink-0 flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-sm font-semibold">Danh sách phiếu điều chuyển</h2>
-          <div className="flex w-full gap-2 sm:w-auto">
-            <InputGroup className="min-w-0 flex-1 sm:w-72">
+          <h2 className="shrink-0 text-sm font-semibold whitespace-nowrap">
+            Danh sách phiếu điều chuyển
+          </h2>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
+            <InputGroup className="min-w-0 flex-1 basis-full sm:w-60 sm:flex-none sm:basis-auto">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
@@ -140,10 +134,17 @@ export function TransferDirectory({
                 onChange={(event) => onSearchChange(event.target.value)}
               />
             </InputGroup>
-            <Button type="button" variant="outline" onClick={() => setIsFilterOpen(true)}>
-              <ListFilter aria-hidden="true" />
-              Bộ lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-            </Button>
+            <TransferFilterBar
+              sourceWarehouseId={sourceWarehouseId}
+              destinationWarehouseId={destinationWarehouseId}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              warehouseOptions={warehouseOptions}
+              onSourceWarehouseChange={onSourceWarehouseChange}
+              onDestinationWarehouseChange={onDestinationWarehouseChange}
+              onDateFromChange={onDateFromChange}
+              onDateToChange={onDateToChange}
+            />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -203,20 +204,6 @@ export function TransferDirectory({
           </>
         )}
       </OperationalListPanel>
-
-      <TransferFilterSheet
-        open={isFilterOpen}
-        sourceWarehouseId={sourceWarehouseId}
-        destinationWarehouseId={destinationWarehouseId}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        warehouseOptions={warehouseOptions}
-        onOpenChange={setIsFilterOpen}
-        onSourceWarehouseChange={onSourceWarehouseChange}
-        onDestinationWarehouseChange={onDestinationWarehouseChange}
-        onDateFromChange={onDateFromChange}
-        onDateToChange={onDateToChange}
-      />
     </div>
   )
 }

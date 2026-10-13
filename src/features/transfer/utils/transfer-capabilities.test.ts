@@ -179,12 +179,32 @@ describe('getShipmentCapabilities', () => {
         .canOpenPick
     ).toBe(false)
     expect(
-      getShipmentCapabilities(viewer([P.TRANSFERS_RECEIVE]), buildShipment({ status: 'InTransit' }))
-        .canOpenReceive
+      getShipmentCapabilities(
+        viewer([P.TRANSFERS_RECEIVE]),
+        buildShipment({ status: 'InTransit', receiveAssigneeId: OWNER_ID })
+      ).canOpenReceive
     ).toBe(true)
     expect(
       getShipmentCapabilities(viewer([P.TRANSFERS_RECEIVE]), buildShipment({ status: 'Received' }))
         .canOpenReceive
+    ).toBe(false)
+  })
+
+  it('lets only the assignee or a task manager act on receiving and putaway', () => {
+    const receiving = buildShipment({ status: 'Receiving', receiveAssigneeId: 'someone-else' })
+    const awaiting = buildShipment({ status: 'AwaitingPutAway', putAwayAssigneeId: 'someone-else' })
+    const unassignedStaff = viewer([P.TRANSFERS_RECEIVE])
+    expect(getShipmentCapabilities(unassignedStaff, receiving).canOpenReceive).toBe(false)
+    expect(getShipmentCapabilities(unassignedStaff, awaiting).canOpenPutAway).toBe(false)
+    const assignee = viewer([P.TRANSFERS_RECEIVE], { currentUserId: 'someone-else' })
+    expect(getShipmentCapabilities(assignee, receiving).canOpenReceive).toBe(true)
+    expect(getShipmentCapabilities(assignee, awaiting).canOpenPutAway).toBe(true)
+    const manager = viewer([P.TRANSFERS_RECEIVE, P.WAREHOUSE_TASKS_ASSIGN])
+    expect(getShipmentCapabilities(manager, receiving).canOpenReceive).toBe(true)
+    expect(getShipmentCapabilities(manager, awaiting).canOpenPutAway).toBe(true)
+    const nobody = viewer([P.TRANSFERS_RECEIVE], { currentUserId: null })
+    expect(
+      getShipmentCapabilities(nobody, buildShipment({ status: 'Receiving' })).canOpenReceive
     ).toBe(false)
   })
 
@@ -235,7 +255,12 @@ describe('getShipmentCapabilities', () => {
       sourceWarehouseId: 'source',
       destinationWarehouseId: 'destination',
     }
-    const everything = [P.TRANSFERS_PICK, P.TRANSFERS_RECEIVE, P.TRANSFERS_DISPATCH]
+    const everything = [
+      P.TRANSFERS_PICK,
+      P.TRANSFERS_RECEIVE,
+      P.TRANSFERS_DISPATCH,
+      P.WAREHOUSE_TASKS_ASSIGN,
+    ]
     const sourceManager = viewer(everything, { warehouseIds: ['source'] })
     const destinationManager = viewer(everything, { warehouseIds: ['destination'] })
     const picking = buildShipment()

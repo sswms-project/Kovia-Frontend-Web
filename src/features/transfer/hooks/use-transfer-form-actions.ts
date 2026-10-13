@@ -70,7 +70,7 @@ export function useTransferFormActions({
       mode === 'draft' && !savedDraftOnceRef.current ? (detail?.version ?? null) : null
     const response = await saveDraftMutation.mutateAsync({
       transferId: draftIdRef.current,
-      request: toSaveDraftRequest(values, expectedVersion),
+      request: toSaveDraftRequest(values, expectedVersion, detail),
     })
     draftIdRef.current = response.data
     savedDraftOnceRef.current = true

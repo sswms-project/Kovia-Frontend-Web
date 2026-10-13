@@ -88,6 +88,11 @@ export const APP_ROUTES = {
     `/tasks/transfers/${transferId}/shipments/${shipmentId}/pick` as Route,
   transferReceiveTask: (transferId: string, shipmentId: string): Route =>
     `/tasks/transfers/${transferId}/shipments/${shipmentId}/receive` as Route,
+  transferPutAway: (transferId: string, shipmentId: string): Route =>
+    `/transfers/${transferId}/shipments/${shipmentId}/putaway` as Route,
+  transferPutAwayTask: (transferId: string, shipmentId: string): Route =>
+    `/tasks/transfers/${transferId}/shipments/${shipmentId}/putaway` as Route,
+  transferPlan: (transferId: string): Route => `/transfers/${transferId}/putaway` as Route,
   stockIssueRequests: '/stock-issue-requests',
   stockIssueRequestCreate: '/stock-issue-requests/new',
   stockIssueRequestImport: '/stock-issue-requests/import',

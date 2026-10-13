@@ -16,7 +16,10 @@ const labels: Readonly<Record<string, string>> = {
 export function TransferNextActionChip({ code }: { readonly code?: string | null }) {
   const label = code ? labels[code] : undefined
   return label ? (
-    <Badge variant="outline" className="whitespace-normal">
+    <Badge
+      variant="outline"
+      className="h-auto min-h-5 py-1 text-left leading-snug whitespace-normal"
+    >
       {label}
     </Badge>
   ) : null

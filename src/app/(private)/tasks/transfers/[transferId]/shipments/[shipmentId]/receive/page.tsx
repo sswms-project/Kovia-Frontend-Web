@@ -8,5 +8,11 @@ export default async function TransferReceiveTaskRoutePage({
   params,
 }: TransferReceiveTaskRoutePageProps) {
   const { transferId, shipmentId } = await params
-  return <TransferReceiveTaskPage transferId={transferId} shipmentId={shipmentId} />
+  return (
+    <TransferReceiveTaskPage
+      key={`${transferId}-${shipmentId}`}
+      transferId={transferId}
+      shipmentId={shipmentId}
+    />
+  )
 }

@@ -384,6 +384,7 @@ export interface ReconcilePutawayCancellationRequest {
 }
 
 export interface AssignableWarehouseStaff {
+  openPickingTasks?: number
   id: string
   fullName: string
   email: string

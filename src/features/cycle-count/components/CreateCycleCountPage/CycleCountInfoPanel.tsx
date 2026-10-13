@@ -6,7 +6,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { DatePickerField } from '@/features/inbound-request/components/InboundRequestFormPage/DatePickerField'
+import { DatePickerField } from '@/components/forms/DatePickerField'
 import { OptionSelect } from '../OptionSelect'
 import type { CycleCountFormApi, SelectOption } from './types'
 

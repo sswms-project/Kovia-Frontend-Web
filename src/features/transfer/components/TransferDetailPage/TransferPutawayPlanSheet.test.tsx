@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildTransfer, buildTransferItem } from '../../utils/transfer-test-fixtures'
 import { buildTransferPlanDraft } from '../../utils/transfer-putaway-plan'
@@ -70,6 +70,52 @@ describe('TransferPutawayPlanSheet', () => {
     expect(editor.close).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Bỏ thay đổi' }))
     expect(editor.close).toHaveBeenCalledTimes(1)
+  })
+  it('is wide enough on desktop because the right-side sheet width overrides its small default', () => {
+    setup()
+    const classes = screen.getByRole('dialog').className
+    expect(classes).toContain('data-[side=right]:sm:max-w-2xl')
+    expect(classes).toContain('data-[side=right]:w-full')
+    expect(classes).not.toContain('data-[side=right]:sm:max-w-sm')
+    expect(classes).not.toContain('data-[side=right]:w-3/4')
+  })
+  it('warns before reload or tab close only while an unsaved draft is open', () => {
+    const first = setup({ isDirty: true })
+    const dirtyEvent = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(dirtyEvent)
+    expect(dirtyEvent.defaultPrevented).toBe(true)
+    expect(first.editor.close).not.toHaveBeenCalled()
+    cleanup()
+    setup({ isDirty: false })
+    const cleanEvent = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(cleanEvent)
+    expect(cleanEvent.defaultPrevented).toBe(false)
+  })
+  it('asks before the browser Back button throws away an unsaved draft, and goes back only after confirming', () => {
+    const forward = vi.spyOn(window.history, 'forward').mockImplementation(() => undefined)
+    const back = vi.spyOn(window.history, 'back').mockImplementation(() => undefined)
+    const { editor } = setup({ isDirty: true })
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    expect(forward).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Bỏ nội dung đang sửa?')
+    expect(back).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Bỏ thay đổi' }))
+    expect(editor.close).toHaveBeenCalledTimes(1)
+    expect(back).toHaveBeenCalledTimes(1)
+    forward.mockRestore()
+    back.mockRestore()
+  })
+  it('does not intercept the Back button when there is nothing unsaved', () => {
+    const forward = vi.spyOn(window.history, 'forward').mockImplementation(() => undefined)
+    setup({ isDirty: false })
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    expect(forward).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    forward.mockRestore()
   })
   it('supports viewing without offering write actions', () => {
     setup({ canManage: false })
