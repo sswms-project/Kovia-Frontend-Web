@@ -5,7 +5,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
-import { AI_DRAFT_STATUSES, type AiCard, type AiDraftStatus } from '../../types/ai-assistant.types'
+import {
+  AI_ACTIONS,
+  AI_DRAFT_STATUSES,
+  type AiCard,
+  type AiDraftStatus,
+} from '../../types/ai-assistant.types'
 import { getAiActionResultLink } from '../../utils/ai-assistant-links'
 import { AiDraftQuantityEditor, type AiDraftQuantityEdit } from './AiDraftQuantityEditor'
 
@@ -86,7 +91,12 @@ export function AiActionConfirmationCard({
       ) : null}
 
       {isEditing ? (
-        <AiDraftQuantityEditor draftId={draftId} lines={editableLines} edit={quantityEdit} />
+        <AiDraftQuantityEditor
+          draftId={draftId}
+          lines={editableLines}
+          edit={quantityEdit}
+          showDate={card.action !== AI_ACTIONS.createStockIssueRequest}
+        />
       ) : null}
 
       {isPending && !isEditing ? (
@@ -104,13 +114,17 @@ export function AiActionConfirmationCard({
                 size="sm"
                 disabled={isLocked || quantityEdit.editingDraftId !== null}
                 onClick={() =>
-                  quantityEdit.onStart(draftId, {
-                    expectedDate: details.find((detail) => detail.dateValue)?.dateValue ?? '',
-                    lines: editableLines.map((line) => ({
-                      productId: line.productId ?? '',
-                      quantity: line.quantity ?? 0,
-                    })),
-                  })
+                  quantityEdit.onStart(
+                    draftId,
+                    {
+                      expectedDate: details.find((detail) => detail.dateValue)?.dateValue ?? '',
+                      lines: editableLines.map((line) => ({
+                        productId: line.productId ?? '',
+                        quantity: line.quantity ?? 0,
+                      })),
+                    },
+                    card.action
+                  )
                 }
               >
                 <Pencil aria-hidden="true" />

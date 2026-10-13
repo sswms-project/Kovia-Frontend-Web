@@ -427,6 +427,9 @@ export const API_ENDPOINTS = {
   },
   stockIssueRequests: {
     importPreview: '/stock-issue-requests/import/preview',
+    importInspect: '/stock-issue-requests/import/inspect',
+    import: '/stock-issue-requests/import',
+    productOptions: '/stock-issue-requests/product-options',
     importTemplate: '/stock-issue-requests/import-template',
     list: '/stock-issue-requests',
     create: '/stock-issue-requests',

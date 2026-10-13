@@ -38,6 +38,11 @@ export function getAiActionResultLink(
         href: APP_ROUTES.stockAdjustmentDetail(resultEntityId),
         label: 'Xem phiếu điều chỉnh',
       }
+    case AI_ACTIONS.createStockIssueRequest:
+      return {
+        href: APP_ROUTES.stockIssueRequestDetail(resultEntityId) as Route,
+        label: 'Xem phiếu xuất kho',
+      }
     default:
       return null
   }

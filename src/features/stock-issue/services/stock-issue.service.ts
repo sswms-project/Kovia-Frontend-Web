@@ -1,20 +1,27 @@
 import { axiosClient } from '@/lib/axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
+import type {
+  SpreadsheetImportInspection,
+  SpreadsheetImportPreviewInput,
+} from '@/components/operations/spreadsheet-import.types'
 import type { ApiResponse } from '@/types/api'
 import type { AuditLogListResponse } from '@/features/platform-services/types/platform-services.types'
 import type {
   AssignStockIssuePickerRequest,
   CancelStockIssueRequestRequest,
-  ConfirmStockDispatchRequest,
   ReportStockIssuePickIssueRequest,
   StockIssueAuditLogQuery,
   CreateStockIssueRequestRequest,
+  ImportStockIssueRequestsRequest,
   StockIssueAttachment,
   StockIssueImportPreview,
   RecordStockPickingRequest,
   StockIssueRequestListQuery,
   StockIssueRequestListResponse,
+  StockIssueProductOption,
+  StockIssueProductOptionQuery,
   StockIssueRequestSummary,
+  UpdateStockIssueRequestRequest,
   CreateGoodsReturnRequestRequest,
   RejectGoodsReturnRequestRequest,
   GoodsReturnRequestListQuery,
@@ -41,15 +48,33 @@ export const stockIssueService = {
     downloadBlob(response.data, 'kovia-mau-nhap-phieu-xuat-kho.xlsx')
   },
 
-  previewImport: (file: File) => {
+  inspectImport: (input: { file: File; csvDelimiter: string }) => {
     const form = new FormData()
-    form.append('file', file)
+    form.append('file', input.file)
+    form.append('csvDelimiter', input.csvDelimiter)
+    return axiosClient
+      .post<
+        ApiResponse<SpreadsheetImportInspection>
+      >(API_ENDPOINTS.stockIssueRequests.importInspect, form, { headers: { 'Content-Type': null } })
+      .then((response) => response.data)
+  },
+
+  previewImport: (input: { warehouseId: string } & SpreadsheetImportPreviewInput) => {
+    const form = new FormData()
+    form.append('warehouseId', input.warehouseId)
+    form.append('file', input.file)
+    if (input.options) form.append('options', JSON.stringify(input.options))
     return axiosClient
       .post<
         ApiResponse<StockIssueImportPreview>
       >(API_ENDPOINTS.stockIssueRequests.importPreview, form, { headers: { 'Content-Type': null } })
       .then((response) => response.data)
   },
+
+  importRequests: (request: ImportStockIssueRequestsRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.stockIssueRequests.import, request)
+      .then((response) => response.data),
 
   uploadAttachment: (stockIssueRequestId: string, file: File) => {
     const form = new FormData()
@@ -83,6 +108,13 @@ export const stockIssueService = {
       >(API_ENDPOINTS.stockIssueRequests.list, { params })
       .then((response) => response.data),
 
+  getProductOptions: (params: StockIssueProductOptionQuery) =>
+    axiosClient
+      .get<
+        ApiResponse<{ items: StockIssueProductOption[] }>
+      >(API_ENDPOINTS.stockIssueRequests.productOptions, { params })
+      .then((response) => response.data),
+
   getStockIssueRequest: (stockIssueRequestId: string) =>
     axiosClient
       .get<
@@ -93,6 +125,13 @@ export const stockIssueService = {
   createStockIssueRequest: (request: CreateStockIssueRequestRequest) =>
     axiosClient
       .post<ApiResponse<string>>(API_ENDPOINTS.stockIssueRequests.create, request)
+      .then((response) => response.data),
+
+  updateStockIssueRequest: (request: UpdateStockIssueRequestRequest) =>
+    axiosClient
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.stockIssueRequests.detail(request.stockIssueRequestId), request)
       .then((response) => response.data),
 
   releaseForPicking: (request: ReleaseStockIssueRequestRequest) =>
@@ -130,11 +169,9 @@ export const stockIssueService = {
       >(API_ENDPOINTS.stockIssueRequests.picks(stockIssueRequestId), request)
       .then((response) => response.data),
 
-  confirmDispatch: (stockIssueRequestId: string, request?: ConfirmStockDispatchRequest) =>
+  confirmDispatch: (stockIssueRequestId: string) =>
     axiosClient
-      .post<
-        ApiResponse<unknown>
-      >(API_ENDPOINTS.stockIssueRequests.dispatch(stockIssueRequestId), request ?? {})
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.stockIssueRequests.dispatch(stockIssueRequestId))
       .then((response) => response.data),
 
   reportPickIssue: (request: ReportStockIssuePickIssueRequest) =>

@@ -141,7 +141,7 @@ const notificationReferenceRoutes: Record<string, (id: string) => string> = {
   Product: APP_ROUTES.productDetail,
   StockTransfer: APP_ROUTES.transferDetail,
   WarehouseTask: () => APP_ROUTES.myTasks,
-  StockIssueRequest: (id) => `${APP_ROUTES.stockIssueRequests}?id=${id}`,
+  StockIssueRequest: (id) => APP_ROUTES.stockIssueRequestDetail(id),
   GoodsReturnRequest: () => APP_ROUTES.goodsReturnRequests,
   DamageCase: () => APP_ROUTES.inventoryDamageCases,
   OpeningStockRecord: () => APP_ROUTES.inventoryOpeningStocks,
