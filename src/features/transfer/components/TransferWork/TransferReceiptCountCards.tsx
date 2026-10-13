@@ -31,25 +31,27 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
   const errors = form.formState.errors.entries
   return (
     <div data-slot="operational-list-body" className="@container/receipt p-3">
-      <div className="grid min-w-0 items-start gap-3 @3xl/receipt:grid-cols-2">
+      <div className="grid min-w-0 items-start gap-3">
         {entries.map((entry, index) => {
           const line = sheet.lines.find((line) => line.lineId === entry.lineId)
           const lot = line?.lots.find((lot) => lot.lotId === entry.lotId)
           if (!line || !lot) return null
-          const declared = entry.goodQuantity + entry.damagedQuantity + entry.missingQuantity
-          const matched =
-            Number.isFinite(declared) && Math.abs(declared - lot.dispatchedQuantity) < 1e-7
-          const hasDiscrepancy = entry.damagedQuantity > 0 || entry.missingQuantity > 0
+          // Ô để trống cho valueAsNumber = NaN; hiển thị coi là 0, lỗi "phải là số" vẫn do schema báo khi nộp.
+          const damaged = entry.damagedQuantity || 0
+          const missing = entry.missingQuantity || 0
+          const declared = (entry.goodQuantity || 0) + damaged + missing
+          const matched = Math.abs(declared - lot.dispatchedQuantity) < 1e-7
+          const hasDiscrepancy = damaged > 0 || missing > 0
           const prefix = instanceId + '-count-' + index
           return (
             <Card
               key={entry.lineId + '-' + (entry.lotId ?? 'no-lot')}
               size="sm"
-              className="min-w-0"
+              className="min-w-0 @3xl/receipt:flex-row @3xl/receipt:flex-wrap @3xl/receipt:items-start @3xl/receipt:has-data-[slot=card-footer]:pb-(--card-spacing)"
               role="group"
               aria-labelledby={prefix + '-title'}
             >
-              <CardHeader className="min-w-0 gap-2">
+              <CardHeader className="min-w-0 gap-2 @3xl/receipt:w-60 @3xl/receipt:shrink-0">
                 <CardTitle>
                   <h2 id={prefix + '-title'} className="wrap-anywhere">
                     {line.productName}
@@ -75,7 +77,7 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
                   </p>
                 ) : null}
               </CardHeader>
-              <CardContent>
+              <CardContent className="@3xl/receipt:w-80 @3xl/receipt:shrink-0">
                 <FieldGroup className="grid grid-cols-3 gap-2">
                   {(['goodQuantity', 'damagedQuantity', 'missingQuantity'] as const).map(
                     (field) => {
@@ -122,8 +124,8 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
                   )}
                 </FieldGroup>
               </CardContent>
-              <CardFooter className="flex-col items-stretch gap-3">
-                <div className="flex flex-wrap items-center gap-2">
+              <CardFooter className="flex-col items-stretch gap-3 @3xl/receipt:min-w-[28rem] @3xl/receipt:flex-1 @3xl/receipt:flex-row @3xl/receipt:items-start @3xl/receipt:border-t-0 @3xl/receipt:py-0">
+                <div className="flex flex-wrap items-center gap-2 @3xl/receipt:w-40 @3xl/receipt:shrink-0 @3xl/receipt:flex-col @3xl/receipt:items-start @3xl/receipt:pt-5">
                   <Badge
                     role="status"
                     aria-live="polite"
@@ -143,9 +145,10 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
                     Đã kiểm: {formatQuantity(declared)}
                   </span>
                 </div>
-                <FieldGroup className="gap-3">
+                <FieldGroup className="gap-3 @3xl/receipt:min-w-0 @3xl/receipt:flex-1 @3xl/receipt:flex-row">
                   {hasDiscrepancy ? (
                     <Field
+                      className="@3xl/receipt:w-56 @3xl/receipt:shrink-0"
                       data-invalid={Boolean(errors?.[index]?.reasonCode)}
                       data-disabled={disabled}
                     >
@@ -172,7 +175,11 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
                       </FieldError>
                     </Field>
                   ) : null}
-                  <Field data-invalid={Boolean(errors?.[index]?.note)} data-disabled={disabled}>
+                  <Field
+                    className="min-w-0 @3xl/receipt:flex-1"
+                    data-invalid={Boolean(errors?.[index]?.note)}
+                    data-disabled={disabled}
+                  >
                     <FieldLabel htmlFor={prefix + '-note'}>Ghi chú (tùy chọn)</FieldLabel>
                     <Textarea
                       id={prefix + '-note'}

@@ -116,4 +116,13 @@ describe('Kiểm hàng responsive', () => {
     await user.type(good, '10')
     expect(status).toHaveTextContent('Khớp')
   })
+  it('treats a cleared quantity as 0 instead of showing NaN', async () => {
+    render(<Harness />)
+    const user = userEvent.setup()
+    const card = screen.getByRole('group', { name: 'Hàng QA' })
+    await user.clear(within(card).getByRole('spinbutton', { name: /^Tốt/ }))
+    expect(card).not.toHaveTextContent('NaN')
+    expect(within(card).getByText('Đã kiểm: 2')).toBeInTheDocument()
+    expect(within(card).getByRole('status')).toHaveTextContent('Chưa đủ / Vượt số xuất')
+  })
 })
