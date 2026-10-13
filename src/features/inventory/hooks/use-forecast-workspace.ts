@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useProductSuppliersQuery } from '@/features/product/hooks/use-products'
 import { useWarehouseLocationsQuery } from '@/features/warehouse/hooks/use-warehouse'
+import { downloadBulkImportFile } from '@/components/operations/bulk-import'
 import { getApiErrorMessage, formatApiError } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
@@ -19,6 +20,13 @@ import type {
   ReviewReplenishmentFormValues,
 } from '../schemas/forecast-planning.schema'
 import type { RebalancingSuggestion, ReplenishmentSuggestion } from '../types/inventory.types'
+import {
+  buildForecastOverview,
+  countForecastRisks,
+  filterForecastOverview,
+  forecastOverviewCsv,
+} from '../utils/forecast-overview'
+import type { ForecastRiskFilter } from '../utils/forecast-overview'
 import {
   useCreateForecastRunMutation,
   useExecuteForecastRunMutation,
@@ -37,6 +45,10 @@ export function useForecastWorkspace() {
   const [productId, setProductId] = useState('')
   const [transferSuggestion, setTransferSuggestion] = useState<RebalancingSuggestion | null>(null)
   const [destinationSlotId, setDestinationSlotId] = useState('')
+  const [overviewSearch, setOverviewSearch] = useState('')
+  const [overviewRisk, setOverviewRisk] = useState<ForecastRiskFilter>('all')
+  const [overviewPage, setOverviewPage] = useState(1)
+  const [overviewPageSize, setOverviewPageSize] = useState(20)
   const createForm = useForm<CreateForecastRunFormValues>({
     resolver: zodResolver(createForecastRunSchema),
     defaultValues: { warehouseId: '', historicalPeriodDays: 90, horizonDays: 14 },
@@ -57,6 +69,13 @@ export function useForecastWorkspace() {
   // Read the refreshed server record instead of keeping an obsolete snapshot in selection state.
   const selected =
     runQuery.data?.replenishmentSuggestions.find((item) => item.id === reviewId) ?? null
+  const run = runQuery.data
+  const overviewRows = useMemo(() => (run ? buildForecastOverview(run) : []), [run])
+  const overviewRiskCounts = useMemo(() => countForecastRisks(overviewRows), [overviewRows])
+  const filteredOverview = useMemo(
+    () => filterForecastOverview(overviewRows, overviewSearch, overviewRisk),
+    [overviewRows, overviewSearch, overviewRisk]
+  )
   const suppliersQuery = useProductSuppliersQuery(selected?.productId ?? '')
   const slotsQuery = useWarehouseLocationsQuery(transferSuggestion?.destinationWarehouseId ?? '', {
     top: 200,
@@ -75,6 +94,20 @@ export function useForecastWorkspace() {
     setReviewId('')
     setProductId('')
     setTransferSuggestion(null)
+    setOverviewSearch('')
+    setOverviewRisk('all')
+    setOverviewPage(1)
+  }
+  function exportOverview() {
+    if (!run) return
+    // BOM so Excel reads the Vietnamese headers as UTF-8.
+    const blob = new Blob(
+      [new Uint8Array([0xef, 0xbb, 0xbf]), forecastOverviewCsv(filteredOverview)],
+      {
+        type: 'text/csv;charset=utf-8',
+      }
+    )
+    downloadBulkImportFile(blob, `du-bao-${run.forecastStartDate}.csv`)
   }
   function changeWarehouse(id: string) {
     createForm.setValue('warehouseId', id)
@@ -197,6 +230,32 @@ export function useForecastWorkspace() {
     isReviewing: acceptMutation.isPending || rejectMutation.isPending,
     productId,
     setProductId,
+    overview: {
+      rows: filteredOverview.slice(
+        (overviewPage - 1) * overviewPageSize,
+        overviewPage * overviewPageSize
+      ),
+      totalCount: filteredOverview.length,
+      riskCounts: overviewRiskCounts,
+      search: overviewSearch,
+      risk: overviewRisk,
+      page: overviewPage,
+      pageSize: overviewPageSize,
+      onSearchChange: (search: string) => {
+        setOverviewSearch(search)
+        setOverviewPage(1)
+      },
+      onRiskChange: (risk: ForecastRiskFilter) => {
+        setOverviewRisk(risk)
+        setOverviewPage(1)
+      },
+      onPageChange: setOverviewPage,
+      onPageSizeChange: (pageSize: number) => {
+        setOverviewPageSize(pageSize)
+        setOverviewPage(1)
+      },
+      onExport: exportOverview,
+    },
     evaluate,
     isEvaluating: evaluateMutation.isPending,
     transferSuggestion,

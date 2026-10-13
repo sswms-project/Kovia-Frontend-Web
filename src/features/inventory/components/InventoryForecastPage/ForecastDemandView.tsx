@@ -1,16 +1,28 @@
 import {
-  LineChart,
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Legend,
   Line,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from 'recharts'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import type { ForecastRun } from '../../types/inventory.types'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import type { DemandForecastDiagnostics, ForecastRun } from '../../types/inventory.types'
+import { buildDemandChartData } from '../../utils/forecast-chart'
+import { forecastModelLabel } from '../../utils/forecast-overview'
 import { formatInventoryDateOnly, formatInventoryQuantity } from '../../utils/inventory-format'
 
 export function ForecastDemandView({
@@ -18,26 +30,15 @@ export function ForecastDemandView({
   productId,
   onProductChange,
 }: {
-  readonly run: ForecastRun
+  readonly run: Pick<ForecastRun, 'details' | 'results'>
   readonly productId: string
   readonly onProductChange: (id: string) => void
 }) {
   const products = run.details?.products ?? []
   const product = products.find((item) => item.productId === productId) ?? products[0]
   const results = run.results.filter((item) => item.productId === product?.productId)
-  // No invented connecting point: both series represent daily external issue quantity in base units.
-  const data = [
-    ...(product?.history ?? []).map((point) => ({
-      date: point.date,
-      actual: point.quantity,
-      forecast: null,
-    })),
-    ...results.map((point) => ({
-      date: point.forecastDate,
-      actual: point.actualQuantity,
-      forecast: point.forecastQuantity,
-    })),
-  ]
+  const data = buildDemandChartData(product?.history ?? [], results)
+  const hasRange = data.some((point) => point.range !== null)
   const evaluated = results.filter((item) => item.actualQuantity !== null)
   const mae = evaluated.length
     ? evaluated.reduce(
@@ -83,7 +84,9 @@ export function ForecastDemandView({
               {formatInventoryDateOnly(product.historyTo)} ({product.observationDays} ngày)
             </span>
             <span>ĐVT: {product.unitName || 'Cơ sở'}</span>
-            <span>Phương pháp: {product.method}</span>
+            {product.basis === 'Forecast' ? (
+              <span>Mô hình: {forecastModelLabel(product.method)}</span>
+            ) : null}
           </div>
           {product.warning ? (
             <Alert>
@@ -91,16 +94,18 @@ export function ForecastDemandView({
             </Alert>
           ) : null}
           <div className="grid gap-3 text-sm sm:grid-cols-3">
-            <Metric label="MAE holdout (ngoài mẫu)" value={product.holdoutMae} />
-            <Metric label="MAE baseline trung bình" value={product.baselineMae} />
-            <Metric label="WAPE holdout (%)" value={product.holdoutWape} />
+            <Metric label="MAE kiểm thử lùi (ngoài mẫu)" value={product.holdoutMae} />
+            <Metric label="MAE nếu chỉ dùng trung bình" value={product.baselineMae} />
+            <Metric label="WAPE kiểm thử lùi (%)" value={product.holdoutWape} />
           </div>
           <p className="text-muted-foreground text-xs">
-            Sai số càng thấp càng tốt. Holdout dùng tối đa 7 ngày cuối (20% cửa sổ); baseline là
-            trung bình của tập huấn luyện. Không phải xác suất hoặc cam kết độ chính xác.
+            Sai số càng thấp càng tốt. Mỗi mô hình được thử dự báo lại tối đa 3 đoạn 7 ngày gần nhất
+            của chính lịch sử này; mô hình sai ít nhất được chọn. Không phải xác suất hoặc cam kết
+            độ chính xác.
           </p>
+          <CandidateTable product={product} />
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data}>
+            <ComposedChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="date"
@@ -113,6 +118,18 @@ export function ForecastDemandView({
                 contentStyle={{ background: 'var(--card)', borderColor: 'var(--border)' }}
               />
               <Legend />
+              {hasRange ? (
+                <Area
+                  dataKey="range"
+                  name="Khoảng dao động 80%"
+                  type="linear"
+                  stroke="none"
+                  fill="var(--chart-2)"
+                  fillOpacity={0.15}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+              ) : null}
               <Line
                 dataKey="actual"
                 name="Xuất thực tế"
@@ -132,7 +149,7 @@ export function ForecastDemandView({
                 connectNulls={false}
                 isAnimationActive={false}
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
           <p className="text-muted-foreground text-xs">
             {mae === null
@@ -142,6 +159,34 @@ export function ForecastDemandView({
         </>
       )}
     </div>
+  )
+}
+
+function CandidateTable({ product }: { readonly product: DemandForecastDiagnostics }) {
+  if (!product.candidates?.length) return null
+  return (
+    <Table aria-label="So sánh mô hình">
+      <TableHeader>
+        <TableRow>
+          <TableHead>Mô hình đã thử</TableHead>
+          <TableHead className="text-right">MAE kiểm thử lùi</TableHead>
+          <TableHead />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {product.candidates.map((candidate) => (
+          <TableRow key={candidate.modelName}>
+            <TableCell>{forecastModelLabel(candidate.modelName)}</TableCell>
+            <TableCell className="text-right tabular-nums">
+              {formatInventoryQuantity(candidate.mae)}
+            </TableCell>
+            <TableCell>
+              {candidate.modelName === product.method ? <Badge>Đã chọn</Badge> : null}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }
 
