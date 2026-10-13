@@ -40,7 +40,15 @@ import type {
   DamageDisposition,
   InventoryFilterOption,
 } from '../../types/inventory.types'
-import { formatInventoryDate, formatInventoryQuantity } from '../../utils/inventory-format'
+import {
+  DAMAGE_DISPOSITION_LABELS,
+  DAMAGE_STATUS_LABELS,
+  formatDamageEvent,
+  formatDamageState,
+  formatInventoryDate,
+  formatInventoryLocation,
+  formatInventoryQuantity,
+} from '../../utils/inventory-format'
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
 
 interface DamageCaseDirectoryProps {
@@ -128,8 +136,9 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
       </header>
       <InventoryWorkspaceNavigation currentView="damage-cases" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách sự cố hư hỏng">
-        <div className="grid gap-3 border-b p-3 sm:grid-cols-5">
+        <div className="grid gap-2 border-b p-3 sm:grid-cols-2 lg:grid-cols-5">
           <NativeSelect
+            className="w-full"
             aria-label="Lọc theo kho"
             value={props.warehouseId}
             onChange={(event) => props.onWarehouseChange(event.target.value)}
@@ -142,6 +151,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
             ))}
           </NativeSelect>
           <NativeSelect
+            className="w-full"
             aria-label="Lọc theo sản phẩm"
             value={props.productId}
             onChange={(event) => props.onProductChange(event.target.value)}
@@ -154,6 +164,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
             ))}
           </NativeSelect>
           <NativeSelect
+            className="w-full"
             aria-label="Lọc theo trạng thái"
             value={props.statusFilter}
             onChange={(event) => props.onStatusChange(event.target.value as DamageCaseStatus | '')}
@@ -207,7 +218,11 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                       <p className="text-muted-foreground font-mono text-xs">{item.sku}</p>
                     </TableCell>
                     <TableCell>
-                      {item.warehouseName} / {item.slotCode}
+                      <p>{item.warehouseName}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {formatInventoryLocation(item)}
+                        {item.lotNumber ? ` · lô ${item.lotNumber}` : ''}
+                      </p>
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {item.isQuantityConfirmed ? (
@@ -246,7 +261,10 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                           href={APP_ROUTES.cycleCountDetail(item.relatedTaskId)}
                           className="text-primary text-xs underline-offset-2 hover:underline"
                         >
-                          Kiểm kê
+                          Phiếu kiểm kê
+                          {item.relatedTaskCode ? (
+                            <span className="block font-mono">{item.relatedTaskCode}</span>
+                          ) : null}
                         </Link>
                       ) : (
                         <span className="text-muted-foreground text-xs">Báo tay</span>
@@ -254,9 +272,14 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                     </TableCell>
                     <TableCell>{item.reportedByName}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">
-                        {item.status === 'Open' ? 'Đang giữ' : 'Đã xử lý'}
+                      <Badge variant={item.status === 'Open' ? 'outline' : 'secondary'}>
+                        {DAMAGE_STATUS_LABELS[item.status]}
                       </Badge>
+                      {item.status === 'Resolved' && item.disposition ? (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {DAMAGE_DISPOSITION_LABELS[item.disposition]}
+                        </p>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
@@ -322,60 +345,114 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
             <DialogDescription>Phạm vi, bằng chứng và kết quả xử lý của hồ sơ.</DialogDescription>
           </DialogHeader>
           {detailItem ? (
-            <div className="grid gap-3 text-sm">
-              <p>
-                <strong>Sản phẩm:</strong> {detailItem.sku} · {detailItem.productName}
-              </p>
-              <p>
-                <strong>Vị trí:</strong> {detailItem.warehouseName} / {detailItem.slotCode}
-                {detailItem.lotNumber ? ` / lô ${detailItem.lotNumber}` : ''}
-              </p>
-              <p>
-                <strong>Số lượng:</strong> đã xử lý{' '}
-                {formatInventoryQuantity(detailItem.resolvedQuantity)} /{' '}
-                {formatInventoryQuantity(detailItem.quantity)}; còn{' '}
-                {formatInventoryQuantity(detailItem.remainingQuantity)}
-              </p>
-              <p>
-                <strong>Lý do:</strong> {detailItem.reason}
-              </p>
-              {detailItem.relatedTaskId ? (
-                <p>
-                  <strong>Công việc nguồn:</strong> {detailItem.relatedTaskType} ·{' '}
-                  {detailItem.relatedTaskId}
-                </p>
-              ) : null}
-              <div>
-                <p className="font-medium">Bằng chứng</p>
-                {detailItem.evidence.map((file) => (
-                  <button
-                    key={file.id}
-                    type="button"
-                    className="text-primary block underline"
-                    onClick={() => void inventoryService.downloadEvidence(file.id, file.fileName)}
-                  >
-                    {file.fileName}
-                  </button>
-                ))}
+            <div className="grid gap-4 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">{detailItem.productName}</p>
+                  <p className="text-muted-foreground font-mono text-xs">{detailItem.sku}</p>
+                </div>
+                <Badge variant={detailItem.status === 'Open' ? 'outline' : 'secondary'}>
+                  {DAMAGE_STATUS_LABELS[detailItem.status]}
+                </Badge>
               </div>
-              <div>
-                <p className="font-medium">Lịch sử trạng thái</p>
-                {detailItem.history.length ? (
-                  detailItem.history.map((event) => (
-                    <p key={`${event.createdAt}-${event.action}`}>
-                      {event.action}: {event.fromState || 'Khởi tạo'} →{' '}
-                      {event.toState || 'Không đổi'} · {event.actorName} ·{' '}
-                      {formatInventoryDate(event.createdAt)}
-                      {event.reason ? ` · ${event.reason}` : ''}
-                    </p>
-                  ))
+              <dl className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 gap-y-2">
+                <dt className="text-muted-foreground">Vị trí</dt>
+                <dd>
+                  {detailItem.warehouseName} · {formatInventoryLocation(detailItem)}
+                  {detailItem.lotNumber ? ` · lô ${detailItem.lotNumber}` : ''}
+                </dd>
+                <dt className="text-muted-foreground">Số lượng</dt>
+                <dd>
+                  {detailItem.isQuantityConfirmed
+                    ? `Hỏng ${formatInventoryQuantity(detailItem.quantity)} · đã xử lý ${formatInventoryQuantity(detailItem.resolvedQuantity)} · còn ${formatInventoryQuantity(detailItem.remainingQuantity)}`
+                    : 'Chưa xác nhận số lượng'}
+                </dd>
+                <dt className="text-muted-foreground">Lý do</dt>
+                <dd className="break-words">{detailItem.reason}</dd>
+                <dt className="text-muted-foreground">Người báo</dt>
+                <dd>
+                  {detailItem.reportedByName} · {formatInventoryDate(detailItem.createdAt)}
+                </dd>
+                <dt className="text-muted-foreground">Nguồn</dt>
+                <dd>
+                  {detailItem.relatedTaskType === 'CycleCount' && detailItem.relatedTaskId ? (
+                    <Link
+                      href={APP_ROUTES.cycleCountDetail(detailItem.relatedTaskId)}
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      Phiếu kiểm kê{' '}
+                      <span className="font-mono">{detailItem.relatedTaskCode ?? ''}</span>
+                    </Link>
+                  ) : (
+                    'Báo hàng hỏng thủ công'
+                  )}
+                </dd>
+                {detailItem.disposition ? (
+                  <>
+                    <dt className="text-muted-foreground">Phương án</dt>
+                    <dd>
+                      <span className="font-medium">
+                        {DAMAGE_DISPOSITION_LABELS[detailItem.disposition]}
+                      </span>
+                      {detailItem.dispositionByName ? ` · ${detailItem.dispositionByName}` : ''}
+                      {detailItem.dispositionAt
+                        ? ` · ${formatInventoryDate(detailItem.dispositionAt)}`
+                        : ''}
+                      {detailItem.dispositionNote ? (
+                        <span className="text-muted-foreground block">
+                          {detailItem.dispositionNote}
+                        </span>
+                      ) : null}
+                    </dd>
+                  </>
+                ) : null}
+              </dl>
+              <section>
+                <h3 className="mb-1 font-medium">Bằng chứng</h3>
+                {detailItem.evidence.length ? (
+                  <ul className="flex flex-col gap-1">
+                    {detailItem.evidence.map((file) => (
+                      <li key={file.id}>
+                        <button
+                          type="button"
+                          className="text-primary underline-offset-2 hover:underline"
+                          onClick={() =>
+                            void inventoryService.downloadEvidence(file.id, file.fileName)
+                          }
+                        >
+                          {file.fileName}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
-                  <p>
+                  <p className="text-muted-foreground">Chưa có bằng chứng.</p>
+                )}
+              </section>
+              <section>
+                <h3 className="mb-1 font-medium">Lịch sử xử lý</h3>
+                {detailItem.history.length ? (
+                  <ol className="border-border flex flex-col gap-3 border-l pl-3">
+                    {detailItem.history.map((event) => (
+                      <li key={`${event.createdAt}-${event.action}`}>
+                        <p className="font-medium">{formatDamageEvent(event.action)}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {event.fromState !== event.toState
+                            ? `${formatDamageState(event.fromState)} → ${formatDamageState(event.toState)} · `
+                            : ''}
+                          {event.actorName} · {formatInventoryDate(event.createdAt)}
+                        </p>
+                        {event.reason ? <p className="break-words">{event.reason}</p> : null}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-muted-foreground">
                     Đã báo bởi {detailItem.reportedByName} ·{' '}
                     {formatInventoryDate(detailItem.createdAt)}
                   </p>
                 )}
-              </div>
+              </section>
               {detailItem.linkedStockAdjustmentId ? (
                 <Button asChild variant="outline">
                   <Link href={APP_ROUTES.stockAdjustmentDetail(detailItem.linkedStockAdjustmentId)}>

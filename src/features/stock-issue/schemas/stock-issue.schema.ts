@@ -5,6 +5,7 @@ import { GOODS_RETURN_REQUEST_ITEM_CONDITIONS } from '../types/stock-issue.types
 export const stockIssueRequestLineSchema = z.object({
   productId: dotNetGuidSchema('Vui lòng chọn sản phẩm.'),
   quantity: z.number().positive('Số lượng phải lớn hơn 0.'),
+  unitId: z.string(),
   note: z.string().trim().max(500, 'Ghi chú dòng không được vượt quá 500 ký tự.'),
 })
 
@@ -46,6 +47,11 @@ export const recordStockPickingLineSchema = z.object({
   pickedQuantity: z.number().min(0, 'Số lượng lấy hàng không được âm.'),
   scannedBarcode: z.string().optional(),
   scannedSlotCode: z.string().optional(),
+  slotCode: z.string().optional(),
+  lotNumber: z.string().nullable().optional(),
+  unitName: z.string(),
+  /** Số đơn vị cơ sở trong một đơn vị của dòng; số lượng lấy nhập theo đơn vị này. */
+  unitFactor: z.number().positive(),
 })
 
 export const recordStockPickingSchema = z
@@ -70,6 +76,23 @@ export const recordStockPickingSchema = z
           code: 'custom',
           path: ['lines', index, 'inventoryStockId'],
           message: 'Vui lòng chọn đúng dòng tồn kho để lấy hàng.',
+        })
+      }
+
+      // Backend yêu cầu đã quét mã của mọi sản phẩm có mã vạch; báo ngay thay vì để máy chủ từ chối.
+      if (line.pickedQuantity > 0 && line.barcode && !line.scannedBarcode) {
+        context.addIssue({
+          code: 'custom',
+          path: ['lines', index, 'pickedQuantity'],
+          message: `Hãy quét mã ${line.barcode} trước khi xác nhận (quét một lần rồi nhập số lượng).`,
+        })
+      }
+
+      if (line.unitFactor !== 1 && !Number.isInteger(line.pickedQuantity)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['lines', index, 'pickedQuantity'],
+          message: `Chỉ lấy nguyên ${line.unitName}.`,
         })
       }
 

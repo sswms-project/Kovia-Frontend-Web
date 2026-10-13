@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { describe, expect, it, vi } from 'vitest'
 import {
   aiDraftQuantitiesSchema,
+  aiStockIssueDraftQuantitiesSchema,
   type AiDraftQuantitiesForm,
 } from '../../schemas/ai-draft-quantities.schema'
 import type { AiCard } from '../../types/ai-assistant.types'
@@ -40,7 +41,11 @@ function Card({
   // Mirrors AiAssistantPanel: the orchestrator owns the form and the "which draft is open" state.
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
   const form = useForm<AiDraftQuantitiesForm>({
-    resolver: zodResolver(aiDraftQuantitiesSchema),
+    resolver: zodResolver(
+      card.action === 'create_stock_issue_request'
+        ? aiStockIssueDraftQuantitiesSchema
+        : aiDraftQuantitiesSchema
+    ),
     defaultValues: { lines: [] },
   })
   return (
@@ -68,7 +73,37 @@ function Card({
   )
 }
 
+const stockIssueCard: AiCard = {
+  type: 'action_confirmation',
+  draftId: 'd2',
+  action: 'create_stock_issue_request',
+  summary: 'Tạo phiếu xuất kho 5 Thùng PA-MI từ Kho test cho Công ty A',
+  details: [
+    { label: 'Kho xuất', value: 'Kho test (KHO-PA-01)' },
+    { label: 'Người nhận', value: 'Công ty A (KH000001)' },
+    { label: 'PA-MI · Mì gói', value: '5 Thùng', productId: 'p-mi', quantity: 5, unit: 'Thùng' },
+  ],
+}
+
 describe('AiActionConfirmationCard quantity editing', () => {
+  it('edits the quantity of a stock issue draft without asking for a date', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<Card card={stockIssueCard} onSave={onSave} />)
+
+    await user.click(screen.getByRole('button', { name: 'Chỉnh sửa' }))
+    expect(screen.queryByLabelText(/Ngày dự kiến hàng về/)).not.toBeInTheDocument()
+    const input = screen.getByLabelText(/PA-MI · Mì gói/)
+    await user.clear(input)
+    await user.type(input, '12')
+    await user.click(screen.getByRole('button', { name: 'Lưu số lượng' }))
+
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.calls[0]?.[0]).toMatchObject({
+      lines: [{ productId: 'p-mi', quantity: 12 }],
+    })
+  })
+
   it('lets the user raise the suggested quantity and saves the lines with the expected date', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn()

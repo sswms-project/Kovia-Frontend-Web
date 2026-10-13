@@ -57,6 +57,7 @@ import {
   CYCLE_COUNT_QUALITY_LABELS,
   formatCount,
   formatCountDifference,
+  getRecountBlockReason,
   formatCycleCountDay,
 } from '../../utils/cycle-count-format'
 import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
@@ -328,6 +329,7 @@ export function CycleCountItemsTable({
       note: getNoteDraft(item),
       liveDifference: getLiveDifference(item),
       hasVariance: item.difference !== null && item.difference !== 0,
+      recountBlockReason: getRecountBlockReason(item, detail.status),
     }
   })
 
@@ -536,10 +538,9 @@ export function CycleCountItemsTable({
                         <Checkbox
                           aria-label={`Chọn ${item.productName} để kiểm đếm lại`}
                           checked={selectedItemIds.includes(item.id)}
-                          // Dòng đang có phiếu điều chỉnh chờ duyệt/đã duyệt không được đếm lại.
-                          disabled={
-                            detail.status === 'Completed' && Boolean(item.activeAdjustmentId)
-                          }
+                          // Phiếu đã hoàn tất chỉ đếm lại dòng lệch chưa điều chỉnh và chưa có hồ sơ hỏng.
+                          disabled={getRecountBlockReason(item, detail.status) !== null}
+                          title={getRecountBlockReason(item, detail.status) ?? undefined}
                           onCheckedChange={(checked) => onToggleSelect(item.id, checked === true)}
                         />
                       </TableCell>
@@ -621,6 +622,11 @@ export function CycleCountItemsTable({
                             value={getDamagedDraft(item)}
                             disabled={isPending || draft === ''}
                             aria-invalid={isDamagedInvalid(item)}
+                            title={
+                              isDamagedInvalid(item)
+                                ? 'Số hỏng phải từ 0 và không vượt số đếm'
+                                : undefined
+                            }
                             onChange={(event) =>
                               setDamagedDrafts((current) => ({
                                 ...current,
@@ -631,7 +637,7 @@ export function CycleCountItemsTable({
                               if (event.key === 'Enter') focusNext(rowIndex)
                             }}
                           />
-                          {(getLiveDamaged(item) ?? 0) > 0 ? (
+                          {(getLiveDamaged(item) ?? 0) > 0 && !isDamagedInvalid(item) ? (
                             // Icon cạnh ô nhập để dòng không cao thêm; chấm đỏ báo còn thiếu ảnh/lý do.
                             <Button
                               type="button"
@@ -835,20 +841,23 @@ export function CycleCountItemsTable({
                   }
                 >
                   <Send />
-                  Hoàn thành kiểm kê
+                  Gửi kết quả cho quản lý
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Cảnh báo!</AlertDialogTitle>
+                  <AlertDialogTitle>Gửi kết quả kiểm kê cho quản lý?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Khi chuyển trạng thái hoàn thành kiểm kê sẽ không thể sửa lại kết quả kiểm kê,
-                    bạn có chắc chắn không?
+                    {items.length} dòng
+                    {hasHiddenQuantity ? '' : `, ${counts.variance} dòng lệch`}
+                    {totalDamaged > 0 ? `, ${formatCount(totalDamaged)} hàng hỏng` : ''}. Phiếu sẽ
+                    chuyển sang Chờ duyệt; bạn không sửa được số đếm nữa trừ khi quản lý yêu cầu đếm
+                    lại.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Không</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => void onSubmit()}>Đã kiểm kê</AlertDialogAction>
+                  <AlertDialogCancel>Quay lại</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void onSubmit()}>Gửi kết quả</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

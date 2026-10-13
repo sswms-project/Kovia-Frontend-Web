@@ -113,6 +113,8 @@ interface BulkImportPageProps<TRow extends BulkImportRow> {
   readonly isPreviewing: boolean
   readonly isImporting: boolean
   readonly isDownloadingTemplate: boolean
+  /** Điều khiển cần chọn trước khi chọn tệp (ví dụ kho xuất); chỉ hiện ở bước chọn tệp. */
+  readonly beforeFile?: ReactNode
   readonly onDownloadTemplate: () => Promise<void> | void
   readonly onInspect: (file: File, csvDelimiter: string) => Promise<BulkImportInspectOutcome>
   readonly onPreview: (
@@ -139,6 +141,7 @@ export function BulkImportPage<TRow extends BulkImportRow>({
   isPreviewing,
   isImporting,
   isDownloadingTemplate,
+  beforeFile,
   onDownloadTemplate,
   onInspect,
   onPreview,
@@ -459,6 +462,7 @@ export function BulkImportPage<TRow extends BulkImportRow>({
         </>
       ) : !rows ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
+          {beforeFile}
           <BulkImportDelimiter
             id="bulk-import-delimiter"
             value={delimiter}

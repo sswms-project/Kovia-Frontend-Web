@@ -306,54 +306,79 @@
 }
 
 .dark {
-  --surface: #111b13;
-  --surface-dim: #0d1610;
-  --surface-bright: #1e2e20;
-  --surface-container-lowest: #0d1610;
-  --surface-container-low: #162119;
-  --surface-container: #1c2a1e;
-  --surface-container-high: #223324;
-  --surface-container-highest: #283c2a;
-  --on-surface: #ddf0d6;
-  --on-surface-variant: #a0c49a;
-  --inverse-surface: #ddf0d6;
-  --inverse-on-surface: #1c2a1e;
-  --outline: #6a9e6d;
-  --outline-variant: #2e4d30;
-  --diagram-outline: #2f80ed;
-  --diagram-zone-fill: #1e3a5f;
-  --primary: #7de86a;
+  color-scheme: dark;
+
+  /*
+   * Calm, low-saturation dark palette: near-neutral charcoal with a faint green cast, soft sage
+   * accents instead of neon, and slightly dimmed text so long sessions in dim rooms stay easy on
+   * the eyes. Each surface step is ~3% lighter than the previous one.
+   */
+  --surface: #121614;
+  --surface-dim: #0d100e;
+  --surface-bright: #303b34;
+  --surface-container-lowest: #0f1311;
+  --surface-container-low: #161b18;
+  --surface-container: #1b211d;
+  --surface-container-high: #222a25;
+  --surface-container-highest: #29322c;
+  --on-surface: #d9e3d6;
+  --on-surface-variant: #a3b3a0;
+  --inverse-surface: #d9e3d6;
+  --inverse-on-surface: #1b211d;
+  --outline: #7d8f7b;
+  --outline-variant: #38443b;
+  --surface-tint: #9fcf94;
+  --diagram-outline: #5b9bf0;
+  --diagram-zone-fill: #1e3350;
   --canvas-selection-fill: #f1e9dc;
   --canvas-selection-foreground: #18232f;
-  --on-primary: #0e2e0a;
-  --primary-container: #1a4a16;
-  --on-primary-container: #b0f0a0;
-  --secondary: #96c494;
-  --on-secondary: #0d2e0d;
-  --secondary-container: #1e3d1e;
-  --on-secondary-container: #b0d8ae;
-  --warning: #ffb95c;
-  --warning-container: #5c3a00;
-  --on-warning-container: #ffddb0;
-  --background: #111b13;
-  --foreground: #ddf0d6;
-  --surface-variant: #1c2a1e;
-  /* Cards elevated above bg for visual hierarchy */
-  --card: #1c2a1e;
+  --primary: #9fcf94;
+  --on-primary: #12290f;
+  --primary-container: #2f4d2b;
+  --on-primary-container: #cfe8c8;
+  --inverse-primary: #2e5a2a;
+  --secondary: #a9c4a5;
+  --on-secondary: #14291a;
+  --secondary-container: #2c3d2c;
+  --on-secondary-container: #cde0c9;
+  --tertiary: #cfb0dc;
+  --on-tertiary: #2b1636;
+  --tertiary-container: #4f3a5c;
+  --on-tertiary-container: #ecdaf5;
+  --error: #f0a09a;
+  --on-error: #3a1210;
+  --error-container: #5a2a28;
+  --on-error-container: #ffdad6;
+  --warning: #e8b86a;
+  --warning-container: #4d3a14;
+  --on-warning-container: #f6dfb4;
+  --background: #121614;
+  --foreground: #d9e3d6;
+  --surface-variant: #222a25;
+
+  --chart-1: #7fc78a;
+  --chart-2: #b8cf6a;
+  --chart-tonal-1: #9ccf8f;
+  --chart-tonal-2: #6fa664;
+  --chart-tonal-3: #4a7a47;
+
+  /* Cards sit one step above the page; muted (hover rows, wells) one step above cards. */
+  --card: #181e1a;
   --card-foreground: var(--on-surface);
-  --popover: #1c2a1e;
+  --popover: #222a25;
   --popover-foreground: var(--on-surface);
   --primary-foreground: var(--on-primary);
   --secondary-foreground: var(--on-secondary);
-  --muted: #1c2a1e;
+  --muted: #1e2520;
   --muted-foreground: var(--on-surface-variant);
   --accent: var(--secondary-container);
   --accent-foreground: var(--on-secondary-container);
-  --destructive: #ff6b6b;
-  --destructive-foreground: #1a0000;
-  --border: #2e4d30;
-  --input: #2e4d30;
+  --destructive: #f08a82;
+  --destructive-foreground: #2a0a08;
+  --border: #38443b;
+  --input: #425048;
   --ring: var(--primary);
+  --table-scrollbar-thumb: #4a5a4d;
 }
 
 body {
