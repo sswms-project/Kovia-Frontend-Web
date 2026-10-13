@@ -288,6 +288,9 @@ export interface DamageCase {
   relatedTaskId: string | null
   evidenceRequestedAt: string | null
   history: InventoryLifecycleEvent[]
+  rackCode: string | null
+  isSystemDefaultSlot: boolean
+  relatedTaskCode: string | null
 }
 
 export interface DamageCaseListResponse {

@@ -78,8 +78,9 @@ export function CycleCountItemCards({
                   className="mt-0.5 size-5"
                   aria-label={`Chọn ${item.productName} để kiểm đếm lại`}
                   checked={row.selected}
-                  // Dòng đang có phiếu điều chỉnh chờ duyệt/đã duyệt không được đếm lại.
-                  disabled={isCompleted && Boolean(item.activeAdjustmentId)}
+                  // Phiếu đã hoàn tất chỉ đếm lại dòng lệch chưa điều chỉnh và chưa có hồ sơ hỏng.
+                  disabled={row.recountBlockReason !== null}
+                  title={row.recountBlockReason ?? undefined}
                   onCheckedChange={(checked) => onToggleSelect(item.id, checked === true)}
                 />
               ) : null}

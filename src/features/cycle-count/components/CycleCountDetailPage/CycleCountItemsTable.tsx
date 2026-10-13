@@ -57,6 +57,7 @@ import {
   CYCLE_COUNT_QUALITY_LABELS,
   formatCount,
   formatCountDifference,
+  getRecountBlockReason,
   formatCycleCountDay,
 } from '../../utils/cycle-count-format'
 import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
@@ -328,6 +329,7 @@ export function CycleCountItemsTable({
       note: getNoteDraft(item),
       liveDifference: getLiveDifference(item),
       hasVariance: item.difference !== null && item.difference !== 0,
+      recountBlockReason: getRecountBlockReason(item, detail.status),
     }
   })
 
@@ -536,10 +538,9 @@ export function CycleCountItemsTable({
                         <Checkbox
                           aria-label={`Chọn ${item.productName} để kiểm đếm lại`}
                           checked={selectedItemIds.includes(item.id)}
-                          // Dòng đang có phiếu điều chỉnh chờ duyệt/đã duyệt không được đếm lại.
-                          disabled={
-                            detail.status === 'Completed' && Boolean(item.activeAdjustmentId)
-                          }
+                          // Phiếu đã hoàn tất chỉ đếm lại dòng lệch chưa điều chỉnh và chưa có hồ sơ hỏng.
+                          disabled={getRecountBlockReason(item, detail.status) !== null}
+                          title={getRecountBlockReason(item, detail.status) ?? undefined}
                           onCheckedChange={(checked) => onToggleSelect(item.id, checked === true)}
                         />
                       </TableCell>
