@@ -54,6 +54,9 @@ interface Props {
   readonly initialTab?: 'plan' | 'execution'
 }
 
+/** Hai chế độ là nút chuyển: có khung và nền riêng để nhìn ra là bấm được kể cả khi chưa chọn. */
+const MODE_TAB_CLASS = 'bg-card border-border min-h-11 flex-none border px-4'
+
 export default function TransferPutAwayPage({
   transferId,
   shipmentId,
@@ -191,10 +194,15 @@ export default function TransferPutAwayPage({
           }}
         >
           <TabsList variant="workspace" aria-label="Chế độ cất hàng" className="h-auto flex-wrap">
-            <TabsTrigger value="plan" disabled={busy}>
+            <TabsTrigger value="plan" disabled={busy} className={MODE_TAB_CLASS}>
               Kế hoạch của quản lý
             </TabsTrigger>
-            <TabsTrigger ref={executionTab} value="execution" disabled={busy}>
+            <TabsTrigger
+              ref={executionTab}
+              value="execution"
+              disabled={busy}
+              className={MODE_TAB_CLASS}
+            >
               Cất hàng thực tế
             </TabsTrigger>
           </TabsList>
@@ -323,36 +331,38 @@ export default function TransferPutAwayPage({
               {sheet.putAwayLines.length > 0 ? (
                 <section>
                   <h2 className="mb-2 text-sm font-semibold">Lịch sử đã cất</h2>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Thời gian</TableHead>
-                        <TableHead>Vị trí</TableHead>
-                        <TableHead>Chất lượng</TableHead>
-                        <TableHead className="text-right">Số lượng</TableHead>
-                        <TableHead>Ghi chú</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sheet.putAwayLines.map((line) => (
-                        <TableRow key={line.id}>
-                          <TableCell>{formatOperationalDateTime(line.putAwayAt)}</TableCell>
-                          <TableCell className="break-words whitespace-normal">
-                            {line.path}
-                          </TableCell>
-                          <TableCell>{line.qualityStatus === 'Good' ? 'Tốt' : 'Hỏng'}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatQuantity(line.quantity)}
-                          </TableCell>
-                          <TableCell className="max-w-64 break-words whitespace-normal">
-                            {line.isLateReceipt ? 'Nhận bổ sung · ' : ''}
-                            {line.slotCodeUnreadable ? 'Không quét được mã · ' : ''}
-                            {line.note ?? '—'}
-                          </TableCell>
+                  <div className="bg-card border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Thời gian</TableHead>
+                          <TableHead>Vị trí</TableHead>
+                          <TableHead>Chất lượng</TableHead>
+                          <TableHead className="text-right">Số lượng</TableHead>
+                          <TableHead>Ghi chú</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {sheet.putAwayLines.map((line) => (
+                          <TableRow key={line.id}>
+                            <TableCell>{formatOperationalDateTime(line.putAwayAt)}</TableCell>
+                            <TableCell className="break-words whitespace-normal">
+                              {line.path}
+                            </TableCell>
+                            <TableCell>{line.qualityStatus === 'Good' ? 'Tốt' : 'Hỏng'}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatQuantity(line.quantity)}
+                            </TableCell>
+                            <TableCell className="max-w-64 break-words whitespace-normal">
+                              {line.isLateReceipt ? 'Nhận bổ sung · ' : ''}
+                              {line.slotCodeUnreadable ? 'Không quét được mã · ' : ''}
+                              {line.note ?? '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </section>
               ) : null}
             </>
