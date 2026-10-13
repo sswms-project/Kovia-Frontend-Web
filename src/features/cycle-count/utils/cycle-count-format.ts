@@ -2,6 +2,8 @@ import {
   CYCLE_COUNT_STATUSES,
   STOCK_ADJUSTMENT_STATUSES,
   type CycleCountStatus,
+  type CycleCountDetail,
+  type CycleCountItem,
   type CycleCountSummary,
   type StockAdjustmentStatus,
 } from '../types/cycle-count.types'
@@ -89,4 +91,17 @@ export function getAdjustmentState(item: CycleCountSummary) {
       variant: 'outline',
     } as const
   return { label: 'Đã xử lý', variant: 'secondary' } as const
+}
+
+// Phiếu đã hoàn tất chỉ mở lại để đếm những dòng còn lệch và chưa được xử lý bằng phiếu điều chỉnh hay hồ sơ hàng hỏng.
+export function getRecountBlockReason(
+  item: CycleCountItem,
+  status: CycleCountDetail['status']
+): string | null {
+  if (status !== 'Completed') return null
+  if (item.difference === null || item.difference === 0)
+    return 'Dòng khớp sổ sách, không cần đếm lại'
+  if (item.activeAdjustmentId) return 'Đã có phiếu điều chỉnh tồn'
+  if (item.damageCaseId) return 'Đã có hồ sơ hàng hỏng'
+  return null
 }

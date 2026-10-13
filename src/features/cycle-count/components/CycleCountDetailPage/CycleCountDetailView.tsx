@@ -65,6 +65,8 @@ export function CycleCountDetailView({
   onCreateVoucher,
 }: CycleCountDetailViewProps) {
   const [dialog, setDialog] = useState<CycleCountDialog | null>(null)
+  // Dòng được chọn sẵn từ panel hàng hỏng chỉ giữ lại nếu quản lý xác nhận đếm lại.
+  const [isRecountFromPanel, setIsRecountFromPanel] = useState(false)
   const selectedItemIds = recountForm.watch('itemIds')
   const countableItems = detail.items.filter(
     (item) => detail.status !== 'Recount' || item.requestedRecountRound === detail.recountRound
@@ -142,7 +144,10 @@ export function CycleCountDetailView({
         pendingDamageCount={pendingDamageCount}
         onFinalize={onFinalize}
         onExport={onExport}
-        onOpenDialog={setDialog}
+        onOpenDialog={(next) => {
+          if (next === 'recount') setIsRecountFromPanel(false)
+          setDialog(next)
+        }}
       />
       {detail.status === 'Cancelled' ? (
         <Alert variant="destructive" className="shrink-0">
@@ -171,6 +176,7 @@ export function CycleCountDetailView({
         onConfirm={onConfirmDamage}
         onRecountItem={(itemId) => {
           recountForm.setValue('itemIds', [itemId], { shouldValidate: true })
+          setIsRecountFromPanel(true)
           setDialog('recount')
         }}
       />
@@ -202,7 +208,11 @@ export function CycleCountDetailView({
         recountSelectedCount={selectedItemIds.length}
         adjustableItems={adjustableItems}
         isPending={isPending}
-        onClose={() => setDialog(null)}
+        onClose={() => {
+          if (dialog === 'recount' && isRecountFromPanel) recountForm.setValue('itemIds', [])
+          setIsRecountFromPanel(false)
+          setDialog(null)
+        }}
         onConfirm={confirmDialog}
       />
     </div>
