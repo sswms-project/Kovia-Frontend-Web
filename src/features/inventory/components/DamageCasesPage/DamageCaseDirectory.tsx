@@ -43,13 +43,12 @@ import type {
 import {
   DAMAGE_DISPOSITION_LABELS,
   DAMAGE_STATUS_LABELS,
-  formatDamageEvent,
-  formatDamageState,
   formatInventoryDate,
   formatInventoryLocation,
   formatInventoryQuantity,
 } from '../../utils/inventory-format'
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
+import { DamageCaseDetailDialog } from './DamageCaseDetailDialog'
 
 interface DamageCaseDirectoryProps {
   readonly permissions: readonly string[]
@@ -102,6 +101,34 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
   const [evidenceItem, setEvidenceItem] = useState<DamageCase | null>(null)
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null)
   const [confirmedQuantity, setConfirmedQuantity] = useState(0)
+
+  function canDecideCase(item: DamageCase) {
+    return (
+      props.canDecide &&
+      item.status === 'Open' &&
+      item.reportedByUserId !== props.currentUserId &&
+      !item.linkedStockIssueRequestId &&
+      !item.linkedStockAdjustmentId
+    )
+  }
+
+  function canAddEvidenceToCase(item: DamageCase) {
+    return (
+      props.currentUserId === item.reportedByUserId &&
+      item.status === 'Open' &&
+      (!item.isQuantityConfirmed || Boolean(item.evidenceRequestedAt))
+    )
+  }
+
+  function openDecision(item: DamageCase) {
+    setSelected(item)
+    setDispositionQuantity(item.remainingQuantity)
+  }
+
+  function openEvidence(item: DamageCase) {
+    setEvidenceItem(item)
+    setConfirmedQuantity(item.isQuantityConfirmed ? 0 : Math.min(1, item.availableQuantity))
+  }
 
   async function submit() {
     if (!selected) return
@@ -286,34 +313,13 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                         <Button size="sm" variant="ghost" onClick={() => setDetailItem(item)}>
                           Chi tiết
                         </Button>
-                        {props.canDecide &&
-                        item.status === 'Open' &&
-                        item.reportedByUserId !== props.currentUserId &&
-                        !item.linkedStockIssueRequestId &&
-                        !item.linkedStockAdjustmentId ? (
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelected(item)
-                              setDispositionQuantity(item.remainingQuantity)
-                            }}
-                          >
+                        {canDecideCase(item) ? (
+                          <Button size="sm" onClick={() => openDecision(item)}>
                             Chọn xử lý
                           </Button>
                         ) : null}
-                        {props.currentUserId === item.reportedByUserId &&
-                        item.status === 'Open' &&
-                        (!item.isQuantityConfirmed || item.evidenceRequestedAt) ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEvidenceItem(item)
-                              setConfirmedQuantity(
-                                item.isQuantityConfirmed ? 0 : Math.min(1, item.availableQuantity)
-                              )
-                            }}
-                          >
+                        {canAddEvidenceToCase(item) ? (
+                          <Button size="sm" variant="outline" onClick={() => openEvidence(item)}>
                             Bổ sung bằng chứng
                           </Button>
                         ) : null}
@@ -333,147 +339,20 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
           onPageChange={props.onPageChange}
         />
       </OperationalListPanel>
-      <Dialog
-        open={Boolean(detailItem)}
-        onOpenChange={(open) => {
-          if (!open) setDetailItem(null)
+      <DamageCaseDetailDialog
+        item={detailItem}
+        canDecide={detailItem ? canDecideCase(detailItem) : false}
+        canAddEvidence={detailItem ? canAddEvidenceToCase(detailItem) : false}
+        onClose={() => setDetailItem(null)}
+        onDecide={(item) => {
+          setDetailItem(null)
+          openDecision(item)
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Chi tiết hồ sơ hàng hỏng</DialogTitle>
-            <DialogDescription>Phạm vi, bằng chứng và kết quả xử lý của hồ sơ.</DialogDescription>
-          </DialogHeader>
-          {detailItem ? (
-            <div className="grid gap-4 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="font-medium">{detailItem.productName}</p>
-                  <p className="text-muted-foreground font-mono text-xs">{detailItem.sku}</p>
-                </div>
-                <Badge variant={detailItem.status === 'Open' ? 'outline' : 'secondary'}>
-                  {DAMAGE_STATUS_LABELS[detailItem.status]}
-                </Badge>
-              </div>
-              <dl className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 gap-y-2">
-                <dt className="text-muted-foreground">Vị trí</dt>
-                <dd>
-                  {detailItem.warehouseName} · {formatInventoryLocation(detailItem)}
-                  {detailItem.lotNumber ? ` · lô ${detailItem.lotNumber}` : ''}
-                </dd>
-                <dt className="text-muted-foreground">Số lượng</dt>
-                <dd>
-                  {detailItem.isQuantityConfirmed
-                    ? `Hỏng ${formatInventoryQuantity(detailItem.quantity)} · đã xử lý ${formatInventoryQuantity(detailItem.resolvedQuantity)} · còn ${formatInventoryQuantity(detailItem.remainingQuantity)}`
-                    : 'Chưa xác nhận số lượng'}
-                </dd>
-                <dt className="text-muted-foreground">Lý do</dt>
-                <dd className="break-words">{detailItem.reason}</dd>
-                <dt className="text-muted-foreground">Người báo</dt>
-                <dd>
-                  {detailItem.reportedByName} · {formatInventoryDate(detailItem.createdAt)}
-                </dd>
-                <dt className="text-muted-foreground">Nguồn</dt>
-                <dd>
-                  {detailItem.relatedTaskType === 'CycleCount' && detailItem.relatedTaskId ? (
-                    <Link
-                      href={APP_ROUTES.cycleCountDetail(detailItem.relatedTaskId)}
-                      className="text-primary underline-offset-2 hover:underline"
-                    >
-                      Phiếu kiểm kê{' '}
-                      <span className="font-mono">{detailItem.relatedTaskCode ?? ''}</span>
-                    </Link>
-                  ) : (
-                    'Báo hàng hỏng thủ công'
-                  )}
-                </dd>
-                {detailItem.disposition ? (
-                  <>
-                    <dt className="text-muted-foreground">Phương án</dt>
-                    <dd>
-                      <span className="font-medium">
-                        {DAMAGE_DISPOSITION_LABELS[detailItem.disposition]}
-                      </span>
-                      {detailItem.dispositionByName ? ` · ${detailItem.dispositionByName}` : ''}
-                      {detailItem.dispositionAt
-                        ? ` · ${formatInventoryDate(detailItem.dispositionAt)}`
-                        : ''}
-                      {detailItem.dispositionNote ? (
-                        <span className="text-muted-foreground block">
-                          {detailItem.dispositionNote}
-                        </span>
-                      ) : null}
-                    </dd>
-                  </>
-                ) : null}
-              </dl>
-              <section>
-                <h3 className="mb-1 font-medium">Bằng chứng</h3>
-                {detailItem.evidence.length ? (
-                  <ul className="flex flex-col gap-1">
-                    {detailItem.evidence.map((file) => (
-                      <li key={file.id}>
-                        <button
-                          type="button"
-                          className="text-primary underline-offset-2 hover:underline"
-                          onClick={() =>
-                            void inventoryService.downloadEvidence(file.id, file.fileName)
-                          }
-                        >
-                          {file.fileName}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground">Chưa có bằng chứng.</p>
-                )}
-              </section>
-              <section>
-                <h3 className="mb-1 font-medium">Lịch sử xử lý</h3>
-                {detailItem.history.length ? (
-                  <ol className="border-border flex flex-col gap-3 border-l pl-3">
-                    {detailItem.history.map((event) => (
-                      <li key={`${event.createdAt}-${event.action}`}>
-                        <p className="font-medium">{formatDamageEvent(event.action)}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {event.fromState !== event.toState
-                            ? `${formatDamageState(event.fromState)} → ${formatDamageState(event.toState)} · `
-                            : ''}
-                          {event.actorName} · {formatInventoryDate(event.createdAt)}
-                        </p>
-                        {event.reason ? <p className="break-words">{event.reason}</p> : null}
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <p className="text-muted-foreground">
-                    Đã báo bởi {detailItem.reportedByName} ·{' '}
-                    {formatInventoryDate(detailItem.createdAt)}
-                  </p>
-                )}
-              </section>
-              {detailItem.linkedStockAdjustmentId ? (
-                <Button asChild variant="outline">
-                  <Link href={APP_ROUTES.stockAdjustmentDetail(detailItem.linkedStockAdjustmentId)}>
-                    Mở phiếu điều chỉnh liên kết
-                  </Link>
-                </Button>
-              ) : null}
-              {detailItem.linkedStockIssueRequestId ? (
-                <p className="text-muted-foreground text-xs">
-                  Phiếu xuất liên kết: {detailItem.linkedStockIssueRequestId}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailItem(null)}>
-              Đóng
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onAddEvidence={(item) => {
+          setDetailItem(null)
+          openEvidence(item)
+        }}
+      />
       <Dialog
         open={Boolean(selected)}
         onOpenChange={(open) => {
