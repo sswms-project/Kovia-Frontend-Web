@@ -145,12 +145,12 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
       label: `Phiếu nhập điều chuyển (${shipments.filter((shipment) => shipment.status === 'InTransit' || shipment.status === 'Receiving').length})`,
     },
     {
-      value: 'discrepancies',
-      label: `Chênh lệch / Phản hồi (${discrepancies.filter((item) => item.isOpen).length + feedbacks.filter((item) => item.status === 'Open').length})`,
-    },
-    {
       value: 'putaway',
       label: `Chờ cất hàng (${shipments.filter((shipment) => shipment.status === 'AwaitingPutAway').length})`,
+    },
+    {
+      value: 'discrepancies',
+      label: `Chênh lệch / Phản hồi (${discrepancies.filter((item) => item.isOpen).length + feedbacks.filter((item) => item.status === 'Open').length})`,
     },
     { value: 'history', label: 'Lịch sử' },
   ]

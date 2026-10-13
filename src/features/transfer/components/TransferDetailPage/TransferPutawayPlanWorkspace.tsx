@@ -226,11 +226,11 @@ export function TransferPutawayPlanWorkspace({
                       <FieldError>{slotError}</FieldError>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor={`${remainingId}-done`}>Đã cất tốt</FieldLabel>
+                      <FieldLabel htmlFor={`${remainingId}-done`}>Đã cất</FieldLabel>
                       <Input id={`${remainingId}-done`} value={formatQuantity(received)} readOnly />
                     </Field>
                     <Field data-invalid={Boolean(quantityError)}>
-                      <FieldLabel htmlFor={remainingId}>Còn lại</FieldLabel>
+                      <FieldLabel htmlFor={remainingId}>Còn phải cất</FieldLabel>
                       <Input
                         id={remainingId}
                         type="number"
