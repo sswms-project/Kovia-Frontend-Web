@@ -166,6 +166,14 @@ export const transferService = {
       })
       .then(unwrap),
 
+  /** Vị trí kho nhập cho lập kế hoạch/cất hàng: chỉ cần quyền nhận chuyển kho, không cần quyền tạo phiếu. */
+  getPutAwaySlots: (params: TransferReceivableSlotsQuery) =>
+    axiosClient
+      .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.putAwaySlots, {
+        params,
+      })
+      .then(unwrap),
+
   getSourceLocations: (params: TransferSourceLocationsQuery) =>
     axiosClient
       .get<ApiResponse<TransferSourceLocation[]>>(API_ENDPOINTS.transfers.sourceLocations, {

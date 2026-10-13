@@ -76,8 +76,9 @@ export function applyTransferPlanSuggestions(
     const received = new Map(
       transferPlanLocations(item).map((line) => [line.slotId, line.receivedQuantity])
     )
+    // Dòng còn trống vị trí chỉ là chỗ chờ chọn; không để số lượng của nó chặn việc áp dụng một gợi ý.
     const lines = only
-      ? entry.lines.map((line) => ({ ...line }))
+      ? entry.lines.filter((line) => line.slotId).map((line) => ({ ...line }))
       : transferPlanLocations(item)
           .filter((line) => line.receivedQuantity > 0)
           .map((line) => ({

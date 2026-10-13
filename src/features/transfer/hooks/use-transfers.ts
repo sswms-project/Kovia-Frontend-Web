@@ -99,6 +99,15 @@ export function useTransferReceivableSlotsQuery(
   })
 }
 
+export function useTransferPutAwaySlotsQuery(query: TransferReceivableSlotsQuery, enabled = true) {
+  return useQuery<TransferReceivableSlotOption[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.putAwaySlots(query),
+    queryFn: () => transferService.getPutAwaySlots(query).then((response) => response.data),
+    enabled,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
 export function useTransferSourceLocationsQuery(
   query: TransferSourceLocationsQuery,
   enabled = true

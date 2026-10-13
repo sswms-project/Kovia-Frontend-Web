@@ -40,7 +40,7 @@ import { useTransferPutAwayForm } from '../hooks/use-transfer-putaway-form'
 import { useTransferPutAwaySheetQuery } from '../hooks/use-transfer-receipt'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
-import { useTransferQuery, useTransferReceivableSlotsQuery } from '../hooks/use-transfers'
+import { useTransferPutAwaySlotsQuery, useTransferQuery } from '../hooks/use-transfers'
 import {
   canSeeWarehouse,
   getShipmentCapabilities,
@@ -98,7 +98,7 @@ export default function TransferPutAwayPage({
   const realtime = useTransferRealtime({ transferId, autoRefresh: false })
   const [search, setSearch] = useState('')
   const searchTerm = useDebouncedValue(search.trim(), 300)
-  const slots = useTransferReceivableSlotsQuery(
+  const slots = useTransferPutAwaySlotsQuery(
     { warehouseId: transfer?.destinationWarehouseId ?? '', search: searchTerm, top: 20 },
     Boolean(transfer && canSee)
   )
