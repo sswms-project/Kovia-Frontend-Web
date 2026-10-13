@@ -33,7 +33,7 @@ export default function PrivateLayout({ children }: { children: React.ReactNode 
                   <SidebarInset className="h-full min-h-0 min-w-0 overflow-hidden print:m-0 print:block print:h-auto print:overflow-visible">
                     <div
                       data-slot="workspace-scroll-area"
-                      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4 lg:p-5 print:overflow-visible print:p-0 [&:has([data-slot=operational-workspace-navigation])]:pt-1"
+                      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4 lg:p-5 print:overflow-visible print:p-0 [&:has([data-slot=operational-workspace-navigation])]:pt-1 not-print:[&:has(form[data-slot=transfer-scroll])]:pb-[15px]"
                     >
                       <div className="shrink-0 print:hidden">
                         <SubscriptionReadOnlyBanner />

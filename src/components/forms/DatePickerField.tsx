@@ -79,7 +79,7 @@ export function DatePickerField({
             variant="outline"
             className={cn(
               'w-full justify-start gap-2 font-normal',
-              withTime && 'min-h-11',
+              withTime && 'min-h-8 max-md:min-h-11 pointer-coarse:min-h-11',
               !selectedDate && 'text-muted-foreground'
             )}
             aria-label={label}

@@ -56,6 +56,13 @@ describe('TransferForm advisory load warning', () => {
     render(<Harness />)
     expect(screen.getByRole('status')).toHaveTextContent('Bạn vẫn có thể tiếp tục.')
     const button = screen.getByRole('button', { name: 'Tạo yêu cầu' })
+    expect(screen.getByRole('group', { name: 'Thao tác yêu cầu điều chuyển' })).toHaveClass(
+      'sticky',
+      'bottom-0',
+      'shrink-0',
+      'py-1.5'
+    )
+    expect(button.closest('form')).toHaveClass('gap-3', 'overflow-y-auto')
     expect(button).toBeEnabled()
     fireEvent.click(button)
     expect(submit).toHaveBeenCalledOnce()

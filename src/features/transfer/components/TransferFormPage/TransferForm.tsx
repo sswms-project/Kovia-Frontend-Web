@@ -111,7 +111,7 @@ export function TransferForm({
   return (
     <form
       data-slot="transfer-scroll"
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
+      className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
       noValidate
       onSubmit={(event) => {
         event.preventDefault()
@@ -209,7 +209,11 @@ export function TransferForm({
         </div>
       </section>
 
-      <div className="bg-background sticky bottom-0 flex flex-wrap justify-end gap-2 border-t py-3">
+      <div
+        role="group"
+        aria-label="Thao tác yêu cầu điều chuyển"
+        className="bg-background sticky bottom-0 flex shrink-0 flex-wrap justify-end gap-2 border-t py-1.5"
+      >
         <Button type="button" variant="outline" disabled={isSaving} onClick={onCancel}>
           Hủy
         </Button>

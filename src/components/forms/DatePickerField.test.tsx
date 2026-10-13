@@ -65,6 +65,13 @@ describe('DatePickerField', () => {
     expect(screen.getByRole('dialog')).not.toHaveClass('max-h-[80dvh]')
   })
 
+  it('keeps the date-time trigger compact on desktop with larger mobile and touch targets', () => {
+    render(<DateTimeHarness />)
+    const trigger = screen.getByRole('button', { name: 'Ngày hàng về' })
+    expect(trigger).toHaveClass('h-8', 'min-h-8', 'max-md:min-h-11', 'pointer-coarse:min-h-11')
+    expect(trigger).not.toHaveClass('min-h-11')
+  })
+
   it('uses today in Vietnam and disables yesterday; a required date cannot be cleared', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-10-13T18:00:00Z')) // 14 October in Vietnam
