@@ -22,6 +22,7 @@ const commonRow = z.object({
   productId: z.string().nullable(),
   sku: z.string(),
   productName: z.string(),
+  categoryName: z.string().default('Chưa phân nhóm'),
   unit: z.string(),
 })
 export const reportRowSchema = z.discriminatedUnion('rowType', [
@@ -145,6 +146,7 @@ export const reportRowSchema = z.discriminatedUnion('rowType', [
     adjustmentNet: z.number(),
     internalNet: z.number(),
     otherNet: z.number(),
+    otherChanges: z.number().optional(),
     closingBalance: z.number().nullable(),
     historyStatus: z.string(),
   }),
@@ -191,6 +193,8 @@ export const reportResponseSchema = z.object({
     dateFrom: z.string().nullable(),
     dateTo: z.string().nullable(),
     productId: z.string().nullable(),
+    categoryId: z.string().nullable().default(null),
+    categoryName: z.string().nullable().default(null),
     search: z.string().nullable(),
     status: z.string().nullable(),
     assigneeId: z.string().nullable(),
@@ -204,6 +208,9 @@ export const reportResponseSchema = z.object({
   pageSize: z.number(),
 })
 export const reportOptionsSchema = z.object({
+  categories: z
+    .array(z.object({ id: z.string(), name: z.string(), parentId: z.string().nullable() }))
+    .default([]),
   warehouses: z.array(z.object({ id: z.string(), name: z.string() })),
   products: z.array(
     z.object({ id: z.string(), sku: z.string(), name: z.string(), unit: z.string() })
@@ -215,6 +222,7 @@ export const reportFilterSchema = z
   .object({
     warehouseId: z.string(),
     productId: z.string(),
+    categoryId: z.string(),
     search: z.string().max(100, 'Từ khóa tối đa 100 ký tự.'),
     status: z.string(),
     assigneeId: z.string(),

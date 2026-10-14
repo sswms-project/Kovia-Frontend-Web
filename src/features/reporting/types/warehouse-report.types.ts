@@ -1,6 +1,7 @@
 export interface WarehouseReportQuery {
   readonly warehouseIds?: readonly string[]
   readonly productId?: string
+  readonly categoryId?: string
   readonly search?: string
   readonly status?: string
   readonly assigneeId?: string
