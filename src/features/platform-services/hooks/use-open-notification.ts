@@ -31,10 +31,10 @@ export function useOpenNotification() {
     const route = getNotificationReferenceRoute(notification)
     if (!route) return
     // Đang đứng đúng trang đích thì push không đổi gì → tải lại dữ liệu để thấy thay đổi.
-    if (route === pathname)
+    if (route.split('?')[0] === pathname)
       for (const queryKey of getNotificationQueryKeys(notification))
         void queryClient.invalidateQueries({ queryKey })
-    else router.push(route as Route)
+    if (route !== pathname) router.push(route as Route)
   }
 
   return { pendingNotificationId, markRead, open }

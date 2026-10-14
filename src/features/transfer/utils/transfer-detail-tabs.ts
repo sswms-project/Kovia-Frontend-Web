@@ -8,7 +8,8 @@ export type TransferDetailTab =
   | 'discrepancies'
   | 'history'
 export function parseTransferDetailTab(value: string | null): TransferDetailTab | null {
-  if (value === 'shipments') return 'pick'
+  // Legacy notifications refer to the shipment flow, not specifically to source picking.
+  if (value === 'shipments') return null
   if (value === 'feedback') return 'discrepancies'
   return value === 'goods' ||
     value === 'pick' ||

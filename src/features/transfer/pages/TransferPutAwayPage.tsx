@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Sparkles } from 'lucide-react'
+import { PutawaySuggestionPanel } from '@/components/operations/putaway'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
   OperationalErrorState,
@@ -26,16 +27,23 @@ import {
 } from '@/features/inbound-request/utils/inbound-request-format'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { getApiErrorMessage } from '@/lib/api-error'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { useWarehouseLayoutQuery } from '@/features/warehouse/hooks/use-warehouse'
+import { getPutawaySlotOptions } from '@/features/inbound/utils/putaway-slot-options'
 import { APP_ROUTES } from '@/routes/app-routes'
-import { TransferPutawayPlanWorkspace } from '../components/TransferDetailPage/TransferPutawayPlanWorkspace'
+import { TransferPutawayPlanWorkspace } from '../components/TransferDetailPage'
 import {
   TransferChangedBanner,
   TransferConfirmDialog,
   TransferUnsavedChanges,
 } from '../components/TransferShared'
-import { TransferPutAwayEntryCard, TransferWorkHeader } from '../components/TransferWork'
+import { TransferPutAwayForm, TransferWorkHeader } from '../components/TransferWork'
 import { useTransferPlanEditor } from '../hooks/use-transfer-plan-editor'
-import { useTransferPutAwayPlanSuggestionsQuery } from '../hooks/use-transfer-putaway-plan'
+import {
+  useTransferPutAwayPlanSuggestionsQuery,
+  useTransferPutAwayRulesQuery,
+} from '../hooks/use-transfer-putaway-plan'
 import { useTransferPutAwayForm } from '../hooks/use-transfer-putaway-form'
 import { useTransferPutAwaySheetQuery } from '../hooks/use-transfer-receipt'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
@@ -47,6 +55,9 @@ import {
   getTransferCapabilities,
 } from '../utils/transfer-capabilities'
 import { transferPutAwayPlanStates } from '../utils/transfer-putaway'
+import { adaptTransferPutawaySuggestions } from '../utils/transfer-putaway-plan'
+import { TransferSlotMapDialog } from '../components/TransferFormPage'
+import type { TransferPutAwayPlanSuggestions } from '../types/transfer.types'
 
 interface Props {
   readonly transferId: string
@@ -77,6 +88,15 @@ export default function TransferPutAwayPage({
   )
   const [tab, setTab] = useState(initialTab)
   const [applyPlanOpen, setApplyPlanOpen] = useState(false)
+  const [mapIndex, setMapIndex] = useState<number | null>(null)
+  const [suggestionVersion, setSuggestionVersion] = useState('')
+  const [hideSuggestions, setHideSuggestions] = useState(false)
+  const [pendingSuggestion, setPendingSuggestion] = useState<{
+    target: 'plan' | 'execution'
+    data: TransferPutAwayPlanSuggestions
+    only?: { itemId: string; slotId: string }
+    version: string
+  } | null>(null)
   const applyPlanButton = useRef<HTMLButtonElement>(null)
   const executionTab = useRef<HTMLButtonElement>(null)
   const precision = useMemo(
@@ -109,13 +129,60 @@ export default function TransferPutAwayPage({
     () => (slots.data ?? []).map((slot) => ({ value: slot.id, label: slot.path })),
     [slots.data]
   )
+  const layout = useWarehouseLayoutQuery(
+    transfer?.destinationWarehouseId ?? '',
+    Boolean(transfer && canSee && tab === 'plan')
+  )
+  const capacitySlots = useMemo(() => getPutawaySlotOptions(layout.data ?? []), [layout.data])
   const suggestions = useTransferPutAwayPlanSuggestionsQuery(transferId, shipmentId)
+  const sourceVersion = `${transferId}|${shipmentId ?? ''}|${transfer?.version}|${sheet?.receipt.version}|${sheet?.planVersion}`
+  const rules = useTransferPutAwayRulesQuery(
+    transferId,
+    shipmentId,
+    sourceVersion,
+    Boolean(
+      isReady &&
+      canSee &&
+      (canPlan || canPutAway) &&
+      transfer &&
+      (!shipmentId ||
+        shipment?.status === 'AwaitingPutAway' ||
+        shipment?.status === 'Receiving' ||
+        shipment?.status === 'InTransit')
+    )
+  )
+  useEffect(() => {
+    if (!rules.data || rules.isFetching) return
+    editor.seedSuggestions(rules.data)
+    if (sheet && mapIndex === null) putAway.applySuggestions(rules.data, sheet, true)
+  }, [rules.data, rules.isFetching, editor, putAway, sheet, mapIndex])
+  const visibleSuggestions =
+    suggestionVersion === sourceVersion && !hideSuggestions ? suggestions.data : undefined
+  function applySuggestion(only?: { itemId: string; slotId: string }) {
+    if (!visibleSuggestions || busy || putAway.unknownResult) return
+    const target: 'plan' | 'execution' = tab === 'plan' ? 'plan' : 'execution'
+    if (target === 'plan' ? !canPlan : putAway.blocked) return
+    const request = { target, data: visibleSuggestions, only, version: sourceVersion }
+    if (target === 'plan' ? editor.isDirty : putAway.form.formState.isDirty)
+      setPendingSuggestion(request)
+    else if (target === 'plan') editor.apply(visibleSuggestions, only)
+    else if (sheet) putAway.applySuggestions(visibleSuggestions, sheet, false, only)
+  }
   const suggestionLock = useRef(false)
   async function suggest() {
-    if (!canPlan || suggestionLock.current || busy) return
+    if (
+      !(tab === 'plan' ? canPlan : canPutAway && !putAway.blocked) ||
+      suggestionLock.current ||
+      busy
+    )
+      return
     suggestionLock.current = true
     try {
-      await suggestions.refetch()
+      const result = await suggestions.refetch()
+      if (!result.isError) {
+        setSuggestionVersion(sourceVersion)
+        setHideSuggestions(false)
+      }
     } finally {
       suggestionLock.current = false
     }
@@ -156,10 +223,18 @@ export default function TransferPutAwayPage({
         </AlertDescription>
       </Alert>
     )
-  const remaining = sheet?.rows.reduce((sum, row) => sum + row.remainingQuantity, 0) ?? 0
+  const remaining =
+    sheet?.rows
+      .filter((row) => row.qualityStatus === 'Good')
+      .reduce((sum, row) => sum + row.remainingQuantity, 0) ?? 0
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 max-md:[&_[role=tab]]:min-h-11 pointer-coarse:[&_[role=tab]]:min-h-11 max-md:[&_a]:min-h-11 pointer-coarse:[&_a]:min-h-11 max-md:[&_button]:min-h-11 pointer-coarse:[&_button]:min-h-11">
-      {shipment ? (
+    <div
+      className={cn(
+        'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 max-md:[&_[role=tab]]:min-h-11 pointer-coarse:[&_[role=tab]]:min-h-11 max-md:[&_a]:min-h-11 pointer-coarse:[&_a]:min-h-11 max-md:[&_button]:min-h-11 pointer-coarse:[&_button]:min-h-11',
+        tab === 'plan' && 'gap-5'
+      )}
+    >
+      {shipment && tab === 'execution' ? (
         <TransferWorkHeader
           heading="Chờ cất hàng điều chuyển"
           transferId={transferId}
@@ -176,10 +251,14 @@ export default function TransferPutAwayPage({
             </Link>
           </Button>
           <div>
-            <p className="text-primary text-xs">Kế hoạch cất hàng</p>
-            <h1 className="text-lg font-semibold" translate="no">
+            <p className="text-primary text-xs font-medium">Cất hàng</p>
+            <h1 className="font-mono text-xl font-semibold break-words" translate="no">
               {transfer.transferCode}
             </h1>
+            <p className="text-muted-foreground mt-1 text-xs break-words sm:text-sm">
+              {transfer.sourceWarehouseName} → {transfer.destinationWarehouseName}
+              {shipment ? ` · Đợt ${shipment.shipmentNumber}` : ''}
+            </p>
           </div>
         </header>
       )}
@@ -209,10 +288,31 @@ export default function TransferPutAwayPage({
         </Tabs>
       ) : null}
       <OperationalListPanel
+        className={cn(tab === 'plan' && 'rounded-none border-0 bg-transparent')}
         aria-label={tab === 'plan' ? 'Kế hoạch cất hàng' : 'Thực hiện cất hàng'}
-        aria-busy={busy}
+        aria-busy={busy || rules.isFetching}
       >
-        <div data-slot="operational-list-body" className="flex flex-col gap-3 p-3">
+        <div
+          data-slot="operational-list-body"
+          className={cn('flex flex-col', tab === 'plan' ? 'gap-5 px-0' : 'gap-3 p-3')}
+        >
+          {rules.data &&
+          (rules.data.risks.length > 0 ||
+            rules.data.items.some((item) => item.unallocatedQuantity > 0)) ? (
+            <Alert role="status">
+              <AlertDescription>
+                {rules.data.summary}
+                {rules.data.risks.slice(0, 3).map((risk) => (
+                  <p key={risk}>{risk}</p>
+                ))}
+                {rules.data.items.some((item) => item.unallocatedQuantity > 0) ? (
+                  <p>
+                    Phần chưa đủ chỗ vẫn được giữ lại; hãy kiểm tra sức chứa hoặc chọn vị trí khác.
+                  </p>
+                ) : null}
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {tab === 'plan' ? (
             <>
               <TransferPutawayPlanWorkspace
@@ -220,9 +320,10 @@ export default function TransferPutAwayPage({
                 editor={editor}
                 canManage={canPlan && !busy}
                 slotOptions={slotOptions}
-                isLoadingSlots={slots.isFetching}
+                capacitySlots={capacitySlots}
+                isLoadingSlots={slots.isFetching && capacitySlots.length === 0}
                 onSlotSearchChange={setSearch}
-                suggestions={suggestions.data}
+                suggestions={visibleSuggestions}
                 isSuggesting={suggestions.isFetching}
                 suggestionError={
                   suggestions.error
@@ -232,6 +333,7 @@ export default function TransferPutAwayPage({
                 onSuggest={() => void suggest()}
                 onReload={reload}
                 onSaved={() => reload('saved')}
+                onApplySuggestion={applySuggestion}
               />
               {!editor.isOpen && canPlan ? (
                 <Button variant="outline" onClick={() => editor.open()}>
@@ -245,9 +347,64 @@ export default function TransferPutAwayPage({
                 <AlertDescription>
                   Đã nhận, chưa cất:{' '}
                   <strong className="tabular-nums">{formatQuantity(remaining)}</strong>. Chỉ bước
-                  này mới tăng tồn kho nhận. Hàng hỏng được cất riêng, không trừ ngân sách hàng tốt.
+                  này mới tăng tồn kho nhận. Chỉ cất hàng tốt thực nhận; hàng hỏng xử lý ở hồ sơ
+                  chênh lệch.
                 </AlertDescription>
               </Alert>
+              {canPutAway && remaining > 0 ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+                    {rules.isFetching
+                      ? 'Đang tìm vị trí và điền số lượng…'
+                      : rules.error
+                        ? 'Chưa lấy được gợi ý; bạn có thể chọn vị trí thủ công.'
+                        : 'Vị trí và số lượng được điền sẵn; bạn có thể chỉnh lại.'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    disabled={busy || putAway.blocked || suggestions.isFetching}
+                    onClick={() => void suggest()}
+                  >
+                    {suggestions.isFetching ? <Spinner /> : <Sparkles />}Gợi ý AI
+                  </Button>
+                </div>
+              ) : null}
+              {rules.error || suggestions.error ? (
+                <Alert role="alert">
+                  <AlertDescription>
+                    {getApiErrorMessage(
+                      rules.error ?? suggestions.error,
+                      'Không lấy được gợi ý. Có thể chọn vị trí thủ công hoặc thử lại.'
+                    )}
+                  </AlertDescription>
+                  <Button
+                    variant="outline"
+                    disabled={busy || rules.isFetching}
+                    onClick={() => void rules.refetch()}
+                  >
+                    Thử lại gợi ý theo quy tắc kho
+                  </Button>
+                </Alert>
+              ) : null}
+              {visibleSuggestions ? (
+                <PutawaySuggestionPanel
+                  items={transfer.items.map((item) => ({
+                    id: item.id,
+                    productSKU: item.sku,
+                    productName: item.productName,
+                    baseUnitName: item.baseUnitName,
+                  }))}
+                  state={{
+                    suggestions: adaptTransferPutawaySuggestions(visibleSuggestions),
+                    isSuggesting: suggestions.isFetching,
+                    onSuggest: () => void suggest(),
+                    onApply: (itemId, slotId) => applySuggestion({ itemId, slotId }),
+                    onApplyBest: () => applySuggestion(),
+                    onClear: () => setHideSuggestions(true),
+                  }}
+                  disabled={busy || putAway.blocked || suggestions.isFetching}
+                />
+              ) : null}
               {putAway.notice ? (
                 <Alert role="status">
                   <AlertDescription>{putAway.notice}</AlertDescription>
@@ -290,39 +447,27 @@ export default function TransferPutAwayPage({
                     : 'Đợt đã hoàn tất; lịch sử cất được giữ nguyên.'}
                 </p>
               ) : null}
-              {putAway.fields.map((field, index) => {
-                const row = putAway.rowOf(index)
-                if (!row || row.remainingQuantity <= 0) return null
-                return (
-                  <TransferPutAwayEntryCard
-                    key={field.id}
-                    index={index}
-                    row={row}
-                    form={putAway.form}
-                    disabled={putAway.blocked || busy}
-                    pendingScan={putAway.isFindingSlot}
-                    planState={planStates[index]}
-                    planChanged={putAway.changedLines.has(row.lineId)}
-                    canRemove={
-                      entries.filter(
-                        (entry) =>
-                          entry.lineId === row.lineId &&
-                          entry.lotId === row.lotId &&
-                          entry.qualityStatus === row.qualityStatus
-                      ).length > 1
-                    }
-                    slotOptions={slotOptions}
-                    loadingSlots={slots.isFetching}
-                    onSearchSlots={setSearch}
-                    onMarkUnreadable={putAway.markUnreadable}
-                    onScanSlot={putAway.scanSlot}
-                    onScanProduct={putAway.scanProduct}
-                    onSplit={putAway.split}
-                    onSplitExcess={putAway.splitExcess}
-                    onRemove={putAway.remove}
-                  />
-                )
-              })}
+              <TransferPutAwayForm
+                validationAttempt={putAway.validationAttempt}
+                fields={putAway.fields}
+                rows={sheet.rows}
+                planStates={planStates}
+                changedLines={putAway.changedLines}
+                form={putAway.form}
+                disabled={putAway.blocked || busy}
+                pendingScan={putAway.isFindingSlot}
+                slotOptions={slotOptions}
+                loadingSlots={slots.isFetching}
+                onSearchSlots={setSearch}
+                onMarkUnreadable={putAway.markUnreadable}
+                onChangeSlot={putAway.changeSlot}
+                onOpenMap={setMapIndex}
+                onScanSlot={putAway.scanSlot}
+                onScanProduct={putAway.scanProduct}
+                onSplit={putAway.split}
+                onSplitExcess={putAway.splitExcess}
+                onRemove={putAway.remove}
+              />
               {putAway.form.formState.errors.entries?.root?.message ? (
                 <p role="alert" className="text-destructive text-sm">
                   {putAway.form.formState.errors.entries.root.message}
@@ -378,11 +523,50 @@ export default function TransferPutAwayPage({
               disabled={putAway.blocked || busy}
               onClick={() => void putAway.requestConfirm()}
             >
-              {putAway.isPending ? <Spinner /> : null}Xác nhận cất hàng
+              {putAway.isPending ? <Spinner /> : null}
+              {remaining > 0 ? 'Xác nhận cất hàng' : 'Hoàn tất cất hàng'}
             </Button>
           </footer>
         ) : null}
       </OperationalListPanel>
+      <TransferSlotMapDialog
+        open={mapIndex !== null}
+        warehouseId={transfer.destinationWarehouseId}
+        title="Chọn vị trí cất hàng"
+        description="Chọn vị trí nhận hàng tại kho nhập; quét xác nhận sau khi chọn."
+        onOpenChange={(open) => {
+          if (!open) setMapIndex(null)
+        }}
+        onConfirm={(pick) => {
+          if (mapIndex !== null && !busy && !putAway.blocked)
+            putAway.changeSlot(mapIndex, { value: pick.slotId, label: pick.label })
+          setMapIndex(null)
+        }}
+      />
+      <TransferConfirmDialog
+        open={pendingSuggestion !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingSuggestion(null)
+        }}
+        title="Thay phân bổ đang chỉnh bằng gợi ý?"
+        description="Vị trí và số lượng trong phạm vi áp dụng sẽ được điền lại. Mã quét bị xóa; bạn cần kiểm tra và quét lại."
+        confirmLabel="Áp dụng gợi ý"
+        pendingLabel="Đang áp dụng…"
+        isPending={busy}
+        onConfirm={() => {
+          if (!pendingSuggestion || busy) return
+          if (pendingSuggestion.version !== sourceVersion) {
+            setPendingSuggestion(null)
+            toast.info('Phiếu đã thay đổi. Hãy tải gợi ý mới trước khi áp dụng.')
+            return
+          }
+          if (pendingSuggestion.target === 'plan')
+            editor.apply(pendingSuggestion.data, pendingSuggestion.only)
+          else if (sheet)
+            putAway.applySuggestions(pendingSuggestion.data, sheet, false, pendingSuggestion.only)
+          setPendingSuggestion(null)
+        }}
+      />
       <TransferConfirmDialog
         actionClassName="h-11 md:h-8 pointer-coarse:h-11"
         open={putAway.confirmOpen}

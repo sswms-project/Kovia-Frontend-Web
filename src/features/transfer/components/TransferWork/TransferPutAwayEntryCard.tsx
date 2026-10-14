@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
-import { MapPin, Split, Trash2 } from 'lucide-react'
+import { MapPin, MapPinned, Split, Trash2 } from 'lucide-react'
 import { PutawayDeviationPanel } from '@/components/operations/putaway'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ import { ScanInput } from './ScanInput'
 
 interface Props {
   readonly index: number
+  readonly hideHeader?: boolean
   readonly row: TransferPutAwaySheetRow
   readonly form: UseFormReturn<TransferPutAwayFormValues>
   readonly disabled: boolean
@@ -31,6 +32,8 @@ interface Props {
   readonly loadingSlots: boolean
   readonly onSearchSlots: (search: string) => void
   readonly onMarkUnreadable: (index: number, option: LookupOption | null) => void
+  readonly onChangeSlot: (index: number, option: LookupOption | null) => void
+  readonly onOpenMap?: (index: number) => void
   readonly onScanSlot: (index: number, code: string) => Promise<boolean>
   readonly onScanProduct: (index: number, code: string) => boolean
   readonly onSplit: (index: number) => void
@@ -40,6 +43,7 @@ interface Props {
 
 export function TransferPutAwayEntryCard({
   index,
+  hideHeader = false,
   row,
   form,
   disabled,
@@ -51,6 +55,8 @@ export function TransferPutAwayEntryCard({
   loadingSlots,
   onSearchSlots,
   onMarkUnreadable,
+  onChangeSlot,
+  onOpenMap,
   onScanSlot,
   onScanProduct,
   onSplit,
@@ -69,23 +75,25 @@ export function TransferPutAwayEntryCard({
       className="bg-card border"
       aria-label={'Cất ' + row.sku + ' · ' + (row.lotNumber ?? 'Không theo lô')}
     >
-      <header className="flex flex-wrap items-start justify-between gap-2 border-b p-3">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold break-words">
-            {row.sku} · {row.productName}
-          </h2>
-          <p className="text-muted-foreground text-xs">
-            {row.lotNumber ? 'Lô ' + row.lotNumber : 'Không theo lô'} · {row.baseUnitName}
+      {!hideHeader ? (
+        <header className="flex flex-wrap items-start justify-between gap-2 border-b p-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold break-words">
+              {row.sku} · {row.productName}
+            </h2>
+            <p className="text-muted-foreground text-xs">
+              {row.lotNumber ? 'Lô ' + row.lotNumber : 'Không theo lô'} · {row.baseUnitName}
+            </p>
+          </div>
+          <Badge variant={row.qualityStatus === 'Good' ? 'secondary' : 'outline'}>
+            {row.qualityStatus === 'Good' ? 'Hàng tốt' : 'Hàng hỏng'}
+          </Badge>
+          <p className="w-full text-xs tabular-nums">
+            Thực nhận {formatQuantity(row.actualQuantity)} · Đã cất{' '}
+            {formatQuantity(row.putAwayQuantity)} · Còn {formatQuantity(row.remainingQuantity)}
           </p>
-        </div>
-        <Badge variant={row.qualityStatus === 'Good' ? 'secondary' : 'outline'}>
-          {row.qualityStatus === 'Good' ? 'Hàng tốt' : 'Hàng hỏng'}
-        </Badge>
-        <p className="w-full text-xs tabular-nums">
-          Thực nhận {formatQuantity(row.actualQuantity)} · Đã cất{' '}
-          {formatQuantity(row.putAwayQuantity)} · Còn {formatQuantity(row.remainingQuantity)}
-        </p>
-      </header>
+        </header>
+      ) : null}
       <FieldGroup className="gap-3 p-3">
         {planChanged ? (
           <p className="text-warning text-sm" role="status">
@@ -97,15 +105,70 @@ export function TransferPutAwayEntryCard({
             <MapPin aria-hidden="true" />
             Theo kế hoạch: <strong>{entry.plannedSlotLabel}</strong>
           </p>
-        ) : row.qualityStatus === 'Damaged' ? (
-          <p className="text-muted-foreground text-xs">
-            Hàng hỏng không dùng ngân sách hàng tốt. Chọn vị trí phù hợp và quét xác nhận.
-          </p>
         ) : (
           <p className="text-muted-foreground text-xs">
-            Chưa có vị trí theo kế hoạch; hãy quét vị trí cất.
+            {entry.destinationSlotId
+              ? 'Vị trí đề xuất đã được điền. Có thể chỉnh lại trước khi quét.'
+              : 'Chưa tìm được vị trí đủ điều kiện. Chọn vị trí khác hoặc kiểm tra cấu hình sức chứa.'}
           </p>
         )}
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem]">
+          <Field data-invalid={Boolean(errors?.destinationSlotId)}>
+            <FieldLabel htmlFor={`putaway-location-${index}`}>Vị trí cất</FieldLabel>
+            <LookupCombobox
+              id={`putaway-location-${index}`}
+              value={entry.destinationSlotId}
+              options={slotOptions}
+              selectedOption={
+                entry.destinationSlotId
+                  ? {
+                      value: entry.destinationSlotId,
+                      label: entry.slotLabel || entry.destinationSlotId,
+                    }
+                  : undefined
+              }
+              ariaLabel="Vị trí cất hàng"
+              placeholder="Chọn vị trí cất hàng"
+              emptyMessage="Không tìm thấy vị trí nhận hàng."
+              disabled={disabled}
+              isLoading={loadingSlots}
+              isInvalid={Boolean(errors?.destinationSlotId)}
+              onSearchChange={onSearchSlots}
+              onChange={(value, option) =>
+                onChangeSlot(index, value ? (option ?? { value, label: value }) : null)
+              }
+              footerAction={
+                onOpenMap
+                  ? {
+                      label: 'Chọn trên sơ đồ kho',
+                      icon: <MapPinned />,
+                      onClick: () => {
+                        if (!disabled) onOpenMap(index)
+                      },
+                    }
+                  : undefined
+              }
+            />
+            <FieldError>{errors?.destinationSlotId?.message}</FieldError>
+          </Field>
+          <Field data-invalid={Boolean(errors?.quantity)}>
+            <FieldLabel htmlFor={quantityId}>Số lượng cất ({row.baseUnitName})</FieldLabel>
+            <Input
+              id={quantityId}
+              className="h-11 md:h-8 pointer-coarse:h-11"
+              type="number"
+              min={0}
+              max={row.remainingQuantity}
+              step={10 ** -Math.min(2, row.baseQuantityPrecision)}
+              inputMode="decimal"
+              disabled={disabled}
+              aria-invalid={Boolean(errors?.quantity)}
+              aria-describedby={errors?.quantity ? `${quantityId}-error` : undefined}
+              {...form.register(`entries.${index}.quantity`, { valueAsNumber: true })}
+            />
+            <FieldError id={`${quantityId}-error`}>{errors?.quantity?.message}</FieldError>
+          </Field>
+        </div>
         {!manual ? (
           <ScanInput
             id={`putaway-slot-${index}`}
@@ -196,23 +259,6 @@ export function TransferPutAwayEntryCard({
             />
           </CollapsibleContent>
         </Collapsible>
-        <Field data-invalid={Boolean(errors?.quantity)}>
-          <FieldLabel htmlFor={quantityId}>Số lượng cất ({row.baseUnitName})</FieldLabel>
-          <Input
-            id={quantityId}
-            className="h-11 md:h-8 pointer-coarse:h-11"
-            type="number"
-            min={0}
-            max={row.remainingQuantity}
-            step={10 ** -Math.min(2, row.baseQuantityPrecision)}
-            inputMode="decimal"
-            disabled={disabled}
-            aria-invalid={Boolean(errors?.quantity)}
-            aria-describedby={errors?.quantity ? `${quantityId}-error` : undefined}
-            {...form.register(`entries.${index}.quantity`, { valueAsNumber: true })}
-          />
-          <FieldError id={`${quantityId}-error`}>{errors?.quantity?.message}</FieldError>
-        </Field>
         {manual || planState?.isOffPlan ? (
           <PutawayDeviationPanel
             disabled={disabled}

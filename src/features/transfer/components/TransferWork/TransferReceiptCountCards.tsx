@@ -83,7 +83,7 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
                     (field) => {
                       const label =
                         field === 'goodQuantity'
-                          ? 'Tốt'
+                          ? 'SL thực nhận'
                           : field === 'damagedQuantity'
                             ? 'Hỏng'
                             : 'Thiếu'

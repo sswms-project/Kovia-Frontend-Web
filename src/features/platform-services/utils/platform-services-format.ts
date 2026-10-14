@@ -176,6 +176,18 @@ export const notificationActionRoutes: Record<string, NotificationActionRoute> =
     to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=shipments`,
     requiresId: true,
   },
+  ViewStockTransferPick: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=pick`,
+    requiresId: true,
+  },
+  ViewStockTransferReceive: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=receive`,
+    requiresId: true,
+  },
+  ViewStockTransferPutAway: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=putaway`,
+    requiresId: true,
+  },
   ViewStockTransferDiscrepancies: {
     to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=discrepancies`,
     requiresId: true,

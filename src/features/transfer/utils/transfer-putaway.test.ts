@@ -4,10 +4,114 @@ import {
   splitTransferPutAwayExcess,
   transferPutAwayPlanStates,
 } from './transfer-putaway'
-import { putAwayFixture, RECEIPT_LOT } from './transfer-receipt-test-fixtures'
+import {
+  putAwayFixture,
+  putAwaySuggestionsFixture,
+  RECEIPT_LOT,
+  RECEIPT_SLOT,
+} from './transfer-receipt-test-fixtures'
 
 describe('Ngân sách cất hàng tốt dùng chung', () => {
-  it('allocates once across lots and leaves damaged stock unplanned', () => {
+  it('does not add a saved allocation absent from a capacity-validated proposal', () => {
+    const sheet = putAwayFixture()
+    const first = {
+      ...sheet.rows[0]!,
+      remainingQuantity: 8,
+      planBudgets: [{ slotId: RECEIPT_SLOT, slotCode: 'S', path: 'S', remainingBudget: 8 }],
+    }
+    const second = {
+      ...first,
+      lineId: 'second-line',
+      itemId: 'second-item',
+      productId: 'second-product',
+      sku: 'SKU-02',
+      planBudgets: [],
+    }
+    sheet.rows = [first, second]
+    const suggestions = putAwaySuggestionsFixture()
+    const original = suggestions.items[0]!
+    suggestions.items = [
+      {
+        ...original,
+        itemId: first.itemId,
+        suggestions: [
+          { ...original.suggestions[0]!, slotId: 'T', path: 'T', suggestedQuantity: 8 },
+        ],
+      },
+      {
+        ...original,
+        itemId: second.itemId,
+        suggestions: [{ ...original.suggestions[0]!, suggestedQuantity: 8 }],
+      },
+    ]
+    const entries = buildTransferPutAwayEntries(sheet, suggestions)
+    expect(entries.map((entry) => [entry.destinationSlotId, entry.quantity])).toEqual([
+      ['T', 8],
+      [RECEIPT_SLOT, 8],
+    ])
+    expect(
+      entries
+        .filter((entry) => entry.destinationSlotId === RECEIPT_SLOT)
+        .reduce((sum, entry) => sum + entry.quantity, 0)
+    ).toBeLessThanOrEqual(10)
+  })
+  it('caps retained plans to validated capacity and leaves the excess unallocated', () => {
+    const suggestions = putAwaySuggestionsFixture()
+    suggestions.items[0]!.suggestions[0]!.suggestedQuantity = 3
+    const entries = buildTransferPutAwayEntries(putAwayFixture(), suggestions)
+    expect(entries.map((entry) => [entry.quantity, Boolean(entry.destinationSlotId)])).toEqual([
+      [3, true],
+      [5, false],
+    ])
+  })
+  it('prefills rule suggestions without making them a saved manager plan or scan confirmation', () => {
+    const sheet = putAwayFixture()
+    sheet.rows.forEach((row) => {
+      row.planBudgets = []
+      row.planMode = 'Legacy'
+    })
+    const entries = buildTransferPutAwayEntries(sheet, putAwaySuggestionsFixture())
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({
+      quantity: 8,
+      destinationSlotId: RECEIPT_SLOT,
+      plannedSlotId: '',
+      scannedSlotCode: '',
+      qualityStatus: 'Good',
+    })
+  })
+  it('does not double allocate suggestions already consumed by the shared saved-plan budget', () => {
+    const sheet = putAwayFixture()
+    sheet.rows = [
+      { ...sheet.rows[0]!, lotId: RECEIPT_LOT, remainingQuantity: 4 },
+      { ...sheet.rows[0]!, remainingQuantity: 4 },
+    ]
+    expect(
+      buildTransferPutAwayEntries(sheet, putAwaySuggestionsFixture()).map((entry) => entry.quantity)
+    ).toEqual([4, 2, 2])
+  })
+  it('caps suggestions to actual remaining and leaves insufficient capacity visibly unallocated', () => {
+    const sheet = putAwayFixture()
+    sheet.rows.forEach((row) => {
+      row.planBudgets = []
+    })
+    const suggestions = putAwaySuggestionsFixture()
+    suggestions.items[0]!.suggestions[0]!.suggestedQuantity = 3
+    expect(
+      buildTransferPutAwayEntries(sheet, suggestions).map((entry) => [
+        entry.quantity,
+        Boolean(entry.destinationSlotId),
+      ])
+    ).toEqual([
+      [3, true],
+      [5, false],
+    ])
+    sheet.rows[0]!.remainingQuantity = 2
+    expect(buildTransferPutAwayEntries(sheet, suggestions).map((entry) => entry.quantity)).toEqual([
+      2,
+    ])
+  })
+  it('allocates once across lots and excludes damaged stock from the form', () => {
     const sheet = putAwayFixture()
     sheet.rows = [
       { ...sheet.rows[0]!, lotId: RECEIPT_LOT, remainingQuantity: 4 },
@@ -19,9 +123,8 @@ describe('Ngân sách cất hàng tốt dùng chung', () => {
       [4, true],
       [2, true],
       [2, false],
-      [2, false],
     ])
-    expect(entries[3]!.qualityStatus).toBe('Damaged')
+    expect(entries.every((entry) => entry.qualityStatus === 'Good')).toBe(true)
   })
   it('consumes only good quantities in the same slot budget', () => {
     const sheet = putAwayFixture()

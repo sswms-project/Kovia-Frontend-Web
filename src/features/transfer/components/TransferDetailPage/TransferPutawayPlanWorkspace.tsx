@@ -1,32 +1,36 @@
 'use client'
 
 import { useId, useRef, useState } from 'react'
-import { MapPinned, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { PutawaySuggestionPanel } from '@/components/operations/putaway'
-import { Button } from '@/components/ui/button'
+import { Check, ChevronDown, Plus, Send, Sparkles } from 'lucide-react'
+import { PutawayPlanNotice, PutawaySuggestionPanel } from '@/components/operations/putaway'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Field, FieldError, FieldLabel, FieldGroup } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
+import { FieldError } from '@/components/ui/field'
+import { Progress } from '@/components/ui/progress'
 import { Spinner } from '@/components/ui/spinner'
-import {
-  LookupCombobox,
-  type LookupOption,
-} from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
+import type { SlotOption } from '@/features/inbound/components/PutawayDetailPage'
+import { PUTAWAY_ROW_GRID } from '@/features/inbound/components/PutawayDetailPage/PutawayAllocationRow'
+import type { LookupOption } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
+import { cn } from '@/lib/utils'
 import type { useTransferPlanEditor } from '../../hooks/use-transfer-plan-editor'
 import type { TransferDetail, TransferPutAwayPlanSuggestions } from '../../types/transfer.types'
 import {
   adaptTransferPutawaySuggestions,
-  planTotalFromRemaining,
+  buildTransferPlanDraft,
   transferPlanLocations,
 } from '../../utils/transfer-putaway-plan'
 import { TransferSlotMapDialog } from '../TransferFormPage/TransferSlotMapDialog'
+import { TransferPlanAllocationRow } from './TransferPlanAllocationRow'
 
 interface Props {
   readonly transfer: TransferDetail
   readonly editor: ReturnType<typeof useTransferPlanEditor>
   readonly canManage: boolean
   readonly slotOptions: readonly LookupOption[]
+  readonly capacitySlots?: readonly SlotOption[]
   readonly isLoadingSlots: boolean
   readonly onSlotSearchChange: (value: string) => void
   readonly suggestions?: TransferPutAwayPlanSuggestions
@@ -35,13 +39,16 @@ interface Props {
   readonly onSuggest: () => void
   readonly onReload: () => Promise<void>
   readonly onSaved: () => Promise<void>
+  readonly onApplySuggestion?: (only?: { itemId: string; slotId: string }) => void
 }
 
+/** Cùng bố cục phân bổ của PutawayForm Nhập kho; chỉ nối thao tác vào kế hoạch điều chuyển. */
 export function TransferPutawayPlanWorkspace({
   transfer,
   editor,
   canManage,
   slotOptions,
+  capacitySlots = [],
   isLoadingSlots,
   onSlotSearchChange,
   suggestions,
@@ -50,18 +57,92 @@ export function TransferPutawayPlanWorkspace({
   onSuggest,
   onReload,
   onSaved,
+  onApplySuggestion,
 }: Props) {
-  const id = useId()
+  const headingId = useId()
   const content = useRef<HTMLDivElement>(null)
+  const saving = useRef(false)
   const [mapTarget, setMapTarget] = useState<{ itemIndex: number; lineIndex: number } | null>(null)
   const [hideSuggestions, setHideSuggestions] = useState(false)
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const disabled =
     !canManage || !editor.isOpen || editor.isPending || editor.reloadRequired || isSuggesting
+  const groups = editor.draft.flatMap((entry, itemIndex) => {
+    const item = transfer.items.find((item) => item.id === entry.itemId)
+    if (!item) return []
+    const locations = transferPlanLocations(item)
+    const received = locations.reduce((sum, slot) => sum + slot.receivedQuantity, 0)
+    const remaining = Math.max(0, item.quantity - item.stoppedQuantity - received)
+    const assigned = entry.lines.reduce(
+      (sum, line) =>
+        sum +
+        Math.max(
+          0,
+          (Number.isFinite(line.plannedTotal) ? line.plannedTotal : 0) -
+            (locations.find((slot) => slot.slotId === line.slotId)?.receivedQuantity ?? 0)
+        ),
+      0
+    )
+    const complete =
+      Number.isFinite(assigned) &&
+      Math.abs(assigned - remaining) < 1e-7 &&
+      entry.lines.every(
+        (line) =>
+          Boolean(line.slotId) && Number.isFinite(line.plannedTotal) && line.plannedTotal > 0
+      )
+    return [{ entry, item, itemIndex, locations, remaining, assigned, complete }]
+  })
+  const pendingGroups = groups.filter((group) => group.remaining > 0)
+  const completeCount = pendingGroups.filter((group) => group.complete).length
+  const savedPlan = transfer.items.flatMap((item) =>
+    (item.putAwayPlan?.length ?? 0) > 0
+      ? [
+          {
+            id: item.id,
+            label: `${item.sku} - ${item.productName}${item.lotNumber ? ` · Lô ${item.lotNumber}` : ''}`,
+            locations: (item.putAwayPlan ?? [])
+              .map(
+                (line) =>
+                  `${line.path}: ${formatQuantity(line.plannedTotal - line.receivedQuantity)} ${item.baseUnitName ?? ''}`
+              )
+              .join(' · '),
+          },
+        ]
+      : []
+  )
+  // Vị trí đã chọn phải còn hiển thị khi không nằm trong kết quả tìm kiếm hiện tại.
+  const displayedSlots = new Map(capacitySlots.map((slot) => [slot.id, slot]))
+  for (const option of slotOptions)
+    if (!displayedSlots.has(option.value))
+      displayedSlots.set(option.value, {
+        id: option.value,
+        code: option.label.split('/').at(-1)?.trim() || option.label,
+        name: '',
+        zoneId: 'available',
+        zoneLabel: 'Vị trí kho nhập',
+        hierarchy: option.label,
+        capacityLabel: 'Chưa có dữ liệu sức chứa',
+      })
+  for (const { entry } of groups)
+    for (const line of entry.lines)
+      if (line.slotId && !displayedSlots.has(line.slotId))
+        displayedSlots.set(line.slotId, {
+          id: line.slotId,
+          code: line.path.split('/').at(-1)?.trim() || line.slotId,
+          name: '',
+          zoneId: 'saved',
+          zoneLabel: 'Vị trí đã chọn',
+          hierarchy: line.path,
+          capacityLabel: 'Cần kiểm tra trạng thái vị trí',
+          unavailableReason: 'Vị trí chưa có trong danh sách đang hoạt động',
+        })
+  const slots = [...displayedSlots.values()]
   function changeLine(
     itemIndex: number,
     lineIndex: number,
-    change: Partial<{ slotId: string; path: string; plannedTotal: number }>
+    change: Partial<Props['editor']['draft'][number]['lines'][number]>
   ) {
+    if (disabled) return
     editor.change(
       editor.draft.map((item, i) =>
         i === itemIndex
@@ -73,32 +154,38 @@ export function TransferPutawayPlanWorkspace({
       )
     )
   }
+  async function save() {
+    if (disabled || saving.current) return
+    saving.current = true
+    try {
+      const done = await editor.submit()
+      if (done) await onSaved()
+      else {
+        setCollapsed(new Set())
+        requestAnimationFrame(() =>
+          content.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
+        )
+      }
+    } finally {
+      saving.current = false
+    }
+  }
   return (
     <div
       ref={content}
-      className="flex min-w-0 flex-col gap-3"
+      className="relative flex min-h-full w-full min-w-0 shrink-0 flex-col gap-5"
       aria-busy={editor.isPending || isSuggesting}
     >
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Kế hoạch cất hàng tốt</h2>
-          <p className="text-muted-foreground text-sm">
-            Phần đã cất tốt được khóa. Chỉnh phần còn lại; không đổi chứng từ đã ghi nhận.
-          </p>
-        </div>
-        {canManage ? (
-          <Button
-            variant="outline"
-            disabled={disabled}
-            onClick={() => {
-              setHideSuggestions(false)
-              onSuggest()
-            }}
-          >
-            {isSuggesting ? <Spinner /> : <Sparkles />}Gợi ý vị trí
-          </Button>
-        ) : null}
-      </header>
+      <p className="bg-muted/40 border-l-primary border border-l-4 px-4 py-3 text-sm" role="status">
+        Vị trí và số lượng được điền sẵn theo kế hoạch hoặc quy tắc kho. Bạn có thể chỉnh lại rồi
+        bấm <strong>“Lưu vị trí cất hàng”</strong>.
+      </p>
+      <PutawayPlanNotice
+        items={savedPlan}
+        disabled={disabled}
+        onApplyPlan={() => editor.change(buildTransferPlanDraft(transfer.items))}
+        description="Kế hoạch đã lưu của phiếu điều chuyển. Vị trí đã cất được khóa; bạn chỉ chỉnh phần còn lại. Lưu kế hoạch không ghi tăng tồn kho."
+      />
       {editor.errorMessage || suggestionError ? (
         <Alert role="alert">
           <AlertDescription>{editor.errorMessage ?? suggestionError}</AlertDescription>
@@ -109,199 +196,275 @@ export function TransferPutawayPlanWorkspace({
           ) : null}
         </Alert>
       ) : null}
-      {!hideSuggestions && suggestions ? (
-        <PutawaySuggestionPanel
-          items={transfer.items.map((item) => ({
-            id: item.id,
-            productSKU: item.sku,
-            productName: item.productName,
-            baseUnitName: item.baseUnitName,
-          }))}
-          state={{
-            suggestions: adaptTransferPutawaySuggestions(suggestions),
-            isSuggesting,
-            onSuggest,
-            onApply: (itemId, slotId) => editor.apply(suggestions, { itemId, slotId }),
-            onApplyBest: () => editor.apply(suggestions),
-            onClear: () => setHideSuggestions(true),
-          }}
-          disabled={disabled}
-          usedSlotIdsByItem={
-            new Map(
-              editor.draft.map((item) => [
-                item.itemId,
-                new Set(item.lines.map((line) => line.slotId)),
-              ])
-            )
-          }
-        />
-      ) : null}
-      {editor.draft.map((entry, itemIndex) => {
-        const item = transfer.items.find((item) => item.id === entry.itemId)
-        if (!item) return null
-        const total = entry.lines.reduce((sum, line) => sum + line.plannedTotal, 0)
-        const maximum = item.quantity - item.stoppedQuantity
-        return (
-          <section key={entry.itemId} className="bg-card border">
-            <header className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold break-words">
-                  {item.sku} · {item.productName}
-                </h3>
-                <p className="text-muted-foreground text-xs tabular-nums">
-                  Kế hoạch {formatQuantity(total)} / {formatQuantity(maximum)} {item.baseUnitName}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={disabled || entry.lines.length >= 20}
-                onClick={() =>
-                  editor.change(
-                    editor.draft.map((draft, i) =>
-                      i === itemIndex
-                        ? {
-                            ...draft,
-                            lines: [
-                              ...draft.lines,
-                              { slotId: '', path: '', plannedTotal: Math.max(0, maximum - total) },
-                            ],
-                          }
-                        : draft
-                    )
-                  )
-                }
-              >
-                <Plus />
-                Thêm vị trí
-              </Button>
-            </header>
-            <FieldGroup className="gap-3 p-3">
-              {entry.lines.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Chưa có vị trí theo kế hoạch.</p>
-              ) : null}
-              {entry.lines.map((line, lineIndex) => {
-                const received =
-                  transferPlanLocations(item).find((saved) => saved.slotId === line.slotId)
-                    ?.receivedQuantity ?? 0
-                const prefix = `items.${itemIndex}.lines.${lineIndex}`
-                const slotError = editor.errors[`${prefix}.slotId`]
-                const quantityError = editor.errors[`${prefix}.plannedTotal`]
-                const slotInputId = `${id}-${itemIndex}-${lineIndex}-slot`
-                const remainingId = `${id}-${itemIndex}-${lineIndex}-remaining`
-                return (
-                  <FieldGroup
-                    key={`${entry.itemId}-${lineIndex}`}
-                    className="grid gap-3 border p-3 sm:grid-cols-[minmax(0,1fr)_6rem_8rem_auto]"
-                  >
-                    <Field data-invalid={Boolean(slotError)}>
-                      <FieldLabel htmlFor={slotInputId}>Vị trí cất</FieldLabel>
-                      <LookupCombobox
-                        id={slotInputId}
-                        value={line.slotId}
-                        selectedOption={
-                          line.slotId
-                            ? { value: line.slotId, label: line.path || line.slotId }
-                            : undefined
-                        }
-                        options={slotOptions}
-                        placeholder="Chọn vị trí…"
-                        emptyMessage="Không tìm thấy vị trí nhận hàng."
-                        ariaLabel="Vị trí cất hàng"
-                        isLoading={isLoadingSlots}
-                        isInvalid={Boolean(slotError)}
-                        disabled={disabled || received > 0}
-                        onSearchChange={onSlotSearchChange}
-                        onChange={(slotId, option) =>
-                          changeLine(itemIndex, lineIndex, { slotId, path: option?.label ?? '' })
-                        }
-                        footerAction={{
-                          label: 'Chọn trên sơ đồ kho',
-                          icon: <MapPinned />,
-                          onClick: () => {
-                            if (!disabled && received === 0) setMapTarget({ itemIndex, lineIndex })
-                          },
-                        }}
-                      />
-                      <FieldError>{slotError}</FieldError>
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={`${remainingId}-done`}>Đã cất</FieldLabel>
-                      <Input id={`${remainingId}-done`} value={formatQuantity(received)} readOnly />
-                    </Field>
-                    <Field data-invalid={Boolean(quantityError)}>
-                      <FieldLabel htmlFor={remainingId}>Còn phải cất</FieldLabel>
-                      <Input
-                        id={remainingId}
-                        type="number"
-                        min={0}
-                        step={10 ** -Math.min(2, item.baseQuantityPrecision ?? 2)}
-                        inputMode="decimal"
-                        disabled={disabled}
-                        value={
-                          Number.isFinite(line.plannedTotal)
-                            ? Number((line.plannedTotal - received).toPrecision(15))
-                            : ''
-                        }
-                        aria-invalid={Boolean(quantityError)}
-                        aria-describedby={quantityError ? `${remainingId}-error` : undefined}
-                        onChange={(event) =>
-                          changeLine(itemIndex, lineIndex, {
-                            plannedTotal:
-                              event.target.value === ''
-                                ? Number.NaN
-                                : planTotalFromRemaining(received, event.target.valueAsNumber),
-                          })
-                        }
-                      />
-                      <FieldError id={`${remainingId}-error`}>{quantityError}</FieldError>
-                    </Field>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="sm:mt-6"
-                      aria-label={'Bỏ vị trí ' + (line.path || lineIndex + 1)}
-                      disabled={disabled || received > 0}
-                      onClick={() =>
-                        editor.change(
-                          editor.draft.map((draft, i) =>
-                            i === itemIndex
-                              ? { ...draft, lines: draft.lines.filter((_, j) => j !== lineIndex) }
-                              : draft
-                          )
-                        )
-                      }
-                    >
-                      <Trash2 />
-                    </Button>
-                  </FieldGroup>
+      <section className="bg-card border" aria-labelledby={headingId}>
+        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h2 id={headingId} className="text-sm font-semibold">
+              Chọn vị trí cất cho từng sản phẩm
+            </h2>
+            <div className="mt-2 flex items-center gap-3">
+              <Progress
+                className="max-w-56"
+                value={pendingGroups.length ? (completeCount / pendingGroups.length) * 100 : 0}
+                aria-label="Tiến độ phân bổ"
+              />
+              <p className="text-muted-foreground text-xs tabular-nums" role="status">
+                Đã phân bổ đủ {completeCount}/{pendingGroups.length} sản phẩm
+              </p>
+            </div>
+          </div>
+          {groups.length > 1 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setCollapsed(
+                  collapsed.size === groups.length
+                    ? new Set()
+                    : new Set(groups.map((group) => group.item.id))
                 )
-              })}
-              <FieldError>{editor.errors[`items.${itemIndex}.lines`]}</FieldError>
-            </FieldGroup>
-          </section>
-        )
-      })}
-      {canManage ? (
-        <footer className="bg-background sticky bottom-0 flex flex-wrap justify-end gap-2 border-t py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <span className="sr-only" role="status">
-            {editor.isPending ? 'Đang lưu kế hoạch…' : isSuggesting ? 'Đang lấy gợi ý…' : ''}
-          </span>
-          <Button
-            disabled={disabled || !editor.isDirty}
-            onClick={async () => {
-              const done = await editor.submit()
-              if (done) await onSaved()
-              else
-                requestAnimationFrame(() =>
-                  content.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
-                )
+              }
+            >
+              {collapsed.size === groups.length ? 'Mở tất cả' : 'Thu gọn tất cả'}
+            </Button>
+          ) : null}
+          {canManage ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-tertiary/40 text-tertiary hover:text-tertiary"
+              disabled={disabled}
+              onClick={() => {
+                setHideSuggestions(false)
+                onSuggest()
+              }}
+            >
+              {isSuggesting ? <Spinner aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+              {isSuggesting ? 'Đang phân tích…' : 'Gợi ý vị trí bằng AI'}
+            </Button>
+          ) : null}
+        </div>
+        {!hideSuggestions && suggestions ? (
+          <PutawaySuggestionPanel
+            items={transfer.items.map((item) => ({
+              id: item.id,
+              productSKU: item.sku,
+              productName: item.productName,
+              baseUnitName: item.baseUnitName,
+            }))}
+            state={{
+              suggestions: adaptTransferPutawaySuggestions(suggestions),
+              isSuggesting,
+              onSuggest,
+              onApply: (itemId, slotId) =>
+                onApplySuggestion
+                  ? onApplySuggestion({ itemId, slotId })
+                  : editor.apply(suggestions, { itemId, slotId }),
+              onApplyBest: () =>
+                onApplySuggestion ? onApplySuggestion() : editor.apply(suggestions),
+              onClear: () => setHideSuggestions(true),
             }}
+            disabled={disabled}
+          />
+        ) : null}
+        <div className="divide-y">
+          {groups.map(({ entry, item, itemIndex, locations, remaining, assigned, complete }) => (
+            <article key={item.id} aria-label={`${item.sku} - ${item.productName}`}>
+              <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-expanded={!collapsed.has(item.id)}
+                    aria-label={`${collapsed.has(item.id) ? 'Mở' : 'Thu gọn'} ${item.sku}`}
+                    onClick={() =>
+                      setCollapsed((current) => {
+                        const next = new Set(current)
+                        if (!next.delete(item.id)) next.add(item.id)
+                        return next
+                      })
+                    }
+                  >
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={cn(
+                        'transition-transform motion-reduce:transition-none',
+                        collapsed.has(item.id) && '-rotate-90'
+                      )}
+                    />
+                  </Button>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold break-words">
+                      {item.sku} - {item.productName}
+                      {item.lotNumber ? ` · Lô ${item.lotNumber}` : ''}
+                    </h3>
+                    <p className="text-muted-foreground text-xs tabular-nums">
+                      Còn phải cất {formatQuantity(remaining)} {item.baseUnitName} · đang phân bổ{' '}
+                      {formatQuantity(assigned)} {item.baseUnitName} vào {entry.lines.length} vị trí
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {assigned > remaining + 1e-7 ? (
+                    <Badge variant="destructive">
+                      Vượt {formatQuantity(assigned - remaining)} {item.baseUnitName}
+                    </Badge>
+                  ) : complete ? (
+                    <Badge variant="secondary">
+                      <Check aria-hidden="true" />
+                      Đã đủ
+                    </Badge>
+                  ) : assigned >= remaining ? (
+                    <Badge variant="outline" className="border-warning text-warning">
+                      Cần kiểm tra phân bổ
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-warning text-warning">
+                      Còn thiếu {formatQuantity(Math.max(0, remaining - assigned))}{' '}
+                      {item.baseUnitName}
+                    </Badge>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={disabled || entry.lines.length >= 20}
+                    onClick={() =>
+                      editor.change(
+                        editor.draft.map((draft, index) =>
+                          index === itemIndex
+                            ? {
+                                ...draft,
+                                lines: [
+                                  ...draft.lines,
+                                  {
+                                    slotId: '',
+                                    path: '',
+                                    plannedTotal: Math.max(0, remaining - assigned),
+                                  },
+                                ],
+                              }
+                            : draft
+                        )
+                      )
+                    }
+                  >
+                    <Plus aria-hidden="true" />
+                    Chia sang vị trí khác
+                  </Button>
+                </div>
+              </div>
+              {collapsed.has(item.id) ? (
+                <p className="text-muted-foreground px-4 py-2 font-mono text-xs break-words">
+                  {entry.lines
+                    .filter((line) => line.slotId)
+                    .map((line) => `${line.path} × ${formatQuantity(line.plannedTotal)}`)
+                    .join(' · ') || 'Chưa chọn vị trí'}
+                </p>
+              ) : null}
+              <Collapsible open={!collapsed.has(item.id)}>
+                <CollapsibleContent className="motion-reduce:animate-none">
+                  <div
+                    aria-hidden="true"
+                    className={cn(
+                      'text-muted-foreground hidden border-b px-4 py-1.5 text-xs font-medium',
+                      PUTAWAY_ROW_GRID
+                    )}
+                  >
+                    <span>Vị trí</span>
+                    <span>Số lượng</span>
+                    <span>Đơn vị</span>
+                    <span>Quy đổi</span>
+                    <span className="w-[6.5rem]" />
+                  </div>
+                  <div className="divide-y">
+                    {entry.lines.map((line, lineIndex) => {
+                      const received =
+                        locations.find((saved) => saved.slotId === line.slotId)?.receivedQuantity ??
+                        0
+                      const otherRemaining = entry.lines.reduce(
+                        (sum, other, index) =>
+                          index === lineIndex
+                            ? sum
+                            : sum +
+                              Math.max(
+                                0,
+                                other.plannedTotal -
+                                  (locations.find((saved) => saved.slotId === other.slotId)
+                                    ?.receivedQuantity ?? 0)
+                              ),
+                        0
+                      )
+                      const prefix = `items.${itemIndex}.lines.${lineIndex}`
+                      return (
+                        <TransferPlanAllocationRow
+                          key={`${item.id}-${lineIndex}`}
+                          item={item}
+                          line={line}
+                          received={received}
+                          remaining={Math.max(0, remaining - otherRemaining)}
+                          slots={slots}
+                          disabled={disabled}
+                          loading={isLoadingSlots}
+                          slotError={editor.errors[`${prefix}.slotId`]}
+                          quantityError={editor.errors[`${prefix}.plannedTotal`]}
+                          onChange={(change) => changeLine(itemIndex, lineIndex, change)}
+                          onSearch={onSlotSearchChange}
+                          onOpenMap={() => setMapTarget({ itemIndex, lineIndex })}
+                          onRemove={() =>
+                            editor.change(
+                              editor.draft.map((draft, index) =>
+                                index === itemIndex
+                                  ? {
+                                      ...draft,
+                                      lines: draft.lines.filter((_, index) => index !== lineIndex),
+                                    }
+                                  : draft
+                              )
+                            )
+                          }
+                        />
+                      )
+                    })}
+                  </div>
+                  {entry.lines.length === 0 ? (
+                    <p className="text-muted-foreground px-4 py-3 text-xs">
+                      Chưa tìm được vị trí đủ điều kiện. Chọn trên sơ đồ hoặc thử lại gợi ý.
+                    </p>
+                  ) : null}
+                  <FieldError>{editor.errors[`items.${itemIndex}.lines`]}</FieldError>
+                </CollapsibleContent>
+              </Collapsible>
+            </article>
+          ))}
+        </div>
+      </section>
+      <footer className="bg-background/95 sticky bottom-0 z-10 mt-auto flex flex-wrap items-center justify-between gap-3 border-t py-3 supports-backdrop-filter:backdrop-blur">
+        <p
+          className="text-primary flex items-center gap-1.5 text-xs tabular-nums"
+          role="status"
+          aria-live="polite"
+        >
+          {completeCount === pendingGroups.length && pendingGroups.length > 0 ? (
+            <Check aria-hidden="true" className="size-3.5" />
+          ) : null}
+          Phân bổ {completeCount}/{pendingGroups.length} sản phẩm
+        </p>
+        {canManage ? (
+          <Button
+            type="button"
+            disabled={disabled || !editor.isDirty}
+            aria-busy={editor.isPending}
+            onClick={() => void save()}
           >
-            {editor.isPending ? <Spinner /> : null}Lưu kế hoạch
+            {editor.isPending ? <Spinner aria-hidden="true" /> : <Send aria-hidden="true" />}
+            {editor.isPending ? 'Đang lưu…' : 'Lưu vị trí cất hàng'}
           </Button>
-        </footer>
-      ) : null}
+        ) : null}
+      </footer>
       <TransferSlotMapDialog
         open={Boolean(mapTarget)}
         warehouseId={transfer.destinationWarehouseId}

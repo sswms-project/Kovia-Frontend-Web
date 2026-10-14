@@ -288,12 +288,12 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               const next = tabs.find((candidate) => candidate.value === value)
               if (next) setTab(next.value)
             }}
-            className={cn('gap-2', tab === 'goods' ? 'min-h-0 flex-1' : 'flex-none')}
+            className={cn('w-full min-w-0 gap-2', tab === 'goods' ? 'min-h-0 flex-1' : 'flex-none')}
           >
             <TabsList
               variant="workspace"
               aria-label="Nội dung phiếu điều chuyển"
-              className="flex-wrap"
+              className="h-auto w-full min-w-0 shrink-0 flex-wrap justify-start"
             >
               {tabs.map((candidate) => (
                 <TabsTrigger
@@ -301,7 +301,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                   value={candidate.value}
                   id={tabIds.tabId(candidate.value)}
                   aria-controls={tabIds.panelId}
-                  className="flex-none px-3 py-1.5"
+                  className="h-auto min-h-11 flex-none px-3 py-1.5"
                 >
                   {candidate.label}
                 </TabsTrigger>
@@ -313,7 +313,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               // không bị nhốt trong một khung cố định nên vẫn xem được trên màn nhỏ và điện thoại.
               className={
                 tab === 'goods'
-                  ? undefined
+                  ? 'min-h-64'
                   : 'flex-none overflow-visible [&>[data-slot=operational-list-body]]:flex-none [&>[data-slot=operational-list-body]]:overflow-visible'
               }
             >

@@ -79,6 +79,7 @@ function TestCard({ disabled = false, pendingScan = false }) {
       loadingSlots={false}
       onSearchSlots={vi.fn()}
       onMarkUnreadable={vi.fn()}
+      onChangeSlot={vi.fn()}
       onScanSlot={onScanSlot}
       onScanProduct={onScanProduct}
       onSplit={vi.fn()}

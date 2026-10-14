@@ -113,12 +113,12 @@ export const transferService = {
       .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request)
       .then(unwrap),
 
-  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string) =>
+  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string, useAi = true) =>
     axiosClient
       .get<ApiResponse<TransferPutAwayPlanSuggestions>>(
         API_ENDPOINTS.transfers.putAwayPlanSuggestions(transferId),
         {
-          params: shipmentId ? { shipmentId } : undefined,
+          params: { shipmentId, useAi },
         }
       )
       .then(unwrap),
