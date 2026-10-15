@@ -13,9 +13,9 @@ export const warehouseReportService = {
     const response = await axiosClient.get<ApiResponse<unknown>>(API_ENDPOINTS.reports.catalog)
     return reportDefinitionSchema.array().parse(response.data.data)
   },
-  getOptions: async (warehouseId?: string, search?: string) => {
+  getOptions: async (warehouseId?: string, search?: string, categoryId?: string) => {
     const response = await axiosClient.get<ApiResponse<unknown>>(API_ENDPOINTS.reports.options, {
-      params: { warehouseIds: warehouseId ? [warehouseId] : undefined, search },
+      params: { warehouseIds: warehouseId ? [warehouseId] : undefined, search, categoryId },
       paramsSerializer: { indexes: null },
     })
     return reportOptionsSchema.parse(response.data.data)

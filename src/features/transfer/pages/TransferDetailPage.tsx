@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useId, useMemo, useRef, useState } from 'react'
+import { useId, useMemo } from 'react'
 import { LifecycleTimeline } from '@/components/operations/LifecycleTimeline'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
@@ -22,15 +22,12 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { TransferGoodsTable } from '../components/TransferGoods'
 import {
   AddFeedbackDialog,
   AdjustAllocationDialog,
-  AssignTransferTaskDialog,
   CreateShipmentDialog,
   ReplyFeedbackDialog,
   ResolveDiscrepancyDialog,
@@ -41,18 +38,22 @@ import {
   TransferOverview,
   TransferShipmentsPanel,
 } from '../components/TransferDetailPage'
-import { TransferConfirmDialog, TransferReasonDialog } from '../components/TransferShared'
+import {
+  TransferConfirmDialog,
+  TransferReasonDialog,
+  TransferUnsavedChanges,
+} from '../components/TransferShared'
 import { TransferStatusBadge } from '../components/TransfersPage'
 import { useTransferAllocationActions } from '../hooks/use-transfer-allocation-actions'
-import { useTransferPlanEditor } from '../hooks/use-transfer-plan-editor'
-import { useTransferPutAwayPlanSuggestionsQuery } from '../hooks/use-transfer-putaway-plan'
-import { TransferPutawayPlanSheet } from '../components/TransferDetailPage/TransferPutawayPlanSheet'
-import { getApiErrorMessage } from '@/lib/api-error'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferRequestActions } from '../hooks/use-transfer-request-actions'
 import { useTransferResolutionActions } from '../hooks/use-transfer-resolution-actions'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
-import { useTransferQuery, useTransferReceivableSlotsQuery } from '../hooks/use-transfers'
+import { useTransferQuery } from '../hooks/use-transfers'
+import { useTransferStartReceiving } from '../hooks/use-transfer-start-receiving'
+import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import {
   getShipmentCapabilities,
   getTransferCapabilities,
@@ -91,43 +92,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   const resolutionActions = useTransferResolutionActions(transfer)
   const allocationActions = useTransferAllocationActions(transfer)
   const capabilities = getTransferCapabilities(viewer, transfer)
-  const canSeeSetPutAway = capabilities.canSetPutAwaySlots
-  const precisionByUnit = useMemo(
-    () =>
-      new Map(
-        (transfer?.items ?? []).map((item) => [
-          item.baseUnitId ?? '',
-          item.baseQuantityPrecision ?? 2,
-        ])
-      ),
-    [transfer?.items]
-  )
-  const putAwayActions = useTransferPlanEditor(transfer, precisionByUnit, canSeeSetPutAway)
-  const [slotSearch, setSlotSearch] = useState('')
-  const debouncedSlotSearch = useDebouncedValue(slotSearch.trim(), 300)
-  const receivableSlotsQuery = useTransferReceivableSlotsQuery(
-    {
-      warehouseId: transfer?.destinationWarehouseId ?? '',
-      top: 20,
-      ...(debouncedSlotSearch ? { search: debouncedSlotSearch } : {}),
-    },
-    putAwayActions.isOpen && canSeeSetPutAway && Boolean(transfer?.destinationWarehouseId)
-  )
-  const suggestionsQuery = useTransferPutAwayPlanSuggestionsQuery(transferId)
-  const suggestionLock = useRef(false)
-  async function suggestPutAway() {
-    if (suggestionLock.current || !canSeeSetPutAway) return
-    suggestionLock.current = true
-    try {
-      await suggestionsQuery.refetch()
-    } finally {
-      suggestionLock.current = false
-    }
-  }
-  const putAwaySlotOptions = useMemo<LookupOption[]>(
-    () => (receivableSlotsQuery.data ?? []).map((slot) => ({ value: slot.id, label: slot.path })),
-    [receivableSlotsQuery.data]
-  )
+  const receiving = useTransferStartReceiving(transferId)
   const shipments = useMemo(() => transfer?.shipments ?? [], [transfer?.shipments])
   const discrepancies = transfer?.discrepancies ?? []
   const feedbacks = transfer?.feedbacks ?? []
@@ -152,7 +117,8 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   function runNextStep(action: TransferNextStepAction) {
     if (action.type === 'createShipment') requestActions.shipment.open()
     else if (action.type === 'adjustAllocation') allocationActions.open()
-    else if (action.type === 'openPutAwayPlan') putAwayActions.open()
+    else if (action.type === 'openPutAwayPlan') router.push(APP_ROUTES.transferPlan(transferId))
+    else if (action.type === 'startReceiving') void receiving.start(action.shipment)
     else if (action.type === 'assign') resolutionActions.assign.open(action.shipment, action.kind)
     else if (action.type === 'confirmDeparture') resolutionActions.departure.open(action.shipment)
     else if (action.type === 'resolveDiscrepancy') setTab('discrepancies')
@@ -176,7 +142,11 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
     },
     {
       value: 'receive',
-      label: `Nhận & cất (${shipments.filter((shipment) => shipment.status === 'InTransit' || shipment.status === 'Receiving').length})`,
+      label: `Phiếu nhập điều chuyển (${shipments.filter((shipment) => shipment.status === 'InTransit' || shipment.status === 'Receiving').length})`,
+    },
+    {
+      value: 'putaway',
+      label: `Chờ cất hàng (${shipments.filter((shipment) => shipment.status === 'AwaitingPutAway').length})`,
     },
     {
       value: 'discrepancies',
@@ -246,7 +216,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                 type="button"
                 size="sm"
                 variant="outline"
-                onClick={() => putAwayActions.open()}
+                onClick={() => router.push(APP_ROUTES.transferPlan(transferId))}
               >
                 <MapPin aria-hidden="true" />
                 Kế hoạch cất hàng
@@ -303,6 +273,13 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               </AlertDescription>
             </Alert>
           ) : null}
+          {receiving.notice ? (
+            <Alert role="status">
+              <AlertDescription>
+                {receiving.notice} Bấm lại Nhận hàng để kiểm tra đúng thao tác trước.
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <TransferNextSteps transferId={transfer.id} steps={nextSteps} onAction={runNextStep} />
           <TransferOverview transfer={transfer} />
           <Tabs
@@ -311,12 +288,12 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               const next = tabs.find((candidate) => candidate.value === value)
               if (next) setTab(next.value)
             }}
-            className={cn('gap-2', tab === 'goods' ? 'min-h-0 flex-1' : 'flex-none')}
+            className={cn('w-full min-w-0 gap-2', tab === 'goods' ? 'min-h-0 flex-1' : 'flex-none')}
           >
             <TabsList
               variant="workspace"
               aria-label="Nội dung phiếu điều chuyển"
-              className="flex-wrap"
+              className="h-auto w-full min-w-0 shrink-0 flex-wrap justify-start"
             >
               {tabs.map((candidate) => (
                 <TabsTrigger
@@ -324,7 +301,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                   value={candidate.value}
                   id={tabIds.tabId(candidate.value)}
                   aria-controls={tabIds.panelId}
-                  className="flex-none px-3 py-1.5"
+                  className="h-auto min-h-11 flex-none px-3 py-1.5"
                 >
                   {candidate.label}
                 </TabsTrigger>
@@ -336,7 +313,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               // không bị nhốt trong một khung cố định nên vẫn xem được trên màn nhỏ và điện thoại.
               className={
                 tab === 'goods'
-                  ? undefined
+                  ? 'min-h-64'
                   : 'flex-none overflow-visible [&>[data-slot=operational-list-body]]:flex-none [&>[data-slot=operational-list-body]]:overflow-visible'
               }
             >
@@ -350,7 +327,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                 />
               ) : (
                 <div data-slot="operational-list-body">
-                  {tab === 'pick' || tab === 'receive' ? (
+                  {tab === 'pick' || tab === 'receive' || tab === 'putaway' ? (
                     <TransferShipmentsPanel
                       transferId={transfer.id}
                       mode={tab}
@@ -358,11 +335,16 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                       shipments={
                         tab === 'pick'
                           ? shipments
-                          : shipments.filter(
-                              (shipment) =>
-                                shipment.dispatchedAt ||
-                                shipment.lines.some((line) => line.dispatchedQuantity > 0)
-                            )
+                          : tab === 'putaway'
+                            ? shipments.filter(
+                                (shipment) =>
+                                  shipment.receiptFlowVersion === 1 && shipment.putAwayTaskId
+                              )
+                            : shipments.filter(
+                                (shipment) =>
+                                  shipment.dispatchedAt ||
+                                  shipment.lines.some((line) => line.dispatchedQuantity > 0)
+                              )
                       }
                       planLabels={Object.fromEntries(
                         transfer.items.map((item) => [
@@ -377,7 +359,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                       )}
                       onOpenPlan={
                         canSeeWarehouse(viewer, transfer.destinationWarehouseId)
-                          ? putAwayActions.open
+                          ? () => router.push(APP_ROUTES.transferPlan(transferId))
                           : undefined
                       }
                       capabilities={shipmentCapabilities}
@@ -385,6 +367,8 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                       onConfirmDeparture={resolutionActions.departure.open}
                       onReopenPicking={resolutionActions.reopen.open}
                       onAssignTask={resolutionActions.assign.open}
+                      onStartReceiving={(shipment) => void receiving.start(shipment)}
+                      isStartingReceive={receiving.isPending}
                       onResolveEscalation={resolutionActions.escalation.open}
                       unitsByItem={unitsByItem}
                     />
@@ -468,28 +452,6 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onOpenChange={allocationActions.onOpenChange}
         onSubmit={allocationActions.submit}
       />
-      {transfer ? (
-        <TransferPutawayPlanSheet
-          transfer={transfer}
-          editor={putAwayActions}
-          canManage={canSeeSetPutAway}
-          slotOptions={putAwaySlotOptions}
-          isLoadingSlots={receivableSlotsQuery.isFetching}
-          onSlotSearchChange={setSlotSearch}
-          suggestions={suggestionsQuery.data}
-          isSuggesting={suggestionsQuery.isFetching}
-          suggestionError={
-            suggestionsQuery.error
-              ? getApiErrorMessage(suggestionsQuery.error, 'Không tải được gợi ý; hãy thử lại.')
-              : null
-          }
-          onSuggest={() => void suggestPutAway()}
-          onReload={async () => {
-            const result = await detailQuery.refetch()
-            if (result.data && !result.isError) putAwayActions.rebase(result.data)
-          }}
-        />
-      ) : null}
       <AddFeedbackDialog
         open={requestActions.feedback.isOpen}
         form={requestActions.feedback.form}
@@ -527,14 +489,70 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onOpenChange={requestActions.cancelShipment.onOpenChange}
         onSubmit={(values) => void requestActions.cancelShipment.submit(values)}
       />
-      <AssignTransferTaskDialog
+      <AssignWarehouseTaskDialog
+        title={resolutionActions.assign.alsoPutAway ? 'Giao việc nhận và cất hàng' : undefined}
         target={resolutionActions.assign.target}
+        form={resolutionActions.assign.form}
         staff={resolutionActions.assign.staff}
         isLoadingStaff={resolutionActions.assign.isLoadingStaff}
+        isErrorStaff={resolutionActions.assign.isErrorStaff}
+        isFetchingStaff={resolutionActions.assign.isFetchingStaff}
+        onRetryStaff={resolutionActions.assign.onRetryStaff}
         isPending={resolutionActions.assign.isPending}
+        lockSelection={Object.keys(resolutionActions.assign.results).length > 0}
+        submitDisabled={resolutionActions.assign.needsVerify}
         onOpenChange={resolutionActions.assign.onOpenChange}
-        onSubmit={(request) => void resolutionActions.assign.submit(request)}
-      />
+        onSubmit={resolutionActions.assign.onSubmit}
+      >
+        {resolutionActions.assign.canChooseDestinationScope ? (
+          <Field>
+            <FieldLabel htmlFor="assign-destination-scope">Giao cho nhân viên này</FieldLabel>
+            <NativeSelect
+              id="assign-destination-scope"
+              value={resolutionActions.assign.destinationAssignmentScope}
+              disabled={
+                resolutionActions.assign.isPending ||
+                Object.keys(resolutionActions.assign.results).length > 0
+              }
+              onChange={(event) => {
+                const scope = event.target.value
+                if (scope === 'both' || scope === 'receive' || scope === 'putaway')
+                  resolutionActions.assign.selectDestinationScope(scope)
+              }}
+            >
+              <NativeSelectOption value="both">
+                Kiểm nhận và cất hàng — cùng một người
+              </NativeSelectOption>
+              <NativeSelectOption value="receive">Chỉ kiểm nhận</NativeSelectOption>
+              <NativeSelectOption value="putaway">Chỉ cất hàng</NativeSelectOption>
+            </NativeSelect>
+            <FieldDescription>
+              Đang giao kiểm nhận: {resolutionActions.assign.destinationAssignees.receive} · Cất
+              hàng: {resolutionActions.assign.destinationAssignees.putaway}. Chọn riêng từng phần
+              nếu cần giao cho hai người khác nhau.
+            </FieldDescription>
+          </Field>
+        ) : resolutionActions.assign.target?.kind === 'TransferReceive' ? (
+          <p className="text-muted-foreground text-xs">
+            Giao người kiểm nhận trước. Công việc cất được tạo khi bắt đầu nhận hàng.
+          </p>
+        ) : null}
+        {Object.entries(resolutionActions.assign.results).map(([kind, message]) => (
+          <p key={kind} role="status" className="text-sm">
+            {kind === 'receive' ? 'Kiểm nhận' : kind === 'putaway' ? 'Cất hàng' : 'Lấy hàng'}:{' '}
+            {message}
+          </p>
+        ))}
+        {resolutionActions.assign.needsVerify ? (
+          <Button
+            variant="outline"
+            disabled={resolutionActions.assign.isPending}
+            onClick={() => void resolutionActions.assign.verify()}
+          >
+            Tải lại để xác minh công việc chưa rõ kết quả
+          </Button>
+        ) : null}
+      </AssignWarehouseTaskDialog>
       <ResolveEscalationDialog
         open={resolutionActions.escalation.isOpen}
         escalations={resolutionActions.escalation.escalations}
@@ -548,12 +566,17 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onSubmit={(values) => void resolutionActions.escalation.submit(values)}
       />
       <ResolveDiscrepancyDialog
+        unknownResult={resolutionActions.discrepancy.unknownResult}
         discrepancy={resolutionActions.discrepancy.target}
         form={resolutionActions.discrepancy.form}
         lotOptions={resolutionActions.discrepancy.lotOptions}
         isPending={resolutionActions.discrepancy.isPending}
         onOpenChange={resolutionActions.discrepancy.onOpenChange}
         onSubmit={(values) => void resolutionActions.discrepancy.submit(values)}
+      />
+      <TransferUnsavedChanges
+        dirty={resolutionActions.discrepancy.unknownResult}
+        busy={resolutionActions.discrepancy.isPending || receiving.isPending}
       />
     </div>
   )

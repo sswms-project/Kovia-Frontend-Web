@@ -35,7 +35,9 @@ function toDateTimeLocal(value: string | null) {
  * useForm hay React Query) theo đúng .rules của FE.
  */
 export function useAssignWarehouseTask() {
-  const [target, setTarget] = useState<AssignWarehouseTaskTarget | null>(null)
+  const [target, setTarget] = useState<
+    (AssignWarehouseTaskTarget & { kind: 'Receiving' | 'PutAway' }) | null
+  >(null)
   const form = useForm<AssignWarehouseTaskFormValues>({
     resolver: zodResolver(assignWarehouseTaskSchema),
     defaultValues: { staffId: '', priority: 'Normal', dueAt: '', reason: '' },
@@ -49,7 +51,7 @@ export function useAssignWarehouseTask() {
     assignPutawayMutation.isPending ||
     unassignReceivingMutation.isPending
 
-  function open(nextTarget: AssignWarehouseTaskTarget) {
+  function open(nextTarget: AssignWarehouseTaskTarget & { kind: 'Receiving' | 'PutAway' }) {
     form.reset({
       staffId: '',
       priority: nextTarget.currentPriority,

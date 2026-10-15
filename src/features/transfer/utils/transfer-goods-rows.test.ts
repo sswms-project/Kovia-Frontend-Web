@@ -32,6 +32,8 @@ describe('transferGoodsRows', () => {
             conversionFactor: 12,
             quantity: 24,
             dispatchedQuantity: 12,
+            receivedQuantity: 9,
+            damagedQuantity: 2,
           }),
           buildTransferItem({ id: 'i2' }),
         ],
@@ -42,8 +44,13 @@ describe('transferGoodsRows', () => {
       requested: 24,
       dispatched: 12,
       conversion: '1 Thùng = 12 Hộp',
+      conversionFactor: 12,
+      conversionUnit: 'Thùng',
+      receivedGood: 9,
+      receivedPhysical: 11,
     })
     expect(rows[1]?.conversion).toBeNull()
+    expect(rows[1]?.conversionFactor).toBeNull()
   })
 
   it('hides removed lines and tracks the discrepancy state per line', () => {

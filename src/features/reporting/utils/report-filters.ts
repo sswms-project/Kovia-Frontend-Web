@@ -26,6 +26,7 @@ export function initialReportFilters(
   return {
     warehouseId: routeFilter(filters, 'warehouseId'),
     productId: routeFilter(filters, 'productId'),
+    categoryId: routeFilter(filters, 'categoryId'),
     search: routeFilter(filters, 'search'),
     status: routeFilter(filters, 'status'),
     assigneeId: routeFilter(filters, 'assigneeId'),
@@ -46,6 +47,7 @@ export function buildReportQuery(
   return {
     warehouseIds: values.warehouseId ? [values.warehouseId] : undefined,
     productId: type !== 'task-progress' ? values.productId || undefined : undefined,
+    categoryId: type !== 'task-progress' ? values.categoryId || undefined : undefined,
     search: values.search || undefined,
     status: values.status || undefined,
     assigneeId: type === 'task-progress' ? values.assigneeId || undefined : undefined,

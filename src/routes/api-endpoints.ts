@@ -364,12 +364,25 @@ export const API_ENDPOINTS = {
     invoiceData: (paymentId: string) => `/payments/${paymentId}/invoice-data`,
   },
   transfers: {
+    destinationLoad: '/transfers/destination-load',
+    assignableStaff: '/transfers/assignable-staff',
+    receiptSheet: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/receipt-sheet`,
+    putAwaySheet: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/putaway-sheet`,
+    startReceiving: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/start-receiving`,
+    submitReceipt: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/submit-receipt`,
+    putAwayShipment: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/putaway`,
     list: '/transfers',
     create: '/transfers',
     sourceWarehouses: '/transfers/source-warehouses',
     sourceProducts: '/transfers/source-products',
     receivableSlot: '/transfers/receivable-slot',
     receivableSlots: '/transfers/receivable-slots',
+    putAwaySlots: '/transfers/putaway-slots',
     sourceLocations: '/transfers/source-locations',
     nextCode: '/transfers/next-code',
     requesterOptions: '/transfers/requester-options',

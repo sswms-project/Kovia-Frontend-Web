@@ -11,7 +11,7 @@ import {
   receiveScanProgress,
   splitReceiptExcess,
 } from './transfer-receive-plan'
-import { LOT_ID, plannedReceiveSheet, SLOT_A } from './transfer-plan-test-fixtures'
+import { LOT_ID, plannedReceiveSheet, SLOT_A, SLOT_B } from './transfer-plan-test-fixtures'
 
 describe('planned transfer receipt', () => {
   it('prefills allocations, keeps unplanned quantity without a destination, and does not confirm a prefilled scan', () => {
@@ -115,6 +115,37 @@ describe('planned transfer receipt', () => {
     const fresh = structuredClone(sheet)
     fresh.lines[0]!.lots[0]!.plan![0]!.plannedQuantity = 3
     expect([...changedReceivePlanLines(sheet, fresh)]).toEqual([sheet.lines[0]!.lineId])
+  })
+})
+
+describe('plan slots the shipment was not allocated to', () => {
+  it('uses the real budget of a plan slot that has no allocation on this shipment', () => {
+    const sheet = plannedReceiveSheet()
+    sheet.lines[0]!.planBudgets = [
+      { slotId: SLOT_A, slotCode: 'A01', path: 'Khu A / A01', remainingBudget: 4 },
+      { slotId: SLOT_B, slotCode: 'B01', path: 'Khu B / B01', remainingBudget: 3 },
+    ]
+    const entries = buildInitialReceiptEntries(sheet).slice(0, 1)
+    entries[0] = { ...entries[0]!, destinationSlotId: SLOT_B, goodQuantity: 3 }
+    expect(receiptPlanStates(sheet, entries)[0]).toMatchObject({
+      isOffPlan: false,
+      budgetBefore: 3,
+    })
+    entries[0] = { ...entries[0]!, goodQuantity: 4 }
+    expect(receiptPlanStates(sheet, entries)[0]).toMatchObject({
+      isOffPlan: true,
+      withinPlan: 3,
+      excess: 1,
+    })
+  })
+  it('flags a line as changed when only the budget of an unallocated slot moves', () => {
+    const before = plannedReceiveSheet()
+    before.lines[0]!.planBudgets = [
+      { slotId: SLOT_B, slotCode: 'B01', path: 'B', remainingBudget: 3 },
+    ]
+    const after = structuredClone(before)
+    after.lines[0]!.planBudgets![0]!.remainingBudget = 1
+    expect(changedReceivePlanLines(before, after).has(before.lines[0]!.lineId)).toBe(true)
   })
 })
 

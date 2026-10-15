@@ -3,6 +3,8 @@ import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
 import type {
+  TransferDestinationLoadQuery,
+  TransferDestinationLoad,
   AdjustTransferAllocationRequest,
   TransferAllocationOption,
   AddTransferFeedbackRequest,
@@ -43,21 +45,80 @@ import type {
   UpdateTransferRequest,
 } from '../types/transfer.types'
 import type { ReceivableSlot } from '../utils/transfer-receive'
+import type { AssignableWarehouseStaff } from '@/features/inbound/types/inbound.types'
+import type {
+  TransferTaskType,
+  TransferReceiptSheet,
+  TransferPutAwaySheet,
+  StartTransferReceivingRequest,
+  SubmitTransferReceiptRequest,
+  PutAwayTransferShipmentRequest,
+} from '../types/transfer-receipt.types'
 
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
 
 export const transferService = {
+  getDestinationLoad: (query: TransferDestinationLoadQuery, signal?: AbortSignal) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferDestinationLoad>
+      >(API_ENDPOINTS.transfers.destinationLoad, { params: query, signal })
+      .then(unwrap),
+  getAssignableStaff: (warehouseId: string, taskType: TransferTaskType) =>
+    axiosClient
+      .get<
+        ApiResponse<AssignableWarehouseStaff[]>
+      >(API_ENDPOINTS.transfers.assignableStaff, { params: { warehouseId, taskType } })
+      .then(unwrap),
+  getReceiptSheet: (transferId: string, shipmentId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferReceiptSheet>
+      >(API_ENDPOINTS.transfers.receiptSheet(transferId, shipmentId))
+      .then(unwrap),
+  getPutAwaySheet: (transferId: string, shipmentId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferPutAwaySheet>
+      >(API_ENDPOINTS.transfers.putAwaySheet(transferId, shipmentId))
+      .then(unwrap),
+  startReceiving: (
+    transferId: string,
+    shipmentId: string,
+    request: StartTransferReceivingRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.startReceiving(transferId, shipmentId), request)
+      .then(unwrap),
+  submitReceipt: (transferId: string, shipmentId: string, request: SubmitTransferReceiptRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.submitReceipt(transferId, shipmentId), request)
+      .then(unwrap),
+  putAwayShipment: (
+    transferId: string,
+    shipmentId: string,
+    request: PutAwayTransferShipmentRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.putAwayShipment(transferId, shipmentId), request)
+      .then(unwrap),
   setPutAwayPlan: (transferId: string, request: SetTransferPutAwayPlanRequest) =>
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request)
       .then(unwrap),
 
-  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string) =>
+  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string, useAi = true) =>
     axiosClient
       .get<ApiResponse<TransferPutAwayPlanSuggestions>>(
         API_ENDPOINTS.transfers.putAwayPlanSuggestions(transferId),
         {
-          params: shipmentId ? { shipmentId } : undefined,
+          params: { shipmentId, useAi },
         }
       )
       .then(unwrap),
@@ -101,6 +162,14 @@ export const transferService = {
   getReceivableSlots: (params: TransferReceivableSlotsQuery) =>
     axiosClient
       .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.receivableSlots, {
+        params,
+      })
+      .then(unwrap),
+
+  /** Vị trí kho nhập cho lập kế hoạch/cất hàng: chỉ cần quyền nhận chuyển kho, không cần quyền tạo phiếu. */
+  getPutAwaySlots: (params: TransferReceivableSlotsQuery) =>
+    axiosClient
+      .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.putAwaySlots, {
         params,
       })
       .then(unwrap),

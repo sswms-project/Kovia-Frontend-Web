@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/alert-dialog'
 
 interface TransferConfirmDialogProps {
+  readonly actionClassName?: string
+  readonly onCloseAutoFocus?: ComponentProps<typeof AlertDialogContent>['onCloseAutoFocus']
   readonly open: boolean
   readonly title: string
   readonly description: ReactNode
@@ -31,10 +33,12 @@ export function TransferConfirmDialog({
   isPending,
   onOpenChange,
   onConfirm,
+  actionClassName,
+  onCloseAutoFocus,
 }: TransferConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <AlertDialogContent size="lg">
+      <AlertDialogContent size="lg" onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription asChild>
@@ -42,10 +46,11 @@ export function TransferConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel size="lg" disabled={isPending}>
+          <AlertDialogCancel size="lg" disabled={isPending} className={actionClassName}>
             Đóng
           </AlertDialogCancel>
           <AlertDialogAction
+            className={actionClassName}
             size="lg"
             disabled={isPending}
             onClick={(event) => {

@@ -79,6 +79,7 @@ describe('transfer form conversion', () => {
       destinationWarehouseId: 'b',
       reason: null,
       requiredBy: null,
+      plannedTransferDate: null,
       note: null,
       items: [
         {
@@ -141,6 +142,41 @@ describe('transfer form conversion', () => {
   it('stamps the required-by date at the end of the Vietnam business day', () => {
     const values = { ...emptyTransferForm(), requiredBy: '2026-10-20' }
     expect(toSaveDraftRequest(values, null).requiredBy).toBe('2026-10-20T23:59:59.999+07:00')
+  })
+
+  it('preserves untouched timestamps exactly in both save and update, including midnight and sub-minute precision', () => {
+    const detail = buildTransfer({
+      requiredBy: '2026-10-20T01:23:45.1234567Z',
+      plannedTransferDate: '2026-10-20T00:00:00+07:00',
+    })
+    const values = transferToFormValues(detail)
+    expect(values.requiredBy).toBe('2026-10-20T08:23')
+    for (const request of [
+      toSaveDraftRequest(values, null, detail),
+      toUpdateTransferRequest(values, detail, 'v2'),
+    ]) {
+      expect(request.requiredBy).toBe(detail.requiredBy)
+      expect(request.plannedTransferDate).toBe(detail.plannedTransferDate)
+    }
+  })
+
+  it('uses explicit clear flags only for partial updates; draft null replaces the full date', () => {
+    const detail = buildTransfer({
+      requiredBy: '2026-10-20T23:59:59.999+07:00',
+      plannedTransferDate: '2026-10-19T23:59:59.999+07:00',
+    })
+    const values = { ...transferToFormValues(detail), requiredBy: '', plannedTransferDate: '' }
+    expect(toUpdateTransferRequest(values, detail, 'v2')).toMatchObject({
+      requiredBy: null,
+      plannedTransferDate: null,
+      clearRequiredBy: true,
+      clearPlannedTransferDate: true,
+    })
+    expect(toSaveDraftRequest(values, null, detail)).toMatchObject({
+      requiredBy: null,
+      plannedTransferDate: null,
+    })
+    expect(toSaveDraftRequest(values, null, detail)).not.toHaveProperty('clearRequiredBy')
   })
 })
 

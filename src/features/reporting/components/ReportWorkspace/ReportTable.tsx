@@ -15,6 +15,9 @@ import {
 } from '@/components/ui/table'
 import type { WarehouseReport } from '../../schemas/warehouse-report.schema'
 import { reportStatusLabel } from '../../utils/report-status'
+import { cn } from '@/lib/utils'
+import { balanceColumnHints, reportTableLayout } from '../../utils/report-table-layout'
+import { ReportColumnHeading } from './ReportColumnHeading'
 
 interface ReportTableProps {
   readonly report: WarehouseReport
@@ -40,18 +43,71 @@ export function ReportTable({
   onPageSizeChange,
 }: ReportTableProps) {
   const router = useRouter()
+  const { columns, productKey } = reportTableLayout(report)
+  const isBalance = report.reportType === 'inventory-balance'
+  const movementGroups = [
+    { label: 'Nhập kho', keys: ['externalIn', 'transferIn'] },
+    { label: 'Xuất kho', keys: ['externalOut', 'transferOut'] },
+  ]
   return (
-    <OperationalListPanel>
-      <Table>
+    <OperationalListPanel aria-label="Kết quả báo cáo kho" aria-busy={isFetching}>
+      <Table className="text-sm">
         <TableHeader>
           <TableRow>
-            {report.columns.map((column) => (
-              <TableHead key={column.key} className="bg-card sticky top-0 z-10 whitespace-nowrap">
-                {column.label}
-              </TableHead>
-            ))}
-            <TableHead className="bg-card sticky top-0 z-10">Nguồn</TableHead>
+            {columns.map((column) => {
+              const group = isBalance
+                ? movementGroups.find((item) => item.keys.includes(column.key))
+                : undefined
+              if (group)
+                return columns.find((c) => group.keys.includes(c.key))?.key === column.key ? (
+                  <TableHead
+                    key={group.label}
+                    scope="colgroup"
+                    colSpan={columns.filter((c) => group.keys.includes(c.key)).length}
+                    className="bg-muted sticky top-0 z-20 h-8 border-x text-center font-semibold"
+                  >
+                    {group.label}
+                  </TableHead>
+                ) : null
+              return (
+                <TableHead
+                  key={column.key}
+                  scope="col"
+                  aria-label={column.label}
+                  rowSpan={isBalance ? 2 : 1}
+                  className={cn(
+                    'bg-muted sticky top-0 z-20 whitespace-nowrap',
+                    column.dataType === 'number' && 'text-right',
+                    column.key === productKey && 'left-0 z-30 min-w-56'
+                  )}
+                >
+                  <ReportColumnHeading
+                    label={column.label}
+                    help={isBalance ? balanceColumnHints[column.key] : undefined}
+                  />
+                </TableHead>
+              )
+            })}
           </TableRow>
+          {isBalance ? (
+            <TableRow>
+              {columns
+                .filter((c) => movementGroups.some((group) => group.keys.includes(c.key)))
+                .map((column) => (
+                  <TableHead
+                    key={column.key}
+                    scope="col"
+                    aria-label={column.label}
+                    className="bg-card sticky top-8 z-20 h-8 border-l text-right"
+                  >
+                    <ReportColumnHeading
+                      label={column.label}
+                      help={balanceColumnHints[column.key]}
+                    />
+                  </TableHead>
+                ))}
+            </TableRow>
+          ) : null}
         </TableHeader>
         <TableBody>
           {report.items.map((row) => (
@@ -75,32 +131,71 @@ export function ReportTable({
                   router.push(format(href) as Route)
               }}
             >
-              {report.columns.map((column) => (
-                <TableCell key={column.key} className="whitespace-nowrap tabular-nums">
-                  {formatCell(
-                    Object.entries(row).find(([key]) => key === column.key)?.[1],
-                    column.dataType
+              {columns.map((column) => (
+                <TableCell
+                  key={column.key}
+                  className={cn(
+                    'whitespace-nowrap',
+                    column.key === 'warehouseName' && 'max-w-32 min-w-28 whitespace-normal',
+                    column.key === 'categoryName' && 'max-w-48 min-w-36 whitespace-normal',
+                    column.dataType === 'number' && 'text-right tabular-nums',
+                    column.key === productKey &&
+                      'bg-card sticky left-0 z-10 max-w-72 min-w-56 whitespace-normal',
+                    isBalance &&
+                      ['openingBalance', 'closingBalance'].includes(column.key) &&
+                      'bg-muted/40 font-semibold'
+                  )}
+                >
+                  {column.key === productKey ? (
+                    <div className="space-y-1 py-1">
+                      {sourceLinks.has(row.id) ? (
+                        <Link
+                          href={sourceLinks.get(row.id) ?? { pathname: '/' }}
+                          className="text-primary block font-medium hover:underline"
+                        >
+                          {row.productName || row.sku}
+                        </Link>
+                      ) : (
+                        <span className="block font-medium">{row.productName || row.sku}</span>
+                      )}
+                      <p className="text-muted-foreground text-xs">
+                        <span className="font-mono">{row.sku}</span>
+                      </p>
+                      {'historyStatus' in row && row.historyStatus !== 'ReconciledJournal' ? (
+                        <p className="text-warning text-xs">
+                          Chưa đủ dữ liệu lịch sử — tồn đầu/cuối chưa xác định.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : ['taskCode', 'documentCode'].includes(column.key) &&
+                    sourceLinks.has(row.id) ? (
+                    <Link
+                      href={sourceLinks.get(row.id) ?? { pathname: '/' }}
+                      className="text-primary font-medium hover:underline"
+                    >
+                      {formatCell(
+                        Object.entries(row).find(([key]) => key === column.key)?.[1],
+                        column.dataType
+                      )}
+                    </Link>
+                  ) : isBalance &&
+                    ['openingBalance', 'closingBalance'].includes(column.key) &&
+                    Object.entries(row).find(([key]) => key === column.key)?.[1] == null ? (
+                    <span className="text-warning text-xs font-normal">Chưa xác định</span>
+                  ) : (
+                    formatCell(
+                      Object.entries(row).find(([key]) => key === column.key)?.[1],
+                      column.dataType
+                    )
                   )}
                 </TableCell>
               ))}
-              <TableCell>
-                {sourceLinks.has(row.id) ? (
-                  <Link
-                    href={sourceLinks.get(row.id) ?? { pathname: '/' }}
-                    className="text-primary text-sm whitespace-nowrap hover:underline"
-                  >
-                    Mở chứng từ
-                  </Link>
-                ) : (
-                  '—'
-                )}
-              </TableCell>
             </TableRow>
           ))}
           {report.items.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={report.columns.length + 1}
+                colSpan={Math.max(1, columns.length)}
                 className="text-muted-foreground py-10 text-center"
               >
                 Không có dữ liệu phù hợp với bộ lọc đã áp dụng.

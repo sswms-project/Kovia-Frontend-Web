@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { CycleCountSummary } from '../types/cycle-count.types'
 import {
@@ -10,8 +11,10 @@ import {
   getAdjustmentState,
   getOverdueDays,
   hasCountResults,
+  isUrgentOpen,
 } from '../utils/cycle-count-format'
 import { CycleCountStatusBadge } from './CycleCountStatusBadge'
+import { CycleCountDeadlineHint, CycleCountPriorityBadge } from './CycleCountUrgency'
 
 interface CycleCountCardsProps {
   readonly items: readonly CycleCountSummary[]
@@ -33,11 +36,15 @@ export function CycleCountCards({ items, isFetching, onPrefetchDetail }: CycleCo
         const adjustmentState = getAdjustmentState(item)
         const showProgress = hasCountResults(item.status)
         const progressPercent = item.itemCount ? (item.countedItemCount / item.itemCount) * 100 : 0
+        const isUrgent = isUrgentOpen(item.priority, item.status)
         return (
           <li
             key={item.id}
             style={{ animationDelay: `${Math.min(index, 8) * 30}ms` }}
-            className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 fill-mode-backwards animation-duration-300"
+            className={cn(
+              'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 fill-mode-backwards animation-duration-300',
+              isUrgent && 'bg-destructive/5 border-l-destructive border-l-4'
+            )}
           >
             <Link
               href={APP_ROUTES.cycleCountDetail(item.id)}
@@ -47,7 +54,10 @@ export function CycleCountCards({ items, isFetching, onPrefetchDetail }: CycleCo
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-mono text-sm font-medium">{item.code}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-mono text-sm font-medium">{item.code}</p>
+                    <CycleCountPriorityBadge priority={item.priority} status={item.status} />
+                  </div>
                   <p className="text-sm">{item.warehouseName}</p>
                 </div>
                 <CycleCountStatusBadge status={item.status} />
@@ -71,6 +81,12 @@ export function CycleCountCards({ items, isFetching, onPrefetchDetail }: CycleCo
                         Quá hạn {overdueDays} ngày
                       </Badge>
                     ) : null}
+                    <CycleCountDeadlineHint
+                      className="ml-1"
+                      priority={item.priority}
+                      status={item.status}
+                      dueAt={item.dueAt}
+                    />
                   </dd>
                 </div>
                 <div>

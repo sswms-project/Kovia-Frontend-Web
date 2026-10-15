@@ -291,6 +291,9 @@ export interface DamageCase {
   rackCode: string | null
   isSystemDefaultSlot: boolean
   relatedTaskCode: string | null
+  unitName: string | null
+  // Ngày dạng YYYY-MM-DD; null khi sản phẩm không quản lý theo lô hoặc lô không có hạn.
+  lotExpiryDate: string | null
 }
 
 export interface DamageCaseListResponse {

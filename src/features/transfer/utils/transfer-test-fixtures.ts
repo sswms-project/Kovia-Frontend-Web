@@ -87,6 +87,7 @@ export function buildTransfer(overrides: Partial<TransferDetail> = {}): Transfer
     createdByName: 'Chủ doanh nghiệp',
     reason: null,
     requiredBy: null,
+    plannedTransferDate: null,
     note: null,
     submittedAt: '2026-10-08T00:00:00Z',
     completedAt: null,

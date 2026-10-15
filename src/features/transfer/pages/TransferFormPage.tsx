@@ -34,6 +34,7 @@ import {
 } from '../components/TransferFormPage'
 import { TransferChangedBanner, TransferConfirmDialog } from '../components/TransferShared'
 import { useTransferFormActions } from '../hooks/use-transfer-form-actions'
+import { useTransferDestinationLoadQuery } from '../hooks/use-transfer-destination-load-query'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
 import {
@@ -86,13 +87,24 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
 
   const form = useForm<TransferRequestFormValues>({
     resolver: (values, context, options) =>
-      zodResolver(transferRequestSchemaWithLocks(locksRef.current))(values, context, options),
+      zodResolver(
+        transferRequestSchemaWithLocks(locksRef.current, mode === 'edit' ? detail : undefined)
+      )(values, context, options),
     defaultValues: emptyTransferForm(),
   })
   const fieldArray = useFieldArray({ control: form.control, name: 'lines' })
   const lines = useWatch({ control: form.control, name: 'lines' })
   const sourceWarehouseId = useWatch({ control: form.control, name: 'sourceWarehouseId' })
   const destinationWarehouseId = useWatch({ control: form.control, name: 'destinationWarehouseId' })
+  const requiredBy = useWatch({ control: form.control, name: 'requiredBy' })
+  const destinationLoad = useTransferDestinationLoadQuery(
+    {
+      warehouseId: destinationWarehouseId,
+      date: requiredBy.slice(0, 10),
+      excludeTransferId: transferId,
+    },
+    isReady && viewer.permissions.includes(P.TRANSFERS_CREATE)
+  )
 
   // Ghi cho màn hình đang nhập dở: chỉ báo thay đổi, không tải đè lên dữ liệu đang nhập.
   const realtime = useTransferRealtime({ transferId: transferId ?? null, autoRefresh: false })
@@ -408,6 +420,7 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
         />
       ) : (
         <TransferForm
+          destinationLoad={destinationLoad.data}
           form={form}
           fields={fieldArray.fields}
           mode={mode}

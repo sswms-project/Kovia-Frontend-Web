@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { useForm } from 'react-hook-form'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
 import { TransferSourceSlotField } from './TransferSourceSlotField'
 
@@ -12,13 +13,21 @@ afterEach(() => {
   queryMock.mockReset()
 })
 
-function Harness({ locked = false, slotId = '' }: { locked?: boolean; slotId?: string }) {
+function Harness({
+  locked = false,
+  slotId = '',
+  productId = 'product-1',
+}: {
+  locked?: boolean
+  slotId?: string
+  productId?: string
+}) {
   const form = useForm<TransferRequestFormValues>({
     defaultValues: {
       lines: [
         {
           itemId: locked ? 'item-1' : null,
-          productId: 'product-1',
+          productId,
           unitId: '',
           destinationSlotId: '',
           sourceSlotId: slotId,
@@ -39,6 +48,22 @@ function Harness({ locked = false, slotId = '' }: { locked?: boolean; slotId?: s
 }
 
 describe('TransferSourceSlotField', () => {
+  it('uses a simple placeholder and explains allocation in a keyboard dismissible popover', async () => {
+    queryMock.mockReturnValue({ data: [], isFetching: false })
+    const user = userEvent.setup()
+    render(<Harness />)
+    expect(screen.getByRole('combobox')).toHaveAttribute('placeholder', 'Hệ thống tự phân bổ')
+    await user.click(screen.getByRole('button', { name: 'Cách phân bổ vị trí lấy hàng' }))
+    expect(screen.getByText(/FEFO: lấy lô hết hạn trước/)).toBeVisible()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText(/FEFO: lấy lô hết hạn trước/)).not.toBeInTheDocument()
+  })
+
+  it('asks for a product first', () => {
+    queryMock.mockReturnValue({ data: [], isFetching: false })
+    render(<Harness productId="" />)
+    expect(screen.getByRole('combobox')).toHaveAttribute('placeholder', 'Chọn sản phẩm trước')
+  })
   it('asks for the slots that hold the chosen product in the source warehouse', () => {
     queryMock.mockReturnValue({ data: [], isFetching: false })
     render(<Harness />)

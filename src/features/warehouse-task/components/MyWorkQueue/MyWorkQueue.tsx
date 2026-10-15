@@ -2,6 +2,7 @@ import { ClipboardList } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { MyWarehouseTask } from '../../types/warehouse-task.types'
 import { getTaskRoute, taskTypeIcon, taskTypeLabel } from '../WarehouseTaskDirectory'
@@ -23,27 +24,54 @@ const OPEN_STATUSES: readonly MyWarehouseTask['executionStatus'][] = [
 interface MyWorkQueueProps {
   readonly tasks: readonly MyWarehouseTask[]
   readonly isLoading: boolean
+  readonly totalCount?: number
+  readonly isError?: boolean
+  readonly hasFilters?: boolean
+  readonly onRetry?: () => void
 }
 
 /** Việc đang được giao cho người dùng, gom mọi loại (nhập, xuất, điều chuyển, kiểm kê...) để thấy ngay khi vào trang. */
-export function MyWorkQueue({ tasks, isLoading }: MyWorkQueueProps) {
+export function MyWorkQueue({
+  tasks,
+  isLoading,
+  totalCount,
+  isError,
+  hasFilters,
+  onRetry,
+}: MyWorkQueueProps) {
   const open = tasks.filter((task) => OPEN_STATUSES.includes(task.executionStatus))
   const visible = open.slice(0, MAX_VISIBLE)
+  const count = totalCount ?? open.length
 
   return (
-    <section aria-labelledby="my-work-queue-title" className="mb-4 shrink-0 space-y-3">
+    <section
+      aria-labelledby="my-work-queue-title"
+      aria-busy={isLoading}
+      className="mb-4 flex shrink-0 flex-col gap-3"
+    >
       <div className="flex items-center gap-2">
         <h2 id="my-work-queue-title" className="text-base font-semibold">
-          Việc cần làm
+          Việc mới được giao
         </h2>
-        {open.length > 0 ? <Badge variant="secondary">{open.length}</Badge> : null}
+        {!isLoading && !isError && count > 0 ? <Badge variant="secondary">{count}</Badge> : null}
       </div>
       {isLoading ? (
         <Skeleton className="h-16 w-full" />
+      ) : isError ? (
+        <div role="alert" className="flex items-center gap-2 text-sm">
+          Không thể tải công việc được giao.
+          {onRetry ? (
+            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+              Thử lại
+            </Button>
+          ) : null}
+        </div>
       ) : open.length === 0 ? (
         <p className="text-muted-foreground flex items-center gap-2 text-sm">
           <ClipboardList aria-hidden="true" className="size-4" />
-          Chưa có việc nào được giao cho bạn.
+          {hasFilters
+            ? 'Không có công việc được giao phù hợp với bộ lọc.'
+            : 'Chưa có việc nào được giao cho bạn.'}
         </p>
       ) : (
         <>
@@ -54,9 +82,9 @@ export function MyWorkQueue({ tasks, isLoading }: MyWorkQueueProps) {
               </li>
             ))}
           </ul>
-          {open.length > visible.length ? (
+          {count > visible.length ? (
             <p className="text-muted-foreground text-xs">
-              Còn {open.length - visible.length} việc khác trong danh sách bên dưới.
+              Còn {count - visible.length} việc khác phù hợp với bộ lọc. Xem danh sách bên dưới.
             </p>
           ) : null}
         </>
@@ -87,7 +115,7 @@ function MyWorkQueueItem({ task }: { readonly task: MyWarehouseTask }) {
         <Badge variant="secondary">
           {EXECUTION_LABEL[task.executionStatus] ?? task.executionStatus}
         </Badge>
-        {task.priority === 'Urgent' ? <Badge variant="destructive">Gấp</Badge> : null}
+        {task.priority === 'Urgent' ? <Badge variant="destructive">Khẩn</Badge> : null}
         {isOverdue ? <Badge variant="destructive">Quá hạn</Badge> : null}
         {task.deadlineStatus === 'DueSoon' ? <Badge variant="outline">Sắp đến hạn</Badge> : null}
       </div>

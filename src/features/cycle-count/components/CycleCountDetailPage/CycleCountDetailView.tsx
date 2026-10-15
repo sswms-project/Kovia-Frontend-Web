@@ -17,6 +17,7 @@ import { CycleCountDamagePanel } from './CycleCountDamagePanel'
 import { CycleCountInfoSection } from './CycleCountInfoSection'
 import { CycleCountItemsTable } from './CycleCountItemsTable'
 import { CycleCountResolutionSummary } from './CycleCountResolutionSummary'
+import { CycleCountUrgentBanner } from './CycleCountUrgentBanner'
 import type { CycleCountDialog, CycleCountEvidenceActions, CycleCountRecordEntry } from './types'
 
 interface CycleCountDetailViewProps {
@@ -149,6 +150,7 @@ export function CycleCountDetailView({
           setDialog(next)
         }}
       />
+      <CycleCountUrgentBanner detail={detail} canStart={allowedActions.includes('Start')} />
       {detail.status === 'Cancelled' ? (
         <Alert variant="destructive" className="shrink-0">
           <AlertDescription>

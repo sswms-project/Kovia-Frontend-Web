@@ -28,7 +28,8 @@ describe('transfer navigation', () => {
     expect(transferStatusHref('/transfers', 'status=Cancelled&page=2', '')).toBe('/transfers')
   })
   it('maps old detail tabs and defaults to the first actionable stage', () => {
-    expect(parseTransferDetailTab('shipments')).toBe('pick')
+    expect(parseTransferDetailTab('shipments')).toBeNull()
+    expect(parseTransferDetailTab('pick')).toBe('pick')
     expect(parseTransferDetailTab('feedback')).toBe('discrepancies')
     expect(parseTransferDetailTab('anything')).toBeNull()
     const step = (action: TransferNextStep['action']): TransferNextStep => ({

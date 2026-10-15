@@ -1,6 +1,7 @@
 import type { TransferDetail, TransferShipment } from '../types/transfer.types'
 import {
   openDiscrepancies,
+  getDestinationAssignmentKind,
   type ShipmentCapabilities,
   type TransferCapabilities,
   type TransferViewer,
@@ -12,12 +13,14 @@ export type TransferNextStepAction =
   | { readonly type: 'openPutAwayPlan' }
   | {
       readonly type: 'assign'
-      readonly kind: 'pick' | 'receive'
+      readonly kind: 'pick' | 'receive' | 'putaway'
       readonly shipment: TransferShipment
     }
   | { readonly type: 'openPick'; readonly shipmentId: string }
   | { readonly type: 'confirmDeparture'; readonly shipment: TransferShipment }
   | { readonly type: 'openReceive'; readonly shipmentId: string }
+  | { readonly type: 'startReceiving'; readonly shipment: TransferShipment }
+  | { readonly type: 'openPutAway'; readonly shipmentId: string }
   | { readonly type: 'resolveDiscrepancy' }
   | { readonly type: 'resolveEscalation'; readonly shipment: TransferShipment }
 
@@ -135,32 +138,58 @@ export function getTransferNextSteps(
         action: { type: 'confirmDeparture', shipment },
       })
     }
-    if (allowed.canAssignReceive && shipment.receiveTaskId) {
+    const destinationAssignmentKind = getDestinationAssignmentKind(shipment, allowed)
+    if (destinationAssignmentKind === 'receive') {
       steps.push(
         shipment.receiveAssigneeId
           ? {
               id: `reassign-receive-${shipment.id}`,
-              title: `${label} đã giao cho ${shipment.receiveAssigneeName ?? 'nhân viên'} nhận hàng`,
-              description: 'Cần đổi người nhận hàng thì giao lại cho nhân viên khác, kèm lý do.',
-              actionLabel: 'Giao lại việc nhận',
+              title: `${label} · Giao việc tại kho nhập`,
+              description: shipment.putAwayTaskId
+                ? 'Giao cùng người kiểm nhận và cất hàng, hoặc giao riêng khi cần.'
+                : 'Đã giao kiểm nhận. Công việc cất được tạo khi bắt đầu nhận hàng.',
+              actionLabel: 'Giao việc nhận và cất hàng',
               action: { type: 'assign', kind: 'receive', shipment },
             }
           : {
               id: `assign-receive-${shipment.id}`,
-              title: `${label} đã xuất, chưa giao người nhận hàng`,
-              description: 'Giao việc cho nhân viên kho nhập để nhận và cất hàng.',
-              actionLabel: 'Giao việc nhận hàng',
+              title: `${label} · Chưa giao việc tại kho nhập`,
+              description: shipment.putAwayTaskId
+                ? 'Chọn cùng người kiểm nhận và cất hàng; có thể giao riêng khi cần.'
+                : 'Giao người kiểm nhận trước. Công việc cất được tạo khi bắt đầu nhận hàng.',
+              actionLabel: 'Giao việc nhận và cất hàng',
               action: { type: 'assign', kind: 'receive', shipment },
             }
       )
     }
-    if (allowed.canOpenReceive && shipment.receiveAssigneeId === viewer.currentUserId) {
+    if (allowed.canOpenReceive) {
       steps.push({
         id: `open-receive-${shipment.id}`,
-        title: `${label} đang chờ bạn nhận hàng`,
-        description: 'Mở màn nhận hàng để ghi số lượng tốt, hỏng, thiếu và chọn vị trí cất.',
-        actionLabel: 'Mở màn nhận hàng',
-        action: { type: 'openReceive', shipmentId: shipment.id },
+        title: `${label} đang chờ bạn kiểm nhận hàng`,
+        description: 'Kiểm số tốt, hỏng, thiếu và nộp phiếu; chưa ghi tồn kho ở bước này.',
+        actionLabel: shipment.status === 'InTransit' ? 'Kiểm nhận hàng' : 'Tiếp tục kiểm hàng',
+        action:
+          shipment.status === 'InTransit'
+            ? { type: 'startReceiving', shipment }
+            : { type: 'openReceive', shipmentId: shipment.id },
+      })
+    }
+    if (destinationAssignmentKind === 'putaway') {
+      steps.push({
+        id: `assign-putaway-${shipment.id}`,
+        title: `${label} · ${shipment.putAwayAssigneeName ? 'Đã giao cất cho ' + shipment.putAwayAssigneeName : 'Chưa giao người cất'}`,
+        description: 'Giao việc cất riêng hoặc đổi người cùng mức ưu tiên và hạn hoàn thành.',
+        actionLabel: 'Giao việc cất hàng',
+        action: { type: 'assign', kind: 'putaway', shipment },
+      })
+    }
+    if (allowed.canOpenPutAway) {
+      steps.push({
+        id: `open-putaway-${shipment.id}`,
+        title: `${label} còn hàng đã nhận, chưa cất`,
+        description: 'Quét vị trí và cất hàng tốt, hàng hỏng riêng. Tồn kho tăng khi xác nhận cất.',
+        actionLabel: 'Cất hàng',
+        action: { type: 'openPutAway', shipmentId: shipment.id },
       })
     }
   }

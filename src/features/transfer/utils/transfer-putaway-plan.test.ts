@@ -121,4 +121,40 @@ describe('transfer putaway plan', () => {
     ])
     expect(draft[0]?.lines[0]?.plannedTotal).toBe(6)
   })
+
+  it('applies a single suggested slot even when an empty placeholder row already holds the whole quantity', () => {
+    const fresh = buildTransferItem({ quantity: 16, putAwayPlan: [], baseQuantityPrecision: 2 })
+    const draft = [{ itemId: fresh.id, lines: [{ slotId: '', path: '', plannedTotal: 16 }] }]
+    const suggestions = {
+      items: [
+        {
+          itemId: fresh.id,
+          remaining: 16,
+          unallocatedQuantity: 0,
+          suggestions: [
+            {
+              slotId: SLOT_B,
+              slotCode: 'B01',
+              rackCode: 'B',
+              zoneName: 'B',
+              path: 'B01',
+              suggestedQuantity: 16,
+              available: null,
+              reason: 'Còn chỗ',
+              warnings: [],
+            },
+          ],
+        },
+      ],
+      isAiAssisted: false,
+      notice: null,
+      summary: null,
+      risks: [],
+    }
+    const next = applyTransferPlanSuggestions(draft, [fresh], suggestions, {
+      itemId: fresh.id,
+      slotId: SLOT_B,
+    })
+    expect(next[0]?.lines).toEqual([{ slotId: SLOT_B, plannedTotal: 16, path: 'B01' }])
+  })
 })

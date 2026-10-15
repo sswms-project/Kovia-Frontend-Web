@@ -1,4 +1,8 @@
-import type { UseFormReturn } from 'react-hook-form'
+import { Controller, type UseFormReturn } from 'react-hook-form'
+import { DatePickerField } from '@/components/forms/DatePickerField'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { TriangleAlert } from 'lucide-react'
+import type { TransferDestinationLoad } from '../../types/transfer.types'
 import {
   BusinessCodeField,
   type BusinessCodeFieldProps,
@@ -18,6 +22,7 @@ export interface WarehouseSelectOption {
 export type TransferFormMode = 'create' | 'draft' | 'edit'
 
 interface TransferGeneralSectionProps {
+  readonly destinationLoad?: TransferDestinationLoad
   readonly form: UseFormReturn<TransferRequestFormValues>
   readonly mode: TransferFormMode
   readonly destinationOptions: readonly WarehouseSelectOption[]
@@ -35,6 +40,7 @@ interface TransferGeneralSectionProps {
 }
 
 export function TransferGeneralSection({
+  destinationLoad,
   form,
   mode,
   destinationOptions,
@@ -49,6 +55,11 @@ export function TransferGeneralSection({
   onSelectInternalRelocation,
 }: TransferGeneralSectionProps) {
   const errors = form.formState.errors
+  /** Lỗi thứ tự ngày gắn ở ô "ngày về"; đổi một trong hai ngày phải kiểm lại cả hai để lỗi hiện ngay. */
+  const setPlannedDate = (name: 'plannedTransferDate' | 'requiredBy', value: string) => {
+    form.setValue(name, value, { shouldDirty: true })
+    void form.trigger(['plannedTransferDate', 'requiredBy'])
+  }
   const destinationWarehouseId = form.watch('destinationWarehouseId')
   const sourceWarehouseId = form.watch('sourceWarehouseId')
   const destinationAddress =
@@ -127,7 +138,7 @@ export function TransferGeneralSection({
           </datalist>
           <FieldError>{errors.requesterName?.message}</FieldError>
         </Field>
-        <Field data-invalid={Boolean(errors.requestingDepartment)}>
+        <Field className="md:col-span-2" data-invalid={Boolean(errors.requestingDepartment)}>
           <FieldLabel htmlFor="transfer-department">Bộ phận yêu cầu</FieldLabel>
           <Input
             id="transfer-department"
@@ -138,11 +149,58 @@ export function TransferGeneralSection({
           />
           <FieldError>{errors.requestingDepartment?.message}</FieldError>
         </Field>
-        <Field data-invalid={Boolean(errors.requiredBy)}>
-          <FieldLabel htmlFor="transfer-required-by">Hạn cần hàng</FieldLabel>
-          <Input id="transfer-required-by" type="date" {...form.register('requiredBy')} />
-          <FieldError>{errors.requiredBy?.message}</FieldError>
-        </Field>
+        <div className="min-w-0 xl:col-span-2">
+          <Controller
+            control={form.control}
+            name="plannedTransferDate"
+            render={({ field }) => (
+              <DatePickerField
+                id="transfer-planned-date"
+                label="Ngày dự kiến điều chuyển"
+                withTime
+                disablePastDates={mode !== 'edit'}
+                triggerRef={field.ref}
+                onBlur={field.onBlur}
+                value={field.value ?? ''}
+                error={errors.plannedTransferDate?.message}
+                onChange={(value) => setPlannedDate('plannedTransferDate', value)}
+              />
+            )}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-2 xl:col-span-2">
+          <Controller
+            control={form.control}
+            name="requiredBy"
+            render={({ field }) => (
+              <DatePickerField
+                id="transfer-required-by"
+                label="Ngày hàng dự kiến về kho nhập"
+                withTime
+                disablePastDates={mode !== 'edit'}
+                triggerRef={field.ref}
+                onBlur={field.onBlur}
+                value={field.value}
+                error={errors.requiredBy?.message}
+                onChange={(value) => setPlannedDate('requiredBy', value)}
+              />
+            )}
+          />
+          {destinationLoad && destinationLoad.total >= destinationLoad.threshold ? (
+            <Alert
+              role="status"
+              aria-live="polite"
+              className="border-warning/40 bg-warning-container/30 text-warning"
+            >
+              <TriangleAlert aria-hidden="true" />
+              <AlertDescription>
+                Kho nhập đã có {destinationLoad.total} yêu cầu dự kiến về ngày này (
+                {destinationLoad.inboundRequestCount} nhập kho, {destinationLoad.transferCount} điều
+                chuyển). Nên chọn ngày khác. Bạn vẫn có thể tiếp tục.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
         <Field data-invalid={Boolean(errors.destinationWarehouseId)}>
           <FieldLabel htmlFor="transfer-destination">Kho nhập</FieldLabel>
           <NativeSelect

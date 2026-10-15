@@ -1,13 +1,13 @@
 import { Info } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
-  formatOperationalDate,
   formatOperationalDateTime,
   formatQuantity,
 } from '@/features/inbound-request/utils/inbound-request-format'
 import type { TransferDetail } from '../../types/transfer.types'
 import { TRANSFER_STATUS_DESCRIPTIONS } from '../../utils/transfer-format'
 import { TransferStatusBadge } from '../TransfersPage'
+import { formatOperationalOptionalTime } from '@/lib/operational-date-time'
 
 interface OverviewItem {
   readonly label: string
@@ -33,8 +33,12 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
     { label: 'Bộ phận yêu cầu', value: transfer.requestingDepartment || '—' },
     { label: 'Ngày tạo', value: formatOperationalDateTime(transfer.createdAt) },
     {
-      label: 'Hạn cần hàng',
-      value: transfer.requiredBy ? formatOperationalDate(transfer.requiredBy) : 'Chưa đặt hạn',
+      label: 'Ngày dự kiến điều chuyển',
+      value: formatOperationalOptionalTime(transfer.plannedTransferDate),
+    },
+    {
+      label: 'Ngày hàng dự kiến về kho nhập',
+      value: formatOperationalOptionalTime(transfer.requiredBy),
     },
     { label: 'Ghi chú cho kho', value: transfer.note || '—' },
     { label: 'Người yêu cầu', value: transfer.requesterName || '—' },

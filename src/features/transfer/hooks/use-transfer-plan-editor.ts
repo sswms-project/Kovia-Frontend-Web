@@ -56,20 +56,37 @@ export function useTransferPlanEditor(
       if (!locked.current) setIsOpen(false)
     },
     change,
+    seedSuggestions: (suggestions: TransferPutAwayPlanSuggestions) => {
+      if (!transfer || !canManage || locked.current || !isOpen || isDirty || reloadRequired) return
+      const generated = applyTransferPlanSuggestions(draft, transfer.items, suggestions)
+      const next = draft.map((entry) =>
+        (transfer.items.find((item) => item.id === entry.itemId)?.putAwayPlan?.length ?? 0) > 0
+          ? entry
+          : (generated.find((item) => item.itemId === entry.itemId) ?? entry)
+      )
+      if (JSON.stringify(next) !== JSON.stringify(draft)) change(next)
+    },
     apply: (
       suggestions: TransferPutAwayPlanSuggestions,
       only?: { itemId: string; slotId: string }
     ) => {
-      if (transfer) change(applyTransferPlanSuggestions(draft, transfer.items, suggestions, only))
+      if (transfer && isOpen && !reloadRequired)
+        change(applyTransferPlanSuggestions(draft, transfer.items, suggestions, only))
     },
-    rebase: (fresh: TransferDetail) => {
+    rebase: (fresh: TransferDetail, source: 'reload' | 'saved' = 'reload') => {
       if (locked.current) return
       version.current = fresh.version
-      setDraft(reconcileTransferPlanDraft(draft, fresh.items))
+      setDraft(
+        source === 'saved'
+          ? buildTransferPlanDraft(fresh.items)
+          : reconcileTransferPlanDraft(draft, fresh.items)
+      )
       setErrors({})
       setReloadRequired(false)
       setErrorMessage(
-        'Đã tải kế hoạch mới; số lượng đang sửa được giữ lại. Hãy kiểm tra trước khi lưu.'
+        source === 'saved'
+          ? null
+          : 'Đã tải kế hoạch mới; số lượng đang sửa được giữ lại. Hãy kiểm tra trước khi lưu.'
       )
     },
     submit: async () => {

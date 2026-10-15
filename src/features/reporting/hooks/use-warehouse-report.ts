@@ -31,12 +31,21 @@ export function useWarehouseReportOptions(
   enabled: boolean,
   permissionKey: string,
   warehouseId?: string,
-  search?: string
+  search?: string,
+  categoryId?: string
 ) {
   const user = useAuthStore((state) => state.user)
   return useQuery({
-    queryKey: ['report-options', user?.tenantId, user?.id, permissionKey, warehouseId, search],
-    queryFn: () => warehouseReportService.getOptions(warehouseId, search),
+    queryKey: [
+      'report-options',
+      user?.tenantId,
+      user?.id,
+      permissionKey,
+      warehouseId,
+      search,
+      categoryId,
+    ],
+    queryFn: () => warehouseReportService.getOptions(warehouseId, search, categoryId),
     enabled: enabled && Boolean(user?.tenantId),
     retry: false,
   })

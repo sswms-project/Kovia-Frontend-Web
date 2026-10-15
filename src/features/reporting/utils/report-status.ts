@@ -13,6 +13,7 @@ const labels: Record<string, string> = {
   Relocation: 'Chuyển vị trí',
   TransferPick: 'Lấy hàng điều chuyển',
   TransferReceive: 'Nhận hàng điều chuyển',
+  TransferPutAway: 'Cất hàng điều chuyển',
   AwaitingResolution: 'Chờ xử lý chênh lệch',
   Pick: 'Lấy hàng nội bộ',
   Issue: 'Xuất kho',

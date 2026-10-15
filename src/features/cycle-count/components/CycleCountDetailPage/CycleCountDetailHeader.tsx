@@ -7,6 +7,7 @@ import { APP_ROUTES } from '@/routes/app-routes'
 import type { CycleCountDetail } from '../../types/cycle-count.types'
 import { formatCycleCountDate } from '../../utils/cycle-count-format'
 import { CycleCountStatusBadge } from '../CycleCountStatusBadge'
+import { CycleCountPriorityBadge } from '../CycleCountUrgency'
 import type { CycleCountDialog } from './types'
 
 interface CycleCountDetailHeaderProps {
@@ -45,6 +46,7 @@ export function CycleCountDetailHeader({
       </h1>
       <span className="text-muted-foreground text-sm">{detail.warehouseName}</span>
       <CycleCountStatusBadge status={detail.status} />
+      <CycleCountPriorityBadge priority={detail.priority} status={detail.status} />
       <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1">
         <Button variant="outline" disabled={isPending} onClick={() => void onExport()}>
           <FileDown />

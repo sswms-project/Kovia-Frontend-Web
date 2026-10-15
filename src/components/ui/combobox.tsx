@@ -101,7 +101,9 @@ function ComboboxContent({
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
-        className="isolate z-50"
+        // Dialog/Sheet modal của Radix đặt pointer-events: none lên body; danh sách nằm trong portal ngoài
+        // nội dung nên phải tự bật lại, nếu không bấm chuột bị xuyên xuống lớp nền.
+        className="pointer-events-auto isolate z-50"
       >
         <ComboboxPrimitive.Popup
           data-slot="combobox-content"

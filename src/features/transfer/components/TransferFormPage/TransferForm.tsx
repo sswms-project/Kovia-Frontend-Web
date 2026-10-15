@@ -3,7 +3,7 @@ import type { FieldArrayWithId, UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
-import type { TransferLineUnits } from '../../types/transfer.types'
+import type { TransferLineUnits, TransferDestinationLoad } from '../../types/transfer.types'
 import {
   TransferGeneralSection,
   type TransferFormMode,
@@ -13,10 +13,12 @@ import { exceedsAvailability } from '../../utils/transfer-line-units'
 import { lineGridColumns } from './line-grid'
 import { TransferLineRow, type TransferLineLockInfo } from './TransferLineRow'
 import type { BusinessCodeFieldProps } from '@/components/forms/BusinessCodeField'
+import { TransferAllocationHelp } from './TransferAllocationHelp'
 
 export type { TransferFormMode, WarehouseSelectOption }
 
 interface TransferFormProps {
+  readonly destinationLoad?: TransferDestinationLoad
   readonly form: UseFormReturn<TransferRequestFormValues>
   readonly fields: readonly FieldArrayWithId<TransferRequestFormValues, 'lines', 'id'>[]
   readonly mode: TransferFormMode
@@ -58,6 +60,7 @@ interface TransferFormProps {
 }
 
 export function TransferForm({
+  destinationLoad,
   form,
   fields,
   mode,
@@ -108,7 +111,7 @@ export function TransferForm({
   return (
     <form
       data-slot="transfer-scroll"
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
+      className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
       noValidate
       onSubmit={(event) => {
         event.preventDefault()
@@ -116,6 +119,7 @@ export function TransferForm({
       }}
     >
       <TransferGeneralSection
+        destinationLoad={destinationLoad}
         form={form}
         mode={mode}
         destinationOptions={destinationOptions}
@@ -136,9 +140,6 @@ export function TransferForm({
             <h2 id="transfer-form-lines" className="text-sm font-semibold">
               Dòng hàng
             </h2>
-            <p className="text-muted-foreground text-xs">
-              Hệ thống tự phân bổ vị trí và lô theo FEFO/FIFO khi gửi yêu cầu.
-            </p>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={onAddLine}>
             <Plus aria-hidden="true" />
@@ -154,7 +155,12 @@ export function TransferForm({
           <span>Số lượng</span>
           <span>SL theo ĐVT chính</span>
           <span>Tồn khả dụng kho xuất</span>
-          {showSourceSlot ? <span>Vị trí đi</span> : null}
+          {showSourceSlot ? (
+            <span className="flex items-center gap-1">
+              Vị trí đi (không bắt buộc)
+              <TransferAllocationHelp />
+            </span>
+          ) : null}
           {showDestinationSlot ? <span>Vị trí đến</span> : null}
           <span />
         </div>
@@ -203,7 +209,11 @@ export function TransferForm({
         </div>
       </section>
 
-      <div className="bg-background sticky bottom-0 flex flex-wrap justify-end gap-2 border-t py-3">
+      <div
+        role="group"
+        aria-label="Thao tác yêu cầu điều chuyển"
+        className="bg-background sticky bottom-0 flex shrink-0 flex-wrap justify-end gap-2 border-t py-1.5"
+      >
         <Button type="button" variant="outline" disabled={isSaving} onClick={onCancel}>
           Hủy
         </Button>

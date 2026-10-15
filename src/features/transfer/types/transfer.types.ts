@@ -26,6 +26,7 @@ export type TransferShipmentStatus =
   | 'ReadyToDispatch'
   | 'InTransit'
   | 'Receiving'
+  | 'AwaitingPutAway'
   | 'Received'
   | 'ReceivedWithDiscrepancy'
   | 'Cancelled'
@@ -84,6 +85,19 @@ export interface TransferListQuery {
   dateTo?: string
 }
 
+export interface TransferDestinationLoadQuery {
+  warehouseId: string
+  date: string
+  excludeTransferId?: string
+}
+
+export interface TransferDestinationLoad {
+  inboundRequestCount: number
+  transferCount: number
+  total: number
+  threshold: number
+}
+
 export interface TransferSourceWarehouseQuery {
   destinationWarehouseId: string
   top: number
@@ -115,6 +129,7 @@ export interface TransferSourceProduct {
 }
 
 export interface TransferSummary {
+  plannedTransferDate?: string | null
   id: string
   nextActionCode?: string | null
   transferCode: string
@@ -168,6 +183,8 @@ export interface TransferRequesterOption {
 
 export interface TransferItem {
   id: string
+  putAwayQuantity?: number
+  pendingPutAwayQuantity?: number
   putAwayPlan?: TransferPutAwayPlanLine[] | null
   planMode?: 'Planned' | 'Legacy'
   baseQuantityPrecision?: number
@@ -253,9 +270,16 @@ export interface TransferShipmentLine {
   status: TransferShipmentLineStatus
   pendingReturnQuantity: number
   openExceptionCount: number
+  receivedPhysicalQuantity?: number
 }
 
 export interface TransferShipment {
+  readonly pickTaskPriority?: 'Normal' | 'Urgent' | null
+  readonly pickTaskDueAt?: string | null
+  readonly receiveTaskPriority?: 'Normal' | 'Urgent' | null
+  readonly receiveTaskDueAt?: string | null
+  readonly putAwayTaskPriority?: 'Normal' | 'Urgent' | null
+  readonly putAwayTaskDueAt?: string | null
   id: string
   shipmentNumber: number
   status: TransferShipmentStatus
@@ -277,6 +301,20 @@ export interface TransferShipment {
   receiveTaskVersion: string | null
   pickAssigneeName?: string | null
   receiveAssigneeName?: string | null
+  receiptFlowVersion?: number
+  arrivedAt?: string | null
+  arrivedBy?: string | null
+  receiptSubmittedAt?: string | null
+  receiptSubmittedBy?: string | null
+  putAwayTaskId?: string | null
+  putAwayTaskCode?: string | null
+  putAwayTaskStatus?: string | null
+  putAwayAssigneeId?: string | null
+  putAwayAssigneeName?: string | null
+  putAwayTaskVersion?: string | null
+  receivedPhysicalQuantity?: number
+  putAwayQuantity?: number
+  pendingPutAwayQuantity?: number
 }
 
 export interface TransferDiscrepancy {
@@ -310,6 +348,7 @@ export interface TransferFeedback {
 }
 
 export interface TransferDetail {
+  plannedTransferDate?: string | null
   id: string
   transferCode: string
   requesterName: string | null
@@ -396,6 +435,7 @@ export interface TransferLineInput {
 }
 
 export interface SaveTransferDraftRequest {
+  plannedTransferDate?: string | null
   expectedVersion: string | null
   transferCode: string | null
   requesterName: string | null
@@ -409,6 +449,9 @@ export interface SaveTransferDraftRequest {
 }
 
 export interface UpdateTransferRequest {
+  plannedTransferDate?: string | null
+  clearPlannedTransferDate?: boolean
+  clearRequiredBy?: boolean
   expectedVersion: string
   requesterName: string
   requestingDepartment: string
@@ -554,6 +597,7 @@ export interface ReceiveTransferShipmentRequest {
 }
 
 export interface ResolveTransferDiscrepancyRequest {
+  commandId?: string
   action: TransferDiscrepancyAction
   quantity: number | null
   lotId: string | null
@@ -681,6 +725,8 @@ export interface TransferReceiveSheetLine {
   lots: TransferReceiveSheetLot[]
   planMode?: 'Planned' | 'Legacy'
   planWarnings?: TransferReceivePlanWarning[]
+  /** Ngân sách còn lại của mọi vị trí trong kế hoạch, kể cả vị trí chưa được chia số lượng cho đợt này. */
+  planBudgets?: { slotId: string; slotCode: string; path: string; remainingBudget: number }[]
 }
 
 export interface TransferReceiveSheet {
