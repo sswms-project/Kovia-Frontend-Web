@@ -150,6 +150,14 @@ describe('Kế hoạch điều chuyển dùng thiết kế cất hàng Nhập kh
     expect(screen.getAllByRole('combobox', { name: /Vị trí lưu trữ/ })[1]).toHaveTextContent('B01')
     expect(screen.getAllByLabelText('Số lượng cất')[0]).toHaveValue(8)
   })
+  it('disables a location already used by another row of the same product', async () => {
+    const user = userEvent.setup()
+    render(<Setup items={[otherItem]} />)
+    await user.click(screen.getByRole('button', { name: 'Chia sang vị trí khác' }))
+    await user.click(screen.getAllByRole('combobox', { name: /Vị trí lưu trữ/ })[1]!)
+    expect(screen.getByRole('option', { name: /B01/ })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText('Đã chọn cho sản phẩm này')).toBeInTheDocument()
+  })
   it('uses the transfer snapshot conversion without changing base quantity on unit selection', () => {
     render(
       <Setup

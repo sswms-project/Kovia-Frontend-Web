@@ -23,6 +23,22 @@ const shipment = buildShipment({
   putAwayTaskStatus: 'Queued',
   putAwayAssigneeId: 'putter',
   putAwayAssigneeName: 'Người cất',
+  lines: [
+    {
+      id: 'line-1',
+      itemId: 'item-1',
+      productId: 'product-1',
+      sku: 'SKU-001',
+      productName: 'Hàng kiểm thử',
+      plannedQuantity: 10,
+      pickedQuantity: 10,
+      dispatchedQuantity: 10,
+      receivedPhysicalQuantity: 7,
+      status: 'Dispatched',
+      pendingReturnQuantity: 0,
+      openExceptionCount: 0,
+    },
+  ],
 })
 const viewer = {
   currentUserId: 'manager',
@@ -31,6 +47,28 @@ const viewer = {
 }
 
 describe('TransferShipmentsPanel destination assignment', () => {
+  it.each(['receive', 'putaway'] as const)(
+    'shows received quantity for every shipment line in the %s tab',
+    (mode) => {
+      render(
+        <TransferShipmentsPanel
+          transferId="transfer"
+          shipments={[shipment]}
+          capabilities={{ [shipment.id]: getShipmentCapabilities(viewer, shipment) }}
+          unitsByItem={{ 'item-1': { unit: 'Cái', conversion: null } }}
+          mode={mode}
+          onAssignTask={vi.fn()}
+          onCancelShipment={vi.fn()}
+          onConfirmDeparture={vi.fn()}
+          onReopenPicking={vi.fn()}
+          onResolveEscalation={vi.fn()}
+        />
+      )
+      expect(screen.getByRole('columnheader', { name: 'SL thực nhận' })).toBeInTheDocument()
+      expect(screen.getByRole('cell', { name: '7' })).toBeInTheDocument()
+    }
+  )
+
   it('shows picking before a collapsed destination group, retaining both workers in details', () => {
     const onAssign = vi.fn()
     render(

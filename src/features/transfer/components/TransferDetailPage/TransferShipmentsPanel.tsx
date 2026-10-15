@@ -168,7 +168,7 @@ export function TransferShipmentsPanel({
                 ) : null}
               </div>
               <div>
-                <Table className="min-w-[860px]">
+                <Table className={mode === 'pick' ? 'min-w-[860px]' : 'min-w-[960px]'}>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Mã hàng</TableHead>
@@ -178,6 +178,9 @@ export function TransferShipmentsPanel({
                       <TableHead className="text-right">Kế hoạch</TableHead>
                       <TableHead className="text-right">Đã lấy</TableHead>
                       <TableHead className="text-right">Đã xuất</TableHead>
+                      {mode !== 'pick' ? (
+                        <TableHead className="text-right">SL thực nhận</TableHead>
+                      ) : null}
                       <TableHead>Tình trạng</TableHead>
                       {mode === 'receive' ? <TableHead>Kế hoạch cất hàng</TableHead> : null}
                     </TableRow>
@@ -199,6 +202,11 @@ export function TransferShipmentsPanel({
                           <TableCell className="text-right tabular-nums">
                             {formatQuantity(line.dispatchedQuantity)}
                           </TableCell>
+                          {mode !== 'pick' ? (
+                            <TableCell className="text-right tabular-nums">
+                              {formatQuantity(line.receivedPhysicalQuantity ?? 0)}
+                            </TableCell>
+                          ) : null}
                           <TableCell>
                             {SHIPMENT_LINE_STATUS_LABELS[line.status]}
                             {line.pendingReturnQuantity > 0

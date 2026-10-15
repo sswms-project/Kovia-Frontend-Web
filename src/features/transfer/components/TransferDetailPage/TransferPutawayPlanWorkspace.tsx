@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from 'react'
 import { Check, ChevronDown, Plus, Send, Sparkles } from 'lucide-react'
+import { toast } from 'sonner'
 import { PutawayPlanNotice, PutawaySuggestionPanel } from '@/components/operations/putaway'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -399,6 +400,16 @@ export function TransferPutawayPlanWorkspace({
                         0
                       )
                       const prefix = `items.${itemIndex}.lines.${lineIndex}`
+                      const rowSlots = slots.map((slot) =>
+                        entry.lines.some(
+                          (other, index) => index !== lineIndex && other.slotId === slot.id
+                        )
+                          ? {
+                              ...slot,
+                              unavailableReason: 'Đã chọn cho sản phẩm này',
+                            }
+                          : slot
+                      )
                       return (
                         <TransferPlanAllocationRow
                           key={`${item.id}-${lineIndex}`}
@@ -406,7 +417,7 @@ export function TransferPutawayPlanWorkspace({
                           line={line}
                           received={received}
                           remaining={Math.max(0, remaining - otherRemaining)}
-                          slots={slots}
+                          slots={rowSlots}
                           disabled={disabled}
                           loading={isLoadingSlots}
                           slotError={editor.errors[`${prefix}.slotId`]}
@@ -474,11 +485,21 @@ export function TransferPutawayPlanWorkspace({
           if (!open) setMapTarget(null)
         }}
         onConfirm={(pick) => {
-          if (mapTarget)
+          if (mapTarget) {
+            const entry = editor.draft[mapTarget.itemIndex]
+            const duplicated = entry?.lines.some(
+              (line, index) => index !== mapTarget.lineIndex && line.slotId === pick.slotId
+            )
+            if (duplicated) {
+              toast.error('Vị trí này đã được chọn cho sản phẩm. Hãy cộng số lượng vào dòng cũ.')
+              setMapTarget(null)
+              return
+            }
             changeLine(mapTarget.itemIndex, mapTarget.lineIndex, {
               slotId: pick.slotId,
               path: pick.label,
             })
+          }
           setMapTarget(null)
         }}
       />

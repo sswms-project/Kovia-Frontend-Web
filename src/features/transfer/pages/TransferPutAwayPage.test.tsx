@@ -6,6 +6,7 @@ import TransferPutAwayPage from './TransferPutAwayPage'
 
 const mock = vi.hoisted(() => ({
   rules: vi.fn(),
+  rulesLoading: false,
   ai: vi.fn(),
   seed: vi.fn(),
   apply: vi.fn(),
@@ -59,7 +60,11 @@ vi.mock('../hooks/use-transfer-putaway-form', () => ({ useTransferPutAwayForm: (
 vi.mock('../hooks/use-transfer-putaway-plan', () => ({
   useTransferPutAwayRulesQuery: (...args: unknown[]) => {
     mock.rules(...args)
-    return { data: suggestions, isFetching: false }
+    return {
+      data: mock.rulesLoading ? undefined : suggestions,
+      isFetching: mock.rulesLoading,
+      error: null,
+    }
   },
   useTransferPutAwayPlanSuggestionsQuery: () => ({
     data: suggestions,
@@ -104,11 +109,25 @@ vi.mock('@/components/operations/putaway', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mock.rulesLoading = false
   mock.form.formState.isDirty = false
   mock.ai.mockResolvedValue({ data: suggestions, isError: false })
 })
 afterEach(cleanup)
 describe('Trang cất hàng — tự điền và AI theo yêu cầu', () => {
+  it('keeps one stable skeleton while initial rule suggestions are loading', () => {
+    mock.rulesLoading = true
+    render(
+      <TransferPutAwayPage
+        transferId={transfer.id}
+        shipmentId={sheet.receipt.shipmentId}
+        initialTab="execution"
+      />
+    )
+    expect(screen.getByLabelText('Đang tải dữ liệu')).toBeInTheDocument()
+    expect(screen.queryByText(/Chỉ cất hàng tốt thực nhận/)).not.toBeInTheDocument()
+  })
+
   it('auto fills without requiring row creation, calling AI or sending a write', async () => {
     render(
       <TransferPutAwayPage

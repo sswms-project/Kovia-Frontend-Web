@@ -209,7 +209,8 @@ export default function TransferPutAwayPage({
       setReloading(false)
     }
   }
-  if (!isReady || detail.isLoading || (shipmentId && query.isLoading))
+  const isInitialRulesLoading = rules.isFetching && !rules.data && !rules.error
+  if (!isReady || detail.isLoading || (shipmentId && query.isLoading) || isInitialRulesLoading)
     return <OperationalLoadingState rows={4} />
   if (!transfer || detail.isError || (shipmentId && (!shipment || query.isError || !sheet)))
     return (
