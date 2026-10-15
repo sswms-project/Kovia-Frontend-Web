@@ -113,12 +113,12 @@ export const transferService = {
       .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request)
       .then(unwrap),
 
-  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string) =>
+  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string, useAi = true) =>
     axiosClient
       .get<ApiResponse<TransferPutAwayPlanSuggestions>>(
         API_ENDPOINTS.transfers.putAwayPlanSuggestions(transferId),
         {
-          params: shipmentId ? { shipmentId } : undefined,
+          params: { shipmentId, useAi },
         }
       )
       .then(unwrap),
@@ -162,6 +162,14 @@ export const transferService = {
   getReceivableSlots: (params: TransferReceivableSlotsQuery) =>
     axiosClient
       .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.receivableSlots, {
+        params,
+      })
+      .then(unwrap),
+
+  /** Vị trí kho nhập cho lập kế hoạch/cất hàng: chỉ cần quyền nhận chuyển kho, không cần quyền tạo phiếu. */
+  getPutAwaySlots: (params: TransferReceivableSlotsQuery) =>
+    axiosClient
+      .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.putAwaySlots, {
         params,
       })
       .then(unwrap),

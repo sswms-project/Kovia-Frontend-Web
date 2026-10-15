@@ -9,7 +9,7 @@ describe('Tab kiểm hàng và cất hàng', () => {
   it('recognizes the new tab and retains old aliases', () => {
     expect(parseTransferDetailTab('putaway')).toBe('putaway')
     expect(parseTransferDetailTab('receive')).toBe('receive')
-    expect(parseTransferDetailTab('shipments')).toBe('pick')
+    expect(parseTransferDetailTab('shipments')).toBeNull()
     expect(parseTransferDetailTab('feedback')).toBe('discrepancies')
   })
   it('chooses the putaway tab when stock has been counted but not stored', () => {
@@ -35,6 +35,7 @@ describe('Tab kiểm hàng và cất hàng', () => {
       { [shipment.id]: caps }
     )
     expect(defaultTransferDetailTab(steps)).toBe('putaway')
+    expect(parseTransferDetailTab('shipments') ?? defaultTransferDetailTab(steps)).toBe('putaway')
     expect(steps.some((step) => step.action.type === 'openPutAway')).toBe(true)
   })
   it('does not let a source-only viewer open or assign destination putaway', () => {

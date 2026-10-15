@@ -61,6 +61,7 @@ export interface MyWarehouseTaskQuery {
   executionStatus?: MyWarehouseTask['executionStatus']
   deadlineStatus?: WarehouseTaskDeadlineStatus
   assignedTo?: string
+  recentlyAssignedFirst?: boolean
 }
 
 export type WarehouseTaskScope = 'mine' | 'managed'

@@ -79,7 +79,7 @@ export function DatePickerField({
             variant="outline"
             className={cn(
               'w-full justify-start gap-2 font-normal',
-              withTime && 'min-h-11',
+              withTime && 'min-h-8 max-md:min-h-11 pointer-coarse:min-h-11',
               !selectedDate && 'text-muted-foreground'
             )}
             aria-label={label}
@@ -93,8 +93,9 @@ export function DatePickerField({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="max-h-[80dvh] w-auto max-w-[calc(100vw-2rem)] overflow-y-auto p-0 motion-reduce:animate-none"
+          className="max-h-(--radix-popover-content-available-height) w-auto max-w-[calc(100vw-2rem)] overflow-y-auto p-0 motion-reduce:animate-none"
           align="start"
+          collisionPadding={16}
         >
           <Calendar
             className={withTime ? '[--cell-size:--spacing(11)]' : undefined}

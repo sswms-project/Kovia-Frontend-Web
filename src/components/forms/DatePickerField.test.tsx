@@ -51,6 +51,27 @@ describe('DatePickerField', () => {
     expect(screen.getByRole('button', { name: 'Ngày hàng về' })).toHaveFocus()
   })
 
+  it('constrains the scrollable popup to the space available around its trigger', async () => {
+    const user = userEvent.setup()
+    render(<DateTimeHarness />)
+    await user.click(screen.getByRole('button', { name: 'Ngày hàng về' }))
+
+    expect(screen.getByRole('dialog')).toHaveClass(
+      'max-h-(--radix-popover-content-available-height)',
+      'max-w-[calc(100vw-2rem)]',
+      'overflow-y-auto',
+      'motion-reduce:animate-none'
+    )
+    expect(screen.getByRole('dialog')).not.toHaveClass('max-h-[80dvh]')
+  })
+
+  it('keeps the date-time trigger compact on desktop with larger mobile and touch targets', () => {
+    render(<DateTimeHarness />)
+    const trigger = screen.getByRole('button', { name: 'Ngày hàng về' })
+    expect(trigger).toHaveClass('h-8', 'min-h-8', 'max-md:min-h-11', 'pointer-coarse:min-h-11')
+    expect(trigger).not.toHaveClass('min-h-11')
+  })
+
   it('uses today in Vietnam and disables yesterday; a required date cannot be cleared', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-10-13T18:00:00Z')) // 14 October in Vietnam

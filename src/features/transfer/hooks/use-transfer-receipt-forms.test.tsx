@@ -6,6 +6,7 @@ import {
   putAwayFixture,
   receiptFixture,
   RECEIPT_SLOT,
+  putAwaySuggestionsFixture,
 } from '../utils/transfer-receipt-test-fixtures'
 
 const mock = vi.hoisted(() => ({ submit: vi.fn(), putAway: vi.fn(), findSlot: vi.fn() }))
@@ -23,6 +24,25 @@ beforeEach(() => {
   mock.submit.mockResolvedValue({})
   mock.putAway.mockResolvedValue({})
   mock.findSlot.mockResolvedValue({ id: RECEIPT_SLOT, path: 'A-01' })
+})
+
+it('reports invalid putaway confirmation attempts without submitting or losing quantities', async () => {
+  const sheet = putAwayFixture()
+  const { result } = renderHook(() => useTransferPutAwayForm(sheet, 'warehouse', true))
+  await waitFor(() => expect(result.current.fields).toHaveLength(2))
+  act(() => result.current.form.setValue('entries.0.quantity', 3, { shouldDirty: true }))
+  await act(async () => {
+    await result.current.requestConfirm()
+  })
+  expect(result.current.validationAttempt).toBe(1)
+  expect(result.current.confirmOpen).toBe(false)
+  expect(result.current.form.getValues('entries.0.quantity')).toBe(3)
+  expect(mock.putAway).not.toHaveBeenCalled()
+  expect(result.current.notice).toContain('trường được đánh dấu')
+  await act(async () => {
+    await result.current.requestConfirm()
+  })
+  expect(result.current.validationAttempt).toBe(2)
 })
 describe('Nộp phiếu kiểm hàng an toàn', () => {
   it('does not submit automatically when opened', async () => {
@@ -119,11 +139,85 @@ describe('Nộp phiếu kiểm hàng an toàn', () => {
   })
 })
 describe('Cất hàng an toàn', () => {
+  it('auto fills once, preserves later edits and rejects responses for a stale sheet', async () => {
+    const sheet = putAwayFixture()
+    sheet.rows.forEach((row) => {
+      row.planBudgets = []
+    })
+    const { result } = renderHook(() => useTransferPutAwayForm(sheet, 'warehouse', true))
+    await waitFor(() => expect(result.current.fields).toHaveLength(1))
+    act(() => {
+      expect(result.current.applySuggestions(putAwaySuggestionsFixture(), sheet, true)).toBe(true)
+    })
+    expect(result.current.form.getValues('entries.0')).toMatchObject({
+      destinationSlotId: RECEIPT_SLOT,
+      quantity: 8,
+      scannedSlotCode: '',
+    })
+    act(() => {
+      result.current.form.setValue('entries.0.quantity', 3, { shouldDirty: true })
+    })
+    act(() => {
+      expect(result.current.applySuggestions(putAwaySuggestionsFixture(), sheet, true)).toBe(false)
+    })
+    expect(result.current.form.getValues('entries.0.quantity')).toBe(3)
+    act(() => {
+      expect(
+        result.current.applySuggestions(putAwaySuggestionsFixture(), {
+          ...sheet,
+          planVersion: 'old',
+        })
+      ).toBe(false)
+    })
+    expect(mock.putAway).not.toHaveBeenCalled()
+  })
+  it('changing a selected location clears scan and requires matching that location', async () => {
+    const { result } = await ready()
+    const other = '10000000-0000-4000-8000-000000000099'
+    act(() => result.current.changeSlot(0, { value: other, label: 'Kệ khác' }))
+    expect(result.current.form.getValues('entries.0.scannedSlotCode')).toBe('')
+    await act(async () => {
+      expect(await result.current.scanSlot(0, 'A-01')).toBe(false)
+    })
+    expect(result.current.form.getValues('entries.0.destinationSlotId')).toBe(other)
+    expect(result.current.form.getFieldState('entries.0.scannedSlotCode').error?.message).toContain(
+      'không khớp'
+    )
+  })
+  it('refuses suggestion responses from a different shipment even with matching version tokens', async () => {
+    const { result, sheet } = await ready()
+    const source = { ...sheet, receipt: { ...sheet.receipt, shipmentId: 'another-shipment' } }
+    act(() => {
+      expect(result.current.applySuggestions(putAwaySuggestionsFixture(), source)).toBe(false)
+    })
+    expect(result.current.form.getValues('entries.0.scannedSlotCode')).toBe('A-01')
+  })
+  it('manual suggestion apply clears scans, but never replaces an unknown write', async () => {
+    const { result, sheet } = await ready()
+    act(() => {
+      expect(result.current.applySuggestions(putAwaySuggestionsFixture(), sheet)).toBe(true)
+    })
+    expect(result.current.form.getValues('entries.0.scannedSlotCode')).toBe('')
+    act(() => result.current.form.setValue('entries.0.scannedSlotCode', 'A-01'))
+    mock.putAway.mockRejectedValue(new Error('Network Error'))
+    act(() => {
+      result.current.form.setValue('entries.0.deviationReasonCode', 'Other')
+      result.current.form.setValue('entries.0.note', 'Cất theo gợi ý khác')
+    })
+    await act(async () => {
+      await result.current.confirm()
+    })
+    expect(result.current.unknownResult).toBe(true)
+    act(() => {
+      expect(result.current.applySuggestions(putAwaySuggestionsFixture(), sheet)).toBe(false)
+    })
+    expect(result.current.form.getValues('entries.0.scannedSlotCode')).toBe('A-01')
+  })
   it('automatically adopts a new plan only when the form is untouched', async () => {
     const sheet = putAwayFixture()
     sheet.rows.forEach((row) => (row.planBudgets = []))
     const { result } = renderHook(() => useTransferPutAwayForm(sheet, 'warehouse', true))
-    await waitFor(() => expect(result.current.fields).toHaveLength(2))
+    await waitFor(() => expect(result.current.fields).toHaveLength(1))
     expect(result.current.form.getValues('entries.0.plannedSlotId')).toBe('')
     act(() => result.current.acceptFresh(putAwayFixture({ planVersion: 'new-plan' })))
     expect(result.current.form.getValues('entries.0.plannedSlotId')).toBe(RECEIPT_SLOT)
@@ -133,7 +227,7 @@ describe('Cất hàng an toàn', () => {
   it('preserves an edited or scanned draft until applying the new plan explicitly', async () => {
     const sheet = putAwayFixture()
     const { result } = renderHook(() => useTransferPutAwayForm(sheet, 'warehouse', true))
-    await waitFor(() => expect(result.current.fields).toHaveLength(3))
+    await waitFor(() => expect(result.current.fields).toHaveLength(2))
     act(() => {
       result.current.form.setValue('entries.0.quantity', 4, { shouldDirty: true })
       result.current.form.setValue('entries.0.scannedSlotCode', 'A-01', { shouldDirty: true })
@@ -153,11 +247,10 @@ describe('Cất hàng an toàn', () => {
     mock.putAway.mockRejectedValue(new Error('Network Error'))
     const sheet = putAwayFixture()
     const { result } = renderHook(() => useTransferPutAwayForm(sheet, 'warehouse', true))
-    await waitFor(() => expect(result.current.fields).toHaveLength(3))
+    await waitFor(() => expect(result.current.fields).toHaveLength(2))
     act(() => {
       result.current.form.setValue('entries.0.scannedSlotCode', 'A-01')
       result.current.form.setValue('entries.1.quantity', 0)
-      result.current.form.setValue('entries.2.quantity', 0)
     })
     await act(async () => {
       await result.current.confirm()
@@ -193,11 +286,10 @@ describe('Cất hàng an toàn', () => {
   async function ready() {
     const sheet = putAwayFixture()
     const hook = renderHook(() => useTransferPutAwayForm(sheet, 'warehouse', true))
-    await waitFor(() => expect(hook.result.current.fields).toHaveLength(3))
+    await waitFor(() => expect(hook.result.current.fields).toHaveLength(2))
     act(() => {
       hook.result.current.form.setValue('entries.0.scannedSlotCode', 'A-01', { shouldDirty: true })
       hook.result.current.form.setValue('entries.1.quantity', 0, { shouldDirty: true })
-      hook.result.current.form.setValue('entries.2.quantity', 0, { shouldDirty: true })
     })
     return { ...hook, sheet }
   }
@@ -285,7 +377,7 @@ describe('Cất hàng an toàn', () => {
         ),
       })
     )
-    expect(result.current.form.getValues('entries').map((row) => row.quantity)).toEqual([2, 2])
+    expect(result.current.form.getValues('entries').map((row) => row.quantity)).toEqual([2])
     expect(result.current.form.getValues('entries.0.scannedSlotCode')).toBe('')
   })
   it('clears an old scan when lookup fails and does not send a stale confirmation', async () => {

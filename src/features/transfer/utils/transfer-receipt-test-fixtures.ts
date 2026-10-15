@@ -3,10 +3,39 @@ import type {
   TransferPutAwaySheet,
   TransferPutAwaySheetRow,
 } from '../types/transfer-receipt.types'
+import type { TransferPutAwayPlanSuggestions } from '../types/transfer.types'
 
 export const RECEIPT_LINE = '10000000-0000-4000-8000-000000000001'
 export const RECEIPT_SLOT = '10000000-0000-4000-8000-000000000002'
 export const RECEIPT_LOT = '10000000-0000-4000-8000-000000000003'
+export function putAwaySuggestionsFixture(): TransferPutAwayPlanSuggestions {
+  return {
+    items: [
+      {
+        itemId: RECEIPT_LINE,
+        remaining: 8,
+        unallocatedQuantity: 0,
+        suggestions: [
+          {
+            slotId: RECEIPT_SLOT,
+            slotCode: 'A-01',
+            rackCode: 'A',
+            zoneName: 'A',
+            path: 'Khu A / Kệ A / A-01',
+            suggestedQuantity: 8,
+            available: 20,
+            reason: 'Theo quy tắc kho',
+            warnings: [],
+          },
+        ],
+      },
+    ],
+    isAiAssisted: false,
+    notice: null,
+    summary: null,
+    risks: [],
+  }
+}
 export function receiptFixture(
   overrides: Partial<TransferReceiptSheet> = {}
 ): TransferReceiptSheet {

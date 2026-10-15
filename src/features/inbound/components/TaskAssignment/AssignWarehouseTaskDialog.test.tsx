@@ -41,16 +41,19 @@ function Harness({
   task,
   staff,
   onUnassign,
+  title,
 }: {
   readonly task: AssignWarehouseTaskTarget
   readonly staff: readonly AssignableWarehouseStaff[]
   readonly onUnassign?: () => void
+  readonly title?: string
 }) {
   const form = useForm<AssignWarehouseTaskFormValues>({
     defaultValues: { staffId: '', priority: 'Normal', dueAt: '', reason: '' },
   })
   return (
     <AssignWarehouseTaskDialog
+      title={title}
       target={task}
       form={form}
       staff={staff}
@@ -67,6 +70,16 @@ function Harness({
 }
 
 describe('AssignWarehouseTaskDialog unassign', () => {
+  it('accepts a combined transfer title while leaving default inbound labels intact', () => {
+    render(
+      <Harness
+        title="Giao việc nhận và cất hàng"
+        task={target({ kind: 'TransferReceive' })}
+        staff={[person(CURRENT_ID, 'Nhân viên')]}
+      />
+    )
+    expect(screen.getByRole('heading', { name: 'Giao việc nhận và cất hàng' })).toBeInTheDocument()
+  })
   it('labels a first transfer assignment as an optional note, not reassignment', () => {
     render(
       <Harness

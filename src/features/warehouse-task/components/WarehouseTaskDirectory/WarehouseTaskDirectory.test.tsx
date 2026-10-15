@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ComponentProps } from 'react'
 import type { MyWarehouseTask } from '../../types/warehouse-task.types'
-import { WarehouseTaskDirectory } from './WarehouseTaskDirectory'
+import { getTaskRoute, WarehouseTaskDirectory } from './WarehouseTaskDirectory'
 
 const push = vi.fn()
 
@@ -97,5 +97,31 @@ describe('WarehouseTaskDirectory', () => {
 
     expect(onAction).toHaveBeenCalledWith(task, 'Start')
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it('disables task mutations without removing their controls while a request is pending', () => {
+    const onAction = vi.fn()
+    render(<WarehouseTaskDirectory {...props()} canManage isActionPending onAction={onAction} />)
+    for (const button of screen.getAllByRole('button', { name: /^(Bắt đầu|Trả lại)$/ })) {
+      expect(button).toBeDisabled()
+      fireEvent.click(button)
+    }
+    expect(onAction).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['TransferPick', 'pick'],
+    ['TransferReceive', 'receive'],
+    ['TransferPutAway', 'putaway'],
+  ] as const)('opens %s at its own staff work screen', (taskType, stage) => {
+    const transferTask = {
+      ...task,
+      taskType,
+      transferId: 'transfer',
+      transferShipmentId: 'shipment',
+    }
+    expect(getTaskRoute(transferTask)).toBe(`/tasks/transfers/transfer/shipments/shipment/${stage}`)
+    expect(getTaskRoute({ ...transferTask, transferShipmentId: null })).toBe('/transfers/transfer')
+    expect(getTaskRoute({ ...transferTask, transferId: null })).toBe('/transfers')
   })
 })

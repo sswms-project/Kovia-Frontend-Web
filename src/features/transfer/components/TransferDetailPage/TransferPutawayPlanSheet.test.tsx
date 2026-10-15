@@ -30,6 +30,7 @@ function setup({ canManage = true, isDirty = false } = {}) {
     close: vi.fn(),
     change: vi.fn(),
     apply: vi.fn(),
+    seedSuggestions: vi.fn(),
     rebase: vi.fn(),
     submit: vi.fn().mockResolvedValue(true),
   }

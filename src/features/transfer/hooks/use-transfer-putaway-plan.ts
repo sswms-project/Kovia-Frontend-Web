@@ -22,6 +22,30 @@ export function useTransferPutAwayPlanSuggestionsQuery(transferId: string, shipm
   })
 }
 
+/** Tự điền theo quy tắc kho, tuyệt đối không gọi AI khi mở trang. Cache theo phiên bản phiếu. */
+export function useTransferPutAwayRulesQuery(
+  transferId: string,
+  shipmentId: string | undefined,
+  version: string,
+  enabled: boolean
+) {
+  return useQuery({
+    queryKey: [
+      ...queryKeys.transfers.putAwayPlanSuggestions(transferId, shipmentId),
+      'rules',
+      version,
+    ],
+    queryFn: () =>
+      transferService
+        .getPutAwayPlanSuggestions(transferId, shipmentId, false)
+        .then((response) => response.data),
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
 export function useSetTransferPutAwayPlanMutation() {
   const queryClient = useQueryClient()
   return useMutation({

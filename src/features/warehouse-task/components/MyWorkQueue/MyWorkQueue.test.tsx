@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MyWarehouseTask } from '../../types/warehouse-task.types'
 import { MyWorkQueue } from './MyWorkQueue'
 
@@ -91,6 +91,37 @@ describe('MyWorkQueue', () => {
     expect(screen.queryByText('DA-XONG')).not.toBeInTheDocument()
     expect(screen.getByText('Quá hạn')).toBeInTheDocument()
     expect(screen.getByText('Khẩn')).toBeInTheDocument()
-    expect(screen.getByText('Còn 2 việc khác trong danh sách bên dưới.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Còn 2 việc khác phù hợp với bộ lọc. Xem danh sách bên dưới.')
+    ).toBeInTheDocument()
+  })
+
+  it('uses the server total instead of the fetched page length', () => {
+    render(<MyWorkQueue tasks={[buildTask({})]} totalCount={61} isLoading={false} />)
+    expect(screen.getByText('61')).toBeInTheDocument()
+    expect(
+      screen.getByText('Còn 60 việc khác phù hợp với bộ lọc. Xem danh sách bên dưới.')
+    ).toBeInTheDocument()
+  })
+
+  it('distinguishes an empty filter result from an error and supports retry', () => {
+    const onRetry = vi.fn()
+    const view = render(<MyWorkQueue tasks={[]} isLoading={false} hasFilters />)
+    expect(screen.getByText('Không có công việc được giao phù hợp với bộ lọc.')).toBeInTheDocument()
+    view.rerender(<MyWorkQueue tasks={[]} isLoading={false} isError onRetry={onRetry} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Không thể tải công việc được giao.')
+    expect(screen.queryByText('Chưa có việc nào được giao cho bạn.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  it('hides stale results while a changed filter is fetching', () => {
+    render(<MyWorkQueue tasks={[buildTask({})]} totalCount={61} isLoading />)
+    expect(screen.getByRole('region', { name: 'Việc mới được giao' })).toHaveAttribute(
+      'aria-busy',
+      'true'
+    )
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.queryByText('61')).not.toBeInTheDocument()
   })
 })

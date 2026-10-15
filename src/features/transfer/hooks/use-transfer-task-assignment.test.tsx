@@ -79,12 +79,45 @@ async function openBoth() {
   const hook = renderHook(() => useTransferTaskAssignment(transfer), { wrapper })
   act(() => {
     hook.result.current.open(shipment, 'receive')
-    hook.result.current.setAlsoPutAway(true)
     hook.result.current.form.setValue('staffId', RECEIPT_LINE)
   })
   return hook
 }
 describe('Giao hai việc độc lập', () => {
+  it('defaults the shared destination assignment to both tasks', async () => {
+    const { result } = await openBoth()
+    expect(result.current.alsoPutAway).toBe(true)
+    expect(result.current.destinationAssignmentScope).toBe('both')
+    await act(async () => {
+      result.current.onSubmit()
+    })
+    await waitFor(() => expect(result.current.target).toBeNull())
+    expect(mock.assign.mock.calls.map((call) => call[0])).toEqual(['receive-task', 'putaway-task'])
+  })
+
+  it('can assign only put-away through the same dialog without changing the receiving worker', async () => {
+    const { result } = await openBoth()
+    act(() => {
+      result.current.selectDestinationScope('putaway')
+      result.current.form.setValue('staffId', RECEIPT_LINE)
+    })
+    expect(result.current.destinationAssignmentScope).toBe('putaway')
+    expect(result.current.canChooseDestinationScope).toBe(true)
+    await act(async () => {
+      result.current.onSubmit()
+    })
+    await waitFor(() => expect(result.current.target).toBeNull())
+    expect(mock.assign.mock.calls.map((call) => call[0])).toEqual(['putaway-task'])
+  })
+
+  it('does not include a put-away task that has not been created or is already completed', () => {
+    const { result } = renderHook(() => useTransferTaskAssignment(transfer), { wrapper })
+    act(() => result.current.open({ ...shipment, putAwayTaskId: null }, 'receive'))
+    expect(result.current.alsoPutAway).toBe(false)
+    act(() => result.current.open({ ...shipment, putAwayTaskStatus: 'Completed' }, 'receive'))
+    expect(result.current.alsoPutAway).toBe(false)
+  })
+
   it('reports each task and retries only the failed one', async () => {
     mock.assign
       .mockResolvedValueOnce({})

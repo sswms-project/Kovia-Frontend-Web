@@ -74,6 +74,14 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
   } | null>(null)
   const shipment = transfer?.shipments?.find((row) => row.id === selected?.shipmentId)
   const task = shipment && selected ? transferAssignmentTask(shipment, selected.kind) : null
+  const canChooseDestinationScope =
+    selected?.kind !== 'pick' &&
+    Boolean(shipment?.receiveTaskId && shipment?.putAwayTaskId) &&
+    (shipment?.status === 'InTransit' || shipment?.status === 'Receiving') &&
+    shipment.receiveTaskStatus !== 'Completed' &&
+    shipment.receiveTaskStatus !== 'Cancelled' &&
+    shipment.putAwayTaskStatus !== 'Completed' &&
+    shipment.putAwayTaskStatus !== 'Cancelled'
   const form = useForm<AssignWarehouseTaskFormValues>({
     defaultValues: { staffId: '', priority: 'Normal', dueAt: '', reason: '' },
     resolver: (values, context, options) =>
@@ -262,12 +270,44 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
       setWorking(false)
     }
   }
+  function open(next: TransferShipment, kind: TransferTaskKind, assignBoth?: boolean) {
+    if (lock.current) return
+    const entry = transferAssignmentTask(next, kind)
+    form.reset({
+      staffId: entry.assignee ?? '',
+      priority: entry.priority,
+      dueAt: toTransferLocalDate(entry.due),
+      reason: '',
+    })
+    attempt.current = null
+    setResults({})
+    setNeedsVerify(false)
+    setAlsoPutAway(
+      assignBoth ??
+        (kind === 'receive' &&
+          Boolean(next.putAwayTaskId) &&
+          next.putAwayTaskStatus !== 'Completed' &&
+          next.putAwayTaskStatus !== 'Cancelled')
+    )
+    setSelected({ shipmentId: next.id, kind })
+  }
   return {
     target,
     form,
     results,
     alsoPutAway,
-    setAlsoPutAway,
+    canChooseDestinationScope,
+    destinationAssignmentScope: alsoPutAway ? 'both' : selected?.kind,
+    destinationAssignees: {
+      receive:
+        shipment?.receiveAssigneeName ?? (shipment?.receiveAssigneeId ? 'Nhân viên' : 'Chưa giao'),
+      putaway:
+        shipment?.putAwayAssigneeName ?? (shipment?.putAwayAssigneeId ? 'Nhân viên' : 'Chưa giao'),
+    },
+    selectDestinationScope: (scope: 'both' | 'receive' | 'putaway') => {
+      if (!canChooseDestinationScope || !shipment || attempt.current) return
+      open(shipment, scope === 'putaway' ? 'putaway' : 'receive', scope === 'both')
+    },
     needsVerify,
     verify,
     isPending: working || mutation.isPending || verifying,
@@ -281,26 +321,7 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
       void staff.refetch()
       if (alsoPutAway) void putStaff.refetch()
     },
-    canAlsoPutAway:
-      selected?.kind === 'receive' &&
-      Boolean(shipment?.putAwayTaskId) &&
-      shipment?.putAwayTaskStatus !== 'Completed' &&
-      shipment?.putAwayTaskStatus !== 'Cancelled',
-    open: (next: TransferShipment, kind: TransferTaskKind) => {
-      if (lock.current) return
-      const entry = transferAssignmentTask(next, kind)
-      form.reset({
-        staffId: entry.assignee ?? '',
-        priority: entry.priority,
-        dueAt: toTransferLocalDate(entry.due),
-        reason: '',
-      })
-      attempt.current = null
-      setResults({})
-      setNeedsVerify(false)
-      setAlsoPutAway(false)
-      setSelected({ shipmentId: next.id, kind })
-    },
+    open,
     onOpenChange: (open: boolean) => {
       if (!open && !lock.current) {
         setSelected(null)
