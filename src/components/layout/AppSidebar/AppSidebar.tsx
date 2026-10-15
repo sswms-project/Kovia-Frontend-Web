@@ -24,6 +24,8 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { isMobile, setOpenMobile, open, setOpen } = useSidebar()
   const [, setStoredOpen] = useLocalStorage('sidebar_state', true)
+  const reportEntryRef = useRef<string | null>(null)
+  const isReportDetail = /^\/reports\/(?!forecast(?:\/|$))[^/]+$/.test(pathname)
   const hoverOpenRef = useRef(false)
   const initializedRef = useRef(false)
   const skipInitialPersistRef = useRef(true)
@@ -49,6 +51,18 @@ export function AppSidebar() {
   }, [open, setStoredOpen])
 
   useEffect(() => {
+    if (!isReportDetail) {
+      reportEntryRef.current = null
+      return
+    }
+    if (reportEntryRef.current === pathname) return
+    reportEntryRef.current = pathname
+    hoverOpenRef.current = false
+    setOpen(false)
+    setOpenMobile(false)
+  }, [isReportDetail, pathname, setOpen, setOpenMobile])
+
+  useEffect(() => {
     if (!meQuery.isError) return
 
     logger.error(meQuery.error)
@@ -56,7 +70,7 @@ export function AppSidebar() {
   }, [meQuery.error, meQuery.isError])
 
   const handleMouseEnter = () => {
-    if (!open && !isMobile) {
+    if (!open && !isMobile && !isReportDetail) {
       hoverOpenRef.current = true
       setOpen(true)
     }
