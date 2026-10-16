@@ -113,8 +113,8 @@ export function AssignWarehouseTaskDialog({
             <Field data-invalid={Boolean(errors.staffId)}>
               <FieldLabel>Nhân viên kho nhận việc</FieldLabel>
               <FieldDescription>
-                Chỉ hiển thị nhân viên đang hoạt động, thuộc kho và đủ quyền nhận việc. Người ít
-                việc đang mở được xếp trước.
+                Chỉ hiển thị nhân viên đang hoạt động, thuộc kho và đủ quyền nhận việc. Người có
+                điểm tải thấp (ít việc còn phải làm) được xếp trước.
               </FieldDescription>
               {isLoadingStaff ? (
                 <div className="flex flex-col gap-2">
@@ -316,14 +316,31 @@ function StaffOption({
       <span className="flex shrink-0 flex-col items-end gap-1 text-xs">
         {isCurrent ? (
           <Badge variant="secondary">Đang được giao</Badge>
+        ) : person.isRecommended ? (
+          <Badge>Đề xuất</Badge>
         ) : person.hasTaskInProgress ? (
           <Badge variant="outline">Đang làm việc khác</Badge>
         ) : null}
-        <span className="text-muted-foreground tabular-nums">
-          {person.openReceivingTasks} nhận · {person.openPutAwayTasks} cất
-          {person.openPickingTasks !== undefined ? ` · ${person.openPickingTasks} lấy` : ''}
-        </span>
+        {person.workloadScore !== undefined ? (
+          <span className="font-medium tabular-nums">
+            Điểm tải {person.workloadScore.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}
+          </span>
+        ) : null}
+        <span className="text-muted-foreground tabular-nums">{describeOpenTasks(person)}</span>
       </span>
     </label>
   )
+}
+
+function describeOpenTasks(person: AssignableWarehouseStaff) {
+  const parts = [`${person.openReceivingTasks} nhận`, `${person.openPutAwayTasks} cất`]
+  const optionalCounts = [
+    [person.openPickingTasks, 'lấy'],
+    [person.openWarehouseTasks, 'việc kho'],
+    [person.openCycleCounts, 'kiểm kê'],
+  ] as const
+  for (const [count, label] of optionalCounts) {
+    if (count) parts.push(`${count} ${label}`)
+  }
+  return parts.join(' · ')
 }

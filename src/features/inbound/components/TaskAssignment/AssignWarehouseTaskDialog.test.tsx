@@ -158,3 +158,27 @@ describe('AssignWarehouseTaskDialog unassign', () => {
     expect(screen.queryByRole('button', { name: /Hủy giao việc/ })).not.toBeInTheDocument()
   })
 })
+
+describe('AssignWarehouseTaskDialog workload', () => {
+  it('shows the workload score, every open task kind and the recommended badge', () => {
+    render(
+      <Harness
+        task={target({ currentAssigneeId: null, currentAssigneeName: null })}
+        staff={[
+          {
+            ...person('staff-2', 'Nhân viên B'),
+            openReceivingTasks: 1,
+            openWarehouseTasks: 2,
+            openCycleCounts: 1,
+            workloadScore: 12.5,
+            isRecommended: true,
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByText('Đề xuất')).toBeInTheDocument()
+    expect(screen.getByText('Điểm tải 12,5')).toBeInTheDocument()
+    expect(screen.getByText('1 nhận · 0 cất · 2 việc kho · 1 kiểm kê')).toBeInTheDocument()
+  })
+})

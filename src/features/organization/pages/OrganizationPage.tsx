@@ -6,10 +6,13 @@ import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { P } from '@/config/permissionCodes'
+import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import type { ApiErrorResponse } from '@/types/api'
 import {
   OrganizationProfileForm,
   OrganizationProfileView,
+  TaskAssignmentScoringSection,
   type OrganizationFormSubmitContext,
 } from '../components/OrganizationPage'
 import { useOrganizationQuery, useUpdateOrganizationMutation } from '../hooks/use-organization'
@@ -76,6 +79,8 @@ export function OrganizationPage() {
   const [isEditing, setIsEditing] = useState(false)
   const organizationQuery = useOrganizationQuery()
   const updateMutation = useUpdateOrganizationMutation()
+  const me = useMeQuery()
+  const canUpdateOrganization = me.data?.permissions.includes(P.ORGANIZATION_UPDATE) ?? false
 
   async function handleSubmit(
     values: OrganizationFormValues,
@@ -170,6 +175,8 @@ export function OrganizationPage() {
             onEdit={() => setIsEditing(true)}
           />
         ))}
+
+      <TaskAssignmentScoringSection canUpdate={canUpdateOrganization} />
     </div>
   )
 }

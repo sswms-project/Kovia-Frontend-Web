@@ -65,6 +65,7 @@ export const API_ENDPOINTS = {
   },
   organization: {
     me: '/organization',
+    taskAssignmentScoring: '/organization/task-assignment-scoring',
   },
   myWarehouseTasks: {
     current: '/my-warehouse-tasks',
