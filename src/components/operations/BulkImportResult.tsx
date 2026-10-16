@@ -31,6 +31,8 @@ interface BulkImportResultProps {
   readonly onRestart: () => void
   readonly onExport?: () => void
   readonly children?: ReactNode
+  readonly title?: string
+  readonly summary?: ReactNode
 }
 
 export function BulkImportResult({
@@ -42,6 +44,8 @@ export function BulkImportResult({
   onRestart,
   onExport,
   children,
+  title,
+  summary,
 }: BulkImportResultProps) {
   const importedCount = items.filter((item) => item.isImported).length
   const skippedCount = items.length - importedCount
@@ -68,12 +72,16 @@ export function BulkImportResult({
       <CardHeader className="shrink-0">
         <CardTitle className="flex items-center gap-2">
           <FileSpreadsheet className="text-primary" aria-hidden="true" />
-          Đã hoàn tất nhập {entityLabel}
+          {title ?? `Đã hoàn tất nhập ${entityLabel}`}
         </CardTitle>
       </CardHeader>
       <CardContent className={cn('flex min-w-0 flex-col gap-4', children && 'min-h-0 flex-1')}>
         <p className="text-sm" role="status">
-          Đã nhập <strong>{importedCount}</strong> {entityLabel}; bỏ qua {skippedCount} dòng.
+          {summary ?? (
+            <>
+              Đã nhập <strong>{importedCount}</strong> {entityLabel}; bỏ qua {skippedCount} dòng.
+            </>
+          )}
         </p>
         {children ?? (
           <div className="max-h-96 overflow-auto border">

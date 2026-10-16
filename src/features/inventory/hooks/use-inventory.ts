@@ -205,6 +205,7 @@ export function useCreateOpeningStockMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<string>, ApiErrorResponse, CreateOpeningStockRequest>({
     mutationFn: inventoryService.createOpeningStock,
+    retry: false,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
     onError: (error) => logger.error(error),
   })
@@ -214,6 +215,7 @@ export function useUpdateOpeningStockMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, UpdateOpeningStockRequest>({
     mutationFn: inventoryService.updateOpeningStock,
+    retry: false,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
     onError: (error) => logger.error(error),
   })
@@ -230,6 +232,8 @@ export function useOpeningStockActionMutation() {
         id: string
         expectedVersion: string
         selfApprovalAcknowledged?: boolean
+        formVersion?: 1
+        commandId?: string
       }
     | { action: 'withdraw'; id: string; expectedVersion: string; reason: string }
     | { action: 'cancel'; id: string; expectedVersion: string; reason: string }
@@ -242,6 +246,7 @@ export function useOpeningStockActionMutation() {
         selfApprovalAcknowledged?: boolean
       }
   >({
+    retry: false,
     mutationFn: (request) => {
       if (request.action === 'submit')
         return inventoryService.submitOpeningStock(request.id, request.expectedVersion)
@@ -249,7 +254,9 @@ export function useOpeningStockActionMutation() {
         return inventoryService.approveOpeningStock(
           request.id,
           request.expectedVersion,
-          request.selfApprovalAcknowledged
+          request.selfApprovalAcknowledged,
+          request.formVersion,
+          request.commandId
         )
       if (request.action === 'withdraw')
         return inventoryService.withdrawOpeningStock(

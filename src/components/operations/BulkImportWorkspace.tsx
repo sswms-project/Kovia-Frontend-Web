@@ -33,6 +33,7 @@ interface BulkImportWorkspaceProps {
   readonly activity: BulkImportActivity
   readonly children: ReactNode
   readonly className?: string
+  readonly activityLabel?: string
 }
 
 export function BulkImportWorkspace({
@@ -41,6 +42,7 @@ export function BulkImportWorkspace({
   activity,
   children,
   className,
+  activityLabel,
 }: BulkImportWorkspaceProps) {
   return (
     <div
@@ -88,7 +90,7 @@ export function BulkImportWorkspace({
         ) : null}
         {activity === 'idle'
           ? `Bước ${step + 1}: ${BULK_IMPORT_STEPS[step]}`
-          : BULK_IMPORT_ACTIVITY_LABELS[activity]}
+          : (activityLabel ?? BULK_IMPORT_ACTIVITY_LABELS[activity])}
       </p>
       {children}
     </div>
@@ -98,15 +100,20 @@ export function BulkImportWorkspace({
 interface BulkImportSummaryProps {
   readonly total: number
   readonly valid: number
+  readonly invalidLabel?: string
 }
 
-export function BulkImportSummary({ total, valid }: BulkImportSummaryProps) {
+export function BulkImportSummary({
+  total,
+  valid,
+  invalidLabel = 'Không hợp lệ',
+}: BulkImportSummaryProps) {
   return (
     <section aria-label="Tổng quan bản xem trước" className="grid shrink-0 grid-cols-3 gap-2">
       {[
         { label: 'Tổng số dòng', value: total, tone: '' },
         { label: 'Hợp lệ', value: valid, tone: 'text-primary' },
-        { label: 'Không hợp lệ', value: total - valid, tone: 'text-destructive' },
+        { label: invalidLabel, value: total - valid, tone: 'text-destructive' },
       ].map(({ label, value, tone }) => (
         <Card key={label} className="border-border min-w-0 gap-0 border py-0 ring-0">
           <CardContent className="flex min-h-14 items-center justify-between gap-2 px-3 py-2">

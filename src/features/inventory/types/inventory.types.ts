@@ -347,6 +347,11 @@ export interface OpeningStockLine {
   enteredQuantity: number
   conversionFactorSnapshot: number
   baseQuantity: number
+  lotNumberSnapshot?: string | null
+  manufacturedDateSnapshot?: string | null
+  expiryDateSnapshot?: string | null
+  sourceSheetName?: string | null
+  sourceRowNumber?: number | null
 }
 
 export interface InventoryEvidence {
@@ -379,6 +384,9 @@ export interface OpeningStockRecord {
   createdAt: string
   version: string | null
   lines: OpeningStockLine[]
+  effectiveDate?: string | null
+  isLegacyDate?: boolean
+  requiresV1Client?: boolean
 }
 
 export interface OpeningStockQuery {
@@ -388,6 +396,10 @@ export interface OpeningStockQuery {
   status?: OpeningStockStatus
   dateFrom?: string
   dateTo?: string
+  search?: string
+  effectiveDateFrom?: string
+  effectiveDateTo?: string
+  id?: string
 }
 
 export interface OpeningStockListResponse {
@@ -402,13 +414,18 @@ export interface CreateOpeningStockRequest {
   warehouseId: string
   evidenceIds: string[]
   commandId: string
+  effectiveDate?: string
+  formVersion?: 1
+  acknowledgePendingLots?: boolean
   lines: Array<{
+    id?: string
     productId: string
     slotId: string
     quantity: number
     enteredUnitId: string
     conversionFactor: number
     lotId?: string
+    newLot?: { lotNumber: string; manufacturedDate: string | null; expiryDate: string | null }
     qualityStatus: QualityStatus
     eligibilityStatus: InventoryEligibilityStatus
   }>
@@ -417,6 +434,9 @@ export interface CreateOpeningStockRequest {
 export interface UpdateOpeningStockRequest {
   id: string
   expectedVersion: string
+  effectiveDate?: string
+  formVersion?: 1
+  acknowledgePendingLots?: boolean
   lines: CreateOpeningStockRequest['lines']
 }
 

@@ -65,6 +65,7 @@ export const APP_ROUTES = {
   inventoryReservations: '/inventory/reservations',
   inventoryDamageCases: '/inventory/damage-cases',
   inventoryOpeningStocks: '/inventory/opening-stocks',
+  inventoryOpeningStockImport: '/inventory/opening-stocks/import',
   inventoryAbcClassification: '/inventory/abc-classification',
   inventoryDiscrepancies: '/inventory/discrepancies',
   inventoryForecast: '/inventory/forecast', // Legacy URL redirects to reports/forecast.
