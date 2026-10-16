@@ -55,6 +55,11 @@ export function TransferGeneralSection({
   onSelectInternalRelocation,
 }: TransferGeneralSectionProps) {
   const errors = form.formState.errors
+  /** Lỗi thứ tự ngày gắn ở ô "ngày về"; đổi một trong hai ngày phải kiểm lại cả hai để lỗi hiện ngay. */
+  const setPlannedDate = (name: 'plannedTransferDate' | 'requiredBy', value: string) => {
+    form.setValue(name, value, { shouldDirty: true })
+    void form.trigger(['plannedTransferDate', 'requiredBy'])
+  }
   const destinationWarehouseId = form.watch('destinationWarehouseId')
   const sourceWarehouseId = form.watch('sourceWarehouseId')
   const destinationAddress =
@@ -133,7 +138,7 @@ export function TransferGeneralSection({
           </datalist>
           <FieldError>{errors.requesterName?.message}</FieldError>
         </Field>
-        <Field data-invalid={Boolean(errors.requestingDepartment)}>
+        <Field className="md:col-span-2" data-invalid={Boolean(errors.requestingDepartment)}>
           <FieldLabel htmlFor="transfer-department">Bộ phận yêu cầu</FieldLabel>
           <Input
             id="transfer-department"
@@ -144,29 +149,26 @@ export function TransferGeneralSection({
           />
           <FieldError>{errors.requestingDepartment?.message}</FieldError>
         </Field>
-        <Controller
-          control={form.control}
-          name="plannedTransferDate"
-          render={({ field }) => (
-            <DatePickerField
-              id="transfer-planned-date"
-              label="Ngày dự kiến điều chuyển"
-              withTime
-              disablePastDates={mode !== 'edit'}
-              triggerRef={field.ref}
-              onBlur={field.onBlur}
-              value={field.value ?? ''}
-              error={errors.plannedTransferDate?.message}
-              onChange={(value) =>
-                form.setValue('plannedTransferDate', value, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                })
-              }
-            />
-          )}
-        />
-        <div className="flex min-w-0 flex-col gap-2">
+        <div className="min-w-0 xl:col-span-2">
+          <Controller
+            control={form.control}
+            name="plannedTransferDate"
+            render={({ field }) => (
+              <DatePickerField
+                id="transfer-planned-date"
+                label="Ngày dự kiến điều chuyển"
+                withTime
+                disablePastDates={mode !== 'edit'}
+                triggerRef={field.ref}
+                onBlur={field.onBlur}
+                value={field.value ?? ''}
+                error={errors.plannedTransferDate?.message}
+                onChange={(value) => setPlannedDate('plannedTransferDate', value)}
+              />
+            )}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-2 xl:col-span-2">
           <Controller
             control={form.control}
             name="requiredBy"
@@ -180,9 +182,7 @@ export function TransferGeneralSection({
                 onBlur={field.onBlur}
                 value={field.value}
                 error={errors.requiredBy?.message}
-                onChange={(value) =>
-                  form.setValue('requiredBy', value, { shouldDirty: true, shouldValidate: true })
-                }
+                onChange={(value) => setPlannedDate('requiredBy', value)}
               />
             )}
           />

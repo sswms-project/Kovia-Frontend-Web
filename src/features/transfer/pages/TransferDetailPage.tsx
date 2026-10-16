@@ -52,8 +52,8 @@ import { useTransferViewer } from '../hooks/use-transfer-viewer'
 import { useTransferQuery } from '../hooks/use-transfers'
 import { useTransferStartReceiving } from '../hooks/use-transfer-start-receiving'
 import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import {
   getShipmentCapabilities,
   getTransferCapabilities,
@@ -145,12 +145,12 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
       label: `Phiếu nhập điều chuyển (${shipments.filter((shipment) => shipment.status === 'InTransit' || shipment.status === 'Receiving').length})`,
     },
     {
-      value: 'discrepancies',
-      label: `Chênh lệch / Phản hồi (${discrepancies.filter((item) => item.isOpen).length + feedbacks.filter((item) => item.status === 'Open').length})`,
-    },
-    {
       value: 'putaway',
       label: `Chờ cất hàng (${shipments.filter((shipment) => shipment.status === 'AwaitingPutAway').length})`,
+    },
+    {
+      value: 'discrepancies',
+      label: `Chênh lệch / Phản hồi (${discrepancies.filter((item) => item.isOpen).length + feedbacks.filter((item) => item.status === 'Open').length})`,
     },
     { value: 'history', label: 'Lịch sử' },
   ]
@@ -288,12 +288,12 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               const next = tabs.find((candidate) => candidate.value === value)
               if (next) setTab(next.value)
             }}
-            className={cn('gap-2', tab === 'goods' ? 'min-h-0 flex-1' : 'flex-none')}
+            className={cn('w-full min-w-0 gap-2', tab === 'goods' ? 'min-h-0 flex-1' : 'flex-none')}
           >
             <TabsList
               variant="workspace"
               aria-label="Nội dung phiếu điều chuyển"
-              className="flex-wrap"
+              className="h-auto w-full min-w-0 shrink-0 flex-wrap justify-start"
             >
               {tabs.map((candidate) => (
                 <TabsTrigger
@@ -301,7 +301,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                   value={candidate.value}
                   id={tabIds.tabId(candidate.value)}
                   aria-controls={tabIds.panelId}
-                  className="flex-none px-3 py-1.5"
+                  className="h-auto min-h-11 flex-none px-3 py-1.5"
                 >
                   {candidate.label}
                 </TabsTrigger>
@@ -313,7 +313,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               // không bị nhốt trong một khung cố định nên vẫn xem được trên màn nhỏ và điện thoại.
               className={
                 tab === 'goods'
-                  ? undefined
+                  ? 'min-h-64'
                   : 'flex-none overflow-visible [&>[data-slot=operational-list-body]]:flex-none [&>[data-slot=operational-list-body]]:overflow-visible'
               }
             >
@@ -490,6 +490,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onSubmit={(values) => void requestActions.cancelShipment.submit(values)}
       />
       <AssignWarehouseTaskDialog
+        title={resolutionActions.assign.alsoPutAway ? 'Giao việc nhận và cất hàng' : undefined}
         target={resolutionActions.assign.target}
         form={resolutionActions.assign.form}
         staff={resolutionActions.assign.staff}
@@ -503,23 +504,42 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onOpenChange={resolutionActions.assign.onOpenChange}
         onSubmit={resolutionActions.assign.onSubmit}
       >
-        {resolutionActions.assign.canAlsoPutAway ? (
-          <Field orientation="horizontal">
-            <Checkbox
-              id="assign-both"
-              checked={resolutionActions.assign.alsoPutAway}
+        {resolutionActions.assign.canChooseDestinationScope ? (
+          <Field>
+            <FieldLabel htmlFor="assign-destination-scope">Giao cho nhân viên này</FieldLabel>
+            <NativeSelect
+              id="assign-destination-scope"
+              value={resolutionActions.assign.destinationAssignmentScope}
               disabled={
                 resolutionActions.assign.isPending ||
                 Object.keys(resolutionActions.assign.results).length > 0
               }
-              onCheckedChange={(value) => resolutionActions.assign.setAlsoPutAway(value === true)}
-            />
-            <FieldLabel htmlFor="assign-both">Giao cùng người kiểm hàng và cất hàng</FieldLabel>
+              onChange={(event) => {
+                const scope = event.target.value
+                if (scope === 'both' || scope === 'receive' || scope === 'putaway')
+                  resolutionActions.assign.selectDestinationScope(scope)
+              }}
+            >
+              <NativeSelectOption value="both">
+                Kiểm nhận và cất hàng — cùng một người
+              </NativeSelectOption>
+              <NativeSelectOption value="receive">Chỉ kiểm nhận</NativeSelectOption>
+              <NativeSelectOption value="putaway">Chỉ cất hàng</NativeSelectOption>
+            </NativeSelect>
+            <FieldDescription>
+              Đang giao kiểm nhận: {resolutionActions.assign.destinationAssignees.receive} · Cất
+              hàng: {resolutionActions.assign.destinationAssignees.putaway}. Chọn riêng từng phần
+              nếu cần giao cho hai người khác nhau.
+            </FieldDescription>
           </Field>
+        ) : resolutionActions.assign.target?.kind === 'TransferReceive' ? (
+          <p className="text-muted-foreground text-xs">
+            Giao người kiểm nhận trước. Công việc cất được tạo khi bắt đầu nhận hàng.
+          </p>
         ) : null}
         {Object.entries(resolutionActions.assign.results).map(([kind, message]) => (
           <p key={kind} role="status" className="text-sm">
-            {kind === 'receive' ? 'Nhận hàng' : kind === 'putaway' ? 'Cất hàng' : 'Lấy hàng'}:{' '}
+            {kind === 'receive' ? 'Kiểm nhận' : kind === 'putaway' ? 'Cất hàng' : 'Lấy hàng'}:{' '}
             {message}
           </p>
         ))}

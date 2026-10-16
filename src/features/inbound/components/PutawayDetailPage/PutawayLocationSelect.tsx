@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, MapPinned } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,6 +24,7 @@ interface PutawayLocationSelectProps {
   /** Bảng nhiều dòng: sức chứa hiện ngay trong ô chọn thay vì thêm một hàng chữ bên dưới. */
   readonly compact?: boolean
   readonly onChange: (slotId: string) => void
+  readonly onOpenMap?: () => void
 }
 
 function locationLabel(slot: SlotOption) {
@@ -42,6 +43,7 @@ export function PutawayLocationSelect({
   disabled,
   compact = false,
   onChange,
+  onOpenMap,
 }: PutawayLocationSelectProps) {
   const [open, setOpen] = useState(false)
   const selected = slots.find((slot) => slot.id === value)
@@ -153,6 +155,21 @@ export function PutawayLocationSelect({
               ))}
             </CommandList>
           </Command>
+          {onOpenMap ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-start border-t"
+              disabled={disabled}
+              onClick={() => {
+                setOpen(false)
+                onOpenMap()
+              }}
+            >
+              <MapPinned aria-hidden="true" />
+              Chọn trên sơ đồ kho
+            </Button>
+          ) : null}
         </PopoverContent>
       </Popover>
       {selected ? (

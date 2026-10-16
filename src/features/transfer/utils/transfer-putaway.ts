@@ -1,6 +1,7 @@
 import type { TransferPutAwaySheet, TransferPutAwaySheetRow } from '../types/transfer-receipt.types'
 import type { TransferPutAwayEntryValues } from '../schemas/transfer-putaway.schema'
 import type { ReceiptPlanState } from './transfer-receive-plan'
+import type { TransferPutAwayPlanSuggestions } from '../types/transfer.types'
 
 export function putAwayRowKey(row: {
   lineId: string
@@ -35,22 +36,53 @@ function entryFor(
 
 /** Một ngân sách dùng chung qua các lô; không lặp lại ngân sách của từng row trong response. */
 export function buildTransferPutAwayEntries(
-  sheet: TransferPutAwaySheet
+  sheet: TransferPutAwaySheet,
+  suggestions?: TransferPutAwayPlanSuggestions,
+  preferPlan = true
 ): TransferPutAwayEntryValues[] {
   const budgets = new Map<string, number>()
+  const proposals = new Map(
+    suggestions?.items.map((item) => [
+      item.itemId,
+      item.suggestions.map((slot) => ({
+        ...slot,
+        left: Math.max(0, Math.round(slot.suggestedQuantity * 100)),
+      })),
+    ]) ?? []
+  )
   const entries: TransferPutAwayEntryValues[] = []
   for (const row of sheet.rows) {
+    if (row.qualityStatus !== 'Good') continue
     let remaining = Math.round(row.remainingQuantity * 100)
     if (remaining <= 0) continue
-    if (row.qualityStatus === 'Good')
+    if (preferPlan)
       for (const budget of row.planBudgets) {
         const key = `${row.itemId}|${budget.slotId}`
         const available = budgets.get(key) ?? Math.round(budget.remainingBudget * 100)
-        const allocated = Math.min(remaining, Math.max(0, available))
+        const proposal = proposals.get(row.itemId)?.find((slot) => slot.slotId === budget.slotId)
+        // Khi có gợi ý mới, chỉ giữ lượng kế hoạch BE đã đối chiếu trong sức chứa chung.
+        const validated = suggestions ? (proposal?.left ?? 0) : remaining
+        const allocated = Math.min(remaining, Math.max(0, available), validated)
         budgets.set(key, available - allocated)
         if (allocated > 0) entries.push(entryFor(row, allocated / 100, budget.slotId, budget.path))
+        if (proposal) proposal.left = Math.max(0, proposal.left - allocated)
         remaining -= allocated
       }
+    for (const slot of proposals.get(row.itemId) ?? []) {
+      const allocated = Math.min(remaining, slot.left)
+      if (allocated <= 0) continue
+      const entry = entryFor(row, allocated / 100)
+      entry.destinationSlotId = slot.slotId
+      entry.slotLabel = slot.path
+      const saved = row.planBudgets.find((budget) => budget.slotId === slot.slotId)
+      if (saved) {
+        entry.plannedSlotId = saved.slotId
+        entry.plannedSlotLabel = saved.path
+      }
+      entries.push(entry)
+      slot.left -= allocated
+      remaining -= allocated
+    }
     if (remaining > 0) entries.push(entryFor(row, remaining / 100))
   }
   return entries

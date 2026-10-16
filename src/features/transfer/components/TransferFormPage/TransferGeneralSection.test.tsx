@@ -1,8 +1,12 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
 import { describe, expect, it, vi } from 'vitest'
-import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
+import {
+  transferRequestSchema,
+  type TransferRequestFormValues,
+} from '../../schemas/transfer-request.schema'
 import { emptyTransferForm } from '../../utils/transfer-form'
 import { TransferGeneralSection, type TransferFormMode } from './TransferGeneralSection'
 import type { TransferDestinationLoad } from '../../types/transfer.types'
@@ -16,14 +20,17 @@ function Harness({
   onSelectInternalRelocation = () => undefined,
   defaults = {},
   destinationLoad,
+  validate = false,
 }: {
   mode?: TransferFormMode
   canCreateRelocation?: boolean
   onSelectInternalRelocation?: () => void
   defaults?: Partial<TransferRequestFormValues>
   destinationLoad?: TransferDestinationLoad
+  validate?: boolean
 }) {
   const form = useForm<TransferRequestFormValues>({
+    resolver: validate ? zodResolver(transferRequestSchema) : undefined,
     defaultValues: { ...emptyTransferForm(), ...defaults },
   })
   return (
@@ -119,5 +126,22 @@ describe('TransferGeneralSection', () => {
 
     expect(screen.getByLabelText('Mã yêu cầu điều chuyển')).toBeDisabled()
     expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+  })
+
+  it('shows the date-order error under the arrival date as soon as the planned date moves past it', async () => {
+    render(
+      <Harness
+        validate
+        defaults={{ plannedTransferDate: '2099-01-10', requiredBy: '2099-01-05' }}
+      />
+    )
+    expect(screen.queryByText(/không được trước ngày dự kiến điều chuyển/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ngày dự kiến điều chuyển' }))
+    await userEvent.click(screen.getByRole('button', { name: /ngày 12 tháng 01 năm 2099/ }))
+
+    expect(
+      await screen.findByText('Ngày hàng về không được trước ngày dự kiến điều chuyển.')
+    ).toBeInTheDocument()
   })
 })

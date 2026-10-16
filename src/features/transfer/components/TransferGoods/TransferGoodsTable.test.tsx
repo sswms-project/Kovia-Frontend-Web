@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -11,11 +11,14 @@ const row: TransferGoodsRow = {
   name: 'Sữa tươi',
   unit: 'Hộp',
   conversion: '1 Thùng = 12 Hộp',
+  conversionFactor: 12,
+  conversionUnit: 'Thùng',
   requested: 24,
   batched: 12,
   picked: 6,
   dispatched: 12,
   receivedGood: 9,
+  receivedPhysical: 11,
   damaged: 2,
   missing: 1,
   stopped: 0,
@@ -96,5 +99,23 @@ describe('TransferGoodsTable', () => {
     expect(screen.getByText('Phân bổ lấy hàng')).toBeInTheDocument()
     expect(screen.getByText('Khu Z-A / Kệ A-01: 24')).toBeInTheDocument()
     expect(screen.getByText('Khu K01 / Kệ A07')).toBeInTheDocument()
+  })
+
+  it('names the received column "SL thực nhận" (good plus damaged) and drops "Nhận tốt"', () => {
+    renderTable()
+    expect(screen.getByRole('columnheader', { name: /SL thực nhận/ })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: /Nhận tốt/ })).not.toBeInTheDocument()
+    const cells = within(screen.getAllByRole('row')[1]!)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent)
+    expect(cells).toContain('11')
+  })
+
+  it('shows the quantity in the chosen unit under the base quantity only when it converts evenly', () => {
+    renderTable()
+    const cells = within(screen.getAllByRole('row')[1]!).getAllByRole('cell')
+    expect(cells.find((cell) => cell.textContent?.startsWith('24'))).toHaveTextContent('2 Thùng')
+    // 11 Hộp = 0,9166… Thùng không tròn đến 2 chữ số nên không hiện quy đổi.
+    expect(cells.find((cell) => cell.textContent === '11')).toBeDefined()
   })
 })

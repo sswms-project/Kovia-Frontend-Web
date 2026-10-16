@@ -57,7 +57,7 @@ describe('Kiểm hàng responsive', () => {
     render(<Harness manyLots />)
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.getAllByRole('spinbutton')).toHaveLength(6)
-    expect(screen.getAllByRole('spinbutton', { name: /^Tốt/ })).toHaveLength(2)
+    expect(screen.getAllByRole('spinbutton', { name: /^SL thực nhận/ })).toHaveLength(2)
     expect(screen.getAllByRole('spinbutton', { name: /^Hỏng/ })).toHaveLength(2)
     expect(screen.getAllByRole('spinbutton', { name: /^Thiếu/ })).toHaveLength(2)
     const ids = screen.getAllByRole('spinbutton').map((input) => input.id)
@@ -81,8 +81,8 @@ describe('Kiểm hàng responsive', () => {
     expect(within(card).getByLabelText('Nguyên nhân hỏng/thiếu').parentElement).toHaveClass(
       '[&_select]:h-11'
     )
-    await user.clear(within(card).getByRole('spinbutton', { name: /^Tốt/ }))
-    await user.type(within(card).getByRole('spinbutton', { name: /^Tốt/ }), '7')
+    await user.clear(within(card).getByRole('spinbutton', { name: /^SL thực nhận/ }))
+    await user.type(within(card).getByRole('spinbutton', { name: /^SL thực nhận/ }), '7')
     expect(within(card).getByText('Chưa đủ / Vượt số xuất')).toBeInTheDocument()
   })
   it('disables the same controls in read-only history', () => {
@@ -98,7 +98,7 @@ describe('Kiểm hàng responsive', () => {
     const status = within(card).getByRole('status')
     expect(status).toHaveTextContent('SKU-01 · Không theo lô: Có chênh lệch')
     expect(status).not.toHaveTextContent('Đã kiểm')
-    const good = within(card).getByRole('spinbutton', { name: /^Tốt/ })
+    const good = within(card).getByRole('spinbutton', { name: /^SL thực nhận/ })
     await user.clear(good)
     await user.type(good, '7')
     expect(status).toHaveTextContent('Chưa đủ / Vượt số xuất')
@@ -115,5 +115,14 @@ describe('Kiểm hàng responsive', () => {
     await user.clear(good)
     await user.type(good, '10')
     expect(status).toHaveTextContent('Khớp')
+  })
+  it('treats a cleared quantity as 0 instead of showing NaN', async () => {
+    render(<Harness />)
+    const user = userEvent.setup()
+    const card = screen.getByRole('group', { name: 'Hàng QA' })
+    await user.clear(within(card).getByRole('spinbutton', { name: /^SL thực nhận/ }))
+    expect(card).not.toHaveTextContent('NaN')
+    expect(within(card).getByText('Đã kiểm: 2')).toBeInTheDocument()
+    expect(within(card).getByRole('status')).toHaveTextContent('Chưa đủ / Vượt số xuất')
   })
 })

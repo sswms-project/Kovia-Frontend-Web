@@ -383,6 +383,7 @@ export const API_ENDPOINTS = {
     sourceProducts: '/transfers/source-products',
     receivableSlot: '/transfers/receivable-slot',
     receivableSlots: '/transfers/receivable-slots',
+    putAwaySlots: '/transfers/putaway-slots',
     sourceLocations: '/transfers/source-locations',
     nextCode: '/transfers/next-code',
     requesterOptions: '/transfers/requester-options',

@@ -78,12 +78,12 @@ describe('Validation cất theo thực nhận và chất lượng', () => {
       }).success
     ).toBe(false)
   })
-  it('does not apply good budget to damaged stock', () =>
+  it('rejects new damaged putaway even when an older sheet includes damaged stock', () =>
     expect(
       createTransferPutAwaySchema(sheet).safeParse({
         entries: [{ ...valid(), qualityStatus: 'Damaged', quantity: 2 }],
       }).success
-    ).toBe(true))
+    ).toBe(false))
   it('sums damaged putaway separately and refuses duplicate over-receipt', () =>
     expect(
       createTransferPutAwaySchema(sheet).safeParse({

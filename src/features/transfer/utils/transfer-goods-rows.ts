@@ -11,11 +11,16 @@ export interface TransferGoodsRow {
   readonly name: string
   readonly unit: string
   readonly conversion: string | null
+  /** Hệ số và tên ĐVT người tạo chọn; null khi dòng dùng đúng ĐVT chính. */
+  readonly conversionFactor: number | null
+  readonly conversionUnit: string | null
   readonly requested: number
   readonly batched: number
   readonly picked: number
   readonly dispatched: number
   readonly receivedGood: number
+  /** Thực nhận ở kho nhập: hàng tốt cộng hàng hỏng. */
+  readonly receivedPhysical: number
   readonly damaged: number
   readonly missing: number
   readonly stopped: number
@@ -32,24 +37,29 @@ export function transferGoodsRows(detail: TransferDetail | undefined | null): Tr
   return visibleTransferItems(detail.items).map((item) => {
     const related = (detail.discrepancies ?? []).filter((entry) => entry.itemId === item.id)
     const baseUnit = item.baseUnitName ?? ''
+    const hasConversion = Boolean(
+      item.unitId &&
+      item.baseUnitId &&
+      item.unitId !== item.baseUnitId &&
+      item.unitName &&
+      item.conversionFactor > 0
+    )
     return {
       id: item.id,
       sku: item.sku,
       name: item.productName,
       unit: baseUnit || '—',
-      conversion:
-        item.unitId &&
-        item.baseUnitId &&
-        item.unitId !== item.baseUnitId &&
-        item.unitName &&
-        item.conversionFactor > 0
-          ? `1 ${item.unitName} = ${formatQuantity(item.conversionFactor)} ${baseUnit}`
-          : null,
+      conversion: hasConversion
+        ? `1 ${item.unitName} = ${formatQuantity(item.conversionFactor)} ${baseUnit}`
+        : null,
+      conversionFactor: hasConversion ? item.conversionFactor : null,
+      conversionUnit: hasConversion ? (item.unitName ?? null) : null,
       requested: item.quantity,
       batched: item.batchedQuantity,
       picked: item.pickedQuantity,
       dispatched: item.dispatchedQuantity,
       receivedGood: item.receivedQuantity,
+      receivedPhysical: item.receivedQuantity + item.damagedQuantity,
       damaged: item.damagedQuantity,
       missing: item.missingQuantity,
       stopped: item.stoppedQuantity,

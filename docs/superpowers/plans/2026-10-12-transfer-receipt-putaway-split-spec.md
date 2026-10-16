@@ -1,5 +1,7 @@
 # Kovia — Tách "Nhận & cất" của Điều chuyển thành Phiếu nhập điều chuyển và Chờ cất hàng
 
+> **Quyết định thay thế ngày 2026-10-14:** người dùng đổi phạm vi cất sang **chỉ hàng tốt thực nhận**, giống Nhập kho. Những nội dung dưới đây về bắt buộc cất hàng hỏng là lịch sử thiết kế, không còn là tiêu chí hiện hành. Đợt 8 tốt + 2 hỏng hoàn tất cất sau 8 tốt, vẫn giữ `ReceivedWithDiscrepancy`; toàn hỏng/thiếu không tạo nhu cầu cất. Không sửa tồn/lịch sử cũ. Kế hoạch triển khai và kiểm thử hiện hành: [transfer-putaway-inbound-alignment-plan](./2026-10-14-transfer-putaway-inbound-alignment-plan.md).
+
 Ngày: 2026-10-12 (sửa sau review và triển khai 2026-10-13) · Trạng thái: **Gate A/B có code và tự kiểm; Gate C chưa nghiệm thu; chưa áp migration, chưa nghiệm thu SQL race** · Nối tiếp: `2026-10-12-transfer-receive-putaway-alignment-spec.md`
 
 ## 1. Mục tiêu và các điểm đã chốt với người dùng

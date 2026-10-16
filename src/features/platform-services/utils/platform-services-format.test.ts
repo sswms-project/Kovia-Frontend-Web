@@ -110,6 +110,23 @@ describe('getNotificationReferenceRoute', () => {
     ).toBe(APP_ROUTES.myTasks)
   })
 
+  it.each([
+    ['ViewStockTransferPick', 'pick'],
+    ['ViewStockTransferReceive', 'receive'],
+    ['ViewStockTransferPutAway', 'putaway'],
+  ])('opens the correct stage for %s without guessing from notification text', (action, tab) => {
+    const notification = {
+      type: 'TaskAssigned',
+      referenceType: 'StockTransfer',
+      referenceId: id,
+      action,
+    } as const
+    expect(getNotificationReferenceRoute(notification)).toBe(
+      `${APP_ROUTES.transferDetail(id)}?tab=${tab}`
+    )
+    expect(getNotificationReferenceRoute({ ...notification, referenceId: null })).toBeNull()
+  })
+
   it('routes every known action', () => {
     for (const [action, route] of Object.entries(notificationActionRoutes)) {
       expect(route.to(id), action).toBeTruthy()

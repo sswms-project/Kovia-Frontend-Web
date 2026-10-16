@@ -37,6 +37,7 @@ export interface AssignWarehouseTaskTarget {
 }
 
 interface AssignWarehouseTaskDialogProps {
+  readonly title?: string
   readonly lockSelection?: boolean
   readonly submitDisabled?: boolean
   readonly children?: ReactNode
@@ -62,6 +63,7 @@ const TASK_LABELS = {
 } as const
 
 export function AssignWarehouseTaskDialog({
+  title,
   target,
   form,
   staff,
@@ -97,7 +99,8 @@ export function AssignWarehouseTaskDialog({
           <>
             <DialogHeader>
               <DialogTitle>
-                {isReassignment ? `Giao lại việc ${taskLabel}` : `Giao việc ${taskLabel}`}
+                {title ??
+                  (isReassignment ? `Giao lại việc ${taskLabel}` : `Giao việc ${taskLabel}`)}
               </DialogTitle>
               <DialogDescription>
                 <span className="font-mono font-medium" translate="no">

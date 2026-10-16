@@ -30,21 +30,27 @@ export function createTransferPutAwaySchema(sheet: TransferPutAwaySheet | null) 
   const rows = new Map((sheet?.rows ?? []).map((row) => [putAwayRowKey(row), row]))
   return z
     .object({
-      entries: z
-        .array(transferPutAwayEntrySchema)
-        .min(1, 'Hãy khai báo hàng cần cất.')
-        .max(500, 'Tối đa 500 dòng cất mỗi lần.'),
+      entries: z.array(transferPutAwayEntrySchema).max(500, 'Tối đa 500 dòng cất mỗi lần.'),
     })
     .superRefine(({ entries }, context) => {
       const states = sheet ? transferPutAwayPlanStates(sheet, entries) : []
       const used = new Map<string, number>()
-      if (!entries.some((entry) => entry.quantity > 0))
+      const hasRemaining =
+        !sheet ||
+        sheet.rows.some((row) => row.qualityStatus === 'Good' && row.remainingQuantity > 0)
+      if (hasRemaining && !entries.some((entry) => entry.quantity > 0))
         context.addIssue({
           code: 'custom',
           path: ['entries', 0, 'quantity'],
           message: 'Nhập số lượng lớn hơn 0 cho ít nhất một dòng cần cất.',
         })
       entries.forEach((entry, index) => {
+        if (entry.qualityStatus !== 'Good')
+          context.addIssue({
+            code: 'custom',
+            path: ['entries', index, 'qualityStatus'],
+            message: 'Chỉ cất hàng tốt thực nhận. Hàng hỏng xử lý trong hồ sơ chênh lệch.',
+          })
         const source = rows.get(putAwayRowKey(entry))
         const quantity = (used.get(putAwayRowKey(entry)) ?? 0) + entry.quantity
         used.set(putAwayRowKey(entry), quantity)

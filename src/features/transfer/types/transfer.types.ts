@@ -270,6 +270,7 @@ export interface TransferShipmentLine {
   status: TransferShipmentLineStatus
   pendingReturnQuantity: number
   openExceptionCount: number
+  receivedPhysicalQuantity?: number
 }
 
 export interface TransferShipment {

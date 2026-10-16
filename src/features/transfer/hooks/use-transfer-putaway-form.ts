@@ -22,6 +22,7 @@ import {
 import { describeTransferError } from '../utils/transfer-errors'
 import { newCommandId } from '../utils/transfer-command-id'
 import { codesMatch } from '../utils/transfer-scan'
+import type { TransferPutAwayPlanSuggestions } from '../types/transfer.types'
 import { useFindReceivableSlotMutation } from './use-transfer-fulfillment'
 import { usePutAwayTransferShipmentMutation } from './use-transfer-receipt'
 
@@ -36,12 +37,14 @@ export function useTransferPutAwayForm(
   const scanLock = useRef(false)
   const intent = useRef<PutAwayTransferShipmentRequest | null>(null)
   const lastWriteSucceeded = useRef(false)
+  const autoFilledVersion = useRef('')
   const [reloadRequired, setReloadRequired] = useState(false)
   const [unknownResult, setUnknownResult] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [changedLines, setChangedLines] = useState<ReadonlySet<string>>(new Set())
   const [planUpdateAvailable, setPlanUpdateAvailable] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [validationAttempt, setValidationAttempt] = useState(0)
   const mutation = usePutAwayTransferShipmentMutation()
   const findSlot = useFindReceivableSlotMutation()
   const form = useForm<TransferPutAwayFormValues>({
@@ -126,13 +129,91 @@ export function useTransferPutAwayForm(
     unknownResult,
     planUpdateAvailable,
     confirmOpen,
+    validationAttempt,
     setConfirmOpen,
     isPending: mutation.isPending,
     isFindingSlot: findSlot.isPending,
-    requestConfirm: () =>
-      form.handleSubmit(() => {
-        if (canEdit()) setConfirmOpen(true)
-      })(),
+    applySuggestions: (
+      suggestions: TransferPutAwayPlanSuggestions,
+      source: TransferPutAwaySheet,
+      automatic = false,
+      only?: { itemId: string; slotId: string }
+    ) => {
+      const current = snapshot.current
+      if (
+        !canEdit() ||
+        !current ||
+        current.receipt.shipmentId !== source.receipt.shipmentId ||
+        current.receipt.version !== source.receipt.version ||
+        current.planVersion !== source.planVersion
+      )
+        return false
+      const key = `${current.receipt.shipmentId}|${current.receipt.version}|${current.planVersion}`
+      if (
+        automatic &&
+        (autoFilledVersion.current === key ||
+          isDirty ||
+          form
+            .getValues('entries')
+            .some((entry) => entry.scannedSlotCode || entry.slotCodeUnreadable))
+      )
+        return false
+      const proposal = only
+        ? {
+            ...suggestions,
+            items: suggestions.items
+              .filter((item) => item.itemId === only.itemId)
+              .map((item) => ({
+                ...item,
+                suggestions: item.suggestions.filter((slot) => slot.slotId === only.slotId),
+              })),
+          }
+        : suggestions
+      const generated = buildTransferPutAwayEntries(current, proposal, automatic)
+      const next = only
+        ? form
+            .getValues('entries')
+            .filter((entry) => {
+              const row = current.rows.find((row) => putAwayRowKey(row) === putAwayRowKey(entry))
+              return row?.itemId !== only.itemId
+            })
+            .concat(
+              generated.filter((entry) =>
+                current.rows.some(
+                  (row) => row.itemId === only.itemId && putAwayRowKey(row) === putAwayRowKey(entry)
+                )
+              )
+            )
+        : generated
+      if (automatic) {
+        autoFilledVersion.current = key
+        form.reset({ entries: next })
+      } else fields.replace(next)
+      setNotice('Đã điền vị trí và số lượng. Bạn có thể chỉnh lại; quét xác nhận trước khi cất.')
+      return true
+    },
+    changeSlot: (index: number, option: LookupOption | null) => {
+      if (!canEdit()) return
+      form.setValue(`entries.${index}.destinationSlotId`, option?.value ?? '', {
+        shouldDirty: true,
+      })
+      form.setValue(`entries.${index}.slotLabel`, option?.label ?? '', { shouldDirty: true })
+      form.setValue(`entries.${index}.scannedSlotCode`, '', { shouldDirty: true })
+      form.setValue(`entries.${index}.slotCodeUnreadable`, false, { shouldDirty: true })
+      form.setValue(`entries.${index}.deviationReasonCode`, '', { shouldDirty: true })
+      form.clearErrors(`entries.${index}.scannedSlotCode`)
+    },
+    requestConfirm: () => {
+      if (!canEdit()) return Promise.resolve()
+      return form.handleSubmit(
+        () => setConfirmOpen(canEdit()),
+        () => {
+          setConfirmOpen(false)
+          setValidationAttempt((attempt) => attempt + 1)
+          setNotice('Hãy kiểm tra các trường được đánh dấu trước khi cất hàng.')
+        }
+      )()
+    },
     confirm: async () => {
       if (!canEdit() || !snapshot.current?.receipt.version || !(await form.trigger())) return false
       if (!canEdit()) return false
@@ -267,6 +348,14 @@ export function useTransferPutAwayForm(
         if (!slot) {
           form.setError(`entries.${index}.scannedSlotCode`, {
             message: 'Mã vị trí không khớp vị trí đang hoạt động nào của kho nhập.',
+          })
+          return false
+        }
+        const selected = form.getValues(`entries.${index}.destinationSlotId`)
+        if (selected && selected !== slot.id) {
+          form.setError(`entries.${index}.scannedSlotCode`, {
+            message:
+              'Mã quét không khớp vị trí đã chọn. Muốn đổi vị trí, hãy chọn lại trước khi quét.',
           })
           return false
         }
