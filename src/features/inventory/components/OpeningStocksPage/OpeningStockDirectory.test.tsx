@@ -504,6 +504,13 @@ describe('opening stock draft rows and lookups', () => {
   it('opens the detail route from a row without hijacking edit actions', () => {
     router.push.mockClear()
     mount([record])
+    expect(screen.getByRole('columnheader', { name: 'Thao tác' })).toHaveClass(
+      'w-px',
+      'text-center'
+    )
+    const editButton = screen.getByRole('button', { name: 'Sửa' })
+    expect(editButton.closest('td')).toHaveClass('w-px')
+    expect(editButton.parentElement?.parentElement).toHaveClass('w-max', 'ml-auto')
     fireEvent.click(screen.getByText('Kho QA', { selector: 'td' }))
     expect(router.push).toHaveBeenCalledWith('/inventory/opening-stocks/record')
     expect(screen.getByRole('link', { name: record.code })).toHaveAttribute(

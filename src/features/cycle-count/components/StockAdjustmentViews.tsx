@@ -84,11 +84,11 @@ export function StockAdjustmentDirectory(props: DirectoryProps) {
       <h1 className="sr-only">Điều chỉnh tồn kho</h1>
       <InventoryWorkspaceNavigation currentView="adjustments" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách điều chỉnh tồn kho">
-        <div className="flex flex-wrap items-end gap-3 border-b p-3">
-          <label className="grid gap-1 text-xs font-medium">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 border-b p-3">
+          <label className="flex items-center gap-2 text-xs font-medium">
             Kho
             <NativeSelect
-              className="h-9 min-w-52"
+              className="min-w-52"
               value={props.warehouseId}
               onChange={(e) => props.onWarehouseChange(e.target.value)}
             >
@@ -100,10 +100,10 @@ export function StockAdjustmentDirectory(props: DirectoryProps) {
               ))}
             </NativeSelect>
           </label>
-          <label className="grid gap-1 text-xs font-medium">
+          <label className="flex items-center gap-2 text-xs font-medium">
             Trạng thái
             <NativeSelect
-              className="h-9 min-w-44"
+              className="min-w-44"
               value={props.status}
               onChange={(e) => props.onStatusChange(parseAdjustmentStatus(e.target.value))}
             >

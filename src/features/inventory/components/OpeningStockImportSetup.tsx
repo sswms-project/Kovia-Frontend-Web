@@ -35,7 +35,7 @@ export function OpeningStockImportSetupFields({
   dateRef,
 }: OpeningStockSetupFieldsProps) {
   return (
-    <fieldset disabled={busy} className="bg-card grid gap-3 border p-4 sm:grid-cols-2">
+    <fieldset disabled={busy} className="bg-card grid shrink-0 gap-3 border p-4 sm:grid-cols-2">
       <Field data-invalid={Boolean(warehouseError)}>
         <FieldLabel htmlFor="opening-import-warehouse">Kho ghi nhận *</FieldLabel>
         <NativeSelect
@@ -95,7 +95,7 @@ export function OpeningStockImportSetup(
         error={props.error}
         onFileChange={props.onFileChange}
       />
-      <section aria-label="Sử dụng tệp mẫu" className="space-y-3">
+      <section aria-label="Sử dụng tệp mẫu" className="flex shrink-0 flex-col gap-3">
         <h2 className="font-semibold">Sử dụng tệp mẫu</h2>
         <p className="text-muted-foreground text-sm">
           Nhập theo đơn vị cơ sở; mỗi tệp tối đa 200 dòng.

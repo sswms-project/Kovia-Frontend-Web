@@ -20,6 +20,11 @@ interface OpeningStockActionsProps {
 }
 
 export function OpeningStockActions({ item, ...props }: OpeningStockActionsProps) {
+  const isMaker =
+    Boolean(props.currentUserId) &&
+    (item.createdByUserId === props.currentUserId || item.submittedByUserId === props.currentUserId)
+  const canDirectApprove =
+    item.status === 'Draft' && isMaker && props.canApprove && props.canSelfApprove
   return (
     <div className="flex flex-wrap gap-2">
       {(item.status === 'Draft' || item.status === 'Returned') &&
@@ -35,7 +40,9 @@ export function OpeningStockActions({ item, ...props }: OpeningStockActionsProps
           Sửa
         </Button>
       ) : null}
-      {(item.status === 'Draft' || item.status === 'Returned') && props.canCreate ? (
+      {(item.status === 'Draft' || item.status === 'Returned') &&
+      props.canCreate &&
+      !canDirectApprove ? (
         <Button
           size="sm"
           variant="outline"
@@ -45,11 +52,12 @@ export function OpeningStockActions({ item, ...props }: OpeningStockActionsProps
           Gửi duyệt
         </Button>
       ) : null}
-      {item.status === 'PendingApproval' &&
-      props.canApprove &&
-      ((item.createdByUserId !== props.currentUserId &&
-        item.submittedByUserId !== props.currentUserId) ||
-        props.canSelfApprove) ? (
+      {canDirectApprove ||
+      (item.status === 'PendingApproval' &&
+        props.canApprove &&
+        ((item.createdByUserId !== props.currentUserId &&
+          item.submittedByUserId !== props.currentUserId) ||
+          props.canSelfApprove)) ? (
         <Button size="sm" disabled={props.isPending} onClick={() => props.onApprove(item)}>
           Duyệt & ghi sổ
         </Button>

@@ -1,6 +1,7 @@
 'use client'
 
 import { Checkbox } from '@/components/ui/checkbox'
+import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
   Table,
   TableBody,
@@ -28,7 +29,7 @@ export function StockAdjustmentVoucherLinesTable({
   onToggleExclude,
 }: StockAdjustmentVoucherLinesTableProps) {
   return (
-    <div className="min-h-0 flex-1 overflow-auto border">
+    <OperationalListPanel aria-label="Dòng hàng phiếu điều chỉnh tồn">
       <Table className="min-w-[960px]">
         <TableHeader>
           <TableRow>
@@ -93,6 +94,6 @@ export function StockAdjustmentVoucherLinesTable({
           })}
         </TableBody>
       </Table>
-    </div>
+    </OperationalListPanel>
   )
 }

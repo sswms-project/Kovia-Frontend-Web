@@ -86,7 +86,6 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
             <h2 id="movement-history-title" className="text-sm font-semibold">
               Nhật ký tồn kho
             </h2>
-            <p className="text-muted-foreground text-xs">Mới nhất được hiển thị trước.</p>
           </div>
           <div className="flex gap-2">
             <Button

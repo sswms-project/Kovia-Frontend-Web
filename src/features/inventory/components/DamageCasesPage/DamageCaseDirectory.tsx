@@ -222,7 +222,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                   <TableHead className="sticky top-0 z-10">Nguồn</TableHead>
                   <TableHead className="sticky top-0 z-10">Người báo</TableHead>
                   <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                  <TableHead />
+                  <TableHead className="sticky top-0 z-10 w-px text-center">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -296,9 +296,9 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                         </p>
                       ) : null}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setDetailItem(item)}>
+                    <TableCell className="w-px">
+                      <div className="ml-auto flex w-max gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setDetailItem(item)}>
                           Chi tiết
                         </Button>
                         {canDecideCase(item) ? (

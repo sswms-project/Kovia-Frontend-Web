@@ -12,6 +12,7 @@ import { BulkImportMapping } from '@/components/operations/BulkImportMapping'
 import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDialog'
 import { useImportNavigation } from '@/components/operations/use-import-navigation'
 import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useInventoryWarehouseOptionsQuery } from '../hooks/use-inventory'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { operationalToday } from '@/lib/operational-date-time'
@@ -96,7 +97,6 @@ export function OpeningStockImportSession() {
         <BulkImportHeader
           eyebrow="Tồn kho"
           title="Nhập tồn kho đầu kỳ"
-          description="Tệp chỉ tạo phiếu nháp. Tồn kho chỉ tăng sau khi phiếu được duyệt."
           backHref={APP_ROUTES.inventoryOpeningStocks}
           backLabel="Về danh sách tồn đầu kỳ"
         >
@@ -131,11 +131,40 @@ export function OpeningStockImportSession() {
           onTemplate={(variant) => void flow.template(variant)}
         />
       ) : null}
+      {(flow.step === 1 || flow.step === 2) && flow.options ? (
+        <Card
+          size="sm"
+          className="border-foreground/10 shrink-0 border ring-0"
+          aria-label="Kho và ngày ghi nhận"
+        >
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <CardTitle className="wrap-anywhere">
+                Kho: {warehouseLabel} · Ngày ghi nhận: {flow.options.effectiveDate}
+              </CardTitle>
+              {flow.step === 1 ? (
+                <CardDescription className="wrap-anywhere">{flow.file?.name}</CardDescription>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              disabled={busy || flow.uncertain}
+              onClick={() => {
+                setWarehouseId(flow.options!.warehouseId)
+                setEffectiveDate(flow.options!.effectiveDate)
+                setupForm.clearErrors()
+                setContextOpen(true)
+              }}
+            >
+              Đổi kho/ngày
+            </Button>
+          </CardHeader>
+        </Card>
+      ) : null}
       {flow.step === 1 && flow.inspection && flow.options ? (
         <>
-          <p className="text-sm">
-            {flow.file?.name} · {warehouseLabel} · Ngày ghi nhận: {flow.options.effectiveDate}
-          </p>
           {flow.inspection.isCsv ? (
             <BulkImportDelimiter
               id="opening-mapping-delimiter"
@@ -159,23 +188,6 @@ export function OpeningStockImportSession() {
       ) : null}
       {flow.step === 2 && flow.preview ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm">
-              Kho: {warehouseLabel} · Ngày ghi nhận: {flow.preview.effectiveDate}
-            </p>
-            <Button
-              variant="outline"
-              disabled={busy || flow.uncertain}
-              onClick={() => {
-                setWarehouseId(flow.options!.warehouseId)
-                setEffectiveDate(flow.options!.effectiveDate)
-                setupForm.clearErrors()
-                setContextOpen(true)
-              }}
-            >
-              Đổi kho/ngày
-            </Button>
-          </div>
           {pendingLots.length ? (
             <section className="bg-card space-y-2 border p-3 text-sm">
               <details>

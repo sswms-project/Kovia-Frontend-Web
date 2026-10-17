@@ -669,7 +669,7 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
                     <TableHead className="sticky top-0 z-10">Bằng chứng</TableHead>
                     <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
                     <TableHead className="sticky top-0 z-10">Người lập</TableHead>
-                    <TableHead className="sticky top-0 z-10">Thao tác</TableHead>
+                    <TableHead className="sticky top-0 z-10 w-px text-center">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -714,17 +714,19 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
                       <TableCell className="max-w-40 wrap-anywhere whitespace-normal">
                         {item.createdByName}
                       </TableCell>
-                      <TableCell>
-                        <OpeningStockActions
-                          {...props}
-                          item={item}
-                          onEdit={openEdit}
-                          onApprove={approve}
-                          onReview={(item, decision) => {
-                            setDecision(decision)
-                            setReviewItem(item)
-                          }}
-                        />
+                      <TableCell className="w-px">
+                        <div className="ml-auto w-max">
+                          <OpeningStockActions
+                            {...props}
+                            item={item}
+                            onEdit={openEdit}
+                            onApprove={approve}
+                            onReview={(item, decision) => {
+                              setDecision(decision)
+                              setReviewItem(item)
+                            }}
+                          />
+                        </div>
                       </TableCell>
                     </ClickableTableRow>
                   ))}

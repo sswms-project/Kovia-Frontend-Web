@@ -24,7 +24,7 @@ describe('InventoryWorkspaceNavigation', () => {
     const links = within(navigation).getAllByRole('link')
     expect(links).toHaveLength(8)
     expect(links.filter((link) => link.getAttribute('aria-current') === 'page')).toHaveLength(1)
-    const active = within(navigation).getByRole('link', { name: label, exact: true })
+    const active = within(navigation).getByRole('link', { name: label })
     expect(active).toHaveAttribute('aria-current', 'page')
     expect(active).not.toHaveClass('bg-primary', 'text-primary-foreground')
     expect(links.every((link) => link.getAttribute('href')?.startsWith('/inventory'))).toBe(true)

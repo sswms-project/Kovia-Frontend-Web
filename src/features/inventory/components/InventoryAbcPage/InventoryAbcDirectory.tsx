@@ -191,9 +191,6 @@ export function InventoryAbcDirectory({
             <h2 id="abc-title" className="text-sm font-semibold">
               Kết quả phân loại
             </h2>
-            <p className="text-muted-foreground text-xs">
-              Class do hệ thống tính theo tỷ lệ tích lũy số lượng.
-            </p>
           </div>
           <div className="flex gap-2">
             <NativeSelect

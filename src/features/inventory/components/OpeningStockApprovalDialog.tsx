@@ -10,8 +10,21 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import type { OpeningStockRecord } from '../types/inventory.types'
-import { formatEligibilityStatus } from '../utils/inventory-format'
+import {
+  formatEligibilityStatus,
+  formatInventoryQuantity,
+  formatQualityStatus,
+} from '../utils/inventory-format'
 
 export function OpeningStockApprovalDialog({
   item,
@@ -30,7 +43,9 @@ export function OpeningStockApprovalDialog({
   const [acknowledgedId, setAcknowledgedId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const maker = Boolean(
-    item && (item.createdByUserId === currentUserId || item.submittedByUserId === currentUserId)
+    item &&
+    currentUserId &&
+    (item.createdByUserId === currentUserId || item.submittedByUserId === currentUserId)
   )
   return (
     <Dialog
@@ -43,8 +58,8 @@ export function OpeningStockApprovalDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-6xl">
+        <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>Duyệt và ghi sổ {item?.code}</DialogTitle>
           <DialogDescription>
             Kiểm tra ngày ghi nhận, thông tin lô và số lượng. Duyệt sẽ ghi tăng tồn kho một lần.
@@ -52,35 +67,61 @@ export function OpeningStockApprovalDialog({
         </DialogHeader>
         {item ? (
           <>
-            <p>
+            <p className="shrink-0">
               Kho: {item.warehouseName} · Ngày ghi nhận:{' '}
               {item.effectiveDate ?? 'Theo ngày ghi sổ cũ'}
             </p>
-            <div className="divide-y border">
-              {item.lines.map((line) => (
-                <div key={line.id} className="p-3 text-sm wrap-anywhere">
-                  <p>
-                    {line.sku} · {line.productName} · {line.slotCode}
-                  </p>
-                  <p>
-                    {line.quantity} {line.enteredUnitName} ·{' '}
-                    {line.qualityStatus === 'Good' ? 'Hàng tốt' : 'Hàng hỏng'} ·{' '}
-                    {formatEligibilityStatus(line.eligibilityStatus)}
-                  </p>
-                  <p>
-                    Lô: {line.lotNumberSnapshot ?? line.lotNumber ?? 'Không theo lô'} · NSX:{' '}
-                    {line.manufacturedDateSnapshot ?? '—'} · HSD: {line.expiryDateSnapshot ?? '—'}
-                  </p>
-                  {!line.lotId && line.lotNumberSnapshot ? (
-                    <p className="text-primary">Sẽ tạo lô khi duyệt</p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
+            <OperationalListPanel aria-label="Dòng hàng chờ duyệt tồn đầu" className="min-h-40">
+              <Table className="min-w-[1100px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Mã hàng</TableHead>
+                    <TableHead>Tên hàng</TableHead>
+                    <TableHead>Vị trí</TableHead>
+                    <TableHead className="text-right">Số lượng nhập</TableHead>
+                    <TableHead>ĐVT</TableHead>
+                    <TableHead className="text-right">SL ĐVT chính</TableHead>
+                    <TableHead>Lô</TableHead>
+                    <TableHead>Ngày sản xuất</TableHead>
+                    <TableHead>Hạn sử dụng</TableHead>
+                    <TableHead>Tình trạng</TableHead>
+                    <TableHead>Điều kiện sử dụng</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {item.lines.map((line) => (
+                    <TableRow key={line.id}>
+                      <TableCell className="font-mono">{line.sku}</TableCell>
+                      <TableCell className="min-w-40 whitespace-normal">
+                        {line.productName}
+                      </TableCell>
+                      <TableCell>{line.slotCode}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatInventoryQuantity(line.enteredQuantity)}
+                      </TableCell>
+                      <TableCell>{line.enteredUnitName}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatInventoryQuantity(line.baseQuantity)}
+                      </TableCell>
+                      <TableCell>
+                        {line.lotNumberSnapshot ?? line.lotNumber ?? 'Không theo lô'}
+                        {!line.lotId && line.lotNumberSnapshot ? (
+                          <p className="text-primary text-xs">Sẽ tạo lô khi duyệt</p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{line.manufacturedDateSnapshot ?? '—'}</TableCell>
+                      <TableCell>{line.expiryDateSnapshot ?? '—'}</TableCell>
+                      <TableCell>{formatQualityStatus(line.qualityStatus)}</TableCell>
+                      <TableCell>{formatEligibilityStatus(line.eligibilityStatus)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </OperationalListPanel>
           </>
         ) : null}
         {maker ? (
-          <label className="flex min-h-11 items-center gap-3 text-sm">
+          <label className="flex min-h-11 shrink-0 items-center gap-3 text-sm">
             <input
               type="checkbox"
               className="accent-primary size-4"
@@ -98,7 +139,7 @@ export function OpeningStockApprovalDialog({
             {error}
           </p>
         ) : null}
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button
             variant="outline"
             disabled={pending}

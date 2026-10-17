@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Field, FieldLabel } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -136,59 +136,85 @@ export function StockDiscrepancyDirectory(props: Props) {
         }
       />
       <OperationalListPanel aria-label="Danh sách chênh lệch tồn kho">
-        <div className="grid gap-3 border-b p-3 sm:grid-cols-5">
-          <NativeSelect
-            aria-label="Lọc theo kho"
-            value={props.filterWarehouseId}
-            onChange={(event) => props.onFilterWarehouseChange(event.target.value)}
-          >
-            <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-            {props.warehouseOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect
-            aria-label="Lọc theo sản phẩm"
-            value={props.filterProductId}
-            onChange={(event) => props.onFilterProductChange(event.target.value)}
-          >
-            <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-            {props.productOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect
-            aria-label="Lọc theo trạng thái"
-            value={props.statusFilter}
-            onChange={(event) =>
-              props.onStatusFilterChange(event.target.value as StockDiscrepancyStatus | '')
-            }
-          >
-            <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-            <NativeSelectOption value="PendingReview">Chờ xem xét</NativeSelectOption>
-            <NativeSelectOption value="EvidenceRequested">Chờ bằng chứng</NativeSelectOption>
-            <NativeSelectOption value="FollowUpPending">Đang xử lý tiếp</NativeSelectOption>
-            <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
-            <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
-            <NativeSelectOption value="Duplicate">Trùng lặp</NativeSelectOption>
-          </NativeSelect>
-          <Input
-            aria-label="Từ ngày"
-            type="date"
-            value={props.dateFrom}
-            onChange={(event) => props.onDateFromChange(event.target.value)}
-          />
-          <Input
-            aria-label="Đến ngày"
-            type="date"
-            value={props.dateTo}
-            onChange={(event) => props.onDateToChange(event.target.value)}
-          />
-        </div>
+        <FieldGroup
+          aria-label="Bộ lọc báo cáo chênh lệch"
+          className="[container-type:normal] flex shrink-0 flex-row flex-wrap items-end gap-3 border-b p-3"
+        >
+          <Field className="w-full sm:w-40">
+            <FieldLabel htmlFor="discrepancy-filter-warehouse">Kho</FieldLabel>
+            <NativeSelect
+              id="discrepancy-filter-warehouse"
+              className="w-full"
+              aria-label="Lọc theo kho"
+              value={props.filterWarehouseId}
+              onChange={(event) => props.onFilterWarehouseChange(event.target.value)}
+            >
+              <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+              {props.warehouseOptions.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field className="w-full sm:w-52">
+            <FieldLabel htmlFor="discrepancy-filter-product">Sản phẩm</FieldLabel>
+            <NativeSelect
+              id="discrepancy-filter-product"
+              className="w-full"
+              aria-label="Lọc theo sản phẩm"
+              value={props.filterProductId}
+              onChange={(event) => props.onFilterProductChange(event.target.value)}
+            >
+              <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
+              {props.productOptions.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field className="w-full sm:w-44">
+            <FieldLabel htmlFor="discrepancy-filter-status">Trạng thái</FieldLabel>
+            <NativeSelect
+              id="discrepancy-filter-status"
+              className="w-full"
+              aria-label="Lọc theo trạng thái"
+              value={props.statusFilter}
+              onChange={(event) =>
+                props.onStatusFilterChange(event.target.value as StockDiscrepancyStatus | '')
+              }
+            >
+              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+              <NativeSelectOption value="PendingReview">Chờ xem xét</NativeSelectOption>
+              <NativeSelectOption value="EvidenceRequested">Chờ bằng chứng</NativeSelectOption>
+              <NativeSelectOption value="FollowUpPending">Đang xử lý tiếp</NativeSelectOption>
+              <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
+              <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
+              <NativeSelectOption value="Duplicate">Trùng lặp</NativeSelectOption>
+            </NativeSelect>
+          </Field>
+          <Field className="w-full sm:w-40">
+            <FieldLabel htmlFor="discrepancy-filter-from">Từ ngày</FieldLabel>
+            <Input
+              id="discrepancy-filter-from"
+              aria-label="Từ ngày"
+              type="date"
+              value={props.dateFrom}
+              onChange={(event) => props.onDateFromChange(event.target.value)}
+            />
+          </Field>
+          <Field className="w-full sm:w-40">
+            <FieldLabel htmlFor="discrepancy-filter-to">Đến ngày</FieldLabel>
+            <Input
+              id="discrepancy-filter-to"
+              aria-label="Đến ngày"
+              type="date"
+              value={props.dateTo}
+              onChange={(event) => props.onDateToChange(event.target.value)}
+            />
+          </Field>
+        </FieldGroup>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />
         ) : props.isError ? (
@@ -365,149 +391,165 @@ export function StockDiscrepancyDirectory(props: Props) {
         </DialogContent>
       </Dialog>
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden sm:max-w-3xl">
+          <DialogHeader className="shrink-0 pr-8">
             <DialogTitle>Báo chênh lệch tồn kho</DialogTitle>
             <DialogDescription>
               Chọn đúng phạm vi và đính kèm bằng chứng kiểm đếm.
             </DialogDescription>
           </DialogHeader>
-          <Field>
-            <FieldLabel>Kho</FieldLabel>
-            <NativeSelect
-              value={props.warehouseId}
-              onChange={(event) => props.onWarehouseChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Chọn kho</NativeSelectOption>
-              {props.warehouseOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field>
-            <FieldLabel>Sản phẩm</FieldLabel>
-            <NativeSelect
-              value={props.productId}
-              onChange={(event) => props.onProductChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Chọn sản phẩm</NativeSelectOption>
-              {props.productOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field>
-            <FieldLabel>Vị trí</FieldLabel>
-            <NativeSelect
-              value={props.slotId}
-              onChange={(event) => props.onSlotChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Chọn vị trí</NativeSelectOption>
-              {props.slotOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field>
-            <FieldLabel>Lô (không bắt buộc)</FieldLabel>
-            <NativeSelect
-              value={props.lotId}
-              onChange={(event) => props.onLotChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Không chọn lô</NativeSelectOption>
-              {props.lotOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
-          {props.canLinkTask ? (
-            <Field>
-              <FieldLabel>Công việc liên quan (không bắt buộc)</FieldLabel>
-              <NativeSelect
-                value={props.relatedTaskKey}
-                onChange={(event) => props.onRelatedTaskChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Không liên kết công việc</NativeSelectOption>
-                {props.taskOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-          ) : null}
-          <Field>
-            <FieldLabel>Loại</FieldLabel>
-            <NativeSelect
-              value={type}
-              onChange={(event) => {
-                const nextType =
-                  event.target.value === 'Excess'
-                    ? 'Excess'
-                    : event.target.value === 'WrongLocation'
-                      ? 'WrongLocation'
-                      : 'Shortage'
-                setType(nextType)
-                if (nextType === 'Shortage' && difference > 0) setDifference(-difference)
-                if (nextType === 'Excess' && difference < 0) setDifference(-difference)
-              }}
-            >
-              <NativeSelectOption value="Shortage">Thiếu</NativeSelectOption>
-              <NativeSelectOption value="Excess">Thừa</NativeSelectOption>
-              <NativeSelectOption value="WrongLocation">Sai vị trí</NativeSelectOption>
-            </NativeSelect>
-          </Field>
-          {type === 'WrongLocation' ? (
-            <Field>
-              <FieldLabel>Vị trí đúng</FieldLabel>
-              <NativeSelect
-                value={props.correctSlotId}
-                onChange={(event) => props.onCorrectSlotChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Chọn vị trí đúng</NativeSelectOption>
-                {props.slotOptions
-                  .filter((option) => option.value !== props.slotId)
-                  .map((option) => (
+          <div data-scrollbar="slim" className="min-h-0 overflow-y-auto overscroll-contain pr-1">
+            <FieldGroup className="[container-type:normal] grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="discrepancy-warehouse">Kho</FieldLabel>
+                <NativeSelect
+                  id="discrepancy-warehouse"
+                  value={props.warehouseId}
+                  onChange={(event) => props.onWarehouseChange(event.target.value)}
+                >
+                  <NativeSelectOption value="">Chọn kho</NativeSelectOption>
+                  {props.warehouseOptions.map((option) => (
                     <NativeSelectOption key={option.value} value={option.value}>
                       {option.label}
                     </NativeSelectOption>
                   ))}
-              </NativeSelect>
-            </Field>
-          ) : null}
-          <Field>
-            <FieldLabel>Chênh lệch quan sát</FieldLabel>
-            <Input
-              type="number"
-              step="0.001"
-              value={difference}
-              onChange={(event) => setDifference(Number(event.target.value))}
-            />
-          </Field>
-          <Field>
-            <FieldLabel>Mô tả</FieldLabel>
-            <Textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel>Tệp bằng chứng</FieldLabel>
-            <Input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            />
-          </Field>
-          <DialogFooter>
+                </NativeSelect>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="discrepancy-product">Sản phẩm</FieldLabel>
+                <NativeSelect
+                  id="discrepancy-product"
+                  value={props.productId}
+                  onChange={(event) => props.onProductChange(event.target.value)}
+                >
+                  <NativeSelectOption value="">Chọn sản phẩm</NativeSelectOption>
+                  {props.productOptions.map((option) => (
+                    <NativeSelectOption key={option.value} value={option.value}>
+                      {option.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="discrepancy-slot">Vị trí</FieldLabel>
+                <NativeSelect
+                  id="discrepancy-slot"
+                  value={props.slotId}
+                  onChange={(event) => props.onSlotChange(event.target.value)}
+                >
+                  <NativeSelectOption value="">Chọn vị trí</NativeSelectOption>
+                  {props.slotOptions.map((option) => (
+                    <NativeSelectOption key={option.value} value={option.value}>
+                      {option.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="discrepancy-lot">Lô (không bắt buộc)</FieldLabel>
+                <NativeSelect
+                  id="discrepancy-lot"
+                  value={props.lotId}
+                  onChange={(event) => props.onLotChange(event.target.value)}
+                >
+                  <NativeSelectOption value="">Không chọn lô</NativeSelectOption>
+                  {props.lotOptions.map((option) => (
+                    <NativeSelectOption key={option.value} value={option.value}>
+                      {option.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+              {props.canLinkTask ? (
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="discrepancy-task">
+                    Công việc liên quan (không bắt buộc)
+                  </FieldLabel>
+                  <NativeSelect
+                    id="discrepancy-task"
+                    value={props.relatedTaskKey}
+                    onChange={(event) => props.onRelatedTaskChange(event.target.value)}
+                  >
+                    <NativeSelectOption value="">Không liên kết công việc</NativeSelectOption>
+                    {props.taskOptions.map((option) => (
+                      <NativeSelectOption key={option.value} value={option.value}>
+                        {option.label}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </Field>
+              ) : null}
+              <Field>
+                <FieldLabel htmlFor="discrepancy-type">Loại</FieldLabel>
+                <NativeSelect
+                  id="discrepancy-type"
+                  value={type}
+                  onChange={(event) => {
+                    const nextType =
+                      event.target.value === 'Excess'
+                        ? 'Excess'
+                        : event.target.value === 'WrongLocation'
+                          ? 'WrongLocation'
+                          : 'Shortage'
+                    setType(nextType)
+                    if (nextType === 'Shortage' && difference > 0) setDifference(-difference)
+                    if (nextType === 'Excess' && difference < 0) setDifference(-difference)
+                  }}
+                >
+                  <NativeSelectOption value="Shortage">Thiếu</NativeSelectOption>
+                  <NativeSelectOption value="Excess">Thừa</NativeSelectOption>
+                  <NativeSelectOption value="WrongLocation">Sai vị trí</NativeSelectOption>
+                </NativeSelect>
+              </Field>
+              {type === 'WrongLocation' ? (
+                <Field>
+                  <FieldLabel htmlFor="discrepancy-correct-slot">Vị trí đúng</FieldLabel>
+                  <NativeSelect
+                    id="discrepancy-correct-slot"
+                    value={props.correctSlotId}
+                    onChange={(event) => props.onCorrectSlotChange(event.target.value)}
+                  >
+                    <NativeSelectOption value="">Chọn vị trí đúng</NativeSelectOption>
+                    {props.slotOptions
+                      .filter((option) => option.value !== props.slotId)
+                      .map((option) => (
+                        <NativeSelectOption key={option.value} value={option.value}>
+                          {option.label}
+                        </NativeSelectOption>
+                      ))}
+                  </NativeSelect>
+                </Field>
+              ) : null}
+              <Field>
+                <FieldLabel htmlFor="discrepancy-difference">Chênh lệch quan sát</FieldLabel>
+                <Input
+                  id="discrepancy-difference"
+                  type="number"
+                  step="0.001"
+                  value={difference}
+                  onChange={(event) => setDifference(Number(event.target.value))}
+                />
+              </Field>
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="discrepancy-description">Mô tả</FieldLabel>
+                <Textarea
+                  id="discrepancy-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+              </Field>
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="discrepancy-evidence">Tệp bằng chứng</FieldLabel>
+                <Input
+                  id="discrepancy-evidence"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx"
+                  onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                />
+              </Field>
+            </FieldGroup>
+          </div>
+          <DialogFooter className="shrink-0 border-t pt-3">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Hủy
             </Button>
