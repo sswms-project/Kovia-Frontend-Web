@@ -1,5 +1,7 @@
 export const API_ENDPOINTS = {
   dashboard: {
+    stockThresholdAlerts: '/dashboard/stock-alerts/thresholds',
+    stockExpiryAlerts: '/dashboard/stock-alerts/expiry',
     overview: '/dashboard/overview',
     warehouses: '/dashboard/warehouses',
   },
