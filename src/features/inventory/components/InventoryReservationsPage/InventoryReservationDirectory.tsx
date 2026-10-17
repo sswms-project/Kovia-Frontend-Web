@@ -1,12 +1,10 @@
 'use client'
 
-import { ListFilter, LockKeyhole, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import {
   Table,
   TableBody,
@@ -78,57 +76,93 @@ function qualityStatusLabel(status: InventoryReservation['qualityStatus']) {
 }
 
 export function InventoryReservationDirectory(props: InventoryReservationDirectoryProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const totalReserved = props.items.reduce((total, item) => total + item.reservedQuantity, 0)
-
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
-            <LockKeyhole aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-            <h1 className="text-xl font-semibold">Lịch sử giữ hàng</h1>
-          </div>
-        </div>
-        <Badge variant="outline">
-          {formatInventoryQuantity(totalReserved)} đơn vị · {statusLabel(props.status)}
-        </Badge>
-      </header>
+      <h1 className="sr-only">Lịch sử giữ hàng</h1>
 
       <InventoryWorkspaceNavigation currentView="reservations" permissions={props.permissions} />
 
-      <OperationalListPanel aria-labelledby="reservation-title">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b p-3">
-          <div>
-            <h2 id="reservation-title" className="text-sm font-semibold">
-              Danh sách giữ hàng
-            </h2>
-            <p className="text-muted-foreground text-xs">
-              Mỗi dòng thuộc một tồn kho và chứng từ cụ thể.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setIsFilterOpen(true)}>
-              <ListFilter data-icon="inline-start" aria-hidden="true" />
-              Bộ lọc{props.activeFilterCount ? ` (${props.activeFilterCount})` : ''}
-            </Button>
+      <OperationalListPanel aria-label="Tồn đang giữ">
+        <div className="grid w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b p-3">
+          <FieldGroup
+            aria-label="Bộ lọc giữ hàng"
+            className="[container-type:normal] flex min-w-0 flex-1 flex-row flex-wrap items-center gap-3"
+          >
+            <Field orientation="horizontal" className="w-full sm:w-auto">
+              <FieldLabel htmlFor="reservation-status">Trạng thái</FieldLabel>
+              <NativeSelect
+                className="w-full sm:w-44"
+                id="reservation-status"
+                value={props.status}
+                onChange={(event) => props.onStatusChange(parseStatus(event.target.value))}
+              >
+                <NativeSelectOption value="Active">Đang giữ</NativeSelectOption>
+                <NativeSelectOption value="Released">Đã giải phóng</NativeSelectOption>
+                <NativeSelectOption value="Consumed">Đã sử dụng</NativeSelectOption>
+              </NativeSelect>
+            </Field>
+            <Field orientation="horizontal" className="w-full sm:w-auto">
+              <FieldLabel htmlFor="reservation-warehouse">Kho</FieldLabel>
+              <NativeSelect
+                className="w-full sm:w-44"
+                id="reservation-warehouse"
+                value={props.warehouseId}
+                disabled={props.areFiltersLoading}
+                onChange={(event) => props.onWarehouseChange(event.target.value)}
+              >
+                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+                {props.warehouseOptions.map((option) => (
+                  <NativeSelectOption key={option.value} value={option.value}>
+                    {option.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field orientation="horizontal" className="w-full sm:w-auto">
+              <FieldLabel htmlFor="reservation-product">Sản phẩm</FieldLabel>
+              <NativeSelect
+                className="w-full sm:w-44"
+                id="reservation-product"
+                value={props.productId}
+                disabled={props.areFiltersLoading}
+                onChange={(event) => props.onProductChange(event.target.value)}
+              >
+                <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
+                {props.productOptions.map((option) => (
+                  <NativeSelectOption key={option.value} value={option.value}>
+                    {option.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Field>
+            {props.areFiltersError ? (
+              <Button type="button" variant="outline" onClick={props.onRetryFilters}>
+                Tải lại bộ lọc
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"
-              size="icon"
-              disabled={props.isFetching}
-              aria-label="Làm mới lịch sử giữ hàng"
-              onClick={props.onRetry}
+              disabled={props.activeFilterCount === 0}
+              onClick={props.onResetFilters}
             >
-              <RefreshCw
-                className={props.isFetching ? 'animate-spin' : undefined}
-                aria-hidden="true"
-              />
+              Đặt lại
             </Button>
-          </div>
+          </FieldGroup>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0 justify-self-end"
+            disabled={props.isFetching}
+            aria-label="Làm mới lịch sử giữ hàng"
+            onClick={props.onRetry}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+            />
+          </Button>
         </div>
 
         {props.isLoading ? (
@@ -221,73 +255,6 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
           onPageSizeChange={props.onPageSizeChange}
         />
       </OperationalListPanel>
-
-      <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-        <SheetContent className="w-full sm:max-w-sm">
-          <SheetHeader>
-            <SheetTitle>Lọc lịch sử giữ hàng</SheetTitle>
-          </SheetHeader>
-          <FieldGroup className="flex-1 p-4">
-            <Field>
-              <FieldLabel htmlFor="reservation-status">Trạng thái</FieldLabel>
-              <NativeSelect
-                id="reservation-status"
-                value={props.status}
-                onChange={(event) => props.onStatusChange(parseStatus(event.target.value))}
-              >
-                <NativeSelectOption value="Active">Đang giữ</NativeSelectOption>
-                <NativeSelectOption value="Released">Đã giải phóng</NativeSelectOption>
-                <NativeSelectOption value="Consumed">Đã sử dụng</NativeSelectOption>
-              </NativeSelect>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="reservation-warehouse">Kho</FieldLabel>
-              <NativeSelect
-                id="reservation-warehouse"
-                value={props.warehouseId}
-                disabled={props.areFiltersLoading}
-                onChange={(event) => props.onWarehouseChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {props.warehouseOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="reservation-product">Sản phẩm</FieldLabel>
-              <NativeSelect
-                id="reservation-product"
-                value={props.productId}
-                disabled={props.areFiltersLoading}
-                onChange={(event) => props.onProductChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-                {props.productOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            {props.areFiltersError ? (
-              <Button type="button" variant="outline" onClick={props.onRetryFilters}>
-                Tải lại bộ lọc
-              </Button>
-            ) : null}
-          </FieldGroup>
-          <SheetFooter>
-            <Button type="button" onClick={() => setIsFilterOpen(false)}>
-              Xem kết quả
-            </Button>
-            <Button type="button" variant="outline" onClick={props.onResetFilters}>
-              Đặt lại kho và sản phẩm
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }

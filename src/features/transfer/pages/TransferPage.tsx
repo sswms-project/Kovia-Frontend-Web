@@ -106,7 +106,6 @@ export default function TransferPage() {
         }
       >
         <TransferDirectory
-          query={searchParams.toString()}
           statusCounts={
             !transfersQuery.isPlaceholderData ? transfersQuery.data?.statusCounts : undefined
           }
@@ -128,6 +127,7 @@ export default function TransferPage() {
           isFetching={transfersQuery.isFetching}
           isError={transfersQuery.isError}
           onSearchChange={(value) => updateFilter('search', value, true, true)}
+          onStatusChange={(value) => updateFilter('status', value)}
           onSourceWarehouseChange={(value) => updateFilter('source', value)}
           onDestinationWarehouseChange={(value) => updateFilter('destination', value)}
           onDateFromChange={(value) => updateFilter('from', value)}

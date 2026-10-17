@@ -38,6 +38,16 @@ const reports = [
 }))
 
 describe('business report clusters', () => {
+  it('draws complete borders inside every report card instead of a clipped outer ring', () => {
+    const { container } = render(<ReportCatalogView {...props} reports={reports} canForecast />)
+    const cards = container.querySelectorAll('[data-slot="card"]')
+    expect(cards).toHaveLength(4)
+    for (const card of cards) {
+      expect(card).toHaveClass('border', 'border-border', 'ring-0')
+      expect(card.querySelector('[data-slot="card-header"]')).toHaveClass('border-border')
+    }
+  })
+
   it('places all reports in their business clusters with direct links', () => {
     render(<ReportCatalogView {...props} reports={reports} canForecast />)
     expect(

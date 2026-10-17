@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ShieldAlert } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { Button } from '@/components/ui/button'
@@ -65,6 +65,7 @@ interface DamageCaseDirectoryProps {
   readonly warehouseOptions: readonly InventoryFilterOption[]
   readonly productOptions: readonly InventoryFilterOption[]
   readonly isLoading: boolean
+  readonly isFetching: boolean
   readonly isError: boolean
   readonly isPending: boolean
   readonly canDecide: boolean
@@ -149,69 +150,76 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <header className="flex shrink-0 items-start gap-3 border-b pb-4">
-        <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
-          <ShieldAlert />
-        </span>
-        <div>
-          <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-          <h1 className="text-xl font-semibold">Hồ sơ hàng hỏng</h1>
-          <p className="text-muted-foreground text-sm">
-            Theo dõi lượng đang giữ và quyết định xử lý có truy vết.
-          </p>
-        </div>
-      </header>
+      <h1 className="sr-only">Hồ sơ hàng hỏng</h1>
       <InventoryWorkspaceNavigation currentView="damage-cases" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách sự cố hư hỏng">
-        <div className="grid gap-2 border-b p-3 sm:grid-cols-2 lg:grid-cols-5">
-          <NativeSelect
-            className="w-full"
-            aria-label="Lọc theo kho"
-            value={props.warehouseId}
-            onChange={(event) => props.onWarehouseChange(event.target.value)}
+        <div className="flex shrink-0 items-start gap-3 border-b p-3">
+          <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <NativeSelect
+              className="w-full"
+              aria-label="Lọc theo kho"
+              value={props.warehouseId}
+              onChange={(event) => props.onWarehouseChange(event.target.value)}
+            >
+              <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+              {props.warehouseOptions.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <NativeSelect
+              className="w-full"
+              aria-label="Lọc theo sản phẩm"
+              value={props.productId}
+              onChange={(event) => props.onProductChange(event.target.value)}
+            >
+              <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
+              {props.productOptions.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <NativeSelect
+              className="w-full"
+              aria-label="Lọc theo trạng thái"
+              value={props.statusFilter}
+              onChange={(event) =>
+                props.onStatusChange(event.target.value as DamageCaseStatus | '')
+              }
+            >
+              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+              <NativeSelectOption value="Open">Đang giữ</NativeSelectOption>
+              <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
+            </NativeSelect>
+            <Input
+              aria-label="Từ ngày"
+              type="date"
+              value={props.dateFrom}
+              onChange={(event) => props.onDateFromChange(event.target.value)}
+            />
+            <Input
+              aria-label="Đến ngày"
+              type="date"
+              value={props.dateTo}
+              onChange={(event) => props.onDateToChange(event.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            aria-label="Làm mới hàng hỏng"
+            disabled={props.isFetching}
+            onClick={props.onRetry}
           >
-            <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-            {props.warehouseOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect
-            className="w-full"
-            aria-label="Lọc theo sản phẩm"
-            value={props.productId}
-            onChange={(event) => props.onProductChange(event.target.value)}
-          >
-            <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-            {props.productOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect
-            className="w-full"
-            aria-label="Lọc theo trạng thái"
-            value={props.statusFilter}
-            onChange={(event) => props.onStatusChange(event.target.value as DamageCaseStatus | '')}
-          >
-            <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-            <NativeSelectOption value="Open">Đang giữ</NativeSelectOption>
-            <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
-          </NativeSelect>
-          <Input
-            aria-label="Từ ngày"
-            type="date"
-            value={props.dateFrom}
-            onChange={(event) => props.onDateFromChange(event.target.value)}
-          />
-          <Input
-            aria-label="Đến ngày"
-            type="date"
-            value={props.dateTo}
-            onChange={(event) => props.onDateToChange(event.target.value)}
-          />
+            <RefreshCw
+              aria-hidden="true"
+              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+            />
+          </Button>
         </div>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />
@@ -234,7 +242,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                   <TableHead className="sticky top-0 z-10">Nguồn</TableHead>
                   <TableHead className="sticky top-0 z-10">Người báo</TableHead>
                   <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                  <TableHead />
+                  <TableHead className="sticky top-0 z-10 w-px text-center">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -308,9 +316,9 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                         </p>
                       ) : null}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setDetailItem(item)}>
+                    <TableCell className="w-px">
+                      <div className="ml-auto flex w-max gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setDetailItem(item)}>
                           Chi tiết
                         </Button>
                         {canDecideCase(item) ? (

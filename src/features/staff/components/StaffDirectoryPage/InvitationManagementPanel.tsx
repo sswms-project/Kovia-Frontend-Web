@@ -87,7 +87,7 @@ export function InvitationManagementPanel({
         </div>
       ) : (
         <>
-          <ul data-slot="operational-list-body" className="min-h-0 divide-y">
+          <ul data-slot="operational-list-body" className="min-h-0">
             {invitations.map((invitation) => {
               const needsWarehouse =
                 invitation.warehouses.length === 0 &&
@@ -96,7 +96,7 @@ export function InvitationManagementPanel({
               return (
                 <li
                   key={invitation.id}
-                  className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:px-4"
+                  className="border-border flex flex-col gap-3 border-b px-3 py-3 sm:flex-row sm:items-center sm:px-4"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{invitation.fullName}</p>

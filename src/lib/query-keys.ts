@@ -96,6 +96,7 @@ export const queryKeys = {
   organization: {
     all: ['organization'] as const,
     me: ['organization', 'me'] as const,
+    taskAssignmentScoring: ['organization', 'task-assignment-scoring'] as const,
   },
   staff: {
     all: ['staff'] as const,

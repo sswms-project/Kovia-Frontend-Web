@@ -384,13 +384,20 @@ export interface ReconcilePutawayCancellationRequest {
 }
 
 export interface AssignableWarehouseStaff {
-  openPickingTasks?: number
   id: string
   fullName: string
   email: string
   openReceivingTasks: number
   openPutAwayTasks: number
+  // Các trường dưới chỉ có từ khi Backend chấm điểm tải chung; thiếu thì coi như chưa có dữ liệu.
+  openPickingTasks?: number
+  openWarehouseTasks?: number
+  openCycleCounts?: number
   hasTaskInProgress: boolean
+  /** Điểm tải theo hệ số chấm điểm của doanh nghiệp; danh sách xếp tăng dần theo điểm này. */
+  workloadScore?: number
+  /** Người có điểm tải thấp nhất, được đề xuất giao trước. */
+  isRecommended?: boolean
 }
 
 export interface UnassignReceivingTaskRequest {

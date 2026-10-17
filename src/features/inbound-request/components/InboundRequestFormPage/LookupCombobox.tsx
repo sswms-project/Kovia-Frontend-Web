@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Combobox,
@@ -53,6 +53,8 @@ export function LookupCombobox({
   footerAction,
 }: LookupComboboxProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [popupContainer, setPopupContainer] = useState<HTMLElement | null>(null)
   const [rememberedOption, setRememberedOption] = useState<LookupOption | undefined>(
     () => selectedOption ?? options.find((option) => option.value === value)
   )
@@ -97,11 +99,15 @@ export function LookupCombobox({
       }}
       open={isOpen}
       onOpenChange={(open) => {
+        // Keep the popup inside the modal's scroll boundary without unlocking the page.
+        if (open)
+          setPopupContainer(inputRef.current?.closest<HTMLElement>('[role="dialog"]') ?? null)
         setIsOpen(open)
         if (!open) onSearchChange('')
       }}
     >
       <ComboboxInput
+        ref={inputRef}
         id={id}
         className="w-full"
         placeholder={placeholder}
@@ -110,8 +116,11 @@ export function LookupCombobox({
         disabled={disabled}
         showClear={Boolean(value) && !disabled}
       />
-      <ComboboxContent sideOffset={4} align="start">
-        <ComboboxList>
+      <ComboboxContent sideOffset={4} align="start" container={popupContainer ?? undefined}>
+        <ComboboxList
+          data-scrollbar="slim"
+          className="supports-[selector(::-webkit-scrollbar)]:[scrollbar-width:auto] [&::-webkit-scrollbar]:block"
+        >
           <ComboboxGroup>
             {filteredItemValues.map((itemValue) => (
               <ComboboxItem key={itemValue} value={itemValue}>

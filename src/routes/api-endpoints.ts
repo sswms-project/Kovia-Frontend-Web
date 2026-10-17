@@ -65,6 +65,7 @@ export const API_ENDPOINTS = {
   },
   organization: {
     me: '/organization',
+    taskAssignmentScoring: '/organization/task-assignment-scoring',
   },
   myWarehouseTasks: {
     current: '/my-warehouse-tasks',
@@ -155,6 +156,10 @@ export const API_ENDPOINTS = {
     damageCaseDisposition: (id: string) => `/inventory/damage-cases/${id}/disposition`,
     addDamageCaseEvidence: (id: string) => `/inventory/damage-cases/${id}/evidence`,
     openingStocks: '/inventory/opening-stocks',
+    openingStockImport: '/inventory/opening-stocks/import',
+    openingStockFormOptions: '/inventory/opening-stocks/form-options',
+    openingStockImportOperation: (commandId: string) =>
+      `/inventory/opening-stocks/import/operations/${encodeURIComponent(commandId)}`,
     updateOpeningStock: (id: string) => `/inventory/opening-stocks/${id}`,
     submitOpeningStock: (id: string) => `/inventory/opening-stocks/${id}/submit`,
     withdrawOpeningStock: (id: string) => `/inventory/opening-stocks/${id}/withdraw`,
