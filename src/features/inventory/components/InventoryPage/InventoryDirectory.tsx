@@ -1,6 +1,6 @@
 'use client'
 
-import { Boxes, ListFilter, PackageSearch, RefreshCw, Search, TriangleAlert, X } from 'lucide-react'
+import { ListFilter, RefreshCw, Search, TriangleAlert, X } from 'lucide-react'
 import { useState } from 'react'
 import {
   OperationalEmptyState,
@@ -110,21 +110,7 @@ export function InventoryDirectory({
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
-            <PackageSearch aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-            <h1 className="mt-0.5 text-xl font-semibold">Tồn kho khả dụng</h1>
-          </div>
-        </div>
-        <div className="border-primary/20 bg-primary/5 flex min-h-10 items-center gap-2 border px-3">
-          <Boxes className="text-primary size-4" aria-hidden="true" />
-          <span className="text-xs font-medium tabular-nums">{totalCount} vị trí tồn kho</span>
-        </div>
-      </header>
+      <h1 className="sr-only">Tồn kho khả dụng</h1>
 
       <InventoryWorkspaceNavigation currentView="availability" permissions={permissions} />
 

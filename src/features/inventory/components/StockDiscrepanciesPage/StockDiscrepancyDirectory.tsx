@@ -125,19 +125,16 @@ export function StockDiscrepancyDirectory(props: Props) {
   const [detailItem, setDetailItem] = useState<StockDiscrepancy | null>(null)
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <header className="flex items-start justify-between border-b pb-4">
-        <div>
-          <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-          <h1 className="text-xl font-semibold">Báo cáo chênh lệch tồn kho</h1>
-          <p className="text-muted-foreground text-sm">
-            Báo cáo không tự thay đổi số lượng tồn; mọi điều chỉnh cần quy trình duyệt riêng.
-          </p>
-        </div>
-        {props.canReport ? (
-          <Button onClick={() => setCreateOpen(true)}>Báo chênh lệch</Button>
-        ) : null}
-      </header>
-      <InventoryWorkspaceNavigation currentView="discrepancies" permissions={props.permissions} />
+      <h1 className="sr-only">Báo cáo chênh lệch tồn kho</h1>
+      <InventoryWorkspaceNavigation
+        currentView="discrepancies"
+        permissions={props.permissions}
+        actions={
+          props.canReport ? (
+            <Button onClick={() => setCreateOpen(true)}>Báo chênh lệch</Button>
+          ) : undefined
+        }
+      />
       <OperationalListPanel aria-label="Danh sách chênh lệch tồn kho">
         <div className="grid gap-3 border-b p-3 sm:grid-cols-5">
           <NativeSelect

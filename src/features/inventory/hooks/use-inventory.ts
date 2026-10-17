@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
+import { logApiError } from '@/lib/api-error'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
 import { inventoryService } from '../services/inventory.service'
@@ -207,7 +208,7 @@ export function useCreateOpeningStockMutation() {
     mutationFn: inventoryService.createOpeningStock,
     retry: false,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-    onError: (error) => logger.error(error),
+    onError: logApiError,
   })
 }
 

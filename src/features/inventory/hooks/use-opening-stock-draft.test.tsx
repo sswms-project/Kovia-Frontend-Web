@@ -39,6 +39,26 @@ beforeEach(() => {
   })
 })
 describe('manual opening stock draft safety', () => {
+  it('allows changing a duplicate document code after a definite rejection', async () => {
+    mocks.create
+      .mockRejectedValueOnce({
+        statusCode: 409,
+        errors: { errorCode: ['OPENING_STOCK_CODE_DUPLICATE'] },
+      })
+      .mockResolvedValueOnce({ data: 'record' })
+    const hook = mount()
+    await act(async () => {
+      await expect(
+        hook.result.current.save({ ...input, code: 'TDK-01', file: undefined })
+      ).rejects.toBeDefined()
+    })
+    expect(hook.result.current.uncertain).toBe(false)
+    await act(() => hook.result.current.save({ ...input, code: 'TDK-02', file: undefined }))
+    expect(mocks.create.mock.calls[1]?.[0].code).toBe('TDK-02')
+    expect(mocks.create.mock.calls[1]?.[0].commandId).not.toBe(
+      mocks.create.mock.calls[0]?.[0].commandId
+    )
+  })
   it('creates without uploading when no attachment was chosen', async () => {
     const hook = mount()
     await act(() => hook.result.current.save({ ...input, file: undefined }))

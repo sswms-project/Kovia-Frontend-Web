@@ -70,6 +70,7 @@ export function useOpeningStockDraft() {
               'OPENING_STOCK_SCOPE_ALREADY_USED',
               'OPENING_STOCK_EXISTING_BALANCE_WITHOUT_LEDGER',
               'OPENING_STOCK_LOT_CHANGED',
+              'OPENING_STOCK_CODE_DUPLICATE',
             ].includes(code)
           )
         if (rejected) {

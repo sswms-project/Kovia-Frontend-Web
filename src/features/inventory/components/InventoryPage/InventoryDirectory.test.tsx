@@ -105,6 +105,11 @@ describe('InventoryDirectory', () => {
     renderDirectory(stock)
     expect(screen.getByRole('heading', { name: 'Danh sách tồn kho' })).toBeInTheDocument()
     expect(screen.queryByText(/Dữ liệu theo từng slot|Ảnh chụp/)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Tồn kho khả dụng' })).toHaveClass(
+      'sr-only'
+    )
+    expect(screen.queryByText('Kiểm soát tồn kho')).not.toBeInTheDocument()
+    expect(screen.queryByText(/vị trí tồn kho/)).not.toBeInTheDocument()
   })
 
   it('marks stock outside assigned warehouses as read-only', () => {

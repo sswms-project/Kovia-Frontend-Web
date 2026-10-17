@@ -22,7 +22,10 @@ import type { OpeningStockRecord, OpeningStockStatus } from '../types/inventory.
 import { useOpeningStockOptions } from '../hooks/use-opening-stock-options'
 import { useOpeningStockDraft } from '../hooks/use-opening-stock-draft'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import { openingStockErrorMessage } from '../utils/opening-stock-import'
+import {
+  openingStockErrorMessage,
+  openingStockLocationDescription,
+} from '../utils/opening-stock-import'
 
 export default function OpeningStocksPage({ recordId }: { readonly recordId?: string }) {
   const approvalCommands = useRef(new Map<string, string>())
@@ -50,6 +53,8 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
   const form = useForm<CreateOpeningStockFormValues>({
     resolver: zodResolver(createOpeningStockSchema),
     defaultValues: {
+      code: '',
+      enteredUnitId: '',
       warehouseId: '',
       effectiveDate: operationalToday(),
       newLotNumber: '',
@@ -93,11 +98,18 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
         unitId: item.unitId,
         unitName: item.unitName,
         isLotTracked: item.isLotTracked,
+        units: item.units,
+        quantityPrecision: item.quantityPrecision,
       })),
     [lookup.data?.products]
   )
   const slotOptions = useMemo(
-    () => (lookup.data?.locations ?? []).map((item) => ({ value: item.id, label: item.label })),
+    () =>
+      (lookup.data?.locations ?? []).map((item) => ({
+        value: item.id,
+        label: item.label,
+        description: openingStockLocationDescription(item),
+      })),
     [lookup.data?.locations]
   )
   const lotOptions = useMemo(
@@ -110,8 +122,10 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
   )
 
   async function create(values: CreateOpeningStockFormValues, lines: OpeningStockDraftLine[]) {
+    form.clearErrors('root.server')
     try {
       await draft.save({
+        code: values.code,
         warehouseId: values.warehouseId,
         file: values.evidenceFile,
         effectiveDate: values.effectiveDate,
@@ -124,7 +138,7 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
           ...(line.newLot ? { newLot: line.newLot } : {}),
           quantity: line.quantity,
           enteredUnitId: line.enteredUnitId,
-          conversionFactor: 1,
+          conversionFactor: line.conversionFactor,
           qualityStatus: line.qualityStatus,
           eligibilityStatus: line.eligibilityStatus,
         })),
@@ -132,7 +146,9 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
       form.reset()
       toast.success('Đã tạo chứng từ tồn đầu ở trạng thái nháp.')
     } catch (error) {
-      toast.error(openingStockErrorMessage(error, 'Không thể tạo chứng từ tồn đầu.'))
+      const message = openingStockErrorMessage(error, 'Không thể tạo chứng từ tồn đầu.')
+      form.setError('root.server', { type: 'server', message })
+      toast.error(message)
       throw error
     }
   }
@@ -236,6 +252,7 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
   const permissions = meQuery.data?.permissions ?? []
   return (
     <OpeningStockDirectory
+      recordId={recordId}
       permissions={permissions}
       isCreateUncertain={draft.uncertain}
       search={search}

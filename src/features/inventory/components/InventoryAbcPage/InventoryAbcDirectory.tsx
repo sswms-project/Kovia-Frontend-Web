@@ -1,4 +1,4 @@
-import { ChartNoAxesColumnIncreasing, RefreshCw, TriangleAlert } from 'lucide-react'
+import { RefreshCw, TriangleAlert } from 'lucide-react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -119,24 +119,7 @@ export function InventoryAbcDirectory({
   const pageItems = items.slice((page - 1) * pageSize, page * pageSize)
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
-            <ChartNoAxesColumnIncreasing aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-            <h1 className="mt-0.5 text-xl font-semibold">Phân loại ABC theo lịch sử xuất kho</h1>
-            <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-              Phân nhóm sản phẩm theo lịch sử xuất kho trong kỳ đã chọn.
-            </p>
-          </div>
-        </div>
-        <div className="border-primary/20 bg-primary/5 flex min-h-10 items-center gap-2 border px-3">
-          <ChartNoAxesColumnIncreasing className="text-primary size-4" aria-hidden="true" />
-          <span className="text-xs font-medium tabular-nums">{items.length} sản phẩm</span>
-        </div>
-      </header>
+      <h1 className="sr-only">Phân loại ABC theo lịch sử xuất kho</h1>
       <InventoryWorkspaceNavigation currentView="abc" permissions={permissions} />
       <section className="grid shrink-0 grid-cols-3 border" aria-label="Phân bố nhóm ABC">
         {['A', 'B', 'C'].map((className) => (

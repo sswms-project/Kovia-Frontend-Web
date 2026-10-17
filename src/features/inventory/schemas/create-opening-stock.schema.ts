@@ -2,8 +2,27 @@ import { z } from 'zod'
 import { operationalToday } from '@/lib/operational-date-time'
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 
+export function openingStockQuantitySchema(precision: number) {
+  return z
+    .number()
+    .positive('Số lượng phải lớn hơn 0.')
+    .multipleOf(
+      10 ** -precision,
+      `Số lượng chỉ được có tối đa ${precision} chữ số thập phân theo đơn vị đã chọn.`
+    )
+}
+
 export const createOpeningStockSchema = z
   .object({
+    code: z
+      .string()
+      .trim()
+      .min(1, 'Nhập mã chứng từ.')
+      .max(100, 'Mã chứng từ tối đa 100 ký tự.')
+      .refine((value) => !/\p{Cc}/u.test(value), 'Mã chứng từ chứa ký tự không hợp lệ.'),
+    enteredUnitId: z
+      .union([z.literal(''), nonEmptyDotNetGuidSchema('Đơn vị không hợp lệ.')])
+      .optional(),
     warehouseId: nonEmptyDotNetGuidSchema('Mã kho không hợp lệ.'),
     effectiveDate: z.iso
       .date('Chọn ngày ghi nhận.')
@@ -18,7 +37,7 @@ export const createOpeningStockSchema = z
     productId: nonEmptyDotNetGuidSchema('Mã sản phẩm không hợp lệ.'),
     slotId: nonEmptyDotNetGuidSchema('Mã vị trí không hợp lệ.'),
     lotId: z.union([z.literal(''), nonEmptyDotNetGuidSchema('Mã lô không hợp lệ.')]),
-    quantity: z.number().positive('Số lượng phải lớn hơn 0.'),
+    quantity: openingStockQuantitySchema(2),
     qualityStatus: z.enum(['Good', 'Damaged']),
     eligibilityStatus: z.enum(['Available', 'InspectionHold', 'DamageHold', 'Quarantine']),
   })

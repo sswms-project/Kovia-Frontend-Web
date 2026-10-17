@@ -1,6 +1,6 @@
 'use client'
 
-import { ListFilter, LockKeyhole, RefreshCw } from 'lucide-react'
+import { ListFilter, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -79,24 +79,10 @@ function qualityStatusLabel(status: InventoryReservation['qualityStatus']) {
 
 export function InventoryReservationDirectory(props: InventoryReservationDirectoryProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const totalReserved = props.items.reduce((total, item) => total + item.reservedQuantity, 0)
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
-            <LockKeyhole aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-            <h1 className="text-xl font-semibold">Lịch sử giữ hàng</h1>
-          </div>
-        </div>
-        <Badge variant="outline">
-          {formatInventoryQuantity(totalReserved)} đơn vị · {statusLabel(props.status)}
-        </Badge>
-      </header>
+      <h1 className="sr-only">Lịch sử giữ hàng</h1>
 
       <InventoryWorkspaceNavigation currentView="reservations" permissions={props.permissions} />
 

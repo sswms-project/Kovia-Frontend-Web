@@ -10,6 +10,9 @@ import {
 } from '../../schemas/create-opening-stock.schema'
 import type { OpeningStockRecord } from '../../types/inventory.types'
 
+const router = vi.hoisted(() => ({ push: vi.fn() }))
+vi.mock('next/navigation', () => ({ useRouter: () => router }))
+
 vi.mock('@/components/operations/use-import-navigation', () => ({
   useImportNavigation: () => ({ discardOpen: false }),
 }))
@@ -50,12 +53,17 @@ const productA = '22222222-2222-4222-8222-222222222222'
 const productB = '33333333-3333-4333-8333-333333333333'
 const slot = '44444444-4444-4444-8444-444444444444'
 const unit = '55555555-5555-4555-8555-555555555555'
+const convertedUnit = '77777777-7777-4777-8777-777777777777'
 const products = [productA, productB].map((value, index) => ({
   value,
   label: `Hàng ${index ? 'B' : 'A'}`,
   unitId: unit,
   unitName: 'Cái',
   isLotTracked: false,
+  units: [
+    { unitId: unit, unitName: 'Cái', conversionFactor: 1, quantityPrecision: 2 },
+    { unitId: convertedUnit, unitName: 'Thùng', conversionFactor: 12, quantityPrecision: 0 },
+  ],
 }))
 type Props = ComponentProps<typeof OpeningStockDirectory>
 const recordLine: OpeningStockRecord['lines'][number] = {
@@ -114,16 +122,21 @@ function mount(items: OpeningStockRecord[] = []) {
     loading = false,
     filtered = false,
     dateFrom = '',
+    capacityDescription,
+    recordId,
   }: {
     loading?: boolean
     filtered?: boolean
     dateFrom?: string
+    capacityDescription?: string
+    recordId?: string
   }) {
     form = useForm<CreateOpeningStockFormValues>({
       resolver: zodResolver(createOpeningStockSchema),
     })
     const noop = vi.fn()
     const props: Props = {
+      recordId,
       isCreateUncertain: false,
       search: '',
       lookupSearch: { product: '', location: '', lot: '' },
@@ -149,7 +162,10 @@ function mount(items: OpeningStockRecord[] = []) {
         : filtered
           ? products.filter((product) => product.value === productB)
           : products,
-      slotOptions: loading || filtered ? [] : [{ value: slot, label: 'A-01' }],
+      slotOptions:
+        loading || filtered
+          ? []
+          : [{ value: slot, label: 'A-01', description: capacityDescription }],
       lotOptions: [],
       areOptionsLoading: loading,
       isLoading: false,
@@ -180,6 +196,7 @@ function mount(items: OpeningStockRecord[] = []) {
   }
   const open = () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tạo chứng từ' }))
+    fireEvent.change(screen.getByLabelText('Mã chứng từ *'), { target: { value: 'TDK-0001' } })
     fireEvent.change(screen.getByRole('combobox', { name: 'Kho' }), {
       target: { value: warehouse },
     })
@@ -204,6 +221,66 @@ function openLocationMenu() {
   fireEvent.keyDown(input, { key: 'ArrowDown' })
 }
 describe('opening stock directory filters', () => {
+  it('does not silently reinterpret a stale unit or allow fractional whole-unit quantities', async () => {
+    const test = mount()
+    test.open()
+    test.fill(productA)
+    act(() => test.getForm().setValue('enteredUnitId', warehouse))
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm dòng và nhập tiếp' }))
+    await screen.findByText('Chọn lại đơn vị tính đang hoạt động.')
+    expect(screen.queryByText('Dòng đã thêm (1)')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Đơn vị tính'), { target: { value: convertedUnit } })
+    fireEvent.change(screen.getByLabelText(/^Số lượng \(/), { target: { value: '1.5' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm dòng và nhập tiếp' }))
+    await screen.findByText('Số lượng chỉ được có tối đa 0 chữ số thập phân theo đơn vị đã chọn.')
+    expect(screen.queryByText('Dòng đã thêm (1)')).not.toBeInTheDocument()
+    expect(test.onCreate).not.toHaveBeenCalled()
+  })
+  it('requires a user-entered document code instead of generating one', async () => {
+    const test = mount()
+    test.open()
+    test.fill(productA)
+    fireEvent.change(screen.getByLabelText('Mã chứng từ *'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo nháp (1 dòng)' }))
+    await screen.findByText('Nhập mã chứng từ.')
+    expect(test.onCreate).not.toHaveBeenCalled()
+  })
+  it('keeps the draft dialog when Escape is used from a native unit selector', () => {
+    const test = mount()
+    test.open()
+    test.fill(productA)
+    fireEvent.keyDown(screen.getByLabelText('Đơn vị tính'), { key: 'Escape' })
+    expect(screen.getByRole('dialog', { name: 'Tạo chứng từ tồn đầu' })).toBeInTheDocument()
+  })
+  it('shows location capacity in the dropdown and keeps it visible after selection', () => {
+    const test = mount()
+    test.open()
+    const description = 'Sức chứa tối đa: 100 Cái'
+    test.rendered.rerender(<test.Harness capacityDescription={description} />)
+    openLocationMenu()
+    expect(screen.getByRole('option', { name: /A-01.*Sức chứa tối đa/ })).toHaveTextContent(
+      description
+    )
+    fireEvent.click(screen.getByRole('option', { name: /A-01.*Sức chứa tối đa/ }))
+    expect(screen.getByText(description)).toBeInTheDocument()
+    expect(test.getForm().getValues('slotId')).toBe(slot)
+  })
+  it('keeps the draft and shows a rejected create message next to the save action', async () => {
+    const test = mount()
+    test.open()
+    test.fill(productA)
+    const message = 'Kệ A01 đang dùng cấu hình sức chứa cũ. Vui lòng chọn đơn vị sức chứa.'
+    test.onCreate.mockImplementationOnce(async () => {
+      test.getForm().setError('root.server', { type: 'server', message })
+      throw new Error(message)
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo nháp (1 dòng)' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(screen.getByRole('dialog', { name: 'Tạo chứng từ tồn đầu' })).toBeInTheDocument()
+    expect(test.getForm().getValues('productId')).toBe(productA)
+    expect(test.getForm().getValues('slotId')).toBe(slot)
+    expect(test.getForm().getValues('quantity')).toBe(2)
+  })
   it('saves a manually entered draft without an attachment', async () => {
     const test = mount()
     test.open()
@@ -304,7 +381,10 @@ describe('opening stock draft rows and lookups', () => {
       else test.open()
       const dialog = screen.getByRole('dialog')
       expect(dialog).toHaveAttribute('data-scrollbar', 'slim')
-      expect(dialog).toHaveClass('max-h-[90dvh]', 'overflow-y-auto')
+      expect(dialog).toHaveClass('max-h-[calc(100dvh-2rem)]', 'overflow-hidden')
+      const body = dialog.querySelector('form')
+      expect(body).toHaveAttribute('data-scrollbar', 'slim')
+      expect(body).toHaveClass('min-h-0', 'overflow-y-auto')
     }
   )
   it('requires a warehouse before opening the map and preserves an unconfirmed row on cancel', async () => {
@@ -421,18 +501,83 @@ describe('opening stock draft rows and lookups', () => {
     await screen.findByText(/Còn một dòng chưa được thêm/)
     expect(test.onUpdate).not.toHaveBeenCalled()
   })
-  it('bounds a 200-row detail dialog and keeps the close action outside its scrolling content', () => {
-    mount([
+  it('opens the detail route from a row without hijacking edit actions', () => {
+    router.push.mockClear()
+    mount([record])
+    fireEvent.click(screen.getByText('Kho QA', { selector: 'td' }))
+    expect(router.push).toHaveBeenCalledWith('/inventory/opening-stocks/record')
+    expect(screen.getByRole('link', { name: record.code })).toHaveAttribute(
+      'href',
+      '/inventory/opening-stocks/record'
+    )
+    expect(screen.queryByRole('button', { name: 'Chi tiết' })).not.toBeInTheDocument()
+    router.push.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Sửa' }))
+    expect(router.push).not.toHaveBeenCalled()
+  })
+  it('renders a 200-row detail page with the shared scrollable table instead of a dialog', () => {
+    const test = mount([
       {
         ...record,
         lines: Array.from({ length: 200 }, (_, index) => ({ ...recordLine, id: `line-${index}` })),
       },
     ])
-    fireEvent.click(screen.getByRole('button', { name: 'Chi tiết' }))
-    const dialog = screen.getByRole('dialog')
-    const body = within(dialog).getByLabelText('Nội dung phiếu tồn đầu')
-    expect(dialog).toHaveClass('max-h-[90dvh]', 'overflow-hidden')
-    expect(body).toHaveClass('min-h-0', 'overflow-y-auto')
-    expect(body).not.toContainElement(within(dialog).getByRole('button', { name: 'Đóng' }))
+    test.rendered.rerender(<test.Harness recordId="record" />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const panel = screen.getByLabelText('Dòng hàng chứng từ tồn đầu kỳ')
+    expect(panel).toHaveAttribute('data-slot', 'operational-list-panel')
+    expect(within(panel).getAllByRole('row')).toHaveLength(201)
+    expect(screen.getByRole('link', { name: 'Danh sách tồn đầu kỳ' })).toHaveAttribute(
+      'href',
+      '/inventory/opening-stocks'
+    )
+    expect(screen.getByRole('button', { name: 'Sửa' })).toBeEnabled()
+  })
+  it('uses entered quantity when editing converted lines, not their base quantity', async () => {
+    const test = mount([
+      {
+        ...record,
+        lines: [
+          {
+            ...recordLine,
+            enteredUnitId: convertedUnit,
+            enteredUnitName: 'Thùng',
+            enteredQuantity: 2,
+            quantity: 24,
+            baseQuantity: 24,
+            conversionFactorSnapshot: 12,
+          },
+        ],
+      },
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'Sửa' }))
+    expect(screen.getByLabelText('Số lượng dòng 1')).toHaveValue(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu 1 dòng' }))
+    await waitFor(() => expect(test.onUpdate).toHaveBeenCalledTimes(1))
+    expect(test.onUpdate.mock.calls[0]?.[1][0]).toMatchObject({
+      quantity: 2,
+      conversionFactor: 12,
+      enteredUnitId: convertedUnit,
+    })
+  })
+  it('submits a selected conversion and keeps document code manual', async () => {
+    const test = mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo chứng từ' }))
+    expect(screen.getByLabelText('Mã chứng từ *')).toHaveValue('')
+    fireEvent.change(screen.getByLabelText('Mã chứng từ *'), { target: { value: 'TDK-MANUAL' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Kho' }), {
+      target: { value: warehouse },
+    })
+    test.fill(productA)
+    fireEvent.change(screen.getByLabelText('Đơn vị tính'), { target: { value: convertedUnit } })
+    expect(screen.getByText('Quy về đơn vị chính: 24 Cái')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tạo nháp (1 dòng)' }))
+    await waitFor(() => expect(test.onCreate).toHaveBeenCalledTimes(1))
+    expect(test.onCreate.mock.calls[0]?.[0].code).toBe('TDK-MANUAL')
+    expect(test.onCreate.mock.calls[0]?.[1][0]).toMatchObject({
+      quantity: 2,
+      enteredUnitId: convertedUnit,
+      conversionFactor: 12,
+    })
   })
 })

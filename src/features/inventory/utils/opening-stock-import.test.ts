@@ -3,8 +3,64 @@ import {
   getOpeningStockPendingLots,
   normalizeOpeningStockLotNumber,
   openingStockErrorMessage,
+  openingStockLocationDescription,
 } from './opening-stock-import'
 import type { OpeningStockImportRow } from '../types/opening-stock-import.types'
+
+describe('opening-stock location capacity labels', () => {
+  const location = { id: 'slot', label: 'A-01' }
+  it('shows remaining capacity and marks full locations without hiding their limit', () => {
+    const configured = {
+      ...location,
+      capacity: 20,
+      capacityUnitName: 'Thùng',
+      requiresCapacityConfiguration: false,
+    }
+    expect(openingStockLocationDescription({ ...configured, remainingCapacity: 8 })).toBe(
+      'Còn trống: 8 Thùng · Tối đa: 20 Thùng'
+    )
+    expect(openingStockLocationDescription({ ...configured, remainingCapacity: 0 })).toBe(
+      'Còn trống: 0 Thùng (đã đầy) · Tối đa: 20 Thùng'
+    )
+    expect(
+      openingStockLocationDescription({
+        ...configured,
+        requiresCapacityConfiguration: true,
+        remainingCapacity: null,
+      })
+    ).not.toContain('Còn trống:')
+  })
+  it('shows configured maximum and unit using Vietnamese numbers', () => {
+    expect(
+      openingStockLocationDescription({
+        ...location,
+        capacity: 1234.5,
+        capacityUnitName: 'Thùng',
+        requiresCapacityConfiguration: false,
+      })
+    ).toBe('Sức chứa tối đa: 1.234,5 Thùng')
+  })
+  it('distinguishes no limit, invalid legacy configuration and an older API response', () => {
+    expect(
+      openingStockLocationDescription({
+        ...location,
+        capacity: null,
+        requiresCapacityConfiguration: false,
+      })
+    ).toBe('Chưa đặt giới hạn sức chứa.')
+    expect(
+      openingStockLocationDescription({
+        ...location,
+        capacity: 100,
+        requiresCapacityConfiguration: true,
+      })
+    ).toContain('100 (chưa có đơn vị)')
+    expect(
+      openingStockLocationDescription({ ...location, requiresCapacityConfiguration: true })
+    ).toContain('Cần cấu hình')
+    expect(openingStockLocationDescription(location)).toBeUndefined()
+  })
+})
 
 function row(key: string, lotNumber: string, productId = 'product'): OpeningStockImportRow {
   return {

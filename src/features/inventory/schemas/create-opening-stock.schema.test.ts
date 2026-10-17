@@ -3,6 +3,7 @@ import { createOpeningStockSchema } from './create-opening-stock.schema'
 
 const file = new File(['evidence'], 'count-sheet.pdf', { type: 'application/pdf' })
 const base = {
+  code: 'TDK-0001',
   warehouseId: '89e756b0-a22f-4c14-8f3a-5c480a1bf642',
   effectiveDate: '2026-01-01',
   newLotNumber: '',
@@ -19,6 +20,13 @@ const base = {
 } as const
 
 describe('createOpeningStockSchema', () => {
+  it('requires a manually entered code and rejects overlong or control-character codes', () => {
+    for (const code of ['', '  ', 'TDK\n01', 'A'.repeat(101)]) {
+      expect(createOpeningStockSchema.safeParse({ ...base, code }).success).toBe(false)
+    }
+    const result = createOpeningStockSchema.parse({ ...base, code: '  TDK-0002  ' })
+    expect(result.code).toBe('TDK-0002')
+  })
   it('accepts non-RFC .NET GUID identifiers returned by the API without changing them', () => {
     const guid = '757b5d63-38a8-4d3c-363d-08df1fc89199'
     const result = createOpeningStockSchema.safeParse({

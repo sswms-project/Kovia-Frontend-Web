@@ -12,8 +12,21 @@ export interface OpeningStockFormOptions {
     unitName: string
     isLotTracked: boolean
     quantityPrecision: number
+    units?: {
+      unitId: string
+      unitName: string
+      conversionFactor: number
+      quantityPrecision: number
+    }[]
   }[]
-  locations: { id: string; label: string }[]
+  locations: {
+    id: string
+    label: string
+    capacity?: number | null
+    capacityUnitName?: string | null
+    remainingCapacity?: number | null
+    requiresCapacityConfiguration?: boolean
+  }[]
   lots: {
     id: string
     lotNumber: string

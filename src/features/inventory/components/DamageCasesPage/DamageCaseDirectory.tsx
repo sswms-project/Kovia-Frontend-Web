@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ShieldAlert } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { Button } from '@/components/ui/button'
@@ -149,18 +148,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <header className="flex shrink-0 items-start gap-3 border-b pb-4">
-        <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
-          <ShieldAlert />
-        </span>
-        <div>
-          <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-          <h1 className="text-xl font-semibold">Hồ sơ hàng hỏng</h1>
-          <p className="text-muted-foreground text-sm">
-            Theo dõi lượng đang giữ và quyết định xử lý có truy vết.
-          </p>
-        </div>
-      </header>
+      <h1 className="sr-only">Hồ sơ hàng hỏng</h1>
       <InventoryWorkspaceNavigation currentView="damage-cases" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách sự cố hư hỏng">
         <div className="grid gap-2 border-b p-3 sm:grid-cols-2 lg:grid-cols-5">

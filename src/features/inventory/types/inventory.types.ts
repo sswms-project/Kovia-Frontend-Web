@@ -411,6 +411,7 @@ export interface OpeningStockListResponse {
 }
 
 export interface CreateOpeningStockRequest {
+  code?: string
   warehouseId: string
   evidenceIds: string[]
   commandId: string

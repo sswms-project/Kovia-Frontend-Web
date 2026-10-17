@@ -81,15 +81,7 @@ interface DirectoryProps {
 export function StockAdjustmentDirectory(props: DirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 items-start gap-3 border-b pb-4">
-        <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
-          <SlidersHorizontal />
-        </span>
-        <div>
-          <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-          <h1 className="text-xl font-semibold">Điều chỉnh tồn kho</h1>
-        </div>
-      </header>
+      <h1 className="sr-only">Điều chỉnh tồn kho</h1>
       <InventoryWorkspaceNavigation currentView="adjustments" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách điều chỉnh tồn kho">
         <div className="flex flex-wrap items-end gap-3 border-b p-3">
