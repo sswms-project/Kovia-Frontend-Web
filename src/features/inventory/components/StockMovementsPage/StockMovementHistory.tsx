@@ -87,7 +87,7 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
               Nhật ký tồn kho
             </h2>
           </div>
-          <div className="flex gap-2">
+          <div className="ml-auto flex shrink-0 gap-2">
             <Button
               type="button"
               variant="outline"

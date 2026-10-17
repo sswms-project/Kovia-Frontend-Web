@@ -10,7 +10,7 @@ import { OpeningStockApprovalDialog } from '../OpeningStockApprovalDialog'
 import { OpeningStockActions } from './OpeningStockActions'
 import { OpeningStockDetail } from './OpeningStockDetail'
 import type { UseFormReturn } from 'react-hook-form'
-import { Map as MapIcon, PackagePlus, Plus, Trash2 } from 'lucide-react'
+import { Map as MapIcon, PackagePlus, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { TransferSlotMapDialog } from '@/features/transfer/components/TransferFormPage/TransferSlotMapDialog'
 import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
 import { Badge } from '@/components/ui/badge'
@@ -62,7 +62,10 @@ import {
   formatEligibilityStatus,
 } from '../../utils/inventory-format'
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
-import { normalizeOpeningStockLotNumber } from '../../utils/opening-stock-import'
+import {
+  normalizeOpeningStockLotNumber,
+  openingStockLocationDescription,
+} from '../../utils/opening-stock-import'
 
 interface OpeningStockDirectoryProps {
   readonly recordId?: string
@@ -102,6 +105,7 @@ interface OpeningStockDirectoryProps {
   readonly lotOptions: readonly InventoryFilterOption[]
   readonly areOptionsLoading: boolean
   readonly isLoading: boolean
+  readonly isFetching: boolean
   readonly isError: boolean
   readonly isPending: boolean
   readonly canCreate: boolean
@@ -568,86 +572,102 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
         )
       ) : (
         <OperationalListPanel aria-label="Danh sách chứng từ tồn đầu kỳ">
-          <FieldGroup
-            role="search"
-            aria-label="Tìm kiếm và lọc chứng từ tồn đầu"
-            className="grid shrink-0 grid-cols-2 items-end gap-3 border-b p-3 xl:grid-cols-[minmax(12rem,1fr)_minmax(10rem,16rem)_10rem_10rem_10rem]"
-          >
-            <Field className="col-span-2 min-w-0 gap-1.5 xl:col-span-1">
-              <FieldLabel htmlFor={`${filterId}-search`}>Tìm kiếm</FieldLabel>
-              <Input
-                id={`${filterId}-search`}
-                name="openingStockSearch"
-                aria-label="Tìm mã chứng từ"
-                autoComplete="off"
-                spellCheck={false}
-                maxLength={100}
-                placeholder="Tìm mã chứng từ…"
-                value={props.search}
-                onChange={(event) => props.onSearchChange(event.target.value)}
+          <div className="flex shrink-0 items-end gap-3 border-b p-3">
+            <FieldGroup
+              role="search"
+              aria-label="Tìm kiếm và lọc chứng từ tồn đầu"
+              className="grid min-w-0 flex-1 shrink-0 grid-cols-2 items-end gap-3 xl:grid-cols-[minmax(10rem,1fr)_minmax(8rem,16rem)_9rem_10rem_10rem]"
+            >
+              <Field className="col-span-2 min-w-0 gap-1.5 xl:col-span-1">
+                <FieldLabel htmlFor={`${filterId}-search`}>Tìm kiếm</FieldLabel>
+                <Input
+                  id={`${filterId}-search`}
+                  name="openingStockSearch"
+                  aria-label="Tìm mã chứng từ"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={100}
+                  placeholder="Tìm mã chứng từ…"
+                  value={props.search}
+                  onChange={(event) => props.onSearchChange(event.target.value)}
+                />
+              </Field>
+              <Field className="min-w-0 gap-1.5">
+                <FieldLabel htmlFor={`${filterId}-warehouse`}>Kho</FieldLabel>
+                <NativeSelect
+                  id={`${filterId}-warehouse`}
+                  name="openingStockWarehouse"
+                  className="w-full min-w-0"
+                  aria-label="Lọc theo kho"
+                  value={props.filterWarehouseId}
+                  onChange={(event) => props.onFilterWarehouseChange(event.target.value)}
+                >
+                  <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+                  {props.warehouseOptions.map((option) => (
+                    <NativeSelectOption key={option.value} value={option.value}>
+                      {option.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field className="min-w-0 gap-1.5">
+                <FieldLabel htmlFor={`${filterId}-status`}>Trạng thái</FieldLabel>
+                <NativeSelect
+                  id={`${filterId}-status`}
+                  name="openingStockStatus"
+                  className="w-full min-w-0"
+                  aria-label="Lọc theo trạng thái"
+                  value={props.statusFilter}
+                  onChange={(event) =>
+                    props.onStatusFilterChange(event.target.value as OpeningStockStatus | '')
+                  }
+                >
+                  <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+                  <NativeSelectOption value="Draft">Nháp</NativeSelectOption>
+                  <NativeSelectOption value="PendingApproval">Chờ duyệt</NativeSelectOption>
+                  <NativeSelectOption value="Returned">Trả lại</NativeSelectOption>
+                  <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
+                  <NativeSelectOption value="Posted">Đã ghi sổ</NativeSelectOption>
+                  <NativeSelectOption value="Cancelled">Đã hủy</NativeSelectOption>
+                </NativeSelect>
+              </Field>
+              <Field className="min-w-0 gap-1.5">
+                <FieldLabel htmlFor={`${filterId}-from`}>Ngày ghi nhận từ</FieldLabel>
+                <Input
+                  id={`${filterId}-from`}
+                  name="openingStockDateFrom"
+                  type="date"
+                  value={props.dateFrom}
+                  onChange={(event) => props.onDateFromChange(event.target.value)}
+                />
+              </Field>
+              <Field className="min-w-0 gap-1.5">
+                <FieldLabel htmlFor={`${filterId}-to`}>Ngày ghi nhận đến</FieldLabel>
+                <Input
+                  id={`${filterId}-to`}
+                  name="openingStockDateTo"
+                  type="date"
+                  value={props.dateTo}
+                  min={props.dateFrom || undefined}
+                  onChange={(event) => props.onDateToChange(event.target.value)}
+                />
+              </Field>
+            </FieldGroup>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              aria-label="Làm mới tồn đầu kỳ"
+              disabled={props.isFetching}
+              onClick={props.onRetry}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
               />
-            </Field>
-            <Field className="min-w-0 gap-1.5">
-              <FieldLabel htmlFor={`${filterId}-warehouse`}>Kho</FieldLabel>
-              <NativeSelect
-                id={`${filterId}-warehouse`}
-                name="openingStockWarehouse"
-                className="w-full min-w-0"
-                aria-label="Lọc theo kho"
-                value={props.filterWarehouseId}
-                onChange={(event) => props.onFilterWarehouseChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {props.warehouseOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field className="min-w-0 gap-1.5">
-              <FieldLabel htmlFor={`${filterId}-status`}>Trạng thái</FieldLabel>
-              <NativeSelect
-                id={`${filterId}-status`}
-                name="openingStockStatus"
-                className="w-full min-w-0"
-                aria-label="Lọc theo trạng thái"
-                value={props.statusFilter}
-                onChange={(event) =>
-                  props.onStatusFilterChange(event.target.value as OpeningStockStatus | '')
-                }
-              >
-                <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-                <NativeSelectOption value="Draft">Nháp</NativeSelectOption>
-                <NativeSelectOption value="PendingApproval">Chờ duyệt</NativeSelectOption>
-                <NativeSelectOption value="Returned">Trả lại</NativeSelectOption>
-                <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
-                <NativeSelectOption value="Posted">Đã ghi sổ</NativeSelectOption>
-                <NativeSelectOption value="Cancelled">Đã hủy</NativeSelectOption>
-              </NativeSelect>
-            </Field>
-            <Field className="min-w-0 gap-1.5">
-              <FieldLabel htmlFor={`${filterId}-from`}>Ngày ghi nhận từ</FieldLabel>
-              <Input
-                id={`${filterId}-from`}
-                name="openingStockDateFrom"
-                type="date"
-                value={props.dateFrom}
-                onChange={(event) => props.onDateFromChange(event.target.value)}
-              />
-            </Field>
-            <Field className="min-w-0 gap-1.5">
-              <FieldLabel htmlFor={`${filterId}-to`}>Ngày ghi nhận đến</FieldLabel>
-              <Input
-                id={`${filterId}-to`}
-                name="openingStockDateTo"
-                type="date"
-                value={props.dateTo}
-                min={props.dateFrom || undefined}
-                onChange={(event) => props.onDateToChange(event.target.value)}
-              />
-            </Field>
-          </FieldGroup>
+            </Button>
+          </div>
           {props.isLoading ? (
             <OperationalLoadingState rows={8} />
           ) : props.isError ? (
@@ -1254,7 +1274,7 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
               setMapWarehouseId(null)
             }
           }}
-          onConfirm={({ slotId: pickedSlotId, label }) => {
+          onConfirm={({ slotId: pickedSlotId, label, capacity }) => {
             if (
               !createOpen ||
               props.isPending ||
@@ -1262,7 +1282,13 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
               props.form.getValues('warehouseId') !== mapWarehouseId
             )
               return
-            setChosenSlot({ value: pickedSlotId, label })
+            setChosenSlot({
+              value: pickedSlotId,
+              label,
+              description: capacity
+                ? openingStockLocationDescription({ id: pickedSlotId, label, ...capacity })
+                : 'Chưa tải được thông tin sức chứa. Hệ thống sẽ kiểm tra lại khi lưu phiếu.',
+            })
             props.form.setValue('slotId', pickedSlotId, {
               shouldDirty: true,
               shouldValidate: true,

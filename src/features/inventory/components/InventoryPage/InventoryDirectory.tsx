@@ -106,10 +106,11 @@ export function InventoryDirectory({
       <InventoryWorkspaceNavigation currentView="availability" permissions={permissions} />
 
       <OperationalListPanel className="@container" aria-label="Tồn kho khả dụng">
-        <div className="shrink-0 border-b p-3">
+        <div className="flex shrink-0 items-start gap-2 border-b p-3">
           <FieldGroup
+            role="search"
             aria-label="Bộ lọc tồn kho"
-            className="[container-type:normal] flex flex-row flex-wrap items-center gap-3"
+            className="[container-type:normal] flex min-w-0 flex-1 flex-row flex-wrap items-center gap-2"
           >
             <InputGroup className="h-11 w-full min-w-0 sm:h-8 sm:w-72">
               <InputGroupAddon>
@@ -135,25 +136,6 @@ export function InventoryDirectory({
                 </InputGroupAddon>
               ) : null}
             </InputGroup>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-11 sm:size-8"
-                  disabled={isFetching}
-                  aria-label="Làm mới tồn kho"
-                  onClick={onRetry}
-                >
-                  <RefreshCw
-                    className={isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-                    aria-hidden="true"
-                  />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={4}>Làm mới tồn kho</TooltipContent>
-            </Tooltip>
             {areFiltersError ? (
               <div
                 className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 border p-3"
@@ -177,7 +159,7 @@ export function InventoryDirectory({
               <FieldLabel htmlFor="inventory-warehouse">Kho</FieldLabel>
               <NativeSelect
                 id="inventory-warehouse"
-                className="w-full sm:w-36"
+                className="w-full sm:w-32"
                 value={warehouseId}
                 disabled={areFiltersLoading}
                 onChange={(event) => onWarehouseChange(event.target.value)}
@@ -194,7 +176,7 @@ export function InventoryDirectory({
               <FieldLabel htmlFor="inventory-slot">Vị trí</FieldLabel>
               <NativeSelect
                 id="inventory-slot"
-                className="w-full sm:w-36"
+                className="w-full sm:w-32"
                 value={slotId}
                 disabled={areFiltersLoading || areSlotsLoading || !warehouseId}
                 onChange={(event) => onSlotChange(event.target.value)}
@@ -245,6 +227,25 @@ export function InventoryDirectory({
               <TooltipContent sideOffset={4}>Xóa bộ lọc</TooltipContent>
             </Tooltip>
           </FieldGroup>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-11 shrink-0 sm:size-8"
+                disabled={isFetching}
+                aria-label="Làm mới tồn kho"
+                onClick={onRetry}
+              >
+                <RefreshCw
+                  className={isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+                  aria-hidden="true"
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={4}>Làm mới tồn kho</TooltipContent>
+          </Tooltip>
         </div>
         <p className="sr-only" aria-live="polite">
           {isFetching ? 'Đang cập nhật tồn kho' : 'Tồn kho đã cập nhật'}

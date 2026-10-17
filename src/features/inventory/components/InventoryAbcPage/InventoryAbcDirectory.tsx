@@ -186,99 +186,101 @@ export function InventoryAbcDirectory({
         </section>
       ) : null}
       <OperationalListPanel aria-labelledby="abc-title">
-        <div className="flex shrink-0 flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 id="abc-title" className="text-sm font-semibold">
-              Kết quả phân loại
-            </h2>
-          </div>
-          <div className="flex gap-2">
-            <NativeSelect
-              aria-label="Lọc phân loại theo kho"
-              className="h-11 min-w-52 sm:h-8"
-              value={warehouseId}
-              disabled={areWarehousesLoading}
-              onChange={(event) => onWarehouseChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Chọn kho</NativeSelectOption>
-              {warehouseOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <NativeSelect
-              aria-label="Chỉ số phân tích ABC"
-              value={metric}
-              onChange={(event) =>
-                onMetricChange(event.target.value === 'Activity' ? 'Activity' : 'Quantity')
-              }
-            >
-              <NativeSelectOption value="Quantity">Số lượng xuất</NativeSelectOption>
-              <NativeSelectOption value="Activity">Tần suất xuất</NativeSelectOption>
-            </NativeSelect>
-            <Input
-              aria-label="Số ngày lịch sử phân loại ABC"
-              className="w-28"
-              type="number"
-              min={1}
-              max={366}
-              value={historicalPeriodDays}
-              onChange={(event) => onHistoricalPeriodDaysChange(Number(event.target.value))}
-            />
-            <Input
-              aria-label="Ngưỡng nhóm A"
-              className="w-20"
-              type="number"
-              min={1}
-              max={98}
-              value={aThreshold}
-              onChange={(event) => onAThresholdChange(Number(event.target.value))}
-            />
-            <Input
-              aria-label="Ngưỡng nhóm B"
-              className="w-20"
-              type="number"
-              min={2}
-              max={99}
-              value={bThreshold}
-              onChange={(event) => onBThresholdChange(Number(event.target.value))}
-            />
-            {canRun ? (
-              <Button
-                type="button"
-                disabled={
-                  !warehouseId ||
-                  isRunning ||
-                  historicalPeriodDays < 1 ||
-                  historicalPeriodDays > 366 ||
-                  aThreshold >= bThreshold
-                }
-                onClick={onRun}
+        <div className="flex shrink-0 items-start gap-3 border-b p-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="abc-title" className="text-sm font-semibold">
+                Kết quả phân loại
+              </h2>
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <NativeSelect
+                aria-label="Lọc phân loại theo kho"
+                className="h-11 min-w-52 sm:h-8"
+                value={warehouseId}
+                disabled={areWarehousesLoading}
+                onChange={(event) => onWarehouseChange(event.target.value)}
               >
-                {isRunning ? 'Đang phân tích…' : 'Phân tích'}
-              </Button>
-            ) : null}
-            <Tooltip>
-              <TooltipTrigger asChild>
+                <NativeSelectOption value="">Chọn kho</NativeSelectOption>
+                {warehouseOptions.map((option) => (
+                  <NativeSelectOption key={option.value} value={option.value}>
+                    {option.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <NativeSelect
+                aria-label="Chỉ số phân tích ABC"
+                value={metric}
+                onChange={(event) =>
+                  onMetricChange(event.target.value === 'Activity' ? 'Activity' : 'Quantity')
+                }
+              >
+                <NativeSelectOption value="Quantity">Số lượng xuất</NativeSelectOption>
+                <NativeSelectOption value="Activity">Tần suất xuất</NativeSelectOption>
+              </NativeSelect>
+              <Input
+                aria-label="Số ngày lịch sử phân loại ABC"
+                className="w-28"
+                type="number"
+                min={1}
+                max={366}
+                value={historicalPeriodDays}
+                onChange={(event) => onHistoricalPeriodDaysChange(Number(event.target.value))}
+              />
+              <Input
+                aria-label="Ngưỡng nhóm A"
+                className="w-20"
+                type="number"
+                min={1}
+                max={98}
+                value={aThreshold}
+                onChange={(event) => onAThresholdChange(Number(event.target.value))}
+              />
+              <Input
+                aria-label="Ngưỡng nhóm B"
+                className="w-20"
+                type="number"
+                min={2}
+                max={99}
+                value={bThreshold}
+                onChange={(event) => onBThresholdChange(Number(event.target.value))}
+              />
+              {canRun ? (
                 <Button
                   type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-11 sm:size-8"
-                  disabled={isFetching}
-                  aria-label="Làm mới phân loại ABC"
-                  onClick={onRetry}
+                  disabled={
+                    !warehouseId ||
+                    isRunning ||
+                    historicalPeriodDays < 1 ||
+                    historicalPeriodDays > 366 ||
+                    aThreshold >= bThreshold
+                  }
+                  onClick={onRun}
                 >
-                  <RefreshCw
-                    className={isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-                    aria-hidden="true"
-                  />
+                  {isRunning ? 'Đang phân tích…' : 'Phân tích'}
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={4}>Làm mới phân loại</TooltipContent>
-            </Tooltip>
+              ) : null}
+            </div>
           </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-11 shrink-0 sm:size-8"
+                disabled={isFetching}
+                aria-label="Làm mới phân loại ABC"
+                onClick={onRetry}
+              >
+                <RefreshCw
+                  className={isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+                  aria-hidden="true"
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={4}>Làm mới phân loại</TooltipContent>
+          </Tooltip>
         </div>
         {areWarehousesError ? (
           <div className="border-b px-3 py-2 text-xs" role="alert">

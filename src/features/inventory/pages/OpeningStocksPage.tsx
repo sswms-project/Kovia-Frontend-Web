@@ -306,6 +306,7 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
       lotOptions={lotOptions}
       areOptionsLoading={warehousesQuery.isLoading || lookup.isFetching}
       isLoading={recordsQuery.isLoading}
+      isFetching={recordsQuery.isFetching}
       isError={recordsQuery.isError}
       isPending={draft.isPending || updateMutation.isPending || actionMutation.isPending}
       canCreate={

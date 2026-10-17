@@ -26,7 +26,9 @@ vi.mock('@/features/transfer/components/TransferFormPage/TransferSlotMapDialog',
   }: {
     open: boolean
     warehouseId: string
-    onConfirm: (pick: { slotId: string; label: string }) => void
+    onConfirm: ComponentProps<
+      typeof import('@/features/transfer/components/TransferFormPage/TransferSlotMapDialog').TransferSlotMapDialog
+    >['onConfirm']
     onOpenChange: (open: boolean) => void
   }) =>
     open ? (
@@ -38,6 +40,12 @@ vi.mock('@/features/transfer/components/TransferFormPage/TransferSlotMapDialog',
             onConfirm({
               slotId: '66666666-6666-4666-8666-666666666666',
               label: 'Khu A / Kệ B / Ô 99',
+              capacity: {
+                capacity: 100,
+                capacityUnitName: 'Thùng',
+                remainingCapacity: 8,
+                requiresCapacityConfiguration: false,
+              },
             })
             onOpenChange(false)
           }}
@@ -110,6 +118,7 @@ function mount(items: OpeningStockRecord[] = []) {
   const onCreate = vi.fn().mockResolvedValue(undefined)
   const onUpdate = vi.fn().mockResolvedValue(undefined)
   const onLookupSearch = vi.fn()
+  const onRetry = vi.fn()
   const filters = {
     onSearchChange: vi.fn(),
     onFilterWarehouseChange: vi.fn(),
@@ -169,12 +178,13 @@ function mount(items: OpeningStockRecord[] = []) {
       lotOptions: [],
       areOptionsLoading: loading,
       isLoading: false,
+      isFetching: false,
       isError: false,
       isPending: false,
       canCreate: true,
       canApprove: false,
       canSelfApprove: false,
-      onRetry: noop,
+      onRetry,
       onPageChange: noop,
       onCreate,
       onUpdate,
@@ -211,6 +221,7 @@ function mount(items: OpeningStockRecord[] = []) {
     onCreate,
     onUpdate,
     onLookupSearch,
+    onRetry,
     filters,
     getForm: () => form!,
   }
@@ -291,7 +302,7 @@ describe('opening stock directory filters', () => {
     expect(test.getForm().getValues('evidenceFile')).toBeUndefined()
   })
   it('groups labeled filters in one responsive toolbar with full-width dropdowns', () => {
-    mount()
+    const test = mount()
     const toolbar = screen.getByRole('search', { name: 'Tìm kiếm và lọc chứng từ tồn đầu' })
     for (const label of [
       'Tìm kiếm',
@@ -303,6 +314,10 @@ describe('opening stock directory filters', () => {
       expect(toolbar).toContainElement(screen.getByLabelText(label, { exact: true }))
     }
     expect(toolbar).toHaveClass('grid-cols-2', 'shrink-0')
+    const reload = screen.getByRole('button', { name: 'Làm mới tồn đầu kỳ' })
+    expect(toolbar).not.toContainElement(reload)
+    fireEvent.click(reload)
+    expect(test.onRetry).toHaveBeenCalledOnce()
     for (const dropdown of within(toolbar).getAllByRole('combobox')) {
       expect(dropdown.parentElement).toHaveClass('w-full', 'min-w-0')
     }
@@ -415,6 +430,7 @@ describe('opening stock draft rows and lookups', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Chọn trên sơ đồ' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Dùng vị trí sơ đồ' }))
     expect(await screen.findByLabelText('Vị trí')).toHaveValue('Khu A / Kệ B / Ô 99')
+    expect(screen.getByText('Còn trống: 8 Thùng · Tối đa: 100 Thùng')).toBeInTheDocument()
     expect(test.getForm().getValues('slotId')).toBe('66666666-6666-4666-8666-666666666666')
     test.attach()
     fireEvent.click(screen.getByRole('button', { name: 'Tạo nháp (1 dòng)' }))

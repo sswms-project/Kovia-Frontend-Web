@@ -105,6 +105,11 @@ describe('InventoryDirectory', () => {
     fireEvent.change(screen.getByLabelText('Sản phẩm'), { target: { value: 'product-1' } })
     expect(onWarehouseChange).toHaveBeenCalledWith('warehouse-1')
     expect(onProductChange).toHaveBeenCalledWith('product-1')
+    expect(
+      screen
+        .getByRole('search', { name: 'Bộ lọc tồn kho' })
+        .contains(screen.getByRole('button', { name: 'Làm mới tồn kho' }))
+    ).toBe(false)
     expect(screen.queryByRole('button', { name: 'Đặt lại' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }))
     expect(onResetFilters).toHaveBeenCalledOnce()

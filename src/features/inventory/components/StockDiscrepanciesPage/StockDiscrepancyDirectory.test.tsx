@@ -20,6 +20,10 @@ it('groups filters at natural widths with wrapping and preserves callbacks', () 
   expect(props.onFilterWarehouseChange).toHaveBeenCalledWith('warehouse')
   fireEvent.change(within(filters).getByLabelText('Từ ngày'), { target: { value: '2026-10-17' } })
   expect(props.onDateFromChange).toHaveBeenCalledWith('2026-10-17')
+  const reload = screen.getByRole('button', { name: 'Làm mới chênh lệch' })
+  expect(filters).not.toContainElement(reload)
+  fireEvent.click(reload)
+  expect(props.onRetry).toHaveBeenCalledOnce()
 })
 
 const props: ComponentProps<typeof StockDiscrepancyDirectory> = {
@@ -42,6 +46,7 @@ const props: ComponentProps<typeof StockDiscrepancyDirectory> = {
   taskOptions: [],
   canLinkTask: true,
   isLoading: false,
+  isFetching: false,
   isError: false,
   isPending: false,
   canReport: true,
@@ -69,6 +74,11 @@ const props: ComponentProps<typeof StockDiscrepancyDirectory> = {
   onReview: vi.fn(),
   onAddEvidence: vi.fn(),
 }
+
+it('locks the discrepancy reload button while a fetch is running', () => {
+  render(<StockDiscrepancyDirectory {...props} isFetching />)
+  expect(screen.getByRole('button', { name: 'Làm mới chênh lệch' })).toBeDisabled()
+})
 
 it('keeps labelled report fields in a scrollable, responsive wide dialog with fixed actions', () => {
   render(<StockDiscrepancyDirectory {...props} />)

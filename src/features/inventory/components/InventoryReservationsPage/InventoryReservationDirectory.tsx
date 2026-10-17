@@ -83,10 +83,10 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
       <InventoryWorkspaceNavigation currentView="reservations" permissions={props.permissions} />
 
       <OperationalListPanel aria-label="Tồn đang giữ">
-        <div className="flex shrink-0 flex-col gap-3 border-b p-3">
+        <div className="flex shrink-0 items-start gap-3 border-b p-3">
           <FieldGroup
             aria-label="Bộ lọc giữ hàng"
-            className="[container-type:normal] flex w-full flex-row flex-wrap items-center gap-3"
+            className="[container-type:normal] flex min-w-0 flex-1 flex-row flex-wrap items-center gap-3"
           >
             <Field orientation="horizontal" className="w-full sm:w-auto">
               <FieldLabel htmlFor="reservation-status">Trạng thái</FieldLabel>
@@ -148,20 +148,21 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
             >
               Đặt lại
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              disabled={props.isFetching}
-              aria-label="Làm mới lịch sử giữ hàng"
-              onClick={props.onRetry}
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-              />
-            </Button>
           </FieldGroup>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            disabled={props.isFetching}
+            aria-label="Làm mới lịch sử giữ hàng"
+            onClick={props.onRetry}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+            />
+          </Button>
         </div>
 
         {props.isLoading ? (

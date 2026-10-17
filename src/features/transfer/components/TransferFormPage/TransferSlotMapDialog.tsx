@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WarehouseLayoutViewerWorkspace } from '@/features/warehouse/components/WarehouseDesigner'
 import { useWarehouseLayoutSceneQuery } from '@/features/warehouse/hooks/use-warehouse-layout-scene'
-import type { WarehouseLayoutSelection } from '@/features/warehouse/types/warehouse-layout-scene.types'
+import type {
+  WarehouseLayoutSelection,
+  WarehouseLayoutSlotSceneResponse,
+} from '@/features/warehouse/types/warehouse-layout-scene.types'
 import { mapWarehouseLayoutScene } from '@/features/warehouse/utils/layout-scene-mapper'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { cn } from '@/lib/utils'
@@ -28,7 +31,14 @@ interface TransferSlotMapDialogProps {
   /** Chỉ cho chọn các ô này (vị trí đi: ô có tồn của sản phẩm); bỏ trống thì kiểm theo trạng thái ô (vị trí đến). */
   readonly allowedLocations?: readonly TransferPickableLocation[]
   readonly onOpenChange: (open: boolean) => void
-  readonly onConfirm: (pick: { slotId: string; label: string }) => void
+  readonly onConfirm: (pick: {
+    slotId: string
+    label: string
+    capacity?: Pick<
+      WarehouseLayoutSlotSceneResponse,
+      'capacity' | 'capacityUnitName' | 'remainingCapacity' | 'requiresCapacityConfiguration'
+    >
+  }) => void
 }
 
 /**
@@ -123,7 +133,23 @@ function TransferSlotMapBody({
             onConfirm: (selection) => {
               const pick = pickOf(selection)
               if (!pick?.isValid) return
-              onConfirm({ slotId: pick.slotId, label: pick.label })
+              const location =
+                scene.slots.find((slot) => slot.id === pick.slotId) ??
+                scene.racks.find((rack) => rack.defaultSlotId === pick.slotId)
+              onConfirm({
+                slotId: pick.slotId,
+                label: pick.label,
+                ...(location?.requiresCapacityConfiguration !== undefined
+                  ? {
+                      capacity: {
+                        capacity: location.capacity ?? null,
+                        capacityUnitName: location.capacityUnitName,
+                        remainingCapacity: location.remainingCapacity,
+                        requiresCapacityConfiguration: location.requiresCapacityConfiguration,
+                      },
+                    }
+                  : {}),
+              })
               requestClose()
             },
           }}
