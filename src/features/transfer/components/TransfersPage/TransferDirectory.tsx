@@ -101,7 +101,10 @@ export function TransferDirectory({
   )
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
+    <div
+      data-slot="transfer-directory"
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3"
+    >
       <header className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold">Điều chuyển kho</h1>
         {canCreate ? (

@@ -108,7 +108,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="@container w-full min-w-0 space-y-6">
       <header className="animate-in fade-in slide-in-from-top-3 flex items-start gap-4 duration-400">
         <SectionIconBadge icon={UserRound} tone="primary" size="lg" />
         <div>
@@ -116,7 +116,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-start gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-8">
+      <div className="grid w-full min-w-0 grid-cols-1 items-start gap-6 @min-[56rem]:grid-cols-[320px_minmax(0,1fr)]">
         <ProfileOverviewCard profile={meQuery.data} isLoading={meQuery.isLoading} />
 
         <div className="min-w-0">

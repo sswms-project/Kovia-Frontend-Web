@@ -1,5 +1,16 @@
 # AI Review Handoff
 
+## 2026-10-17 — Report catalog borders and transfer bottom gutter
+
+- READY_FOR_CODEX_REVIEW (self-verification). Report cards had no real border and used an external 1px ring, clipped by the catalog scroll viewport at its top/left edges. Added a token-based border, disabled the outer ring locally and matched the header divider. Shared Card remains unchanged. TransferDirectory now exposes a semantic data-slot so the private shell reduces only that list page's bottom padding to 8px (was 20px at desktop). Other gutters, print, transfer forms and unrelated pages retain their padding. GitNexus LOW: ReportCatalogView/PrivateLayout no indexed upstream hits, TransferDirectory one TransferPage caller/process.
+- Twelve report catalog/transfer table/status tests passed, including a four-card border regression; scoped ESLint/Prettier/diff verification. Live 1280px read-only check: all four report cards have four nonzero border widths and matching token colors; transfer shell padding 20px 20px 8px. Source uses CSS only, no hooks/API/data writes/dependencies. Existing unrelated work preserved; no commit/push. Evidence: D:/Kovia-QA/OpeningStock-20261015/evidence/reports-complete-borders.png and transfers-bottom-gutter.png.
+
+## 2026-10-17 — Profile responsive layout
+
+- READY_FOR_CODEX_REVIEW (self-verification). Profile already uses the private shared shell. Removed the independent centered max-width content block; aligned header/content with workspace width. Profile columns now follow available container width, and contact columns follow their own card width rather than the viewport. Contact values wrap and verification labels stay intact. GitNexus LOW; changes limited to ProfilePage/ProfileView and its loading skeleton. No shared-shell, API, permission or database changes.
+- Scoped ESLint, Prettier and diff checks passed. Full TypeScript check reports existing unrelated tmp/opening-stock-ui fixture errors (missing isFetching, fieldErrors type and possible undefined); no profile diagnostics. Those temporary files were not modified or deleted.
+- Two regression tests passed, covering long email wrapping, verification label, edit callback and matching skeleton breakpoint. Read-only local 1280px check: body scrollWidth equals viewport 1280; both cards have scrollWidth equal to clientWidth. Opened edit form then cancelled without saving. Browser zoom shortcuts had no effect, so actual zoom-out/mobile verification remains unconfirmed. Evidence: D:/Kovia-QA/OpeningStock-20261015/evidence/profile-responsive-fixed.png. No commit/push.
+
 ## 2026-10-12 — Transfer receive/putaway alignment Gate B
 
 - State: `READY_FOR_CODEX_REVIEW` for implementation/self-verification, not end-to-end or merge approval. Spec checkpoint 16: `docs/superpowers/plans/2026-10-12-transfer-receive-putaway-alignment-spec.md`. No commit/push.
@@ -1249,6 +1260,16 @@ Verification: FE tsc --noEmit and scoped reporting/AppSidebar ESLint produced no
 - GitNexus map body HIGH (one direct dialog caller, five indirect feature consumers, two indexed processes) reported before editing; inspected all consumers. Inventory page/directories LOW. Reused authoritative WarehouseLayoutSceneResponse fields, existing formatter/Button/Tooltip and CSS flex; no API/BE/dependency/schema/migration changes. Reload is outside the wrapping filter group at the right edge on availability and reservations; compact widths preserve the laptop row and long search placeholder.
 - Verification: expanded inventory/map/pick/putaway-workspace suites 172/172 passed; after final reservation layout adjustment, page/directory/putaway-sheet suites 9/9 and final toolbar/page/map suites 17/17 passed (overlapping checks, not additive totals). Production TypeScript, scoped ESLint, Prettier and source diff checks passed. New map regressions cover slot/rack capacity forwarding and pinned out-of-lookup description; existing legacy/no-metadata and selection-validity checks retained. No full-suite/mobile/race certification.
 - Live read-only 1280px IAB: Released alone enables reset; reset restores Active and disables reset again. Availability reload at far right, all default search/filter/reset controls on one row. Screenshots D:/Kovia-QA/OpeningStock-20261015/evidence/reservation-reset-status-fixed.png and inventory-reload-far-right.png. Own tabs closed; no document/stock writes, migration, commit or push. Previous review entries retained as history.
+
+## 2026-10-17 — Remove cycle-count status-tab vertical scrollbar
+
+- Assigned implementer; READY_FOR_CODEX_REVIEW (self-verification). Measured tab root clientHeight 32 / scrollHeight 33 with computed overflow-x:auto and overflow-y:auto. Added local overflow-y-hidden, shrink-0/min-w-0 and 4px padding for focus decoration; retains horizontal scrolling for narrow viewports. No shared Tabs/global CSS/query/filter changes. GitNexus LOW, one page caller; reused existing Tabs under Ponytail/shadcn/React guidance.
+- Scoped regression verifies overflow containment and Closed status callback; ESLint/Prettier passed. Live 1280px browser now clientHeight=scrollHeight=40, computed overflow-y:hidden; tab strip has no vertical scrollbar and table retains its body scroll. Evidence D:/Kovia-QA/OpeningStock-20261015/evidence/cycle-count-status-tabs-no-vertical-scroll.png. Own tab closed; no DB writes/migration, commit or push.
+
+## 2026-10-17 — Reservation right-edge follow-up
+
+- User screenshot still places reload next to reset. Existing source already separated reload using flex-1 filters; exact cause of the screenshot discrepancy was not established. Changed only reservation toolbar to a full-width minmax(0,1fr)/auto grid with justify-self-end on reload. GitNexus LOW, one page caller; no filter/shared primitive/API changes.
+- Two scoped directory/page tests, ESLint and Prettier passed. Regression asserts dedicated right-aligned grid column. Live 1280px browser confirms reload right edge 1247.2px versus panel 1260px (12.8px inset), visibly separated from reset. Evidence D:/Kovia-QA/OpeningStock-20261015/evidence/reservations-reload-fixed-grid.png. Own tab closed; no DB writes, migration, commit or push.
 
 ## 2026-10-17 — Align reload across inventory workspace tabs
 

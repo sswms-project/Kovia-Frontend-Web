@@ -180,8 +180,8 @@ export function ReportCatalogView({
           <div className="grid content-start items-start gap-4 xl:grid-cols-2">
             {visibleSections.map((section) => (
               <section key={section.key} aria-label={section.name}>
-                <Card className="motion-safe:animate-in motion-safe:fade-in-0 animation-duration-200 gap-0 overflow-hidden py-0 shadow-none motion-reduce:animate-none">
-                  <CardHeader className="bg-muted/40 gap-1 border-b px-4 py-3">
+                <Card className="border-border motion-safe:animate-in motion-safe:fade-in-0 animation-duration-200 gap-0 overflow-hidden border py-0 shadow-none ring-0 motion-reduce:animate-none">
+                  <CardHeader className="bg-muted/40 border-border gap-1 border-b px-4 py-3">
                     <CardTitle className="text-base">{section.name}</CardTitle>
                     <CardDescription className="text-xs">{section.description}</CardDescription>
                   </CardHeader>

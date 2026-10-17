@@ -31,6 +31,10 @@ it('exposes reservation filters directly in the toolbar and retains callbacks', 
     onRetry: vi.fn(),
   }
   render(<InventoryReservationDirectory {...props} />)
+  const reload = screen.getByRole('button', { name: 'Làm mới lịch sử giữ hàng' })
+  expect(reload).toHaveClass('justify-self-end')
+  expect(reload.parentElement).toHaveClass('w-full', 'grid', 'grid-cols-[minmax(0,1fr)_auto]')
+  expect(screen.getByLabelText('Bộ lọc giữ hàng')).not.toContainElement(reload)
   expect(screen.queryByText('Danh sách giữ hàng')).not.toBeInTheDocument()
   expect(screen.getByRole('region', { name: 'Tồn đang giữ' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^Bộ lọc/ })).not.toBeInTheDocument()

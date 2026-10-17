@@ -123,7 +123,7 @@ export function CycleCountDirectory(props: Props) {
                 : props.status || ALL_STATUSES
             }
             onValueChange={(value) => props.onStatusChange(parseCycleCountStatus(value))}
-            className="overflow-x-auto"
+            className="min-w-0 shrink-0 overflow-x-auto overflow-y-hidden p-1"
           >
             <TabsList>
               <TabsTrigger value={ALL_STATUSES}>

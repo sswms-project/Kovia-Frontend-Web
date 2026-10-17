@@ -83,7 +83,7 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
       <InventoryWorkspaceNavigation currentView="reservations" permissions={props.permissions} />
 
       <OperationalListPanel aria-label="Tồn đang giữ">
-        <div className="flex shrink-0 items-start gap-3 border-b p-3">
+        <div className="grid w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b p-3">
           <FieldGroup
             aria-label="Bộ lọc giữ hàng"
             className="[container-type:normal] flex min-w-0 flex-1 flex-row flex-wrap items-center gap-3"
@@ -153,7 +153,7 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
             type="button"
             variant="outline"
             size="icon"
-            className="shrink-0"
+            className="shrink-0 justify-self-end"
             disabled={props.isFetching}
             aria-label="Làm mới lịch sử giữ hàng"
             onClick={props.onRetry}
