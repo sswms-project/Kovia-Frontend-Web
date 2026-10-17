@@ -429,12 +429,13 @@ body {
   height: 0;
 }
 
-/* Transfer screens: slim 6px rail at the workspace edge, like the import workspace. */
+/* Shared slim 6px rail for transfer workspaces and explicitly opted-in scroll regions. */
 [data-slot='workspace-scroll-area']:has([data-slot='transfer-scroll'][data-edge]) {
   padding-right: 0;
 }
 
 [data-slot='transfer-scroll']::-webkit-scrollbar,
+[data-scrollbar='slim']::-webkit-scrollbar,
 [data-slot='workspace-scroll-area']:has(
     [data-slot='transfer-scroll'][data-edge]
   )::-webkit-scrollbar {
@@ -443,6 +444,7 @@ body {
 }
 
 [data-slot='transfer-scroll']::-webkit-scrollbar-thumb,
+[data-scrollbar='slim']::-webkit-scrollbar-thumb,
 [data-slot='workspace-scroll-area']:has(
     [data-slot='transfer-scroll'][data-edge]
   )::-webkit-scrollbar-thumb {
@@ -451,6 +453,7 @@ body {
 }
 
 [data-slot='transfer-scroll']::-webkit-scrollbar-track,
+[data-scrollbar='slim']::-webkit-scrollbar-track,
 [data-slot='workspace-scroll-area']:has(
     [data-slot='transfer-scroll'][data-edge]
   )::-webkit-scrollbar-track {
@@ -458,6 +461,7 @@ body {
 }
 
 [data-slot='transfer-scroll']::-webkit-scrollbar-button,
+[data-scrollbar='slim']::-webkit-scrollbar-button,
 [data-slot='workspace-scroll-area']:has(
     [data-slot='transfer-scroll'][data-edge]
   )::-webkit-scrollbar-button {
@@ -477,6 +481,7 @@ body {
 
 @supports not selector(::-webkit-scrollbar) {
   [data-slot='table-container'],
+  [data-scrollbar='slim'],
   [data-slot='transfer-scroll'] {
     scrollbar-width: thin;
     scrollbar-color: var(--table-scrollbar-thumb) transparent;

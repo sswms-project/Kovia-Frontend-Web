@@ -81,56 +81,53 @@ interface DirectoryProps {
 export function StockAdjustmentDirectory(props: DirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 items-start gap-3 border-b pb-4">
-        <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
-          <SlidersHorizontal />
-        </span>
-        <div>
-          <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-          <h1 className="text-xl font-semibold">Điều chỉnh tồn kho</h1>
-        </div>
-      </header>
+      <h1 className="sr-only">Điều chỉnh tồn kho</h1>
       <InventoryWorkspaceNavigation currentView="adjustments" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách điều chỉnh tồn kho">
-        <div className="flex flex-wrap items-end gap-3 border-b p-3">
-          <label className="grid gap-1 text-xs font-medium">
-            Kho
-            <NativeSelect
-              className="h-9 min-w-52"
-              value={props.warehouseId}
-              onChange={(e) => props.onWarehouseChange(e.target.value)}
-            >
-              <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-              {props.warehouses.map((o) => (
-                <NativeSelectOption key={o.value} value={o.value}>
-                  {o.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </label>
-          <label className="grid gap-1 text-xs font-medium">
-            Trạng thái
-            <NativeSelect
-              className="h-9 min-w-44"
-              value={props.status}
-              onChange={(e) => props.onStatusChange(parseAdjustmentStatus(e.target.value))}
-            >
-              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-              {Object.values(STOCK_ADJUSTMENT_STATUSES).map((value) => (
-                <NativeSelectOption key={value} value={value}>
-                  {STOCK_ADJUSTMENT_STATUS_LABELS[value]}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </label>
+        <div className="flex shrink-0 items-start gap-3 border-b p-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-medium">
+              Kho
+              <NativeSelect
+                className="min-w-52"
+                value={props.warehouseId}
+                onChange={(e) => props.onWarehouseChange(e.target.value)}
+              >
+                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+                {props.warehouses.map((o) => (
+                  <NativeSelectOption key={o.value} value={o.value}>
+                    {o.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </label>
+            <label className="flex items-center gap-2 text-xs font-medium">
+              Trạng thái
+              <NativeSelect
+                className="min-w-44"
+                value={props.status}
+                onChange={(e) => props.onStatusChange(parseAdjustmentStatus(e.target.value))}
+              >
+                <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+                {Object.values(STOCK_ADJUSTMENT_STATUSES).map((value) => (
+                  <NativeSelectOption key={value} value={value}>
+                    {STOCK_ADJUSTMENT_STATUS_LABELS[value]}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </label>
+          </div>
           <Button
+            type="button"
             variant="outline"
             size="icon"
+            className="shrink-0"
             onClick={props.onRetry}
             disabled={props.isFetching}
             aria-label="Làm mới"
           >
             <RefreshCw
+              aria-hidden="true"
               className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
             />
           </Button>

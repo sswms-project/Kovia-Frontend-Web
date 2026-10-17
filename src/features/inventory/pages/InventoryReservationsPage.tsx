@@ -62,7 +62,9 @@ export default function InventoryReservationsPage() {
       isError={reservationsQuery.isError}
       areFiltersLoading={warehousesQuery.isLoading || productsQuery.isLoading}
       areFiltersError={warehousesQuery.isError || productsQuery.isError}
-      activeFilterCount={Number(Boolean(warehouseId)) + Number(Boolean(productId))}
+      activeFilterCount={
+        Number(Boolean(warehouseId)) + Number(Boolean(productId)) + Number(status !== 'Active')
+      }
       onWarehouseChange={(value) => {
         setWarehouseId(value)
         setPage(1)
@@ -83,6 +85,7 @@ export default function InventoryReservationsPage() {
       onResetFilters={() => {
         setWarehouseId('')
         setProductId('')
+        setStatus('Active')
         setPage(1)
       }}
       onRetryFilters={() => void Promise.all([warehousesQuery.refetch(), productsQuery.refetch()])}

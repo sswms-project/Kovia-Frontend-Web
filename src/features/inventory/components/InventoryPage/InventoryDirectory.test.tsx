@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { InventoryStock } from '../../types/inventory.types'
@@ -30,7 +31,11 @@ const stock: InventoryStock = {
   canManageWarehouse: false,
 }
 
-function renderDirectory(item: InventoryStock, otherItem?: InventoryStock) {
+function renderDirectory(
+  item: InventoryStock,
+  otherItem?: InventoryStock,
+  overrides: Partial<ComponentProps<typeof InventoryDirectory>> = {}
+) {
   render(
     <TooltipProvider>
       <InventoryDirectory
@@ -64,12 +69,55 @@ function renderDirectory(item: InventoryStock, otherItem?: InventoryStock) {
         onPageSizeChange={vi.fn()}
         onRetry={vi.fn()}
         onReportDamaged={vi.fn()}
+        {...overrides}
       />
     </TooltipProvider>
   )
 }
 
 describe('InventoryDirectory', () => {
+  it('shows inline filters without a sheet and only locks locations while they load', () => {
+    const onWarehouseChange = vi.fn()
+    const onProductChange = vi.fn()
+    const onResetFilters = vi.fn()
+    const onRetry = vi.fn()
+    renderDirectory(stock, undefined, {
+      warehouseId: 'warehouse-1',
+      areSlotsLoading: true,
+      activeFilterCount: 1,
+      warehouseOptions: [{ value: 'warehouse-1', label: 'Kho trung tâm' }],
+      productOptions: [{ value: 'product-1', label: 'Hàng QA' }],
+      onWarehouseChange,
+      onProductChange,
+      onResetFilters,
+      onRetry,
+    })
+    expect(screen.queryByRole('button', { name: /^Bộ lọc/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(
+        'Có thể xem tồn kho toàn đơn vị. Thao tác chỉ áp dụng tại kho được phân công.'
+      )
+    ).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Kho')).toBeEnabled()
+    expect(screen.getByLabelText('Sản phẩm')).toBeEnabled()
+    expect(screen.getByLabelText('Vị trí')).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Kho'), { target: { value: 'warehouse-1' } })
+    fireEvent.change(screen.getByLabelText('Sản phẩm'), { target: { value: 'product-1' } })
+    expect(onWarehouseChange).toHaveBeenCalledWith('warehouse-1')
+    expect(onProductChange).toHaveBeenCalledWith('product-1')
+    expect(
+      screen
+        .getByRole('search', { name: 'Bộ lọc tồn kho' })
+        .contains(screen.getByRole('button', { name: 'Làm mới tồn kho' }))
+    ).toBe(false)
+    expect(screen.queryByRole('button', { name: 'Đặt lại' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa bộ lọc' }))
+    expect(onResetFilters).toHaveBeenCalledOnce()
+    expect(onRetry).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Làm mới tồn kho' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+    expect(onResetFilters).toHaveBeenCalledOnce()
+  })
   it('distinguishes the same product in two rack locations without exposing technical slot codes', () => {
     renderDirectory(
       {
@@ -103,8 +151,14 @@ describe('InventoryDirectory', () => {
   })
   it('does not show the slot snapshot subtitle', () => {
     renderDirectory(stock)
-    expect(screen.getByRole('heading', { name: 'Danh sách tồn kho' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Danh sách tồn kho' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Tồn kho khả dụng' })).toBeInTheDocument()
     expect(screen.queryByText(/Dữ liệu theo từng slot|Ảnh chụp/)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Tồn kho khả dụng' })).toHaveClass(
+      'sr-only'
+    )
+    expect(screen.queryByText('Kiểm soát tồn kho')).not.toBeInTheDocument()
+    expect(screen.queryByText(/vị trí tồn kho/)).not.toBeInTheDocument()
   })
 
   it('marks stock outside assigned warehouses as read-only', () => {

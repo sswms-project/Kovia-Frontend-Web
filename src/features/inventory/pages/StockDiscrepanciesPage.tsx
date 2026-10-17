@@ -263,6 +263,7 @@ export default function StockDiscrepanciesPage() {
       onCorrectSlotChange={setCorrectSlotId}
       onRelatedTaskChange={setRelatedTaskKey}
       isLoading={reportsQuery.isLoading}
+      isFetching={reportsQuery.isFetching}
       isError={reportsQuery.isError}
       isPending={
         uploadMutation.isPending ||

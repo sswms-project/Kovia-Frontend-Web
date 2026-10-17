@@ -146,6 +146,7 @@ export default function DamageCasesPage() {
         setPage(1)
       }}
       isLoading={casesQuery.isLoading}
+      isFetching={casesQuery.isFetching}
       isError={casesQuery.isError}
       isPending={
         decisionMutation.isPending || uploadMutation.isPending || evidenceMutation.isPending

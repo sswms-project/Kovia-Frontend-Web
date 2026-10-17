@@ -178,9 +178,8 @@ export default function InventoryPage({
         isLoading={inventoryQuery.isLoading}
         isFetching={inventoryQuery.isFetching}
         isError={inventoryQuery.isError}
-        areFiltersLoading={
-          warehousesQuery.isLoading || productsQuery.isLoading || slotsQuery.isLoading
-        }
+        areFiltersLoading={warehousesQuery.isLoading || productsQuery.isLoading}
+        areSlotsLoading={slotsQuery.isLoading}
         areFiltersError={warehousesQuery.isError || productsQuery.isError || slotsQuery.isError}
         activeFilterCount={
           Number(Boolean(warehouseId)) + Number(Boolean(productId)) + Number(Boolean(slotId))

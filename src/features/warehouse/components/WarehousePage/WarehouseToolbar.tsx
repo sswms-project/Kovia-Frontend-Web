@@ -48,7 +48,7 @@ export function WarehouseToolbar({
 
       <div className="flex items-center justify-between gap-2 sm:justify-end">
         <p className="text-muted-foreground text-xs" aria-live="polite">
-          {isFetching ? 'Đang cập nhật' : 'Đã cập nhật'}
+          {isFetching ? 'Đang cập nhật' : ''}
         </p>
         <Tooltip>
           <TooltipTrigger asChild>
