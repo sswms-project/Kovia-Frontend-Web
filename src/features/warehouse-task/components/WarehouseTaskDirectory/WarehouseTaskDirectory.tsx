@@ -246,7 +246,7 @@ export function WarehouseTaskDirectory({
           <h1 className="text-xl font-semibold">{title}</h1>
           <p className="text-muted-foreground text-sm">{description}</p>
         </div>
-        <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+        <div className="flex w-full items-start justify-end gap-2 sm:w-auto sm:items-center">
           {headerAction}
           <Button
             type="button"
@@ -260,7 +260,7 @@ export function WarehouseTaskDirectory({
         </div>
       </div>
       {showStats ? (
-        <dl className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-3 lg:grid-cols-5">
+        <dl className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-3 lg:grid-cols-5 sm:max-lg:[&>:last-child:nth-child(3n+2)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:col-span-2">
           <TaskMetric
             index={0}
             icon={statsMode === 'managed' ? UserRoundX : ClipboardList}

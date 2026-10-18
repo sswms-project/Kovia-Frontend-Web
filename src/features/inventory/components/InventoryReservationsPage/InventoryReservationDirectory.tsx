@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Table,
@@ -89,7 +90,9 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
             className="[container-type:normal] flex min-w-0 flex-1 flex-row flex-wrap items-center gap-3"
           >
             <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="reservation-status">Trạng thái</FieldLabel>
+              <FieldLabel htmlFor="reservation-status" className="shrink-0 max-sm:min-w-18">
+                Trạng thái
+              </FieldLabel>
               <NativeSelect
                 className="w-full sm:w-44"
                 id="reservation-status"
@@ -102,7 +105,9 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
               </NativeSelect>
             </Field>
             <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="reservation-warehouse">Kho</FieldLabel>
+              <FieldLabel htmlFor="reservation-warehouse" className="shrink-0 max-sm:min-w-18">
+                Kho
+              </FieldLabel>
               <NativeSelect
                 className="w-full sm:w-44"
                 id="reservation-warehouse"
@@ -119,7 +124,9 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
               </NativeSelect>
             </Field>
             <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="reservation-product">Sản phẩm</FieldLabel>
+              <FieldLabel htmlFor="reservation-product" className="shrink-0 max-sm:min-w-18">
+                Sản phẩm
+              </FieldLabel>
               <NativeSelect
                 className="w-full sm:w-44"
                 id="reservation-product"
@@ -175,76 +182,118 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
             description="Thử thay đổi bộ lọc."
           />
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table className="min-w-[980px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="sticky top-0 z-10">Sản phẩm</TableHead>
-                  <TableHead className="sticky top-0 z-10">Kho / Vị trí</TableHead>
-                  <TableHead className="sticky top-0 z-10">Lô / Chất lượng</TableHead>
-                  <TableHead className="sticky top-0 z-10">Chứng từ</TableHead>
-                  <TableHead className="sticky top-0 z-10">Người tạo</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Số lượng</TableHead>
-                  <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                  <TableHead className="sticky top-0 z-10">Thời điểm</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <ItemGroup className="gap-0">
                 {props.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-muted-foreground font-mono text-xs" translate="no">
-                        {item.productSku}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <p>{item.warehouseName}</p>
-                      <p className="text-muted-foreground font-mono text-xs" translate="no">
-                        {item.warehouseCode} · {item.slotCode}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-mono text-xs" translate="no">
-                        {item.lotNumber ?? 'Không theo lô'}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {qualityStatusLabel(item.qualityStatus)} ·{' '}
-                        {formatEligibilityStatus(item.eligibilityStatus)}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <p>
+                  <Item key={item.id} className="border-b last:border-b-0">
+                    <ItemContent className="min-w-0">
+                      <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                        <span className="min-w-0 break-words">{item.productName}</span>
+                        <Badge variant="outline">{statusLabel(item.status)}</Badge>
+                      </ItemTitle>
+                      <ItemDescription className="font-mono" translate="no">
+                        {item.productSku} · {item.warehouseCode} · {item.slotCode}
+                      </ItemDescription>
+                      <ItemDescription>
+                        Giữ{' '}
+                        <span className="text-foreground font-mono font-medium tabular-nums">
+                          {formatInventoryQuantity(item.reservedQuantity)}
+                        </span>{' '}
+                        · {item.lotNumber ?? 'Không theo lô'} ·{' '}
+                        {qualityStatusLabel(item.qualityStatus)}
+                      </ItemDescription>
+                      <ItemDescription>
                         {item.referenceType === 'StockIssueRequestLine'
                           ? 'Phiếu xuất đã phát hành'
                           : item.referenceType === 'StockIssuePick'
                             ? 'Lấy hàng xuất kho'
-                            : 'Điều chuyển kho'}
-                      </p>
-                      <p className="text-muted-foreground font-mono text-xs" translate="no">
-                        {item.referenceCode || 'Không xác định'}
-                      </p>
-                    </TableCell>
-                    <TableCell>{item.createdByName || 'Không xác định'}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {formatInventoryQuantity(item.reservedQuantity)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{statusLabel(item.status)}</Badge>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      <p>{formatInventoryDate(item.createdAt)}</p>
-                      {item.releasedAt ? (
-                        <p className="text-muted-foreground">
-                          Kết thúc {formatInventoryDate(item.releasedAt)}
-                        </p>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
+                            : 'Điều chuyển kho'}{' '}
+                        <span className="font-mono" translate="no">
+                          {item.referenceCode || 'Không xác định'}
+                        </span>
+                      </ItemDescription>
+                      <ItemDescription>
+                        {item.createdByName || 'Không xác định'} ·{' '}
+                        {formatInventoryDate(item.createdAt)}
+                        {item.releasedAt ? ` → ${formatInventoryDate(item.releasedAt)}` : ''}
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
                 ))}
-              </TableBody>
-            </Table>
-          </div>
+              </ItemGroup>
+            </div>
+            <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+              <Table className="min-w-[980px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 z-10">Sản phẩm</TableHead>
+                    <TableHead className="sticky top-0 z-10">Kho / Vị trí</TableHead>
+                    <TableHead className="sticky top-0 z-10">Lô / Chất lượng</TableHead>
+                    <TableHead className="sticky top-0 z-10">Chứng từ</TableHead>
+                    <TableHead className="sticky top-0 z-10">Người tạo</TableHead>
+                    <TableHead className="sticky top-0 z-10 text-right">Số lượng</TableHead>
+                    <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                    <TableHead className="sticky top-0 z-10">Thời điểm</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {props.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <p className="font-medium">{item.productName}</p>
+                        <p className="text-muted-foreground font-mono text-xs" translate="no">
+                          {item.productSku}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <p>{item.warehouseName}</p>
+                        <p className="text-muted-foreground font-mono text-xs" translate="no">
+                          {item.warehouseCode} · {item.slotCode}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-mono text-xs" translate="no">
+                          {item.lotNumber ?? 'Không theo lô'}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          {qualityStatusLabel(item.qualityStatus)} ·{' '}
+                          {formatEligibilityStatus(item.eligibilityStatus)}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <p>
+                          {item.referenceType === 'StockIssueRequestLine'
+                            ? 'Phiếu xuất đã phát hành'
+                            : item.referenceType === 'StockIssuePick'
+                              ? 'Lấy hàng xuất kho'
+                              : 'Điều chuyển kho'}
+                        </p>
+                        <p className="text-muted-foreground font-mono text-xs" translate="no">
+                          {item.referenceCode || 'Không xác định'}
+                        </p>
+                      </TableCell>
+                      <TableCell>{item.createdByName || 'Không xác định'}</TableCell>
+                      <TableCell className="text-right font-mono tabular-nums">
+                        {formatInventoryQuantity(item.reservedQuantity)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{statusLabel(item.status)}</Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <p>{formatInventoryDate(item.createdAt)}</p>
+                        {item.releasedAt ? (
+                          <p className="text-muted-foreground">
+                            Kết thúc {formatInventoryDate(item.releasedAt)}
+                          </p>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
         <OperationalPagination
           page={props.page}

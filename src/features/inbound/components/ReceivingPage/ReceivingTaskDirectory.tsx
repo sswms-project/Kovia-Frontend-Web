@@ -244,7 +244,7 @@ export function ReceivingTaskDirectory({
               </Popover>
             )
           })()}
-          <InputGroup className="min-w-0 flex-1 sm:w-72">
+          <InputGroup className="min-w-0 flex-1 basis-full sm:w-72 sm:basis-auto">
             <InputGroupAddon>
               <Search aria-hidden="true" />
             </InputGroupAddon>

@@ -306,7 +306,7 @@ export function StaffDirectoryPage() {
 
         <TabsContent
           value={STAFF_PAGE_VIEWS.directory}
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden max-md:min-h-fit max-md:overflow-visible"
         >
           <OperationalListPanel aria-labelledby="staff-directory-title">
             <div className="flex min-h-12 flex-col gap-3 border-b px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
@@ -462,7 +462,7 @@ export function StaffDirectoryPage() {
         {canViewFormerStaff && (
           <TabsContent
             value={STAFF_PAGE_VIEWS.former}
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden max-md:min-h-fit max-md:overflow-visible"
           >
             <FormerStaffPanel
               enabled={activeView === STAFF_PAGE_VIEWS.former}
@@ -474,7 +474,7 @@ export function StaffDirectoryPage() {
         {canInvite && (
           <TabsContent
             value={STAFF_PAGE_VIEWS.invitations}
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden max-md:min-h-fit max-md:overflow-visible"
           >
             <InvitationManagementPanel
               invitations={invitations}

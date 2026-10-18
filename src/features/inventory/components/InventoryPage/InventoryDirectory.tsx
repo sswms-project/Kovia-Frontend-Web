@@ -156,7 +156,9 @@ export function InventoryDirectory({
               </div>
             ) : null}
             <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="inventory-warehouse">Kho</FieldLabel>
+              <FieldLabel htmlFor="inventory-warehouse" className="shrink-0 max-sm:min-w-18">
+                Kho
+              </FieldLabel>
               <NativeSelect
                 id="inventory-warehouse"
                 className="w-full sm:w-32"
@@ -173,7 +175,9 @@ export function InventoryDirectory({
               </NativeSelect>
             </Field>
             <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="inventory-slot">Vị trí</FieldLabel>
+              <FieldLabel htmlFor="inventory-slot" className="shrink-0 max-sm:min-w-18">
+                Vị trí
+              </FieldLabel>
               <NativeSelect
                 id="inventory-slot"
                 className="w-full sm:w-32"
@@ -192,7 +196,9 @@ export function InventoryDirectory({
               </NativeSelect>
             </Field>
             <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="inventory-product">Sản phẩm</FieldLabel>
+              <FieldLabel htmlFor="inventory-product" className="shrink-0 max-sm:min-w-18">
+                Sản phẩm
+              </FieldLabel>
               <NativeSelect
                 id="inventory-product"
                 className="w-full sm:w-36"

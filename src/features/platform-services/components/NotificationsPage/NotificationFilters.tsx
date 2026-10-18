@@ -94,7 +94,7 @@ export function NotificationFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <InputGroup className="min-w-0 flex-1 sm:w-72 sm:flex-none">
+      <InputGroup className="min-w-0 flex-1 basis-full sm:w-72 sm:flex-none sm:basis-auto">
         <InputGroupAddon>
           <Search className="text-primary" aria-hidden="true" />
         </InputGroupAddon>

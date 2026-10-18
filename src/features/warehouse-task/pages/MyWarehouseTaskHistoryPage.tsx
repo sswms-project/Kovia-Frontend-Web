@@ -73,7 +73,7 @@ export default function MyWarehouseTaskHistoryPage() {
           isFetching={query.isFetching}
           isError={query.isError}
           headerAction={
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:flex sm:flex-none sm:flex-wrap sm:items-center sm:justify-end">
               <NativeSelect
                 aria-label="Lọc lịch sử theo loại công việc"
                 value={taskTypeFilter}
@@ -81,7 +81,7 @@ export default function MyWarehouseTaskHistoryPage() {
                   setTaskTypeFilter(event.target.value as WarehouseTaskType | '')
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi loại việc</NativeSelectOption>
                 <NativeSelectOption value="Receiving">Nhận hàng</NativeSelectOption>
@@ -103,7 +103,7 @@ export default function MyWarehouseTaskHistoryPage() {
                   )
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi trạng thái</NativeSelectOption>
                 <NativeSelectOption value="Completed">Hoàn tất</NativeSelectOption>
@@ -116,7 +116,7 @@ export default function MyWarehouseTaskHistoryPage() {
                   setDeadlineFilter(event.target.value as WarehouseTaskDeadlineStatus | '')
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi thời hạn</NativeSelectOption>
                 <NativeSelectOption value="CompletedOnTime">Đúng hạn</NativeSelectOption>
