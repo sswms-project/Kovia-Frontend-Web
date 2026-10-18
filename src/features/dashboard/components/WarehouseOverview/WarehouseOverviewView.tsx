@@ -60,13 +60,29 @@ export function WarehouseOverviewView({
 }: WarehouseOverviewViewProps) {
   const noWarehouses = !warehouseOptionsLoading && warehouses.length === 0
   return (
-    <div
+    <Tabs
       ref={workspaceRef}
+      value={tab}
+      onValueChange={onTabChange}
       className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 [@media(max-height:500px)]:gap-1"
       data-slot="warehouse-overview"
     >
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-        <h1 className="mt-0.5 font-sans text-xl font-semibold">Tổng quan kho</h1>
+        <h1 className="sr-only">Tổng quan kho</h1>
+        <TabsList variant="line" className="shrink-0">
+          <TabsTrigger
+            value="alerts"
+            className="font-sans text-sm font-medium data-[state=active]:font-bold"
+          >
+            Cảnh báo tồn kho
+          </TabsTrigger>
+          <TabsTrigger
+            value="activity"
+            className="font-sans text-sm font-medium data-[state=active]:font-bold"
+          >
+            Hoạt động kho
+          </TabsTrigger>
+        </TabsList>
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           <label className="flex min-w-0 items-center gap-2 text-xs">
             Kho
@@ -116,100 +132,80 @@ export function WarehouseOverviewView({
           <AlertDescription>Chưa có kho trong phạm vi được phép.</AlertDescription>
         </Alert>
       ) : null}
-      <Tabs
-        value={tab}
-        onValueChange={onTabChange}
-        className="min-h-0 min-w-0 flex-1 [@media(max-height:500px)]:gap-1"
+      <TabsContent
+        value="alerts"
+        className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 [@media(max-height:500px)]:gap-1"
       >
-        <TabsList variant="line" className="shrink-0">
-          <TabsTrigger
-            value="alerts"
-            className="font-sans text-sm font-medium data-[state=active]:font-bold"
+        {compact && canShowData && !noWarehouses ? (
+          <ToggleGroup
+            type="single"
+            value={selectedKind}
+            variant="outline"
+            size="sm"
+            aria-label="Nhóm cảnh báo"
+            className="grid w-full shrink-0 grid-cols-2 gap-1 sm:grid-cols-4"
+            onValueChange={(value) => {
+              const selected = stockAlertKinds.find((kind) => kind === value)
+              if (selected) onKindChange(selected)
+            }}
           >
-            Cảnh báo tồn kho
-          </TabsTrigger>
-          <TabsTrigger
-            value="activity"
-            className="font-sans text-sm font-medium data-[state=active]:font-bold"
-          >
-            Hoạt động kho
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent
-          value="alerts"
-          className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 [@media(max-height:500px)]:gap-1"
-        >
-          {compact && canShowData && !noWarehouses ? (
-            <ToggleGroup
-              type="single"
-              value={selectedKind}
-              variant="outline"
-              size="sm"
-              aria-label="Nhóm cảnh báo"
-              className="grid w-full shrink-0 grid-cols-2 gap-1 sm:grid-cols-4"
-              onValueChange={(value) => {
-                const selected = stockAlertKinds.find((kind) => kind === value)
-                if (selected) onKindChange(selected)
-              }}
-            >
-              {stockAlertKinds.map((kind) => {
-                const count = panels[kind].errorMessage
-                  ? 'Lỗi tải'
-                  : (panels[kind].data?.totalCount ?? 'Đang tải…')
-                return (
-                  <ToggleGroupItem
-                    key={kind}
-                    value={kind}
-                    className="min-w-0 justify-between px-2"
-                    aria-label={`${stockAlertTitles[kind]} · ${count}`}
-                    title={stockAlertTitles[kind]}
-                  >
-                    <span>
+            {stockAlertKinds.map((kind) => {
+              const count = panels[kind].errorMessage
+                ? 'Lỗi tải'
+                : (panels[kind].data?.totalCount ?? 'Đang tải…')
+              return (
+                <ToggleGroupItem
+                  key={kind}
+                  value={kind}
+                  className="min-w-0 justify-between px-2"
+                  aria-label={`${stockAlertTitles[kind]} · ${count}`}
+                  title={stockAlertTitles[kind]}
+                >
+                  <span>
+                    {
                       {
-                        {
-                          'below-minimum': 'Dưới tối thiểu',
-                          'above-maximum': 'Vượt tối đa',
-                          expiring: 'Sắp hết hạn',
-                          expired: 'Quá hạn',
-                        }[kind]
-                      }
-                    </span>
-                    <span className="tabular-nums">{count}</span>
-                  </ToggleGroupItem>
-                )
-              })}
-            </ToggleGroup>
-          ) : null}
-          {canShowData && !noWarehouses ? (
-            <div
-              className={cn(
-                'grid min-h-0 min-w-0 flex-1 gap-3',
-                compact
-                  ? 'grid-cols-1 grid-rows-1'
-                  : 'grid-cols-2 grid-rows-[repeat(2,minmax(0,1fr))]'
-              )}
-            >
-              {stockAlertKinds
-                .filter((kind) => !compact || selectedKind === kind)
-                .map((kind) => (
-                  <StockAlertPanel
-                    key={kind}
-                    {...panels[kind]}
-                    kind={kind}
-                    expiringDays={expiringDays}
-                    canViewInventory={canViewInventory}
-                    onPageChange={(page) => onPageChange(kind, page)}
-                    onExpand={(opener) => onExpand(kind, opener)}
-                    settings={kind === 'expiring' ? settings : undefined}
-                  />
-                ))}
-            </div>
-          ) : null}
-        </TabsContent>
-        <TabsContent value="activity" className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {canShowData && !noWarehouses ? operations : null}
-        </TabsContent>
-      </Tabs>
-    </div>
+                        'below-minimum': 'Dưới tối thiểu',
+                        'above-maximum': 'Vượt tối đa',
+                        expiring: 'Sắp hết hạn',
+                        expired: 'Quá hạn',
+                      }[kind]
+                    }
+                  </span>
+                  <span className="tabular-nums">{count}</span>
+                </ToggleGroupItem>
+              )
+            })}
+          </ToggleGroup>
+        ) : null}
+        {canShowData && !noWarehouses ? (
+          <div
+            className={cn(
+              'grid min-h-0 min-w-0 flex-1 gap-3',
+              compact
+                ? 'grid-cols-1 grid-rows-1'
+                : 'grid-cols-2 grid-rows-[repeat(2,minmax(0,1fr))]'
+            )}
+          >
+            {stockAlertKinds
+              .filter((kind) => !compact || selectedKind === kind)
+              .map((kind) => (
+                <StockAlertPanel
+                  key={kind}
+                  {...panels[kind]}
+                  kind={kind}
+                  expiringDays={expiringDays}
+                  canViewInventory={canViewInventory}
+                  onPageChange={(page) => onPageChange(kind, page)}
+                  onExpand={(opener) => onExpand(kind, opener)}
+                  settings={kind === 'expiring' ? settings : undefined}
+                />
+              ))}
+          </div>
+        ) : null}
+      </TabsContent>
+      <TabsContent value="activity" className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {canShowData && !noWarehouses ? operations : null}
+      </TabsContent>
+    </Tabs>
   )
 }

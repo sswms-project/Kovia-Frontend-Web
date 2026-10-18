@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import type { UrlObject } from 'url'
 import { cn } from '@/lib/utils'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
@@ -29,12 +30,11 @@ export interface OverviewLinks {
   readonly lowStock?: UrlObject
 }
 interface WarehouseOperationsViewProps {
+  readonly activityChart?: ReactNode
   readonly data?: WarehouseOverview
   readonly isLoading: boolean
   readonly errorMessage?: string
   readonly onRefresh: () => void
-  readonly activityDays: number
-  readonly onActivityDaysChange: (value: number) => void
   readonly compact: boolean
   readonly selectedView: string
   readonly onSelectedViewChange: (value: string) => void
@@ -42,28 +42,34 @@ interface WarehouseOperationsViewProps {
 }
 
 export function WarehouseOperationsView({
+  activityChart,
   data,
   isLoading,
   errorMessage,
   onRefresh,
-  activityDays,
-  onActivityDaysChange,
   compact,
   selectedView,
   onSelectedViewChange,
   links,
 }: WarehouseOperationsViewProps) {
-  if (isLoading) return <Skeleton className="min-h-0 flex-1" />
+  if (isLoading)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <Skeleton className="min-h-0 flex-1" />
+      </div>
+    )
   if (!data)
     return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          {errorMessage ?? 'Chưa tải được tổng quan hoạt động.'}
-          <Button type="button" variant="outline" onClick={onRefresh}>
-            Thử lại
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <Alert variant="destructive">
+          <AlertDescription>
+            {errorMessage ?? 'Chưa tải được tổng quan hoạt động.'}
+            <Button type="button" variant="outline" onClick={onRefresh}>
+              Thử lại
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
     )
   const pending =
     data.pendingInboundRequests +
@@ -173,13 +179,9 @@ export function WarehouseOperationsView({
           compact ? 'flex' : 'grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3'
         )}
       >
-        {!compact || selectedView === 'chart' ? (
-          <WarehouseActivityChart
-            data={data}
-            activityDays={activityDays}
-            onActivityDaysChange={onActivityDaysChange}
-          />
-        ) : null}
+        {!compact || selectedView === 'chart'
+          ? (activityChart ?? <WarehouseActivityChart data={data} />)
+          : null}
         {!compact || selectedView !== 'chart' ? (
           <OperationalListPanel aria-label="Công việc, chứng từ và vị trí">
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b p-3">

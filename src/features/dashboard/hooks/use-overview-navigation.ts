@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { stockAlertKindSchema } from '../schemas/stock-alert.schema'
+import {
+  activityPeriodSchema,
+  defaultActivityPeriod,
+  resolveActivityPeriod,
+} from '../schemas/activity-period.schema'
 
 export function useOverviewNavigation() {
   const params = useSearchParams()
@@ -14,6 +19,21 @@ export function useOverviewNavigation() {
   const parsedKind = stockAlertKindSchema.safeParse(params.get('alert'))
   const kind = parsedKind.success ? parsedKind.data : 'below-minimum'
   const tab = params.get('tab') === 'activity' ? 'activity' : 'alerts'
+  const defaults = defaultActivityPeriod()
+  const parsedPeriod = activityPeriodSchema.shape.period.safeParse(
+    params.get('activityPeriod') ?? defaults.period
+  )
+  const activityPeriod = {
+    period: parsedPeriod.success ? parsedPeriod.data : defaults.period,
+    week: params.get('activityWeek') ?? defaults.week,
+    month: params.get('activityMonth') ?? defaults.month,
+    year: params.get('activityYear') ?? defaults.year,
+    quarter: params.get('activityQuarter') ?? defaults.quarter,
+    dateFrom: params.get('activityFrom') ?? defaults.dateFrom,
+    dateTo: params.get('activityTo') ?? defaults.dateTo,
+  }
+  const validPeriod = parsedPeriod.success && activityPeriodSchema.safeParse(activityPeriod).success
+  const activityRange = validPeriod ? resolveActivityPeriod(activityPeriod) : undefined
   const updateLocation = (values: Readonly<Record<string, string>>) => {
     const next = new URLSearchParams(params.toString())
     for (const [key, value] of Object.entries(values)) {
@@ -22,7 +42,16 @@ export function useOverviewNavigation() {
     }
     window.history.pushState(null, '', `${pathname}${next.size ? `?${next}` : ''}`)
   }
-  return { warehouseId: rawWarehouseId, invalidWarehouse, expiringDays, kind, tab, updateLocation }
+  return {
+    warehouseId: rawWarehouseId,
+    invalidWarehouse,
+    expiringDays,
+    kind,
+    tab,
+    activityPeriod,
+    activityRange,
+    updateLocation,
+  }
 }
 
 export function useOverviewCompactLayout() {
