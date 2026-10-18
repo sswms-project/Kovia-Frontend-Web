@@ -127,6 +127,9 @@ export function CatalogNavigation({
   })).filter((group) => group.items.length > 0)
 
   useEffect(() => {
+    // An unmounted panel may never emit pointerleave when it closes.
+    if (!control.open || isMobile) hoveredRef.current = false
+
     return () => {
       if (closeTimerRef.current !== null) {
         window.clearTimeout(closeTimerRef.current)

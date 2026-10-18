@@ -196,6 +196,41 @@ function advanceCloseTime(milliseconds: number) {
 }
 
 describe('catalog hover and focus delay', () => {
+  it.each(['navigation', 'Escape', 'outside interaction'] as const)(
+    'clears stale panel hover after %s before reopening with keyboard focus',
+    (dismissal) => {
+      vi.useFakeTimers()
+      const view = render(<Harness pathname="/products" />)
+      const trigger = screen.getByRole('button', { name: 'Danh mục' })
+      const outside = screen.getByRole('button', { name: 'Ngoài menu' })
+      act(() => outside.focus())
+      fireEvent.pointerEnter(trigger, { pointerType: 'mouse' })
+      fireEvent.pointerLeave(trigger, { pointerType: 'mouse' })
+      const panel = screen.getByRole('dialog')
+      fireEvent.pointerEnter(panel, { pointerType: 'mouse' })
+      advanceCloseTime(0)
+
+      if (dismissal === 'navigation') {
+        fireEvent.click(screen.getByRole('link', { name: 'Khách hàng' }))
+        view.rerender(<Harness pathname="/stock-recipients" />)
+      } else if (dismissal === 'Escape') {
+        fireEvent.keyDown(outside, { key: 'Escape' })
+      } else {
+        fireEvent.pointerDown(outside, { pointerType: 'mouse', button: 0 })
+      }
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      act(() => trigger.focus())
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      act(() => outside.focus())
+      advanceCloseTime(399)
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      advanceCloseTime(1)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(outside).toHaveFocus()
+    }
+  )
+
   it('opens on hover without taking focus and closes at 400ms, not 399ms', () => {
     const { trigger, outside } = openByHover()
     expect(outside).toHaveFocus()
