@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -27,6 +27,8 @@ export function AppSidebar() {
   const reportEntryRef = useRef<string | null>(null)
   const isReportDetail = /^\/reports\/(?!forecast(?:\/|$))[^/]+$/.test(pathname)
   const hoverOpenRef = useRef(false)
+  const pointerInsideRef = useRef(false)
+  const [catalogOpenScope, setCatalogOpenScope] = useState<string | null>(null)
   const initializedRef = useRef(false)
   const skipInitialPersistRef = useRef(true)
   const permissions = new Set(meQuery.data?.permissions ?? [])
@@ -34,6 +36,20 @@ export function AppSidebar() {
   const sections =
     user?.role && hasPermissionData ? getVisibleNavSections(user.role, permissions) : []
   const appearance: SidebarAppearance = user?.role === USER_ROLES.TenantOwner ? 'tenant' : 'default'
+  const catalogScope = JSON.stringify([
+    user?.id,
+    user?.tenantId,
+    user?.role,
+    pathname,
+    isMobile,
+    sections.find((section) => section.presentation === 'catalog')?.items.map((item) => item.href),
+  ])
+  const isCatalogOpen = catalogOpenScope === catalogScope
+
+  // A previous route/session must not reopen its overlay when revisited.
+  if (catalogOpenScope !== null && catalogOpenScope !== catalogScope) {
+    setCatalogOpenScope(null)
+  }
 
   useEffect(() => {
     if (initializedRef.current) return
@@ -47,7 +63,7 @@ export function AppSidebar() {
       skipInitialPersistRef.current = false
       return
     }
-    setStoredOpen(open)
+    if (!hoverOpenRef.current) setStoredOpen(open)
   }, [open, setStoredOpen])
 
   useEffect(() => {
@@ -70,6 +86,7 @@ export function AppSidebar() {
   }, [meQuery.error, meQuery.isError])
 
   const handleMouseEnter = () => {
+    pointerInsideRef.current = true
     if (!open && !isMobile && !isReportDetail) {
       hoverOpenRef.current = true
       setOpen(true)
@@ -77,7 +94,16 @@ export function AppSidebar() {
   }
 
   const handleMouseLeave = () => {
-    if (hoverOpenRef.current) {
+    pointerInsideRef.current = false
+    if (hoverOpenRef.current && !isCatalogOpen) {
+      hoverOpenRef.current = false
+      setOpen(false)
+    }
+  }
+
+  const handleCatalogOpenChange = (nextOpen: boolean) => {
+    setCatalogOpenScope(nextOpen ? catalogScope : null)
+    if (!nextOpen && hoverOpenRef.current && !pointerInsideRef.current) {
       hoverOpenRef.current = false
       setOpen(false)
     }
@@ -101,13 +127,21 @@ export function AppSidebar() {
           hasPermissionData={hasPermissionData}
           onRetry={() => void meQuery.refetch()}
           onNavigate={() => {
+            handleCatalogOpenChange(false)
             if (isMobile) setOpenMobile(false)
           }}
           appearance={appearance}
+          catalogMenu={{ open: isCatalogOpen, onOpenChange: handleCatalogOpenChange }}
         />
       </SidebarContent>
       <SidebarFooter className="border-sidebar-border shrink-0 border-t p-2">
-        <SidebarTrigger className="w-full" />
+        <SidebarTrigger
+          className="w-full"
+          onClick={() => {
+            hoverOpenRef.current = false
+            handleCatalogOpenChange(false)
+          }}
+        />
       </SidebarFooter>
     </Sidebar>
   )

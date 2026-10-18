@@ -6,6 +6,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { USER_ROLES } from '@/config/roles'
+import { P } from '@/config/permissionCodes'
+import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useAuthStore } from '@/stores/auth.store'
 import { BillingCycleToggle } from '../components/BillingCycleToggle'
 import {
@@ -16,6 +18,7 @@ import {
   SubscriptionErrorState,
   SubscriptionPageSkeleton,
   TenantOwnerOnlyState,
+  SubscriptionWorkspaceHeader,
 } from '../components/SubscriptionPage'
 import {
   useChangeSubscriptionPlanMutation,
@@ -64,6 +67,8 @@ type DialogState =
 
 export function SubscriptionPage() {
   const user = useAuthStore((state) => state.user)
+  const meQuery = useMeQuery()
+  const permissions = new Set(meQuery.data?.permissions ?? [])
   const isTenantOwner = user?.role === USER_ROLES.TenantOwner
   const [dialogState, setDialogState] = useState<DialogState | null>(null)
   const [changeResult, setChangeResult] = useState<SubscriptionPlanChangeResponse | null>(null)
@@ -78,15 +83,31 @@ export function SubscriptionPage() {
   const previewPlanChangeMutation = usePreviewSubscriptionPlanChangeMutation()
 
   if (!isTenantOwner) return <TenantOwnerOnlyState />
-  if (subscriptionQuery.isLoading || plansQuery.isLoading) return <SubscriptionPageSkeleton />
+  const header = (
+    <SubscriptionWorkspaceHeader
+      currentView="plan"
+      canViewPlan={permissions.has(P.SUBSCRIPTIONS_VIEW)}
+      canViewPayments={permissions.has(P.PAYMENTS_VIEW)}
+    />
+  )
+  if (subscriptionQuery.isLoading || plansQuery.isLoading)
+    return (
+      <div className="flex min-w-0 flex-col gap-4">
+        {header}
+        <SubscriptionPageSkeleton />
+      </div>
+    )
   if (subscriptionQuery.isError || plansQuery.isError) {
     return (
-      <SubscriptionErrorState
-        onRetry={() => {
-          subscriptionQuery.refetch()
-          plansQuery.refetch()
-        }}
-      />
+      <div className="flex min-w-0 flex-col gap-4">
+        {header}
+        <SubscriptionErrorState
+          onRetry={() => {
+            subscriptionQuery.refetch()
+            plansQuery.refetch()
+          }}
+        />
+      </div>
     )
   }
 
@@ -189,9 +210,7 @@ export function SubscriptionPage() {
 
   return (
     <div className="flex w-full min-w-0 flex-none flex-col gap-4 pb-4 lg:gap-5 lg:pb-5">
-      <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-foreground text-xl font-semibold">Gói dịch vụ</h1>
-      </div>
+      {header}
 
       {isOnboarding ? (
         <SubscriptionEmptyState

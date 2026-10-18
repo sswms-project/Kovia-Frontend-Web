@@ -1,92 +1,53 @@
-# Homepage Feature
+# Tổng quan kho Kovia
 
-Role-based operations dashboards for the SSWMS system, each on its own route.
+Owner (`/dashboard/tenant`) và Manager (`/dashboard/manager`) cùng dùng `WarehouseOverviewPage`. RoleGuard điều hướng giao diện; BE kiểm tra `DashboardPermissions.View`, tenant và phạm vi kho cho mọi API. Không cấp quyền bằng tên vai trò. Dashboard Staff/Admin không đổi trong task thiết kế lại này.
 
-## Routes
+## Dữ liệu thật và luồng đọc
 
-| Role              | Route                |
-| ----------------- | -------------------- |
-| Tenant Owner      | `/dashboard/tenant`  |
-| Warehouse Manager | `/dashboard/manager` |
-| Warehouse Staff   | `/dashboard/staff`   |
-| System Admin      | `/admin/roles`       |
-
-`/dashboard` itself renders `DashboardRedirect`, which reads the logged-in user's role and replaces the URL with the route above. Each role route is wrapped in `RoleGuard`, which redirects a user to their own dashboard if they land on a route that doesn't match their role. `RoleGuard` is a UI convenience only — the real enforcement is server-side in `src/proxy.ts`, which decodes the role from the `access_token` cookie and checks it against `src/config/route-permissions.ts` before the page is served (mismatches are redirected to `/unauthorized`).
-
-## Structure
-
-```
-src/features/homepage/
-  ├── pages/
-  │   ├── DashboardRedirect.tsx           # /dashboard entry: redirects by role
-  │   ├── TenantOwnerDashboardPage.tsx    # RoleGuard + TenantOwnerDashboard
-  │   ├── WarehouseManagerDashboardPage.tsx
-  │   ├── WarehouseStaffDashboardPage.tsx
-  │   └── index.ts
-  ├── components/
-  │   ├── TenantOwnerDashboardPage/
-  │   │   ├── TenantOwnerDashboard.tsx    # Multi-warehouse view + warehouse filter
-  │   │   ├── WarehouseCapacitySection.tsx # Capacity cards + warehouse filter section
-  │   │   ├── WarehouseFilter.tsx         # Tenant-only warehouse selector
-  │   │   └── WarehouseRevenueDonutChart.tsx
-  │   ├── WarehouseManagerDashboardPage/
-  │   │   ├── WarehouseManagerDashboard.tsx # Single-warehouse operational view
-  │   │   └── RevenueTargetDonutChart.tsx
-  │   ├── WarehouseStaffDashboardPage/
-  │   │   ├── WarehouseStaffDashboard.tsx # Task-only view, no business figures
-  │   │   └── StaffTaskTable.tsx
-  │   ├── RoleGuard.tsx                   # Client-side blocks/redirects mismatched roles
-  │   ├── DashboardHeader.tsx             # Shared title/description/actions header
-  │   ├── MetricCard.tsx
-  │   ├── MetricCardGrid.tsx              # Shared staggered KPI card grid
-  │   ├── LogisticsFluxChart.tsx
-  │   ├── RevenueDonutChart.tsx           # Shared donut base for revenue charts
-  │   ├── RecentOperationsTable.tsx
-  │   ├── AlertCard.tsx
-  │   ├── LowStockTable.tsx
-  │   ├── QuickActionsBar.tsx
-  │   ├── WarehouseStatsCard.tsx
-  │   ├── DateRangeFilter.tsx
-  │   └── FadeIn.tsx                      # Shared entrance-animation wrapper (framer-motion)
-  ├── types/index.ts
-  ├── utils/
-  │   ├── sample-data.ts
-  │   └── role-routes.ts                  # role -> dashboard route mapping
-  └── README.md
+```text
+Page → React Query hook → service/Axios → Zod response
+     → DashboardController → query handler → ReportingScopeResolver → WarehouseReportingReader
 ```
 
-The shared `NotificationBell` (bell icon with unread badge, shown for all roles) lives in `src/components/NotificationBell.tsx` since it's mounted in the app-level private layout header, not a homepage-specific screen.
+Các view đang dùng API thật, không dùng `utils/sample-data.ts`. Những component/sample cũ còn trong thư mục không phải nguồn dữ liệu của tổng quan hiện hành.
 
-## Role Differences
+### Cảnh báo tồn kho
 
-### Tenant Owner (`/dashboard/tenant`)
+- Dưới tối thiểu / vượt tối đa: so **tồn khả dụng** với policy Active; max null không phải 0. Số lượng và ngưỡng dùng ĐVT cơ sở. Không tự tạo policy.
+- Sắp hết hạn / quá hạn: tính **tồn thực tế còn lại**, không trừ giữ chỗ và không giấu hàng hỏng/cách ly/vị trí inactive còn hàng. Gom theo kho + sản phẩm + LotId.
+- GET `/dashboard/stock-alerts/thresholds?kind=below-minimum|above-maximum`.
+- GET `/dashboard/stock-alerts/expiry?kind=expiring|expired&expiringDays=5`.
+- Hai họ API nhận warehouseIds, pageNumber, pageSize (1–50), search (tối đa 200 ký tự); FE serialize mảng kho cùng kiểu overview hiện có.
+- Bốn query riêng, reload từng bảng độc lập. Màn hình hẹp hiển thị một bảng và bốn lựa chọn có tổng số ngay trên nút; nhóm chưa mở chỉ lấy 1 dòng để có totalCount.
+- “Xem tất cả” dùng Dialog rộng, bảng dùng chung, search server và page size 10/20/30/50. Preview không bị search của Dialog thay đổi.
+- Query key gồm tenant, user, permissionKey, kho, loại, trang/cỡ trang và search. N chỉ thuộc key sắp hết hạn. Không dùng placeholder từ kho/tenant khác; dữ liệu bị từ chối 401/403 không được hiển thị.
+- Link hàng hóa chỉ xuất hiện khi có INVENTORY_VIEW và giữ warehouseId/productId. Route tồn kho chưa lọc lotId; không tuyên bố là link lọc đúng lô.
 
-Company-wide view: Total Products, Total Inventory, Pending Orders, Daily Revenue. Includes a warehouse filter (`WarehouseFilter`) to scope the "Warehouse Capacity" section to a single facility or all of them. Shows the AI Logistics Flux chart, recent operations, low-stock table, and per-warehouse capacity cards.
+### Hoạt động kho
 
-### Warehouse Manager (`/dashboard/manager`)
+Tái sử dụng GET `/dashboard/overview` với activityDays = 7/30/90. API vẫn gộp thống kê và biểu đồ; đổi kỳ refetch cả overview nhưng không refetch bốn bảng cảnh báo. API này chỉ bật khi mở tab Hoạt động kho. Giữ chỉ số công việc, chứng từ, tồn giữ/cách ly và vị trí; không cộng lượng khác ĐVT thành một tổng.
 
-Same layout shape as Tenant Owner but scoped to a single warehouse — no cross-warehouse aggregation, no filter. Shows a revenue-vs-target bubble chart for its own warehouse instead of the Tenant's per-warehouse breakdown.
+## Mốc ngày và giới hạn
 
-### Warehouse Staff (`/dashboard/staff`)
+Ngày đánh giá HSD dùng UTC để tương thích `ProductLotRules`/khả dụng hiện có; UI trả/hiển thị evaluationDate và UTC. `ExpiryDate` là DateOnly, không chuyển timezone. Sắp hết hạn gồm hôm nay đến hôm nay + N (N nguyên 1–365); quá hạn nhỏ hơn ngày đánh giá.
 
-Deliberately excludes company/business statistics (no revenue, no inventory value, no multi-warehouse data). Shows only task-focused metrics (Tasks Assigned Today, Tasks Completed, Pending Tasks, My Accuracy), a "Next Task" alert, quick actions (Start Next Task, Scan Item, Report Issue, My Schedule), and `StaffTaskTable` listing their own assigned tasks.
+`ReplenishmentPlanning` và biểu đồ hoạt động dùng ngày Việt Nam UTC+7. Vì vậy 00:00–06:59 VN có thể lệch ngày đánh giá với forecast. Task này không âm thầm đổi quy tắc lô toàn hệ thống. Thời điểm cập nhật hiển thị theo giờ Việt Nam, chỉ đổi sau đọc thành công; bốn bảng không phải snapshot giao dịch nguyên tử.
 
-## Data Types (`types/index.ts`)
+## UI và bố cục
 
-- `DashboardMetric` — label/value/change for KPI cards
-- `WarehouseStats` — capacity, orders, staff count per warehouse
-- `QuickAction` — quick-action button (label, icon, href)
-- `StaffTask` — a staff member's assigned task (type, sku, location, status)
-- `AppNotification` — bell dropdown notification (title, description, read state)
+- Dùng `OperationalListPanel`, `Table`, `OperationalPagination`; header/footer cố định, chỉ body cuộn, scrollbar chung.
+- Root → Tabs → TabsContent → Grid có min-h-0/min-w-0/flex-1 đúng chuỗi. Không thêm gutter hoặc công thức chiều cao viewport nghiệp vụ.
+- Desktop đủ diện tích: grid 2 × 2. Hẹp/thấp: một bảng + bộ chọn nhóm có số lượng; ở viewport rất thấp giảm khoảng cách và đưa “Xem tất cả” lên header, snapshot vẫn đọc được trong Dialog.
+- Reload ở bên phải. Tên dài xuống tối đa hai dòng ở preview, đầy đủ trong Dialog. Không để tên hàng đẩy cột số ra khỏi bảng.
+- Thời điểm cập nhật và ngày đánh giá UTC nằm giữa footer phân trang, không tạo hàng riêng ở header hay phía dưới bảng; áp dụng cả preview và Dialog.
+- Phân biệt tải lần đầu, lỗi, dữ liệu cũ khi reload thất bại, không có cảnh báo, chưa cấu hình policy và không có kho được phép. Không hiển thị tổng 0 giả lúc chưa tải.
+- Lựa chọn kho/tab/nhóm/N phản ánh trên URL qua Next navigation/native history, không thêm thư viện.
 
-## Sample Data (`utils/sample-data.ts`)
+## Kiểm thử và vận hành
 
-All dashboards currently render hardcoded sample data — metrics, chart data, recent operations, low-stock items, staff tasks, and notifications. Replace with React Query hooks when the backend endpoints exist; keep the same shapes so components don't need to change.
+- Test tại `schemas/stock-alert.schema.test.ts`, `services/stock-alert.service.test.ts`, các test hook, `StockAlertPanel.test.tsx`, `WarehouseOverviewPage.test.tsx`.
+- BE: `Application.Tests/Features/Dashboard/StockAlertTests.cs` và bộ reporting hiện có; fixture InMemory và SQL Server ToQueryString không mở kết nối.
+- Chưa chứng nhận HTTP end-to-end/hiệu năng trên DB triển khai. FE và BE mới phải được đưa lên cùng đợt; FE cũ vẫn dùng được overview cũ khi BE mới triển khai trước.
+- Không migration, polling, tự ghi tồn hoặc thay đổi quyền trong tính năng này. Không khởi động BE với startup migration bật khi kiểm thử.
 
-## Animation
-
-- `FadeIn` (framer-motion) staggers each dashboard's sections into view on mount — used by `TenantOwnerDashboard`, `WarehouseManagerDashboard`, and `WarehouseStaffDashboard`.
-- `PageTransition` (`src/components/PageTransition.tsx`) fades between routes inside the private layout, including dashboard, warehouses, inventory, and stock issue requests.
-- `MetricCard` and `WarehouseStatsCard` get a subtle ring highlight on hover; table rows use `transition-colors` on hover.
-- `NotificationBell`'s unread badge has a ping pulse to draw attention.
-- `tw-animate-css` is imported in `src/app/index.css`, which activates the `animate-in`/`data-[state=...]` open/close transitions already wired into the shadcn/ui primitives (dropdown, select, dialog, popover, etc.) across the whole app.
+Kế hoạch và checklist chi tiết: [warehouse overview redesign](../../../docs/superpowers/plans/2026-10-17-warehouse-overview-redesign-plan.md).

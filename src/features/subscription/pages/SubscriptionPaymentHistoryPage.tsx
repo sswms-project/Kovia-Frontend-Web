@@ -3,10 +3,16 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { USER_ROLES } from '@/config/roles'
+import { P } from '@/config/permissionCodes'
+import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { useAuthStore } from '@/stores/auth.store'
-import { PaymentHistoryTable, TenantOwnerOnlyState } from '../components/SubscriptionPage'
+import {
+  PaymentHistoryTable,
+  TenantOwnerOnlyState,
+  SubscriptionWorkspaceHeader,
+} from '../components/SubscriptionPage'
 import {
   useInvoiceDownloadMutation,
   usePaymentHistoryQuery,
@@ -32,6 +38,8 @@ const defaultPaymentFilters: PaymentHistoryFilterState = {
 
 export function SubscriptionPaymentHistoryPage() {
   const user = useAuthStore((state) => state.user)
+  const meQuery = useMeQuery()
+  const permissions = new Set(meQuery.data?.permissions ?? [])
   const isTenantOwner = user?.role === USER_ROLES.TenantOwner
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(10)
@@ -110,9 +118,11 @@ export function SubscriptionPaymentHistoryPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-foreground text-xl font-semibold">Lịch sử thanh toán</h1>
-      </header>
+      <SubscriptionWorkspaceHeader
+        currentView="payments"
+        canViewPlan={permissions.has(P.SUBSCRIPTIONS_VIEW)}
+        canViewPayments={permissions.has(P.PAYMENTS_VIEW)}
+      />
 
       <PaymentHistoryTable
         payments={payments}
