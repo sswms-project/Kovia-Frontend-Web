@@ -22,6 +22,7 @@ import { APP_ROUTES } from '@/routes/app-routes'
 import {
   ProductListTable,
   ProductListToolbar,
+  ProductMobileList,
   ProductStockStatusFilter,
 } from '../components/ProductListPage'
 import { CreateProductDialog } from '../components/ProductForm'
@@ -261,7 +262,7 @@ export default function ProductListPage() {
             {canCreate && (
               <Button
                 type="button"
-                className="w-full sm:w-auto"
+                className="flex-1 sm:flex-none"
                 onClick={() => handleCreateOpenChange(true)}
               >
                 <PackagePlus className="size-4" aria-hidden="true" />
@@ -272,7 +273,10 @@ export default function ProductListPage() {
         )}
       </header>
 
-      <OperationalListPanel aria-label="Danh sách sản phẩm">
+      <OperationalListPanel
+        aria-label="Danh sách sản phẩm"
+        className="max-md:[&>[data-slot=table-container]]:hidden"
+      >
         <div className="grid min-h-12 grid-cols-1 gap-2 border-b px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:px-4">
           <div className="min-w-0 sm:col-start-1 sm:row-start-1">
             <h2 className="text-sm font-semibold">
@@ -376,6 +380,15 @@ export default function ProductListPage() {
 
         {products.length > 0 && (
           <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <ProductMobileList
+                products={products}
+                canEdit={canEdit}
+                canViewInventory={canViewInventory}
+                onView={handleView}
+                onEdit={handleEdit}
+              />
+            </div>
             <ProductListTable
               products={products}
               canEdit={canEdit}

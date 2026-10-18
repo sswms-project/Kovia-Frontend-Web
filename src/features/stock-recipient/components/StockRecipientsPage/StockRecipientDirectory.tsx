@@ -26,6 +26,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { StockRecipient } from '../../types/stock-recipient.types'
+import { StockRecipientMobileList } from './StockRecipientMobileList'
 
 interface StockRecipientDirectoryProps {
   readonly items: readonly StockRecipient[]
@@ -74,7 +75,7 @@ export function StockRecipientDirectory({
 }: StockRecipientDirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 items-start justify-between gap-4 border-b pb-4">
+      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex items-start gap-3">
           <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
             <Users aria-hidden="true" />
@@ -92,14 +93,17 @@ export function StockRecipientDirectory({
                 Nhập từ tệp
               </Link>
             </Button>
-            <Button onClick={onCreate}>
+            <Button className="flex-1 sm:flex-none" onClick={onCreate}>
               <Plus data-icon="inline-start" />
               Thêm khách hàng
             </Button>
           </div>
         ) : null}
       </header>
-      <OperationalListPanel aria-label="Danh sách khách hàng">
+      <OperationalListPanel
+        aria-label="Danh sách khách hàng"
+        className="max-md:[&>[data-slot=table-container]]:hidden"
+      >
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-3">
           <div>
             <h2 className="text-sm font-semibold">Danh sách khách hàng</h2>
@@ -138,107 +142,118 @@ export function StockRecipientDirectory({
             description="Thử đổi từ khóa hoặc thêm khách hàng mới."
           />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sticky top-0 z-10">Mã</TableHead>
-                <TableHead className="sticky top-0 z-10">Tên khách hàng</TableHead>
-                <TableHead className="sticky top-0 z-10">Điện thoại</TableHead>
-                <TableHead className="sticky top-0 z-10">Email</TableHead>
-                <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                <TableHead className="sticky top-0 z-10">
-                  <span className="sr-only">Thao tác</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((stockRecipient) => (
-                <ClickableTableRow
-                  key={stockRecipient.id}
-                  href={APP_ROUTES.stockRecipientDetail(stockRecipient.id)}
-                >
-                  <TableCell className="font-mono">{stockRecipient.recipientCode}</TableCell>
-                  <TableCell>
-                    <Link
-                      title={`Xem chi tiết khách hàng ${stockRecipient.recipientName}`}
-                      className="text-primary font-medium underline-offset-4 hover:underline focus-visible:underline"
-                      href={APP_ROUTES.stockRecipientDetail(stockRecipient.id)}
-                    >
-                      {stockRecipient.recipientName}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{stockRecipient.phone}</TableCell>
-                  <TableCell>{stockRecipient.email ?? '—'}</TableCell>
-                  <TableCell>
-                    <Badge variant={stockRecipient.status === 'Active' ? 'default' : 'outline'}>
-                      {stockRecipient.status === 'Active' ? 'Đang hợp tác' : 'Ngừng hợp tác'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button asChild variant="ghost" size="icon-sm">
-                            <Link
-                              href={APP_ROUTES.stockRecipientDetail(stockRecipient.id)}
-                              aria-label={`Xem chi tiết khách hàng ${stockRecipient.recipientName}`}
-                            >
-                              <Eye aria-hidden="true" />
-                            </Link>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Xem chi tiết</TooltipContent>
-                      </Tooltip>
-                      {canUpdate ? (
+          <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <StockRecipientMobileList
+                items={items}
+                canUpdate={canUpdate}
+                canManageStatus={canManageStatus}
+                onEdit={onEdit}
+                onChangeStatus={onChangeStatus}
+              />
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky top-0 z-10">Mã</TableHead>
+                  <TableHead className="sticky top-0 z-10">Tên khách hàng</TableHead>
+                  <TableHead className="sticky top-0 z-10">Điện thoại</TableHead>
+                  <TableHead className="sticky top-0 z-10">Email</TableHead>
+                  <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                  <TableHead className="sticky top-0 z-10">
+                    <span className="sr-only">Thao tác</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((stockRecipient) => (
+                  <ClickableTableRow
+                    key={stockRecipient.id}
+                    href={APP_ROUTES.stockRecipientDetail(stockRecipient.id)}
+                  >
+                    <TableCell className="font-mono">{stockRecipient.recipientCode}</TableCell>
+                    <TableCell>
+                      <Link
+                        title={`Xem chi tiết khách hàng ${stockRecipient.recipientName}`}
+                        className="text-primary font-medium underline-offset-4 hover:underline focus-visible:underline"
+                        href={APP_ROUTES.stockRecipientDetail(stockRecipient.id)}
+                      >
+                        {stockRecipient.recipientName}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{stockRecipient.phone}</TableCell>
+                    <TableCell>{stockRecipient.email ?? '—'}</TableCell>
+                    <TableCell>
+                      <Badge variant={stockRecipient.status === 'Active' ? 'default' : 'outline'}>
+                        {stockRecipient.status === 'Active' ? 'Đang hợp tác' : 'Ngừng hợp tác'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Chỉnh sửa ${stockRecipient.recipientName}`}
-                              onClick={() => onEdit(stockRecipient)}
-                            >
-                              <Pencil aria-hidden="true" />
+                            <Button asChild variant="ghost" size="icon-sm">
+                              <Link
+                                href={APP_ROUTES.stockRecipientDetail(stockRecipient.id)}
+                                aria-label={`Xem chi tiết khách hàng ${stockRecipient.recipientName}`}
+                              >
+                                <Eye aria-hidden="true" />
+                              </Link>
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Chỉnh sửa</TooltipContent>
+                          <TooltipContent>Xem chi tiết</TooltipContent>
                         </Tooltip>
-                      ) : null}
-                      {canManageStatus ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={
-                                stockRecipient.status === 'Active'
-                                  ? `Ngừng hợp tác ${stockRecipient.recipientName}`
-                                  : `Tiếp tục hợp tác với ${stockRecipient.recipientName}`
-                              }
-                              onClick={() => onChangeStatus(stockRecipient)}
-                            >
-                              {stockRecipient.status === 'Active' ? (
-                                <CircleOff aria-hidden="true" />
-                              ) : (
-                                <RotateCcw aria-hidden="true" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {stockRecipient.status === 'Active'
-                              ? 'Ngừng hợp tác'
-                              : 'Tiếp tục hợp tác'}
-                          </TooltipContent>
-                        </Tooltip>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </ClickableTableRow>
-              ))}
-            </TableBody>
-          </Table>
+                        {canUpdate ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Chỉnh sửa ${stockRecipient.recipientName}`}
+                                onClick={() => onEdit(stockRecipient)}
+                              >
+                                <Pencil aria-hidden="true" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Chỉnh sửa</TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                        {canManageStatus ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={
+                                  stockRecipient.status === 'Active'
+                                    ? `Ngừng hợp tác ${stockRecipient.recipientName}`
+                                    : `Tiếp tục hợp tác với ${stockRecipient.recipientName}`
+                                }
+                                onClick={() => onChangeStatus(stockRecipient)}
+                              >
+                                {stockRecipient.status === 'Active' ? (
+                                  <CircleOff aria-hidden="true" />
+                                ) : (
+                                  <RotateCcw aria-hidden="true" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {stockRecipient.status === 'Active'
+                                ? 'Ngừng hợp tác'
+                                : 'Tiếp tục hợp tác'}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </ClickableTableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </>
         )}
         <OperationalPagination
           page={page}

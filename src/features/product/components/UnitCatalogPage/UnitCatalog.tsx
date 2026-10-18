@@ -43,6 +43,7 @@ import {
 } from '@/components/operations/status-filter'
 import type { UnitFormValues } from '../../schemas/master-data.schema'
 import type { UnitResponse } from '../../types/product.types'
+import { UnitMobileList } from './UnitMobileList'
 
 interface UnitCatalogProps {
   readonly items: readonly UnitResponse[]
@@ -91,7 +92,7 @@ export function UnitCatalog({
   const allSelected = pagedItems.length > 0 && pagedItems.every((unit) => selectedIds.has(unit.id))
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 items-start justify-between gap-4 border-b pb-4">
+      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex items-start gap-3">
           <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
             <Scale aria-hidden="true" />
@@ -109,7 +110,7 @@ export function UnitCatalog({
                 Nhập từ tệp
               </Link>
             </Button>
-            <Button onClick={onCreate}>
+            <Button className="flex-1 sm:flex-none" onClick={onCreate}>
               <Plus data-icon="inline-start" aria-hidden="true" />
               Thêm đơn vị tính
             </Button>
@@ -117,7 +118,10 @@ export function UnitCatalog({
         ) : null}
       </header>
 
-      <OperationalListPanel aria-label="Danh sách đơn vị tính">
+      <OperationalListPanel
+        aria-label="Danh sách đơn vị tính"
+        className="max-md:[&>[data-slot=table-container]]:hidden"
+      >
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-3">
           <div>
             <h2 className="text-sm font-semibold">Danh sách đơn vị tính</h2>
@@ -162,92 +166,114 @@ export function UnitCatalog({
             }
           />
         ) : (
-          <Table>
-            <TableHeader className="sticky top-0 z-10">
-              <TableRow>
-                {canManage ? (
-                  <TableHead className="w-12">
-                    <Checkbox
-                      aria-label="Chọn tất cả đơn vị tính"
-                      checked={allSelected ? true : selectedIds.size > 0 ? 'indeterminate' : false}
-                      onCheckedChange={(checked) =>
-                        setSelectedIds((current) =>
-                          checked
-                            ? new Set([...current, ...pagedItems.map((unit) => unit.id)])
-                            : new Set(
-                                [...current].filter(
-                                  (id) => !pagedItems.some((unit) => unit.id === id)
-                                )
-                              )
-                        )
-                      }
-                    />
-                  </TableHead>
-                ) : null}
-                <TableHead>Tên đơn vị</TableHead>
-                <TableHead>Ký hiệu</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                {canManage ? <TableHead className="text-right">Thao tác</TableHead> : null}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pagedItems.map((unit) => (
-                <TableRow key={unit.id}>
+          <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <UnitMobileList
+                units={pagedItems}
+                canManage={canManage}
+                isPending={isPending}
+                selectedIds={selectedIds}
+                onSelectedChange={(unit, selected) =>
+                  setSelectedIds((current) => {
+                    const next = new Set(current)
+                    if (selected) next.add(unit.id)
+                    else next.delete(unit.id)
+                    return next
+                  })
+                }
+                onEdit={onEdit}
+                onStatusChange={setStatusTarget}
+              />
+            </div>
+            <Table>
+              <TableHeader className="sticky top-0 z-10">
+                <TableRow>
                   {canManage ? (
-                    <TableCell>
+                    <TableHead className="w-12">
                       <Checkbox
-                        aria-label={`Chọn ${unit.unitName}`}
-                        checked={selectedIds.has(unit.id)}
+                        aria-label="Chọn tất cả đơn vị tính"
+                        checked={
+                          allSelected ? true : selectedIds.size > 0 ? 'indeterminate' : false
+                        }
                         onCheckedChange={(checked) =>
-                          setSelectedIds((current) => {
-                            const next = new Set(current)
-                            if (checked) next.add(unit.id)
-                            else next.delete(unit.id)
-                            return next
-                          })
+                          setSelectedIds((current) =>
+                            checked
+                              ? new Set([...current, ...pagedItems.map((unit) => unit.id)])
+                              : new Set(
+                                  [...current].filter(
+                                    (id) => !pagedItems.some((unit) => unit.id === id)
+                                  )
+                                )
+                          )
                         }
                       />
-                    </TableCell>
+                    </TableHead>
                   ) : null}
-                  <TableCell>{unit.unitName}</TableCell>
-                  <TableCell>{unit.symbol ?? '—'}</TableCell>
-                  <TableCell>
-                    <Badge variant={unit.status === 'Active' ? 'default' : 'outline'}>
-                      {unit.status === 'Active' ? 'Hoạt động' : 'Ngừng hoạt động'}
-                    </Badge>
-                  </TableCell>
-                  {canManage ? (
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={unit.status !== 'Active'}
-                          onClick={() => onEdit(unit)}
-                        >
-                          <Pencil data-icon="inline-start" aria-hidden="true" />
-                          Sửa
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={isPending}
-                          onClick={() => setStatusTarget(unit)}
-                        >
-                          {unit.status === 'Active' ? (
-                            <Power data-icon="inline-start" aria-hidden="true" />
-                          ) : (
-                            <RotateCcw data-icon="inline-start" aria-hidden="true" />
-                          )}
-                          {unit.status === 'Active' ? 'Ngừng' : 'Kích hoạt'}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  ) : null}
+                  <TableHead>Tên đơn vị</TableHead>
+                  <TableHead>Ký hiệu</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                  {canManage ? <TableHead className="text-right">Thao tác</TableHead> : null}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {pagedItems.map((unit) => (
+                  <TableRow key={unit.id}>
+                    {canManage ? (
+                      <TableCell>
+                        <Checkbox
+                          aria-label={`Chọn ${unit.unitName}`}
+                          checked={selectedIds.has(unit.id)}
+                          onCheckedChange={(checked) =>
+                            setSelectedIds((current) => {
+                              const next = new Set(current)
+                              if (checked) next.add(unit.id)
+                              else next.delete(unit.id)
+                              return next
+                            })
+                          }
+                        />
+                      </TableCell>
+                    ) : null}
+                    <TableCell>{unit.unitName}</TableCell>
+                    <TableCell>{unit.symbol ?? '—'}</TableCell>
+                    <TableCell>
+                      <Badge variant={unit.status === 'Active' ? 'default' : 'outline'}>
+                        {unit.status === 'Active' ? 'Hoạt động' : 'Ngừng hoạt động'}
+                      </Badge>
+                    </TableCell>
+                    {canManage ? (
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={unit.status !== 'Active'}
+                            onClick={() => onEdit(unit)}
+                          >
+                            <Pencil data-icon="inline-start" aria-hidden="true" />
+                            Sửa
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={isPending}
+                            onClick={() => setStatusTarget(unit)}
+                          >
+                            {unit.status === 'Active' ? (
+                              <Power data-icon="inline-start" aria-hidden="true" />
+                            ) : (
+                              <RotateCcw data-icon="inline-start" aria-hidden="true" />
+                            )}
+                            {unit.status === 'Active' ? 'Ngừng' : 'Kích hoạt'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </>
         )}
         {filteredItems.length > 0 ? (
           <OperationalPagination

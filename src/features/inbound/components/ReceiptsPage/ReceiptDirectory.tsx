@@ -98,7 +98,7 @@ export function ReceiptDirectory({
           <h2 className="text-sm font-semibold">Danh sách phiếu nhận hàng</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <InputGroup className="min-w-0 flex-1 sm:w-64">
+          <InputGroup className="min-w-0 flex-1 basis-full sm:w-64 sm:basis-auto">
             <InputGroupAddon>
               <Search aria-hidden="true" />
             </InputGroupAddon>

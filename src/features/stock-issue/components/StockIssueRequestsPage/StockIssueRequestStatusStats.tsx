@@ -74,7 +74,7 @@ export function StockIssueRequestStatusStats({
 
   return (
     <section
-      className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-3 lg:grid-cols-5"
+      className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-3 lg:grid-cols-5 sm:max-lg:[&>:last-child:nth-child(3n+2)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:col-span-2"
       aria-label="Thống kê yêu cầu xuất kho theo trạng thái"
       aria-busy={isLoading}
     >
