@@ -44,6 +44,53 @@ const props: StockAlertPanelProps = {
 }
 
 describe('shared stock alert panel', () => {
+  it('marks expired lots with a red heading, date and explicit overdue label', () => {
+    const expiry = stockExpiryAlertsSchema.parse({
+      ...data,
+      kind: 'expired',
+      evaluationDate: '2026-10-18',
+      timeBasis: 'UTC',
+      expiringDays: null,
+      items: [
+        {
+          ...data.items[0],
+          lotId: productId,
+          lotNumber: 'LOT-1',
+          expiryDate: '2026-10-17',
+          onHandQuantity: 5,
+          daysToExpiry: -1,
+        },
+      ],
+    })
+    render(<StockAlertPanel {...props} kind="expired" data={expiry} />)
+    expect(screen.getByRole('heading', { name: 'Hàng hóa quá hạn sử dụng' })).toHaveClass(
+      'text-destructive'
+    )
+    expect(screen.getByText('17/10/2026')).toHaveClass('text-destructive')
+    expect(screen.getByText('Quá hạn')).toBeInTheDocument()
+  })
+  it('highlights actual low-stock alerts in red with an explicit status label', () => {
+    render(<StockAlertPanel {...props} />)
+    expect(screen.getByRole('heading', { name: 'Khả dụng dưới mức tối thiểu' })).toHaveClass(
+      'text-destructive'
+    )
+    expect(screen.getByText('Cần bổ sung')).toBeInTheDocument()
+    expect(screen.getByText('2')).toHaveClass('text-destructive')
+  })
+  it('uses amber for excess stock and leaves a zero-result panel neutral', () => {
+    const view = render(
+      <StockAlertPanel {...props} kind="above-maximum" data={{ ...data, kind: 'above-maximum' }} />
+    )
+    expect(screen.getByRole('heading', { name: 'Khả dụng vượt mức tối đa' })).toHaveClass(
+      'text-warning'
+    )
+    expect(screen.getByText('Vượt ngưỡng')).toBeInTheDocument()
+    view.rerender(<StockAlertPanel {...props} data={{ ...data, totalCount: 0, items: [] }} />)
+    expect(screen.getByRole('heading', { name: 'Khả dụng dưới mức tối thiểu' })).not.toHaveClass(
+      'text-destructive'
+    )
+    expect(screen.queryByText('Cần bổ sung')).not.toBeInTheDocument()
+  })
   it.each([false, true])(
     'places update and UTC evaluation metadata in the centered pagination slot (expanded=%s)',
     (expanded) => {

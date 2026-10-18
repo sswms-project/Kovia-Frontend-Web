@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { RefreshCw } from 'lucide-react'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -79,20 +80,46 @@ export function StockAlertPanel({
     : ['Hàng hóa', 'Kho', 'Khả dụng', kind === 'above-maximum' ? 'Tối đa' : 'Tối thiểu', 'ĐVT']
   if (expanded) columns.push(expiry ? 'Ngày còn lại' : kind === 'above-maximum' ? 'Vượt' : 'Thiếu')
   const noPolicy = data && 'configuredPolicyCount' in data && data.configuredPolicyCount === 0
+  const hasAlerts = !isLoading && Boolean(data && data.totalCount > 0)
+  const urgent = kind === 'expired' || kind === 'below-minimum'
+  const attentionClass = urgent ? 'text-destructive' : 'text-warning'
   return (
     <OperationalListPanel aria-label={title}>
-      <div className="flex shrink-0 flex-col gap-2 border-b p-3 [@media(max-height:500px)]:p-2">
+      <div
+        className={cn(
+          'flex shrink-0 flex-col gap-2 border-b p-3 [@media(max-height:500px)]:p-2',
+          hasAlerts &&
+            (urgent ? 'border-destructive/25 bg-destructive/5' : 'border-warning/25 bg-warning/5')
+        )}
+      >
         <div className="flex min-w-0 items-center gap-2">
+          {hasAlerts ? (
+            <AlertTriangle aria-hidden="true" className={cn('size-4 shrink-0', attentionClass)} />
+          ) : null}
           {expanded ? (
             searchControl
           ) : (
             <h2
-              className="min-w-0 flex-1 text-sm font-semibold"
+              className={cn('min-w-0 flex-1 text-sm font-semibold', hasAlerts && attentionClass)}
               title={`${title}${data ? ` · Cập nhật ${snapshotFormatter.format(new Date(data.generatedAt))}` : ''}`}
             >
               {title}
             </h2>
           )}
+          {hasAlerts ? (
+            <Badge
+              variant={urgent ? 'destructive' : 'outline'}
+              className={cn('hidden sm:inline-flex', !urgent && 'border-warning/25 text-warning')}
+            >
+              {kind === 'expired'
+                ? 'Quá hạn'
+                : kind === 'below-minimum'
+                  ? 'Cần bổ sung'
+                  : kind === 'expiring'
+                    ? 'Sắp hết hạn'
+                    : 'Vượt ngưỡng'}
+            </Badge>
+          ) : null}
           {settings}
           {onExpand ? (
             <Button
@@ -219,7 +246,12 @@ export function StockAlertPanel({
                     </>
                   ) : (
                     <>
-                      <TableCell className="text-right font-medium tabular-nums">
+                      <TableCell
+                        className={cn(
+                          'text-right font-medium tabular-nums',
+                          hasAlerts && attentionClass
+                        )}
+                      >
                         {row.availableQuantity.toLocaleString('vi-VN')}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
@@ -229,7 +261,9 @@ export function StockAlertPanel({
                   )}
                   <TableCell className="whitespace-nowrap">{row.unit}</TableCell>
                   {expanded ? (
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell
+                      className={cn('text-right tabular-nums', hasAlerts && attentionClass)}
+                    >
                       {'daysToExpiry' in row
                         ? row.daysToExpiry < 0
                           ? `Quá ${Math.abs(row.daysToExpiry)}`

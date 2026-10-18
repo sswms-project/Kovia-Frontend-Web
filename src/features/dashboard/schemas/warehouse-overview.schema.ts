@@ -6,6 +6,7 @@ export const warehouseOverviewSchema = z.object({
   generatedAt: z.string(),
   activityDateFrom: z.string(),
   activityDateTo: z.string(),
+  activityGranularity: z.enum(['day', 'week', 'month']).default('day'),
   activity: z.array(
     z.object({ date: z.string(), completedReceipts: z.number(), dispatchedIssues: z.number() })
   ),

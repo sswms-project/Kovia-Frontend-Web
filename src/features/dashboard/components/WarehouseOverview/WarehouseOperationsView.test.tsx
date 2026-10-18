@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { WarehouseOverview } from '../../schemas/warehouse-overview.schema'
 import { WarehouseOperationsView } from './WarehouseOperationsView'
+import { WarehouseActivityChart } from './WarehouseActivityChart'
 
 vi.mock('recharts', () => {
   const Container = ({ children }: { children?: ReactNode }) => <div>{children}</div>
@@ -22,6 +23,7 @@ const data: WarehouseOverview = {
   generatedAt: '2026-10-18T10:00:00Z',
   activityDateFrom: '2026-09-19',
   activityDateTo: '2026-10-18',
+  activityGranularity: 'day',
   activity: [{ date: '2026-10-04', completedReceipts: 6, dispatchedIssues: 1 }],
   warehouses: [],
   stockedSkuCount: 13,
@@ -45,8 +47,6 @@ const props = {
   data,
   isLoading: false,
   onRefresh: vi.fn(),
-  activityDays: 30,
-  onActivityDaysChange: vi.fn(),
   compact: false,
   selectedView: 'indices',
   onSelectedViewChange: vi.fn(),
@@ -55,6 +55,16 @@ const props = {
     forecast: { pathname: '/reports/forecast' },
     reports: { pathname: '/reports' },
   },
+  activityChart: (
+    <WarehouseActivityChart
+      data={data}
+      periodFilter={
+        <div role="group" aria-label="Bộ lọc kỳ hoạt động">
+          Bộ lọc thời gian QA
+        </div>
+      }
+    />
+  ),
 }
 
 afterEach(() => {
@@ -82,21 +92,23 @@ describe('warehouse activity workspace', () => {
     )
   })
 
-  it('keeps the period selector inside the chart and shows completed-document totals and dates', () => {
+  it('shows completed-document totals and applied dates without a confusing grouping label', () => {
     render(<WarehouseOperationsView {...props} />)
-    const chart = screen.getByRole('region', { name: 'Phiếu hoàn tất trong kỳ' })
+    const chart = screen.getByRole('region', { name: 'Nhập – xuất kho trong kỳ' })
+    expect(within(chart).getByRole('group', { name: 'Bộ lọc kỳ hoạt động' })).toBeInTheDocument()
+    expect(within(chart).getByText('Phiếu nhập hoàn tất')).toBeInTheDocument()
+    expect(within(chart).getByText('Phiếu xuất hoàn tất')).toBeInTheDocument()
     expect(within(chart).getByText('6')).toBeInTheDocument()
     expect(within(chart).getByText('1')).toBeInTheDocument()
     expect(within(chart).getByText(/19\/09\/2026.*18\/10\/2026/)).toBeInTheDocument()
-    fireEvent.change(within(chart).getByLabelText('Kỳ hoạt động'), { target: { value: '90' } })
-    expect(props.onActivityDaysChange).toHaveBeenCalledWith(90)
+    expect(within(chart).queryByText(/^Theo (ngày|tuần|tháng)$/)).not.toBeInTheDocument()
   })
 
   it('preserves all current metric values in the compact index view', () => {
     render(<WarehouseOperationsView {...props} compact />)
     expect(screen.queryByRole('region', { name: 'Chỉ số hiện tại' })).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('region', { name: 'Phiếu hoàn tất trong kỳ' })
+      screen.queryByRole('region', { name: 'Nhập – xuất kho trong kỳ' })
     ).not.toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('SKU đang có tồn')).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('28')).toBeInTheDocument()
@@ -106,7 +118,8 @@ describe('warehouse activity workspace', () => {
 
   it('shows only the chart in compact chart mode', () => {
     render(<WarehouseOperationsView {...props} compact selectedView="chart" />)
-    expect(screen.getByRole('region', { name: 'Phiếu hoàn tất trong kỳ' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Nhập – xuất kho trong kỳ' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Bộ lọc kỳ hoạt động' })).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
@@ -131,5 +144,36 @@ describe('warehouse activity workspace', () => {
     expect(props.onRefresh).toHaveBeenCalledOnce()
     view.rerender(<WarehouseOperationsView {...props} errorMessage="Lỗi kết nối" />)
     expect(screen.getByRole('alert')).toHaveTextContent('Đang hiển thị dữ liệu cũ.')
+  })
+
+  it('loads only the chart while preserving current metrics, detail rows and period controls', () => {
+    render(
+      <WarehouseOperationsView
+        {...props}
+        activityChart={<WarehouseActivityChart isLoading periodFilter={<button>Áp dụng</button>} />}
+      />
+    )
+    const chart = screen.getByRole('region', { name: 'Nhập – xuất kho trong kỳ' })
+    expect(chart).toHaveAttribute('aria-busy', 'true')
+    expect(within(chart).getByRole('button', { name: 'Áp dụng' })).toBeInTheDocument()
+    expect(within(chart).getByRole('status')).toHaveTextContent('Đang tải biểu đồ')
+    expect(screen.getByRole('region', { name: 'Chỉ số hiện tại' })).toBeInTheDocument()
+    expect(within(screen.getByRole('table')).getByText('33%')).toBeInTheDocument()
+  })
+
+  it('keeps chart failure and retry local to the chart', () => {
+    const retry = vi.fn()
+    render(
+      <WarehouseOperationsView
+        {...props}
+        activityChart={<WarehouseActivityChart errorMessage="Lỗi kỳ hoạt động" onRefresh={retry} />}
+      />
+    )
+    const chart = screen.getByRole('region', { name: 'Nhập – xuất kho trong kỳ' })
+    expect(within(chart).getByRole('alert')).toHaveTextContent('Lỗi kỳ hoạt động')
+    fireEvent.click(within(chart).getByRole('button', { name: 'Thử lại biểu đồ' }))
+    expect(retry).toHaveBeenCalledOnce()
+    expect(screen.getByRole('table')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Chỉ số hiện tại' })).toBeInTheDocument()
   })
 })

@@ -25,7 +25,13 @@ Các view đang dùng API thật, không dùng `utils/sample-data.ts`. Những c
 
 ### Hoạt động kho
 
-Tái sử dụng GET `/dashboard/overview` với activityDays = 7/30/90. API vẫn gộp thống kê và biểu đồ; đổi kỳ refetch cả overview nhưng không refetch bốn bảng cảnh báo. API này chỉ bật khi mở tab Hoạt động kho. Giữ chỉ số công việc, chứng từ, tồn giữ/cách ly và vị trí; không cộng lượng khác ĐVT thành một tổng.
+GET `/dashboard/overview` nhận `dateFrom`/`dateTo` theo ngày lịch Việt Nam, gồm cả hai đầu, tối đa 366 ngày. UI hỗ trợ tuần ISO (thứ Hai–Chủ nhật), tháng, quý, năm và khoảng ngày tùy chọn; chỉ gửi khi bấm Áp dụng. Kỳ đã áp dụng lưu trên URL và mặc định là tháng hiện tại ở Việt Nam. BE giữ `activityDays=7/30/90` cùng chuỗi ngày cũ để tương thích client trước đó.
+
+API trả `activityGranularity`: tối đa 31 ngày nhóm theo ngày, 32–93 ngày theo tuần, dài hơn theo tháng; tuần/tháng đầu và cuối chỉ tính phần trong khoảng đã chọn. Các kỳ trống được điền 0. FE kiểm tra ngày trả về khớp ngày yêu cầu, không hiển thị nhầm số liệu từ BE cũ.
+
+API vẫn trả cả thống kê và biểu đồ, nhưng FE dùng hai query key độc lập cho thống kê hiện tại và chuỗi biểu đồ. Đổi kỳ chỉ cập nhật query biểu đồ; giữ nguyên các ô thống kê và bảng chi tiết, trạng thái tải/lỗi/thử lại nằm trong biểu đồ. Hai query chỉ bật khi mở tab Hoạt động kho. Bộ lọc căn phải trong header biểu đồ, khoảng ngày mở rộng về trái và xuống dòng khi thiếu chiều rộng. Chỉ chuỗi phiếu hoàn tất thay đổi theo kỳ; không cộng lượng khác ĐVT thành một tổng.
+
+Cảnh báo có dữ liệu dùng icon, nhãn và màu ngữ nghĩa: đỏ cho quá hạn/thiếu tồn, cam cho sắp hết hạn/vượt tối đa. Không tô cả bảng; kết quả rỗng hoặc đang tải giữ màu trung tính. Ngưỡng nghiệp vụ không thay đổi.
 
 ## Mốc ngày và giới hạn
 
