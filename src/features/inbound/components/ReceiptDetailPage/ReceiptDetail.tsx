@@ -157,7 +157,7 @@ export function ReceiptDetail({
         </div>
       </header>
 
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 max-md:min-h-fit">
         <ReceiptOverview receipt={receipt} />
 
         {showPutAwayProgress ? (
@@ -181,7 +181,10 @@ export function ReceiptDetail({
           </section>
         ) : null}
 
-        <Tabs defaultValue="items" className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <Tabs
+          defaultValue="items"
+          className="flex min-h-0 min-w-0 flex-1 flex-col max-md:min-h-fit"
+        >
           <TabsList
             variant="line"
             className="w-full shrink-0 justify-start overflow-x-auto overflow-y-hidden"
@@ -196,7 +199,7 @@ export function ReceiptDetail({
             {hasPutAwayDetails ? <TabsTrigger value="putaway">Lịch sử cất hàng</TabsTrigger> : null}
           </TabsList>
 
-          <div className="bg-card min-h-0 min-w-0 flex-1 overflow-hidden border">
+          <div className="bg-card min-h-0 min-w-0 flex-1 overflow-hidden border max-md:min-h-fit">
             <div className="border-b px-4 py-3">
               <p className="text-muted-foreground text-xs">
                 Số lượng hỏng không được đưa vào cất hàng.

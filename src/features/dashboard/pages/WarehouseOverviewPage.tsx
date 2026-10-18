@@ -10,8 +10,10 @@ import { getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
   ExpiryDaysSettings,
+  ActivityPeriodFilter,
   StockAlertDialog,
   WarehouseOperationsView,
+  WarehouseActivityChart,
   WarehouseOverviewView,
   type StockAlertPanelState,
 } from '../components/WarehouseOverview'
@@ -27,6 +29,13 @@ import {
   type StockAlertKind,
   type StockAlertParams,
 } from '../schemas/stock-alert.schema'
+import {
+  activityPeriodSchema,
+  activityPeriodParams,
+  defaultActivityPeriod,
+  resolveActivityPeriod,
+  type ActivityPeriodValues,
+} from '../schemas/activity-period.schema'
 
 const initialPages: Record<StockAlertKind, number> = {
   'below-minimum': 1,
@@ -46,7 +55,11 @@ export default function WarehouseOverviewPage() {
   const location = useOverviewNavigation()
   const { ref, compact } = useOverviewCompactLayout()
   const [pages, setPages] = useState(initialPages)
-  const [activityDays, setActivityDays] = useState(30)
+  const [currentOverviewRange] = useState(() => resolveActivityPeriod(defaultActivityPeriod()))
+  const activityForm = useForm<ActivityPeriodValues>({
+    resolver: zodResolver(activityPeriodSchema),
+    values: location.activityPeriod,
+  })
   const [activityView, setActivityView] = useState('indices')
   const [dialog, setDialog] = useState<AlertDialogState | null>(null)
   const dialogOpener = useRef<HTMLElement | null>(null)
@@ -107,7 +120,14 @@ export default function WarehouseOverviewPage() {
     location.warehouseId || undefined,
     enabled && location.tab === 'activity',
     permissionKey,
-    activityDays
+    currentOverviewRange,
+    'current'
+  )
+  const activity = useWarehouseOverviewQuery(
+    location.warehouseId || undefined,
+    enabled && location.tab === 'activity',
+    permissionKey,
+    location.activityRange
   )
   const details = useStockAlertsQuery(
     {
@@ -124,7 +144,7 @@ export default function WarehouseOverviewPage() {
   )
   const activeQueries =
     location.tab === 'alerts' ? [below, above, expiring, expired, details] : [overview]
-  const accessQueries = [below, above, expiring, expired, details, overview, options, me]
+  const accessQueries = [below, above, expiring, expired, details, overview, activity, options, me]
   const deniedQueries = accessQueries.filter(
     (query) => isApiErrorResponse(query.error) && [401, 403].includes(query.error.statusCode)
   )
@@ -162,7 +182,7 @@ export default function WarehouseOverviewPage() {
   const refresh = async () => {
     const recoverAccess = Boolean(denied || me.isError || !canView || accessRecoveryFailed)
     const visibleQueries =
-      location.tab === 'activity' ? [overview] : [below, above, expiring, expired]
+      location.tab === 'activity' ? [overview, activity] : [below, above, expiring, expired]
     const targets = new Set([
       options,
       ...(enabled ? visibleQueries : []),
@@ -251,43 +271,65 @@ export default function WarehouseOverviewPage() {
         canViewInventory={canViewInventory && canShowData}
         settings={settings}
         operations={
-          <WarehouseOperationsView
-            data={canShowData ? overview.data : undefined}
-            isLoading={overview.isPending}
-            errorMessage={overview.isError ? getApiErrorMessage(overview.error) : undefined}
-            onRefresh={() => {
-              if (enabled) void overview.refetch()
-            }}
-            activityDays={activityDays}
-            onActivityDaysChange={setActivityDays}
-            compact={compact}
-            selectedView={activityView}
-            onSelectedViewChange={setActivityView}
-            links={{
-              inventory: inventoryLink,
-              forecast: canViewInventory ? { pathname: APP_ROUTES.reportForecast } : undefined,
-              lowStock: permissions.includes(P.REPORTS_VIEW)
-                ? {
-                    pathname: `${APP_ROUTES.reports}/replenishment`,
-                    query: { warehouseId: location.warehouseId, autoRun: '1' },
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+            <WarehouseOperationsView
+              activityChart={
+                <WarehouseActivityChart
+                  data={canShowData ? activity.data : undefined}
+                  isLoading={activity.isPending && Boolean(location.activityRange)}
+                  errorMessage={
+                    !location.activityRange
+                      ? 'Khoảng thời gian trên đường dẫn không hợp lệ. Vui lòng chọn lại kỳ và bấm Áp dụng.'
+                      : activity.isError
+                        ? getApiErrorMessage(activity.error)
+                        : undefined
                   }
-                : undefined,
-              reports: permissions.includes(P.REPORTS_VIEW)
-                ? { pathname: APP_ROUTES.reports }
-                : undefined,
-              tasks:
-                permissions.includes(P.WAREHOUSE_TASKS_VIEW_ALL) ||
-                permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN)
+                  onRefresh={() => {
+                    if (enabled && location.activityRange) void activity.refetch()
+                  }}
+                  periodFilter={
+                    <ActivityPeriodFilter
+                      form={activityForm}
+                      onApply={(values) => location.updateLocation(activityPeriodParams(values))}
+                    />
+                  }
+                />
+              }
+              data={canShowData ? overview.data : undefined}
+              isLoading={overview.isPending}
+              errorMessage={overview.isError ? getApiErrorMessage(overview.error) : undefined}
+              onRefresh={() => {
+                if (enabled) void overview.refetch()
+              }}
+              compact={compact}
+              selectedView={activityView}
+              onSelectedViewChange={setActivityView}
+              links={{
+                inventory: inventoryLink,
+                forecast: canViewInventory ? { pathname: APP_ROUTES.reportForecast } : undefined,
+                lowStock: permissions.includes(P.REPORTS_VIEW)
                   ? {
-                      pathname: APP_ROUTES.myTasks,
-                      query: {
-                        deadlineStatus: 'Overdue',
-                        ...(location.warehouseId ? { warehouseId: location.warehouseId } : {}),
-                      },
+                      pathname: `${APP_ROUTES.reports}/replenishment`,
+                      query: { warehouseId: location.warehouseId, autoRun: '1' },
                     }
                   : undefined,
-            }}
-          />
+                reports: permissions.includes(P.REPORTS_VIEW)
+                  ? { pathname: APP_ROUTES.reports }
+                  : undefined,
+                tasks:
+                  permissions.includes(P.WAREHOUSE_TASKS_VIEW_ALL) ||
+                  permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN)
+                    ? {
+                        pathname: APP_ROUTES.myTasks,
+                        query: {
+                          deadlineStatus: 'Overdue',
+                          ...(location.warehouseId ? { warehouseId: location.warehouseId } : {}),
+                        },
+                      }
+                    : undefined,
+              }}
+            />
+          </div>
         }
       />
       <StockAlertDialog

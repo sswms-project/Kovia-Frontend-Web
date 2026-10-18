@@ -15,6 +15,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -49,6 +57,7 @@ import {
 } from '../../utils/inventory-format'
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
 import { DamageCaseDetailDialog } from './DamageCaseDetailDialog'
+import { rowActivationProps } from '@/features/inbound/utils/row-activation-props'
 
 interface DamageCaseDirectoryProps {
   readonly permissions: readonly string[]
@@ -231,113 +240,155 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
             description="Các báo cáo hàng hỏng sẽ xuất hiện tại đây."
           />
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table className="min-w-[900px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="sticky top-0 z-10">Sản phẩm</TableHead>
-                  <TableHead className="sticky top-0 z-10">Kho / vị trí</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Số lượng</TableHead>
-                  <TableHead className="sticky top-0 z-10">Lý do / bằng chứng</TableHead>
-                  <TableHead className="sticky top-0 z-10">Nguồn</TableHead>
-                  <TableHead className="sticky top-0 z-10">Người báo</TableHead>
-                  <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                  <TableHead className="sticky top-0 z-10 w-px text-center">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <ItemGroup className="gap-0">
                 {props.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-muted-foreground font-mono text-xs">{item.sku}</p>
-                    </TableCell>
-                    <TableCell>
-                      <p>{item.warehouseName}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatInventoryLocation(item)}
+                  <Item
+                    key={item.id}
+                    {...rowActivationProps(() => setDetailItem(item), 'border-b last:border-b-0')}
+                  >
+                    <ItemContent className="min-w-0">
+                      <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                        <span className="min-w-0 break-words">{item.productName}</span>
+                        <Badge variant={item.status === 'Open' ? 'outline' : 'secondary'}>
+                          {DAMAGE_STATUS_LABELS[item.status]}
+                        </Badge>
+                      </ItemTitle>
+                      <ItemDescription className="font-mono">{item.sku}</ItemDescription>
+                      <ItemDescription>
+                        {item.warehouseName} · {formatInventoryLocation(item)}
                         {item.lotNumber ? ` · lô ${item.lotNumber}` : ''}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {item.isQuantityConfirmed ? (
-                        <>
-                          {formatInventoryQuantity(item.resolvedQuantity)} /{' '}
-                          {formatInventoryQuantity(item.quantity)}
-                          <span className="text-muted-foreground block text-xs">
-                            còn {formatInventoryQuantity(item.remainingQuantity)}
-                          </span>
-                        </>
-                      ) : (
-                        'Chờ xác nhận'
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-64">
-                      <p className="truncate">{item.reason}</p>
-                      {item.evidence.map((file) => (
-                        <button
-                          key={file.id}
-                          type="button"
-                          className="text-primary block max-w-full truncate text-left text-xs underline"
-                          onClick={() =>
-                            void inventoryService.downloadEvidence(file.id, file.fileName)
-                          }
-                        >
-                          {file.fileName}
-                        </button>
-                      ))}
-                      <p className="text-muted-foreground text-xs">
-                        {formatInventoryDate(item.createdAt)}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      {item.relatedTaskType === 'CycleCount' && item.relatedTaskId ? (
-                        <Link
-                          href={APP_ROUTES.cycleCountDetail(item.relatedTaskId)}
-                          className="text-primary text-xs underline-offset-2 hover:underline"
-                        >
-                          Phiếu kiểm kê
-                          {item.relatedTaskCode ? (
-                            <span className="block font-mono">{item.relatedTaskCode}</span>
-                          ) : null}
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">Báo tay</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{item.reportedByName}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.status === 'Open' ? 'outline' : 'secondary'}>
-                        {DAMAGE_STATUS_LABELS[item.status]}
-                      </Badge>
-                      {item.status === 'Resolved' && item.disposition ? (
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          {DAMAGE_DISPOSITION_LABELS[item.disposition]}
-                        </p>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="w-px">
-                      <div className="ml-auto flex w-max gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setDetailItem(item)}>
-                          Chi tiết
+                      </ItemDescription>
+                      <ItemDescription>
+                        {item.isQuantityConfirmed
+                          ? `Đã xử lý ${formatInventoryQuantity(item.resolvedQuantity)} / ${formatInventoryQuantity(item.quantity)} · còn ${formatInventoryQuantity(item.remainingQuantity)}`
+                          : 'Số lượng chờ xác nhận'}
+                      </ItemDescription>
+                      <ItemDescription className="line-clamp-2">{item.reason}</ItemDescription>
+                      <ItemDescription>
+                        {item.reportedByName} · {formatInventoryDate(item.createdAt)}
+                      </ItemDescription>
+                    </ItemContent>
+                    {canDecideCase(item) ? (
+                      <ItemActions>
+                        <Button size="sm" onClick={() => openDecision(item)}>
+                          Chọn xử lý
                         </Button>
-                        {canDecideCase(item) ? (
-                          <Button size="sm" onClick={() => openDecision(item)}>
-                            Chọn xử lý
-                          </Button>
-                        ) : null}
-                        {canAddEvidenceToCase(item) ? (
-                          <Button size="sm" variant="outline" onClick={() => openEvidence(item)}>
-                            Bổ sung bằng chứng
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </ItemActions>
+                    ) : null}
+                  </Item>
                 ))}
-              </TableBody>
-            </Table>
-          </div>
+              </ItemGroup>
+            </div>
+            <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+              <Table className="min-w-[900px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 z-10">Sản phẩm</TableHead>
+                    <TableHead className="sticky top-0 z-10">Kho / vị trí</TableHead>
+                    <TableHead className="sticky top-0 z-10 text-right">Số lượng</TableHead>
+                    <TableHead className="sticky top-0 z-10">Lý do / bằng chứng</TableHead>
+                    <TableHead className="sticky top-0 z-10">Nguồn</TableHead>
+                    <TableHead className="sticky top-0 z-10">Người báo</TableHead>
+                    <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                    <TableHead className="sticky top-0 z-10 w-px text-center">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {props.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <p className="font-medium">{item.productName}</p>
+                        <p className="text-muted-foreground font-mono text-xs">{item.sku}</p>
+                      </TableCell>
+                      <TableCell>
+                        <p>{item.warehouseName}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {formatInventoryLocation(item)}
+                          {item.lotNumber ? ` · lô ${item.lotNumber}` : ''}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {item.isQuantityConfirmed ? (
+                          <>
+                            {formatInventoryQuantity(item.resolvedQuantity)} /{' '}
+                            {formatInventoryQuantity(item.quantity)}
+                            <span className="text-muted-foreground block text-xs">
+                              còn {formatInventoryQuantity(item.remainingQuantity)}
+                            </span>
+                          </>
+                        ) : (
+                          'Chờ xác nhận'
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-64">
+                        <p className="truncate">{item.reason}</p>
+                        {item.evidence.map((file) => (
+                          <button
+                            key={file.id}
+                            type="button"
+                            className="text-primary block max-w-full truncate text-left text-xs underline"
+                            onClick={() =>
+                              void inventoryService.downloadEvidence(file.id, file.fileName)
+                            }
+                          >
+                            {file.fileName}
+                          </button>
+                        ))}
+                        <p className="text-muted-foreground text-xs">
+                          {formatInventoryDate(item.createdAt)}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        {item.relatedTaskType === 'CycleCount' && item.relatedTaskId ? (
+                          <Link
+                            href={APP_ROUTES.cycleCountDetail(item.relatedTaskId)}
+                            className="text-primary text-xs underline-offset-2 hover:underline"
+                          >
+                            Phiếu kiểm kê
+                            {item.relatedTaskCode ? (
+                              <span className="block font-mono">{item.relatedTaskCode}</span>
+                            ) : null}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Báo tay</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{item.reportedByName}</TableCell>
+                      <TableCell>
+                        <Badge variant={item.status === 'Open' ? 'outline' : 'secondary'}>
+                          {DAMAGE_STATUS_LABELS[item.status]}
+                        </Badge>
+                        {item.status === 'Resolved' && item.disposition ? (
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            {DAMAGE_DISPOSITION_LABELS[item.disposition]}
+                          </p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="w-px">
+                        <div className="ml-auto flex w-max gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setDetailItem(item)}>
+                            Chi tiết
+                          </Button>
+                          {canDecideCase(item) ? (
+                            <Button size="sm" onClick={() => openDecision(item)}>
+                              Chọn xử lý
+                            </Button>
+                          ) : null}
+                          {canAddEvidenceToCase(item) ? (
+                            <Button size="sm" variant="outline" onClick={() => openEvidence(item)}>
+                              Bổ sung bằng chứng
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
         <OperationalPagination
           page={props.page}

@@ -1,15 +1,19 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { P } from '@/config/permissionCodes'
 import type { StockAlertParams } from '../schemas/stock-alert.schema'
 import WarehouseOverviewPage from './WarehouseOverviewPage'
+import { defaultActivityPeriod } from '../schemas/activity-period.schema'
 
 const warehouseId = '00000000-0000-0000-0000-000000000002'
 const { state, alerts, overview, refresh, update, meRefresh, optionsRefresh } = vi.hoisted(() => ({
   state: {
     compact: true,
     tab: 'alerts',
+    activityFrom: '2026-10-01',
+    activityTo: '2026-10-31',
     kind: 'below-minimum',
     warehouseId: '',
     invalidWarehouse: false,
@@ -43,6 +47,8 @@ vi.mock('../hooks/use-overview-navigation', () => ({
     expiringDays: state.days,
     kind: state.kind,
     tab: state.tab,
+    activityPeriod: defaultActivityPeriod(new Date('2026-10-18T10:00:00Z')),
+    activityRange: { dateFrom: state.activityFrom, dateTo: state.activityTo },
     updateLocation: update,
   }),
   useOverviewCompactLayout: () => ({ ref: { current: null }, compact: state.compact }),
@@ -60,7 +66,9 @@ vi.mock('../hooks/use-warehouse-overview', () => ({
   useWarehouseOverviewQuery: overview,
 }))
 vi.mock('../components/WarehouseOverview/WarehouseActivityChart', () => ({
-  WarehouseActivityChart: () => <div>Biểu đồ QA</div>,
+  WarehouseActivityChart: ({ periodFilter }: { periodFilter?: ReactNode }) => (
+    <div>Biểu đồ QA{periodFilter}</div>
+  ),
 }))
 
 beforeEach(() => {
@@ -68,6 +76,8 @@ beforeEach(() => {
   Object.assign(state, {
     compact: true,
     tab: 'alerts',
+    activityFrom: '2026-10-01',
+    activityTo: '2026-10-31',
     kind: 'below-minimum',
     warehouseId: '',
     invalidWarehouse: false,
@@ -127,13 +137,59 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('warehouse overview orchestration', () => {
-  it('matches product heading and inbound tab typography', () => {
+  it('changes only the activity query range and preserves the current workspace during chart loading', () => {
+    state.tab = 'activity'
+    state.compact = false
+    overview.mockImplementation((_warehouse, _enabled, _permission, _range, section) => ({
+      data:
+        section === 'current'
+          ? {
+              stockedSkuCount: 13,
+              lowStockCount: 7,
+              pendingInboundRequests: 16,
+              pendingGoodsReceipts: 7,
+              pendingStockIssues: 5,
+              pendingTransfers: 0,
+              pendingCounts: 0,
+              overdueTasks: 4,
+              unassignedTasks: 3,
+              reservedSkuCount: 4,
+              heldSkuCount: 2,
+              activeSlots: 61,
+              occupiedActiveSlots: 20,
+              inactiveSlotsWithStock: 0,
+            }
+          : undefined,
+      isPending: section !== 'current',
+      isFetching: section !== 'current',
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    }))
+    const view = render(<WarehouseOverviewPage />)
+    const currentRange = overview.mock.calls.find((call) => call[4] === 'current')?.[3]
+    overview.mockClear()
+    state.activityFrom = '2026-01-01'
+    state.activityTo = '2026-12-31'
+    view.rerender(<WarehouseOverviewPage />)
+    expect(overview.mock.calls.find((call) => call[4] === 'current')?.[3]).toEqual(currentRange)
+    expect(overview.mock.calls.find((call) => call[4] !== 'current')?.[3]).toEqual({
+      dateFrom: '2026-01-01',
+      dateTo: '2026-12-31',
+    })
+    expect(screen.getByRole('region', { name: 'Chỉ số hiện tại' })).toBeInTheDocument()
+    expect(screen.getByRole('table')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tải lại tổng quan' })).toBeEnabled()
+  })
+  it('keeps the title screen-reader-only and places tabs beside warehouse controls', () => {
     render(<WarehouseOverviewPage />)
-    expect(screen.getByRole('heading', { name: 'Tổng quan kho', level: 1 })).toHaveClass(
-      'font-sans',
-      'text-xl',
-      'font-semibold'
-    )
+    const heading = screen.getByRole('heading', { name: 'Tổng quan kho', level: 1 })
+    expect(heading).toHaveClass('sr-only')
+    const toolbar = heading.closest('header')!
+    expect(toolbar).toHaveClass('shrink-0', 'flex-wrap')
+    expect(within(toolbar).getByRole('tablist')).toBeInTheDocument()
+    expect(within(toolbar).getByLabelText('Phạm vi kho')).toBeInTheDocument()
+    expect(within(toolbar).getByRole('button', { name: 'Tải lại tổng quan' })).toBeInTheDocument()
     for (const name of ['Cảnh báo tồn kho', 'Hoạt động kho']) {
       expect(screen.getByRole('tab', { name })).toHaveClass(
         'font-sans',
@@ -320,7 +376,7 @@ describe('warehouse overview orchestration', () => {
     expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Tải lại tổng quan' }))
     await waitFor(() => expect(screen.getByText('Hàng QA')).toBeInTheDocument())
-    expect(retryOverview).toHaveBeenCalledOnce()
+    expect(retryOverview).toHaveBeenCalledTimes(2)
     expect(meRefresh).toHaveBeenCalledOnce()
   })
 

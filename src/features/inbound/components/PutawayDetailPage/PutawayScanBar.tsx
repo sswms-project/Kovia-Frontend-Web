@@ -52,7 +52,7 @@ export function PutawayScanBar({ state, lines, slots, disabled, onConfirm }: Put
       aria-label="Quét mã vị trí"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-md">
+        <div className="flex min-w-0 flex-1 basis-full items-center gap-2 sm:max-w-md sm:basis-auto">
           <ScanLine aria-hidden="true" className="text-primary size-5 shrink-0" />
           <Input
             value={code}
