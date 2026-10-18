@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +17,7 @@ interface OperationalPaginationProps {
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange?: (pageSize: number) => void
   readonly pageSizeOptions?: readonly number[]
+  readonly centerContent?: ReactNode
 }
 
 export function OperationalPagination({
@@ -26,6 +28,7 @@ export function OperationalPagination({
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = [10, 20, 30, 50],
+  centerContent,
 }: OperationalPaginationProps) {
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
   const start = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
@@ -36,6 +39,11 @@ export function OperationalPagination({
       <p className="text-[13px] tabular-nums">
         Tổng số: <span className="font-medium">{totalCount}</span>
       </p>
+      {centerContent != null ? (
+        <div className="text-muted-foreground min-w-48 flex-1 text-center text-xs">
+          {centerContent}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-end gap-2">
         {onPageSizeChange ? (
           <div className="flex items-center gap-2">

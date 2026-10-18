@@ -1,4 +1,5 @@
 export { CurrentPlanCard } from './CurrentPlanCard'
+export { SubscriptionWorkspaceHeader } from './SubscriptionWorkspaceHeader'
 export { InvoicePdfDocument } from './InvoicePdfDocument'
 export { InvoicePrintView } from './InvoicePrintView'
 export { PaymentHistoryFilters } from './PaymentHistoryFilters'

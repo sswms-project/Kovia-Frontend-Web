@@ -3,6 +3,7 @@ import { P } from '@/config/permissionCodes'
 import { USER_ROLES } from '@/config/roles'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
+  CATALOG_GROUPS,
   getNavItems,
   getVisibleNavSections,
   isNavItemActive,
@@ -18,6 +19,43 @@ function getVisibleNavItems(
 }
 
 describe('application navigation visibility', () => {
+  it.each([USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff])(
+    'retains notifications under System only with notification access for %s',
+    (role) => {
+      const system = getVisibleNavSections(role, new Set([P.NOTIFICATIONS_VIEW])).find(
+        (section) => section.id === 'system'
+      )
+      expect(system?.items.find((item) => item.href === APP_ROUTES.notifications)?.label).toBe(
+        'Thông báo'
+      )
+      expect(
+        getVisibleNavItems(role, []).some((item) => item.href === APP_ROUTES.notifications)
+      ).toBe(false)
+    }
+  )
+
+  it.each([USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff])(
+    'groups dashboard and the permission-gated product shortcut above a divider for %s',
+    (role) => {
+      const workspace = NAV_CONFIG[role][0]
+      expect(workspace?.id).toBe('workspace')
+      expect(workspace?.separatorAfter).toBe(true)
+      expect(workspace?.items.map((item) => item.href)).toEqual([
+        APP_ROUTES.dashboard,
+        APP_ROUTES.products,
+      ])
+      expect(
+        getVisibleNavSections(role, new Set([P.DASHBOARD_VIEW]))[0]?.items.map((item) => item.href)
+      ).toEqual([APP_ROUTES.dashboard])
+      expect(
+        getVisibleNavSections(role, new Set([P.PRODUCTS_VIEW]))[0]?.items.map((item) => item.href)
+      ).toEqual([APP_ROUTES.products])
+      expect(
+        getVisibleNavSections(role, new Set()).some((section) => section.id === 'workspace')
+      ).toBe(false)
+    }
+  )
+
   it.each([USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff])(
     'activates only task history for %s',
     (role) => {
@@ -189,17 +227,37 @@ describe('application navigation visibility', () => {
 
   it('groups subscription management without duplicate payment entries', () => {
     const serviceSection = NAV_CONFIG[USER_ROLES.TenantOwner].find(
-      (section) => section.id === 'services'
+      (section) => section.id === 'system'
     )
 
-    expect(serviceSection?.label).toBe('Dịch vụ')
+    expect(serviceSection?.label).toBe('Hệ thống')
     expect(serviceSection?.items.map((item) => [item.label, item.href])).toEqual([
+      ['Thông báo', APP_ROUTES.notifications],
+      ['Nhật ký hoạt động', APP_ROUTES.auditLogs],
       ['Gói dịch vụ', APP_ROUTES.subscription],
-      ['Lịch sử thanh toán', APP_ROUTES.subscriptionPayments],
     ])
   })
 
   it('shows payment history only with the payment viewing permission', () => {
+    for (const permissions of [[P.SUBSCRIPTIONS_VIEW], [P.SUBSCRIPTIONS_VIEW, P.PAYMENTS_VIEW]]) {
+      const billing = getVisibleNavItems(USER_ROLES.TenantOwner, permissions).filter(
+        (item) => item.label === 'Gói dịch vụ'
+      )
+      expect(billing).toHaveLength(1)
+      expect(billing[0]?.href).toBe(APP_ROUTES.subscription)
+    }
+    const paymentOnly = getVisibleNavItems(USER_ROLES.TenantOwner, [P.PAYMENTS_VIEW]).find(
+      (item) => item.label === 'Gói dịch vụ'
+    )
+    expect(paymentOnly?.href).toBe(APP_ROUTES.subscriptionPayments)
+    expect(paymentOnly?.requiredPermission).toBe(P.PAYMENTS_VIEW)
+    for (const role of [USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff]) {
+      expect(
+        getVisibleNavItems(role, [P.SUBSCRIPTIONS_VIEW, P.PAYMENTS_VIEW]).some(
+          (item) => item.label === 'Gói dịch vụ'
+        )
+      ).toBe(false)
+    }
     expect(
       getVisibleNavItems(USER_ROLES.TenantOwner, [P.PAYMENTS_VIEW]).some(
         (item) => item.href === APP_ROUTES.subscriptionPayments
@@ -217,10 +275,10 @@ describe('application navigation visibility', () => {
     const organizationSection = managerSections.find(
       (section) => section.id === 'organization-management'
     )
-    const subjectsSection = managerSections.find((section) => section.id === 'subjects')
+    const catalogSection = managerSections.find((section) => section.id === 'catalog')
 
     expect(organizationSection?.items.some((item) => item.href === APP_ROUTES.staff)).toBe(true)
-    expect(subjectsSection?.items.some((item) => item.href === APP_ROUTES.staff)).toBe(false)
+    expect(catalogSection?.items.some((item) => item.href === APP_ROUTES.staff)).toBe(false)
   })
 
   it('uses the requested tenant sidebar hierarchy and order', () => {
@@ -232,14 +290,9 @@ describe('application navigation visibility', () => {
         items: section.items.map((item) => item.label),
       }))
     ).toEqual([
-      { label: null, items: ['Dashboard', 'Công việc kho', 'Lịch sử công việc kho'] },
+      { label: null, items: ['Dashboard', 'Vật tư hàng hóa'] },
+      { label: 'Công việc kho', items: ['Công việc hiện tại', 'Lịch sử công việc'] },
       { label: 'Quản trị doanh nghiệp', items: ['Doanh nghiệp', 'Phân quyền', 'Nhân viên'] },
-      { label: 'Quản Lý Kho', items: ['Kho hàng', 'Sơ đồ kho'] },
-      { label: 'Đối tượng', items: ['Nhà cung cấp', 'Khách hàng'] },
-      {
-        label: 'Danh mục',
-        items: ['Danh mục VTHH', 'Nhóm VTHH', 'Đơn vị tính'],
-      },
       {
         label: 'Hoạt Động Kho',
         items: ['Nhập kho', 'Tồn kho', 'Điều chuyển kho', 'Kiểm kê', 'Xuất kho & Trả hàng'],
@@ -248,8 +301,19 @@ describe('application navigation visibility', () => {
         label: 'Báo cáo & phân tích',
         items: ['Báo cáo kho', 'Dự báo & bổ sung hàng'],
       },
-      { label: 'Dịch vụ', items: ['Gói dịch vụ', 'Lịch sử thanh toán'] },
-      { label: 'Hệ thống', items: ['Thông báo', 'Nhật ký hoạt động', 'Cài đặt'] },
+      { label: 'Hệ thống', items: ['Thông báo', 'Nhật ký hoạt động', 'Gói dịch vụ'] },
+      {
+        label: 'Danh mục',
+        items: [
+          'Vật tư hàng hóa',
+          'Nhóm vật tư hàng hóa',
+          'Đơn vị tính',
+          'Khách hàng',
+          'Nhà cung cấp',
+          'Kho hàng',
+          'Sơ đồ kho',
+        ],
+      },
     ])
   })
 
@@ -293,12 +357,12 @@ describe('application navigation visibility', () => {
     ])
 
     expect(items.find((item) => item.href === APP_ROUTES.myTaskHistory)?.label).toBe(
-      'Công việc đã xử lý'
+      'Lịch sử công việc'
     )
     expect(items.find((item) => item.href === APP_ROUTES.auditLogs)?.label).toBe(
-      'Hoạt động của tôi'
+      'Nhật ký hoạt động'
     )
-    expect(items.some((item) => item.href === APP_ROUTES.settings.security)).toBe(true)
+    expect(items.some((item) => item.href === APP_ROUTES.settings.security)).toBe(false)
   })
 
   it('lets staff see delegated staff-management navigation without role hard-coding', () => {
@@ -347,19 +411,18 @@ describe('application navigation visibility', () => {
     expect(isNavItemActive(pathname, dashboardItem!)).toBe(true)
   })
 
-  it('marks only the correct subscription navigation item as active', () => {
+  it('keeps one billing entry active for plans, payments and invoice routes', () => {
     const serviceItems = NAV_CONFIG[USER_ROLES.TenantOwner].find(
-      (section) => section.id === 'services'
+      (section) => section.id === 'system'
     )?.items
     const planItem = serviceItems?.find((item) => item.href === APP_ROUTES.subscription)
     const paymentsItem = serviceItems?.find((item) => item.href === APP_ROUTES.subscriptionPayments)
 
     expect(planItem).toBeDefined()
-    expect(paymentsItem).toBeDefined()
+    expect(paymentsItem).toBeUndefined()
     expect(isNavItemActive('/subscription', planItem!)).toBe(true)
-    expect(isNavItemActive('/subscription/payments', planItem!)).toBe(false)
-    expect(isNavItemActive('/subscription/payments', paymentsItem!)).toBe(true)
-    expect(isNavItemActive('/subscription/invoices/payment-1/print', paymentsItem!)).toBe(true)
+    expect(isNavItemActive('/subscription/payments', planItem!)).toBe(true)
+    expect(isNavItemActive('/subscription/invoices/payment-1/print', planItem!)).toBe(true)
   })
 
   it.each([USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff])(
@@ -420,6 +483,81 @@ describe('application navigation visibility', () => {
       getNavItems(USER_ROLES.SystemAdmin).some(
         (item) => item.href === APP_ROUTES.settings.accessControl
       )
+    ).toBe(false)
+  })
+})
+
+describe('grouped catalog navigation', () => {
+  const tenantRoles = [
+    USER_ROLES.TenantOwner,
+    USER_ROLES.WarehouseManager,
+    USER_ROLES.WarehouseStaff,
+  ]
+
+  it.each(tenantRoles)(
+    'keeps seven unique master-data routes and the agreed groups for %s',
+    (role) => {
+      const sections = NAV_CONFIG[role]
+      const catalog = sections.find((section) => section.presentation === 'catalog')!
+      expect(sections.at(-1)).toBe(catalog)
+      expect(catalog.items).toHaveLength(7)
+      expect(
+        CATALOG_GROUPS.map((group) => [
+          group.label,
+          catalog.items.filter((item) => item.catalogGroup === group.id).map((item) => item.label),
+        ])
+      ).toEqual([
+        ['Vật tư hàng hóa', ['Vật tư hàng hóa', 'Nhóm vật tư hàng hóa', 'Đơn vị tính']],
+        ['Đối tượng', ['Khách hàng', 'Nhà cung cấp']],
+        ['Kho & bố trí', ['Kho hàng', 'Sơ đồ kho']],
+      ])
+      const routes = catalog.items.map((item) => item.href)
+      expect(new Set(routes).size).toBe(routes.length)
+      expect(
+        sections.some((section) => ['subjects', 'warehouse-management'].includes(section.id))
+      ).toBe(false)
+    }
+  )
+
+  it.each(tenantRoles)('filters every catalog item by its existing permission for %s', (role) => {
+    const catalog = NAV_CONFIG[role].find((section) => section.presentation === 'catalog')!
+    for (const permission of new Set(catalog.items.map((item) => item.requiredPermission!))) {
+      const visible = getVisibleNavSections(role, new Set([permission])).find(
+        (section) => section.presentation === 'catalog'
+      )!
+      expect(visible.items).toEqual(
+        catalog.items.filter((item) => item.requiredPermission === permission)
+      )
+    }
+    expect(
+      getVisibleNavSections(role, new Set()).some((section) => section.presentation === 'catalog')
+    ).toBe(false)
+    expect(
+      getVisibleNavSections(role, new Set([P.STAFF_VIEW])).some(
+        (section) => section.presentation === 'catalog'
+      )
+    ).toBe(false)
+  })
+
+  it.each(tenantRoles)('does not move or change organization access for %s', (role) => {
+    const organization = NAV_CONFIG[role].find(
+      (section) => section.id === 'organization-management'
+    )!
+    expect(organization.label).toBe('Quản trị doanh nghiệp')
+    expect(
+      organization.items.map((item) => [item.href, item.label, item.requiredPermission])
+    ).toEqual([
+      ...(role === USER_ROLES.TenantOwner
+        ? [[APP_ROUTES.organization, 'Doanh nghiệp', P.ORGANIZATION_VIEW]]
+        : []),
+      [APP_ROUTES.settings.accessControl, 'Phân quyền', P.TENANT_ROLE_PERMISSIONS_VIEW],
+      [APP_ROUTES.staff, 'Nhân viên', P.STAFF_VIEW],
+    ])
+  })
+
+  it('does not add a catalog menu to platform administration', () => {
+    expect(
+      NAV_CONFIG[USER_ROLES.SystemAdmin].some((section) => section.presentation === 'catalog')
     ).toBe(false)
   })
 })

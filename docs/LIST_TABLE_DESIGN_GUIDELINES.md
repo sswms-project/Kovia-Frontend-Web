@@ -69,6 +69,7 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 ## Pagination
 
 - Use `OperationalPagination` for list screens.
+- Its optional `centerContent` slot can show compact read-only metadata between the total and page controls, without adding another footer row. Omitting the slot preserves the existing two-region footer; content must wrap on narrow screens rather than overlap controls.
 - The default choices are `10`, `20`, `30`, and `50` rows per page.
 - `page` and `pageSize` belong to the page/container component and must be sent to paginated APIs.
 - “Select all” applies only to the currently visible page unless the UI explicitly confirms selecting all filtered results.

@@ -1,3 +1,8 @@
 export { WarehouseOverviewView } from './WarehouseOverviewView'
+export { WarehouseOperationsView } from './WarehouseOperationsView'
+export { StockAlertDialog } from './StockAlertDialog'
+export { ExpiryDaysSettings } from './ExpiryDaysSettings'
+export { stockAlertKinds } from './WarehouseOverviewView'
+export type { StockAlertPanelState } from './StockAlertPanel'
 export { OverviewMetric } from './OverviewMetric'
 export { PersonalWorkOverview } from './PersonalWorkOverview'

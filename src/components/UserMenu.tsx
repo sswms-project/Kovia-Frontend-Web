@@ -1,13 +1,14 @@
 'use client'
 
 import { useQueryClient } from '@tanstack/react-query'
-import { LoaderCircle, LogOut, User } from 'lucide-react'
+import { LoaderCircle, LogOut, Settings, User } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -72,12 +73,20 @@ export function UserMenu() {
           <p className="text-muted-foreground text-xs font-normal">{user.email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href={APP_ROUTES.profile}>
-            <User className="size-4" aria-hidden="true" />
-            Hồ sơ cá nhân
-          </Link>
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem asChild>
+            <Link href={APP_ROUTES.profile}>
+              <User className="size-4" aria-hidden="true" />
+              Hồ sơ cá nhân
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={APP_ROUTES.settings.security}>
+              <Settings aria-hidden="true" />
+              Cài đặt tài khoản
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={logoutMutation.isPending}
