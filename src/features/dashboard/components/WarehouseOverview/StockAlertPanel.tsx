@@ -38,7 +38,7 @@ export interface StockAlertPanelProps extends StockAlertPanelState {
   readonly canViewInventory: boolean
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange?: (size: number) => void
-  readonly onExpand?: () => void
+  readonly onExpand?: (opener: HTMLButtonElement) => void
   readonly expanded?: boolean
   readonly settings?: ReactNode
   readonly searchControl?: ReactNode
@@ -95,7 +95,12 @@ export function StockAlertPanel({
           )}
           {settings}
           {onExpand ? (
-            <Button type="button" variant="ghost" size="sm" onClick={onExpand}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={(event) => onExpand(event.currentTarget)}
+            >
               Xem tất cả
             </Button>
           ) : null}

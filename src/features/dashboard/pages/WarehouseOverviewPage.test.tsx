@@ -6,7 +6,7 @@ import type { StockAlertParams } from '../schemas/stock-alert.schema'
 import WarehouseOverviewPage from './WarehouseOverviewPage'
 
 const warehouseId = '00000000-0000-0000-0000-000000000002'
-const { state, alerts, overview, refresh, update } = vi.hoisted(() => ({
+const { state, alerts, overview, refresh, update, meRefresh, optionsRefresh } = vi.hoisted(() => ({
   state: {
     compact: true,
     tab: 'alerts',
@@ -16,19 +16,24 @@ const { state, alerts, overview, refresh, update } = vi.hoisted(() => ({
     days: 5,
     expiredTotal: 7,
     denied: false,
+    deniedKind: '',
+    meError: false,
     permissions: [] as string[],
   },
   alerts: vi.fn(),
   overview: vi.fn(),
   refresh: vi.fn(),
   update: vi.fn(),
+  meRefresh: vi.fn(),
+  optionsRefresh: vi.fn(),
 }))
 vi.mock('@/features/auth/hooks/use-auth', () => ({
   useMeQuery: () => ({
     data: { permissions: state.permissions },
     isPending: false,
-    isError: false,
-    error: null,
+    isError: state.meError,
+    error: state.meError ? { statusCode: 500, message: 'Không xác minh được phiên.' } : null,
+    refetch: meRefresh,
   }),
 }))
 vi.mock('../hooks/use-overview-navigation', () => ({
@@ -50,7 +55,7 @@ vi.mock('../hooks/use-warehouse-overview', () => ({
     isPending: false,
     isFetching: false,
     error: null,
-    refetch: vi.fn(),
+    refetch: optionsRefresh,
   }),
   useWarehouseOverviewQuery: overview,
 }))
@@ -69,8 +74,13 @@ beforeEach(() => {
     days: 5,
     expiredTotal: 7,
     denied: false,
+    deniedKind: '',
+    meError: false,
     permissions: [P.DASHBOARD_VIEW, P.INVENTORY_VIEW],
   })
+  refresh.mockReturnValue({ isSuccess: true })
+  meRefresh.mockResolvedValue({ isSuccess: true })
+  optionsRefresh.mockResolvedValue({ isSuccess: true })
   alerts.mockImplementation((params: StockAlertParams) => ({
     data: {
       kind: params.kind,
@@ -99,8 +109,11 @@ beforeEach(() => {
     },
     isPending: false,
     isFetching: false,
-    isError: state.denied,
-    error: state.denied ? { statusCode: 403, message: 'Không còn quyền kho.' } : null,
+    isError: state.denied && (!state.deniedKind || state.deniedKind === params.kind),
+    error:
+      state.denied && (!state.deniedKind || state.deniedKind === params.kind)
+        ? { statusCode: 403, message: 'Không còn quyền kho.' }
+        : null,
     refetch: () => refresh(params.kind),
   }))
   overview.mockReturnValue({
@@ -108,7 +121,7 @@ beforeEach(() => {
     isPending: true,
     isFetching: false,
     error: null,
-    refetch: vi.fn(),
+    refetch: vi.fn().mockResolvedValue({ isSuccess: true }),
   })
 })
 afterEach(cleanup)
@@ -217,11 +230,185 @@ describe('warehouse overview orchestration', () => {
     expect(screen.getByText('Không còn quyền kho.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
+
+  it('rechecks an inactive denied alert and keeps activity hidden until recovery finishes', async () => {
+    state.tab = 'activity'
+    state.denied = true
+    state.deniedKind = 'expired'
+    let finish = () => {}
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    refresh.mockImplementation((kind) => {
+      if (kind === 'expired') {
+        state.denied = false
+        return pending.then(() => ({ isSuccess: true }))
+      }
+      return { isSuccess: true }
+    })
+    overview.mockReturnValue({
+      data: {
+        stockedSkuCount: 1,
+        reservedSkuCount: 0,
+        heldSkuCount: 0,
+        lowStockCount: 0,
+        pendingInboundRequests: 0,
+        pendingGoodsReceipts: 0,
+        pendingStockIssues: 0,
+        pendingTransfers: 0,
+        pendingCounts: 0,
+        overdueTasks: 0,
+        unassignedTasks: 0,
+        activeSlots: 1,
+        occupiedActiveSlots: 1,
+        inactiveSlotsWithStock: 0,
+        activity: [],
+      },
+      isPending: false,
+      isFetching: false,
+      isError: false,
+      error: null,
+      refetch: () => refresh('overview'),
+    })
+    const view = render(<WarehouseOverviewPage />)
+    const reload = screen.getByRole('button', { name: 'Tải lại tổng quan' })
+    await userEvent.click(reload)
+    view.rerender(<WarehouseOverviewPage />)
+    expect(meRefresh).toHaveBeenCalledWith({ cancelRefetch: false })
+    expect(optionsRefresh).toHaveBeenCalledWith({ cancelRefetch: false })
+    expect(refresh.mock.calls.map((call) => call[0])).toContain('overview')
+    expect(refresh.mock.calls.map((call) => call[0])).toContain('expired')
+    expect(reload).toBeDisabled()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    finish()
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument())
+    expect(screen.queryByText('Không còn quyền kho.')).not.toBeInTheDocument()
+  })
+
+  it('rechecks an inactive denied overview while refreshing the alert tab', async () => {
+    const retryOverview = vi.fn()
+    let denied = true
+    overview.mockImplementation(() => ({
+      isPending: false,
+      isFetching: false,
+      isError: denied,
+      error: denied ? { statusCode: 403, message: 'Hoạt động bị từ chối.' } : null,
+      refetch: () => {
+        retryOverview()
+        denied = false
+        return { isSuccess: true }
+      },
+    }))
+    render(<WarehouseOverviewPage />)
+    expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Tải lại tổng quan' }))
+    await waitFor(() => expect(screen.getByText('Hàng QA')).toBeInTheDocument())
+    expect(retryOverview).toHaveBeenCalledOnce()
+    expect(meRefresh).toHaveBeenCalledOnce()
+  })
+
+  it('keeps cached data hidden when the retry is still forbidden', async () => {
+    state.denied = true
+    render(<WarehouseOverviewPage />)
+    const reload = screen.getByRole('button', { name: 'Tải lại tổng quan' })
+    await userEvent.click(reload)
+    await waitFor(() => expect(reload).toBeEnabled())
+    expect(screen.getByText('Không còn quyền kho.')).toBeInTheDocument()
+    expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
+    expect(meRefresh).toHaveBeenCalledOnce()
+  })
+
+  it('does not reveal recovered query data when session verification fails', async () => {
+    state.denied = true
+    refresh.mockImplementation(() => {
+      state.denied = false
+      return { isSuccess: true }
+    })
+    meRefresh.mockImplementation(() => {
+      state.meError = true
+      return { isSuccess: false }
+    })
+    render(<WarehouseOverviewPage />)
+    await userEvent.click(screen.getByRole('button', { name: 'Tải lại tổng quan' }))
+    await waitFor(() => expect(screen.getByText('Không xác minh được phiên.')).toBeInTheDocument())
+    expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
+  })
+
+  it.each(['server error', 'network rejection'])(
+    'keeps old data hidden after recovery hits %s and allows another retry',
+    async (failure) => {
+      state.denied = true
+      refresh.mockImplementation(() => {
+        state.denied = false
+        return failure === 'network rejection'
+          ? Promise.reject(new Error('Network unavailable'))
+          : { isSuccess: false }
+      })
+      render(<WarehouseOverviewPage />)
+      const reload = screen.getByRole('button', { name: 'Tải lại tổng quan' })
+      await userEvent.click(reload)
+      await waitFor(() =>
+        expect(screen.getByText(/Chưa xác minh lại được dữ liệu tổng quan/)).toBeInTheDocument()
+      )
+      expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
+      refresh.mockReturnValue({ isSuccess: true })
+      await userEvent.click(reload)
+      await waitFor(() => expect(screen.getByText('Hàng QA')).toBeInTheDocument())
+      expect(meRefresh).toHaveBeenCalledTimes(2)
+    }
+  )
+
+  it.each([
+    { compact: true, close: 'Escape' },
+    { compact: false, close: 'Close' },
+  ])(
+    'restores focus to the actual opener after $close (compact=$compact)',
+    async ({ compact, close }) => {
+      state.compact = compact
+      const user = userEvent.setup()
+      render(<WarehouseOverviewPage />)
+      const region = screen.getByRole('region', {
+        name: compact ? 'Khả dụng dưới mức tối thiểu' : 'Khả dụng vượt mức tối đa',
+      })
+      const opener = within(region).getByRole('button', { name: 'Xem tất cả' })
+      opener.focus()
+      await user.keyboard('{Enter}')
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      if (close === 'Escape') await user.keyboard('{Escape}')
+      else
+        await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      await waitFor(() => expect(opener).toHaveFocus())
+    }
+  )
   it('shows alerts without granting inventory navigation from a role name', () => {
     state.permissions = [P.DASHBOARD_VIEW]
     render(<WarehouseOverviewPage />)
     expect(screen.getByText('Hàng QA')).toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('restores the clicked opener even when the browser did not focus it on pointer click', async () => {
+    render(<WarehouseOverviewPage />)
+    const opener = screen.getByRole('button', { name: 'Xem tất cả' })
+    expect(opener).not.toHaveFocus()
+    fireEvent.click(opener)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(opener).toHaveFocus())
+  })
+
+  it('does not focus a detached opener when losing access closes the dialog', async () => {
+    const view = render(<WarehouseOverviewPage />)
+    const opener = screen.getByRole('button', { name: 'Xem tất cả' })
+    await userEvent.click(opener)
+    const focus = vi.spyOn(opener, 'focus')
+    state.denied = true
+    view.rerender(<WarehouseOverviewPage />)
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(opener.isConnected).toBe(false)
+    expect(focus).not.toHaveBeenCalled()
+    focus.mockRestore()
   })
   it('cancels settings without changing N and rejects out-of-range values before applying', async () => {
     state.kind = 'expiring'

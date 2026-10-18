@@ -11,6 +11,7 @@ import { StockAlertPanel, stockAlertTitles, type StockAlertPanelProps } from './
 interface StockAlertDialogProps extends StockAlertPanelProps {
   readonly open: boolean
   readonly onClose: () => void
+  readonly onRestoreFocus: () => void
   readonly search: string
   readonly onSearchChange: (value: string) => void
   readonly warehouseLabel: string
@@ -19,6 +20,7 @@ interface StockAlertDialogProps extends StockAlertPanelProps {
 export function StockAlertDialog({
   open,
   onClose,
+  onRestoreFocus,
   search,
   onSearchChange,
   warehouseLabel,
@@ -31,7 +33,13 @@ export function StockAlertDialog({
         if (!value) onClose()
       }}
     >
-      <DialogContent className="flex h-[90svh] max-h-[95svh] min-h-0 flex-col overflow-hidden sm:max-w-6xl [@media(max-height:500px)]:gap-2 [@media(max-height:500px)]:p-2">
+      <DialogContent
+        className="flex h-[90svh] max-h-[95svh] min-h-0 flex-col overflow-hidden sm:max-w-6xl [@media(max-height:500px)]:gap-2 [@media(max-height:500px)]:p-2"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          onRestoreFocus()
+        }}
+      >
         <DialogHeader className="shrink-0 pr-6">
           <DialogTitle>{stockAlertTitles[panel.kind]}</DialogTitle>
           <DialogDescription>{warehouseLabel}</DialogDescription>

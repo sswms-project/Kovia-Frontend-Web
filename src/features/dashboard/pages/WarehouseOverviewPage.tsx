@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { P } from '@/config/permissionCodes'
@@ -49,6 +49,9 @@ export default function WarehouseOverviewPage() {
   const [activityDays, setActivityDays] = useState(30)
   const [activityView, setActivityView] = useState('indices')
   const [dialog, setDialog] = useState<AlertDialogState | null>(null)
+  const dialogOpener = useRef<HTMLElement | null>(null)
+  const [isRecoveringAccess, setIsRecoveringAccess] = useState(false)
+  const [accessRecoveryFailed, setAccessRecoveryFailed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const daysForm = useForm<ExpiryDaysValues>({
     resolver: zodResolver(expiryDaysSchema),
@@ -121,9 +124,11 @@ export default function WarehouseOverviewPage() {
   )
   const activeQueries =
     location.tab === 'alerts' ? [below, above, expiring, expired, details] : [overview]
-  const denied = [below, above, expiring, expired, details, overview, options, me].find(
+  const accessQueries = [below, above, expiring, expired, details, overview, options, me]
+  const deniedQueries = accessQueries.filter(
     (query) => isApiErrorResponse(query.error) && [401, 403].includes(query.error.statusCode)
   )
+  const denied = deniedQueries[0]
   const errorMessage = me.isError
     ? getApiErrorMessage(me.error)
     : !me.isPending && !canView
@@ -137,7 +142,8 @@ export default function WarehouseOverviewPage() {
             : options.isError
               ? `Không tải được danh sách kho. ${getApiErrorMessage(options.error)}`
               : undefined
-  const canShowData = enabled && !denied && !me.isError
+  const canShowData =
+    enabled && !denied && !me.isError && !isRecoveringAccess && !accessRecoveryFailed
   const panelState = (query: typeof below): StockAlertPanelState => ({
     data: canShowData ? query.data : undefined,
     isLoading: query.isPending,
@@ -153,15 +159,28 @@ export default function WarehouseOverviewPage() {
     expiring: panelState(expiring),
     expired: panelState(expired),
   }
-  const refresh = () => {
-    void options.refetch()
-    if (!enabled) return
-    if (location.tab === 'activity') void overview.refetch()
-    else {
-      void below.refetch()
-      void above.refetch()
-      void expiring.refetch()
-      void expired.refetch()
+  const refresh = async () => {
+    const recoverAccess = Boolean(denied || me.isError || !canView || accessRecoveryFailed)
+    const visibleQueries =
+      location.tab === 'activity' ? [overview] : [below, above, expiring, expired]
+    const targets = new Set([
+      options,
+      ...(enabled ? visibleQueries : []),
+      ...(recoverAccess ? accessQueries : []),
+    ])
+    // Refetch may clear a query's error before the access checks finish.
+    if (recoverAccess) setIsRecoveringAccess(true)
+    try {
+      const results = await Promise.allSettled(
+        [...targets].map((query) => query.refetch({ cancelRefetch: false }))
+      )
+      if (recoverAccess) {
+        setAccessRecoveryFailed(
+          results.some((result) => result.status === 'rejected' || !result.value.isSuccess)
+        )
+      }
+    } finally {
+      if (recoverAccess) setIsRecoveringAccess(false)
     }
   }
   const changeLocation = (values: Record<string, string>) => {
@@ -211,10 +230,23 @@ export default function WarehouseOverviewPage() {
         expiringDays={location.expiringDays}
         panels={panels}
         onPageChange={(kind, page) => setPages((current) => ({ ...current, [kind]: page }))}
-        onExpand={(kind) => setDialog({ kind, scope, page: 1, pageSize: 10, search: '' })}
+        onExpand={(kind, opener) => {
+          dialogOpener.current = opener
+          setDialog({ kind, scope, page: 1, pageSize: 10, search: '' })
+        }}
         onRefresh={refresh}
-        isFetching={options.isFetching || activeQueries.some((query) => query.isFetching)}
-        errorMessage={errorMessage}
+        isFetching={
+          isRecoveringAccess ||
+          me.isFetching ||
+          options.isFetching ||
+          activeQueries.some((query) => query.isFetching)
+        }
+        errorMessage={
+          errorMessage ??
+          (accessRecoveryFailed
+            ? 'Chưa xác minh lại được dữ liệu tổng quan. Vui lòng tải lại.'
+            : undefined)
+        }
         canShowData={canShowData}
         canViewInventory={canViewInventory && canShowData}
         settings={settings}
@@ -263,6 +295,11 @@ export default function WarehouseOverviewPage() {
         kind={activeDialog?.kind ?? location.kind}
         open={Boolean(activeDialog) && canShowData}
         onClose={() => setDialog(null)}
+        onRestoreFocus={() => {
+          const opener = dialogOpener.current
+          dialogOpener.current = null
+          if (opener?.isConnected) opener.focus()
+        }}
         search={activeDialog?.search ?? ''}
         onSearchChange={(value) =>
           setDialog((current) => (current ? { ...current, page: 1, search: value } : null))
