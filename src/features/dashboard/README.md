@@ -39,6 +39,7 @@ Ngày đánh giá HSD dùng UTC để tương thích `ProductLotRules`/khả d�
 - Root → Tabs → TabsContent → Grid có min-h-0/min-w-0/flex-1 đúng chuỗi. Không thêm gutter hoặc công thức chiều cao viewport nghiệp vụ.
 - Desktop đủ diện tích: grid 2 × 2. Hẹp/thấp: một bảng + bộ chọn nhóm có số lượng; ở viewport rất thấp giảm khoảng cách và đưa “Xem tất cả” lên header, snapshot vẫn đọc được trong Dialog.
 - Reload ở bên phải. Tên dài xuống tối đa hai dòng ở preview, đầy đủ trong Dialog. Không để tên hàng đẩy cột số ra khỏi bảng.
+- Thời điểm cập nhật và ngày đánh giá UTC nằm giữa footer phân trang, không tạo hàng riêng ở header hay phía dưới bảng; áp dụng cả preview và Dialog.
 - Phân biệt tải lần đầu, lỗi, dữ liệu cũ khi reload thất bại, không có cảnh báo, chưa cấu hình policy và không có kho được phép. Không hiển thị tổng 0 giả lúc chưa tải.
 - Lựa chọn kho/tab/nhóm/N phản ánh trên URL qua Next navigation/native history, không thêm thư viện.
 

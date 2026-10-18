@@ -127,6 +127,23 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('warehouse overview orchestration', () => {
+  it('matches product heading and inbound tab typography', () => {
+    render(<WarehouseOverviewPage />)
+    expect(screen.getByRole('heading', { name: 'Tổng quan kho', level: 1 })).toHaveClass(
+      'font-sans',
+      'text-xl',
+      'font-semibold'
+    )
+    for (const name of ['Cảnh báo tồn kho', 'Hoạt động kho']) {
+      expect(screen.getByRole('tab', { name })).toHaveClass(
+        'font-sans',
+        'text-sm',
+        'font-medium',
+        'data-[state=active]:font-bold'
+      )
+    }
+  })
+
   it('lets the user select an urgent group directly from its visible count', async () => {
     render(<WarehouseOverviewPage />)
     await userEvent.click(screen.getByLabelText(/quá hạn sử dụng.*7/i))

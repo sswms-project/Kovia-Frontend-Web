@@ -66,7 +66,7 @@ export function WarehouseOverviewView({
       data-slot="warehouse-overview"
     >
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Tổng quan kho</h1>
+        <h1 className="mt-0.5 font-sans text-xl font-semibold">Tổng quan kho</h1>
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           <label className="flex min-w-0 items-center gap-2 text-xs">
             Kho
@@ -122,8 +122,18 @@ export function WarehouseOverviewView({
         className="min-h-0 min-w-0 flex-1 [@media(max-height:500px)]:gap-1"
       >
         <TabsList variant="line" className="shrink-0">
-          <TabsTrigger value="alerts">Cảnh báo tồn kho</TabsTrigger>
-          <TabsTrigger value="activity">Hoạt động kho</TabsTrigger>
+          <TabsTrigger
+            value="alerts"
+            className="font-sans text-sm font-medium data-[state=active]:font-bold"
+          >
+            Cảnh báo tồn kho
+          </TabsTrigger>
+          <TabsTrigger
+            value="activity"
+            className="font-sans text-sm font-medium data-[state=active]:font-bold"
+          >
+            Hoạt động kho
+          </TabsTrigger>
         </TabsList>
         <TabsContent
           value="alerts"

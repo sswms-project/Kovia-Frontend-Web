@@ -16,10 +16,12 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarSeparator,
 } from '@/components/ui/sidebar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { isNavItemActive, isNavSectionActive, type NavItem, type NavSection } from '../nav-config'
+import { CatalogNavigation, type CatalogNavigationControl } from './CatalogNavigation'
 
 export type SidebarAppearance = 'default' | 'tenant'
 
@@ -32,6 +34,7 @@ interface SidebarNavigationProps {
   readonly onRetry: () => void
   readonly onNavigate: () => void
   readonly appearance: SidebarAppearance
+  readonly catalogMenu: CatalogNavigationControl
 }
 
 interface SidebarNavigationItemProps {
@@ -47,6 +50,7 @@ interface SidebarNavigationSectionProps {
   readonly section: NavSection
   readonly onNavigate: () => void
   readonly appearance: SidebarAppearance
+  readonly catalogMenu: CatalogNavigationControl
 }
 
 interface PlannedNavigationTooltipProps {
@@ -283,6 +287,16 @@ function StandardNavigationSection({
 }
 
 function SidebarNavigationSection(props: SidebarNavigationSectionProps) {
+  if (props.section.presentation === 'catalog') {
+    return (
+      <CatalogNavigation
+        section={props.section}
+        pathname={props.pathname}
+        control={props.catalogMenu}
+        onNavigate={props.onNavigate}
+      />
+    )
+  }
   return props.section.collapsible ? (
     <CollapsibleNavigationSection {...props} />
   ) : (
@@ -299,20 +313,27 @@ export function SidebarNavigation({
   onRetry,
   onNavigate,
   appearance,
+  catalogMenu,
 }: SidebarNavigationProps) {
   return (
-    <nav aria-label="Điều hướng chính" className="min-w-0">
+    <nav aria-label="Điều hướng chính" className="flex min-w-0 shrink-0 flex-col">
       {isPending && !hasPermissionData ? <SidebarNavigationLoadingState /> : null}
       {isError && !hasPermissionData ? <SidebarNavigationErrorState onRetry={onRetry} /> : null}
       {hasPermissionData
         ? sections.map((section) => (
-            <div key={section.id} className="min-w-0">
+            <div
+              key={section.id}
+              className={cn('min-w-0 shrink-0', section.presentation === 'catalog' && 'pt-3')}
+            >
+              {section.presentation === 'catalog' ? <SidebarSeparator className="mb-2" /> : null}
               <SidebarNavigationSection
                 pathname={pathname}
                 section={section}
                 onNavigate={onNavigate}
                 appearance={appearance}
+                catalogMenu={catalogMenu}
               />
+              {section.separatorAfter ? <SidebarSeparator className="my-2" /> : null}
             </div>
           ))
         : null}

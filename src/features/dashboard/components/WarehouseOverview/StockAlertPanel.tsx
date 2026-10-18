@@ -277,27 +277,6 @@ export function StockAlertPanel({
           ) : null}
         </TableBody>
       </Table>
-      <div
-        className={cn(
-          'text-muted-foreground flex shrink-0 flex-wrap items-center justify-between gap-1 border-t px-3 py-1.5 text-xs',
-          onExpand && '[@media(max-height:500px)]:hidden'
-        )}
-        aria-live="polite"
-      >
-        <span>
-          {data
-            ? `Cập nhật: ${snapshotFormatter.format(new Date(data.generatedAt))}`
-            : 'Chưa có dữ liệu cập nhật'}
-          {data && 'evaluationDate' in data ? (
-            <span
-              className="ml-1"
-              title="Ngày UTC tương thích rule lô/tồn hiện tại; Dự báo & bổ sung dùng ngày Việt Nam."
-            >
-              · Đánh giá {dateFormatter.format(new Date(`${data.evaluationDate}T00:00:00Z`))} (UTC)
-            </span>
-          ) : null}
-        </span>
-      </div>
       {data ? (
         <OperationalPagination
           page={data.pageNumber}
@@ -306,6 +285,17 @@ export function StockAlertPanel({
           isPending={isFetching}
           onPageChange={onPageChange}
           onPageSizeChange={onPageSizeChange}
+          centerContent={
+            <div className="flex flex-wrap justify-center gap-x-1" aria-live="polite">
+              <span>Cập nhật: {snapshotFormatter.format(new Date(data.generatedAt))}</span>
+              {'evaluationDate' in data ? (
+                <span title="Ngày UTC tương thích rule lô/tồn hiện tại; Dự báo & bổ sung dùng ngày Việt Nam.">
+                  · Đánh giá {dateFormatter.format(new Date(`${data.evaluationDate}T00:00:00Z`))}{' '}
+                  (UTC)
+                </span>
+              ) : null}
+            </div>
+          }
         />
       ) : (
         <div className="shrink-0 border-t p-3">

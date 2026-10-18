@@ -42,6 +42,7 @@ export type NavItem = {
   // Đường dẫn con có mục menu riêng, không được làm sáng mục cha khớp theo tiền tố.
   readonly excludedPrefixes?: readonly string[]
   readonly status?: 'planned'
+  readonly catalogGroup?: (typeof CATALOG_GROUPS)[number]['id']
 }
 
 export type NavSection = {
@@ -51,7 +52,15 @@ export type NavSection = {
   readonly items: readonly NavItem[]
   readonly collapsible?: boolean
   readonly separatorBefore?: boolean
+  readonly separatorAfter?: boolean
+  readonly presentation?: 'catalog'
 }
+
+export const CATALOG_GROUPS = [
+  { id: 'products', label: 'Vật tư hàng hóa', icon: Package },
+  { id: 'subjects', label: 'Đối tượng', icon: Users },
+  { id: 'warehouses', label: 'Kho & bố trí', icon: Warehouse },
+] as const
 
 const tenantStaffSection: NavSection = {
   id: 'organization-management',
@@ -86,37 +95,41 @@ const tenantReportsSection: NavSection = {
   ],
 }
 
-const tenantSubjectsSection: NavSection = {
-  id: 'subjects',
-  label: 'Đối tượng',
-  icon: Users,
-  collapsible: true,
-  items: [
-    requiredNavItem(APP_ROUTES.suppliers, 'Nhà cung cấp', Truck, P.SUPPLIERS_VIEW),
-    requiredNavItem(APP_ROUTES.stockRecipients, 'Khách hàng', Users, P.STOCK_RECIPIENTS_VIEW),
-  ],
-}
-
 const tenantCatalogSection: NavSection = {
   id: 'catalog',
   label: 'Danh mục',
   icon: Tags,
-  collapsible: true,
+  presentation: 'catalog',
+  separatorBefore: true,
   items: [
-    requiredNavItem(APP_ROUTES.products, 'Danh mục VTHH', Package, P.PRODUCTS_VIEW),
-    requiredNavItem(APP_ROUTES.categories, 'Nhóm VTHH', Tags, P.CATEGORIES_VIEW),
-    requiredNavItem(APP_ROUTES.units, 'Đơn vị tính', Scale, P.UNITS_VIEW),
-  ],
-}
-
-const tenantWarehouseSection: NavSection = {
-  id: 'warehouse-management',
-  label: 'Quản Lý Kho',
-  icon: Warehouse,
-  collapsible: true,
-  items: [
-    requiredNavItem(APP_ROUTES.warehouses, 'Kho hàng', Warehouse, P.WAREHOUSES_VIEW),
-    requiredNavItem(APP_ROUTES.warehouseLayouts, 'Sơ đồ kho', Warehouse, P.WAREHOUSES_VIEW),
+    {
+      ...requiredNavItem(APP_ROUTES.products, 'Vật tư hàng hóa', Package, P.PRODUCTS_VIEW),
+      catalogGroup: 'products',
+    },
+    {
+      ...requiredNavItem(APP_ROUTES.categories, 'Nhóm vật tư hàng hóa', Tags, P.CATEGORIES_VIEW),
+      catalogGroup: 'products',
+    },
+    {
+      ...requiredNavItem(APP_ROUTES.units, 'Đơn vị tính', Scale, P.UNITS_VIEW),
+      catalogGroup: 'products',
+    },
+    {
+      ...requiredNavItem(APP_ROUTES.stockRecipients, 'Khách hàng', Users, P.STOCK_RECIPIENTS_VIEW),
+      catalogGroup: 'subjects',
+    },
+    {
+      ...requiredNavItem(APP_ROUTES.suppliers, 'Nhà cung cấp', Truck, P.SUPPLIERS_VIEW),
+      catalogGroup: 'subjects',
+    },
+    {
+      ...requiredNavItem(APP_ROUTES.warehouses, 'Kho hàng', Warehouse, P.WAREHOUSES_VIEW),
+      catalogGroup: 'warehouses',
+    },
+    {
+      ...requiredNavItem(APP_ROUTES.warehouseLayouts, 'Sơ đồ kho', Warehouse, P.WAREHOUSES_VIEW),
+      catalogGroup: 'warehouses',
+    },
   ],
 }
 
@@ -231,6 +244,13 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         requiredNavItem(APP_ROUTES.dashboard, 'Dashboard', LayoutDashboard, P.DASHBOARD_VIEW, [
           APP_ROUTES.dashboardByRole.tenant,
         ]),
+        requiredNavItem(APP_ROUTES.products, 'Vật tư hàng hóa', Package, P.PRODUCTS_VIEW),
+      ],
+      separatorAfter: true,
+    },
+    {
+      id: 'tasks',
+      items: [
         {
           ...requiredNavItem(
             APP_ROUTES.myTasks,
@@ -262,40 +282,6 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
           P.TENANT_ROLE_PERMISSIONS_VIEW
         ),
         requiredNavItem(APP_ROUTES.staff, 'Nhân viên', Users, P.STAFF_VIEW),
-      ],
-    },
-    {
-      id: 'warehouse-management',
-      label: 'Quản Lý Kho',
-      icon: Warehouse,
-      collapsible: true,
-      separatorBefore: true,
-      items: [
-        requiredNavItem(APP_ROUTES.warehouses, 'Kho hàng', Warehouse, P.WAREHOUSES_VIEW),
-        requiredNavItem(APP_ROUTES.warehouseLayouts, 'Sơ đồ kho', Warehouse, P.WAREHOUSES_VIEW),
-      ],
-    },
-    {
-      id: 'subjects',
-      label: 'Đối tượng',
-      icon: Users,
-      collapsible: true,
-      separatorBefore: true,
-      items: [
-        requiredNavItem(APP_ROUTES.suppliers, 'Nhà cung cấp', Truck, P.SUPPLIERS_VIEW),
-        requiredNavItem(APP_ROUTES.stockRecipients, 'Khách hàng', Users, P.STOCK_RECIPIENTS_VIEW),
-      ],
-    },
-    {
-      id: 'catalog',
-      label: 'Danh mục',
-      icon: Tags,
-      collapsible: true,
-      separatorBefore: true,
-      items: [
-        requiredNavItem(APP_ROUTES.products, 'Danh mục VTHH', Package, P.PRODUCTS_VIEW),
-        requiredNavItem(APP_ROUTES.categories, 'Nhóm VTHH', Tags, P.CATEGORIES_VIEW),
-        requiredNavItem(APP_ROUTES.units, 'Đơn vị tính', Scale, P.UNITS_VIEW),
       ],
     },
     {
@@ -359,6 +345,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         { href: APP_ROUTES.settings.security, label: 'Cài đặt', icon: Settings },
       ],
     },
+    tenantCatalogSection,
   ],
   [USER_ROLES.WarehouseManager]: [
     {
@@ -367,6 +354,13 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         requiredNavItem(APP_ROUTES.dashboard, 'Dashboard', LayoutDashboard, P.DASHBOARD_VIEW, [
           APP_ROUTES.dashboardByRole.manager,
         ]),
+        requiredNavItem(APP_ROUTES.products, 'Vật tư hàng hóa', Package, P.PRODUCTS_VIEW),
+      ],
+      separatorAfter: true,
+    },
+    {
+      id: 'tasks',
+      items: [
         {
           ...requiredNavItem(
             APP_ROUTES.myTasks,
@@ -385,12 +379,10 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
       ],
     },
     tenantStaffSection,
-    tenantSubjectsSection,
-    tenantCatalogSection,
-    tenantWarehouseSection,
     tenantOperationsSection,
     tenantReportsSection,
     tenantMemberSystemSection,
+    tenantCatalogSection,
   ],
   [USER_ROLES.WarehouseStaff]: [
     {
@@ -399,6 +391,13 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         requiredNavItem(APP_ROUTES.dashboard, 'Dashboard', LayoutDashboard, P.DASHBOARD_VIEW, [
           APP_ROUTES.dashboardByRole.staff,
         ]),
+        requiredNavItem(APP_ROUTES.products, 'Vật tư hàng hóa', Package, P.PRODUCTS_VIEW),
+      ],
+      separatorAfter: true,
+    },
+    {
+      id: 'tasks',
+      items: [
         {
           ...requiredNavItem(
             APP_ROUTES.myTasks,
@@ -417,12 +416,10 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
       ],
     },
     tenantStaffSection,
-    tenantCatalogSection,
-    tenantSubjectsSection,
-    tenantWarehouseSection,
     tenantOperationsSection,
     tenantReportsSection,
     staffSystemSection,
+    tenantCatalogSection,
   ],
 }
 

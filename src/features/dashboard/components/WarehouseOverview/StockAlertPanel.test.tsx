@@ -2,7 +2,10 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { StockAlertPanel, type StockAlertPanelProps } from './StockAlertPanel'
-import { stockThresholdAlertsSchema } from '../../schemas/stock-alert.schema'
+import {
+  stockExpiryAlertsSchema,
+  stockThresholdAlertsSchema,
+} from '../../schemas/stock-alert.schema'
 
 afterEach(cleanup)
 const productId = '00000000-0000-0000-0000-000000000001'
@@ -41,6 +44,31 @@ const props: StockAlertPanelProps = {
 }
 
 describe('shared stock alert panel', () => {
+  it.each([false, true])(
+    'places update and UTC evaluation metadata in the centered pagination slot (expanded=%s)',
+    (expanded) => {
+      const expiry = stockExpiryAlertsSchema.parse({
+        ...data,
+        kind: 'expired',
+        evaluationDate: '2026-10-18',
+        timeBasis: 'UTC',
+        expiringDays: null,
+        items: [],
+        totalCount: 0,
+      })
+      const { container } = render(
+        <StockAlertPanel {...props} kind="expired" data={expiry} expanded={expanded} />
+      )
+      const panel = container.querySelector('[data-slot="operational-list-panel"]')
+      const header = panel?.firstElementChild
+      const footer = panel?.querySelector(':scope > footer')
+      expect(header).not.toHaveTextContent('Cập nhật:')
+      expect(footer).toContainElement(screen.getByText(/^Cập nhật:/))
+      expect(footer).toContainElement(screen.getByText(/Đánh giá 18\/10\/2026 \(UTC\)/))
+      expect(screen.getByText(/^Cập nhật:/).parentElement?.parentElement).toHaveClass('text-center')
+      expect(container.querySelectorAll('[aria-live="polite"]')).toHaveLength(1)
+    }
+  )
   it('uses the shared list panel and direct pagination footer with a real scoped inventory link', () => {
     const { container } = render(<StockAlertPanel {...props} />)
     const panel = container.querySelector('[data-slot="operational-list-panel"]')
