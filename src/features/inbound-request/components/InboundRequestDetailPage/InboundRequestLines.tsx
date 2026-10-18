@@ -114,7 +114,7 @@ export function InboundRequestLines({ lines }: { readonly lines: readonly Inboun
                 ? ` (×${formatQuantity(line.conversionFactorSnapshot)})`
                 : ''}
             </p>
-            <dl className="mt-3 grid grid-cols-4 gap-3">
+            <dl className="mt-3 grid grid-cols-2 gap-3 min-[480px]:grid-cols-4">
               <Metadata
                 label="SL yêu cầu"
                 value={`${formatQuantity(line.quantity)} ${line.unitName ?? ''}`}

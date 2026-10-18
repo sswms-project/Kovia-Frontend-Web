@@ -45,6 +45,7 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 5. Do not use hard-coded `calc(100vh - ...)` values. They break under browser zoom, different headers, and responsive wrapping.
 6. Do not let `body` or the whole page become the table scroll container.
 7. Pagination must be a direct, non-scrolling child of the list panel.
+8. Below the `md` breakpoint `OperationalListPanel` grows to its content height (`max-md:min-h-fit`) and the workspace scrolls naturally, so the list is never squeezed under stacked toolbars on phones. Do not override this in feature code.
 
 ## Header, toolbar, and filters
 
@@ -53,6 +54,7 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 - Use a filter sheet only when the filter set is too large for the toolbar or contains advanced dependent fields.
 - Changing search, filters, or page size resets the current page to `1`.
 - Toolbar controls must wrap on narrow screens without causing horizontal page overflow.
+- A search field that grows with `flex-1` inside a wrapping toolbar must also take a full row on phones (`basis-full sm:basis-auto`); `min-w-0 flex-1` alone lets it collapse to a few pixels instead of wrapping.
 
 ## Table behavior
 

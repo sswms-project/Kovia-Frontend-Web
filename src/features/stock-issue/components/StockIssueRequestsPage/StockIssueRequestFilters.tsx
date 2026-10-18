@@ -73,7 +73,7 @@ export function StockIssueRequestFilters({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <InputGroup
-        className="min-w-0 flex-1 sm:w-80 sm:flex-none"
+        className="min-w-0 flex-1 basis-full sm:w-80 sm:flex-none sm:basis-auto"
         title="Gõ không dấu, nhiều từ cùng lúc. Tìm theo mã phiếu, mã tham chiếu, người nhận, số điện thoại, kho, tên/SKU/mã vạch sản phẩm."
       >
         <InputGroupAddon>

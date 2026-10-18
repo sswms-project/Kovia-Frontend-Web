@@ -11,6 +11,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item'
+import { rowActivationProps } from '@/features/inbound/utils/row-activation-props'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -97,11 +106,53 @@ export function GoodsReturnRequestDirectory({
   onRetry,
 }: GoodsReturnRequestDirectoryProps) {
   const canApprove = permissions.includes(P.GOODS_RETURN_REQUESTS_APPROVE)
+  const renderActions = (item: GoodsReturnRequestSummary) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Thao tác với ${item.goodsReturnRequestCode}`}
+        >
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={() => onInspect(item)}>
+            <Eye />
+            Chi tiết
+          </DropdownMenuItem>
+          {canApprove && item.status === 'Requested' && item.createdBy !== currentUserId ? (
+            <>
+              <DropdownMenuItem onSelect={() => onApprove(item)}>
+                <Check />
+                Duyệt
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={() => onReject(item)}>
+                <X />
+                Từ chối
+              </DropdownMenuItem>
+            </>
+          ) : null}
+          {canApprove && item.status === 'Approved' ? (
+            <DropdownMenuItem onSelect={() => onRestock(item)}>
+              <Undo2 />
+              Nhập lại kho
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <h1 className="sr-only">Yêu cầu trả hàng</h1>
       <StockIssueWorkspaceNavigation currentView="goodsReturnRequests" permissions={permissions} />
-      <OperationalListPanel aria-label="Danh sách phiếu hoàn hàng">
+      <OperationalListPanel
+        className="max-md:[&>[data-slot=table-container]]:hidden"
+        aria-label="Danh sách phiếu hoàn hàng"
+      >
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-3">
           <div>
             <h2 className="text-sm font-semibold">Danh sách yêu cầu trả hàng</h2>
@@ -169,77 +220,59 @@ export function GoodsReturnRequestDirectory({
             description="Thử đổi từ khóa hoặc trạng thái."
           />
         ) : (
-          <Table className="min-w-[760px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sticky top-0 z-10">Mã phiếu</TableHead>
-                <TableHead className="sticky top-0 z-10">Yêu cầu xuất kho</TableHead>
-                <TableHead className="sticky top-0 z-10">Lý do</TableHead>
-                <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
-                <TableHead className="sticky top-0 z-10">
-                  <span className="sr-only">Thao tác</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <ClickableTableRow key={item.id} onActivate={() => onInspect(item)}>
-                  <TableCell className="font-mono">{item.goodsReturnRequestCode}</TableCell>
-                  <TableCell className="font-mono">{item.stockIssueRequestCode}</TableCell>
-                  <TableCell className="max-w-64 truncate">{item.reason}</TableCell>
-                  <TableCell>
-                    <GoodsReturnRequestStatusBadge status={item.status} />
-                  </TableCell>
-                  <TableCell>{formatStockIssueDate(item.createdAt)}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Thao tác với ${item.goodsReturnRequestCode}`}
-                        >
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem onSelect={() => onInspect(item)}>
-                            <Eye />
-                            Chi tiết
-                          </DropdownMenuItem>
-                          {canApprove &&
-                          item.status === 'Requested' &&
-                          item.createdBy !== currentUserId ? (
-                            <>
-                              <DropdownMenuItem onSelect={() => onApprove(item)}>
-                                <Check />
-                                Duyệt
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onSelect={() => onReject(item)}
-                              >
-                                <X />
-                                Từ chối
-                              </DropdownMenuItem>
-                            </>
-                          ) : null}
-                          {canApprove && item.status === 'Approved' ? (
-                            <DropdownMenuItem onSelect={() => onRestock(item)}>
-                              <Undo2 />
-                              Nhập lại kho
-                            </DropdownMenuItem>
-                          ) : null}
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </ClickableTableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <ItemGroup className="gap-0">
+                {items.map((item) => (
+                  <Item
+                    key={item.id}
+                    {...rowActivationProps(() => onInspect(item), 'border-b last:border-b-0')}
+                  >
+                    <ItemContent className="min-w-0">
+                      <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                        <span className="font-mono">{item.goodsReturnRequestCode}</span>
+                        <GoodsReturnRequestStatusBadge status={item.status} />
+                      </ItemTitle>
+                      <ItemDescription>
+                        Yêu cầu xuất <span className="font-mono">{item.stockIssueRequestCode}</span>{' '}
+                        · {formatStockIssueDate(item.createdAt)}
+                      </ItemDescription>
+                      <ItemDescription className="line-clamp-2">{item.reason}</ItemDescription>
+                    </ItemContent>
+                    <ItemActions>{renderActions(item)}</ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            </div>
+            <Table className="min-w-[760px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky top-0 z-10">Mã phiếu</TableHead>
+                  <TableHead className="sticky top-0 z-10">Yêu cầu xuất kho</TableHead>
+                  <TableHead className="sticky top-0 z-10">Lý do</TableHead>
+                  <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                  <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
+                  <TableHead className="sticky top-0 z-10">
+                    <span className="sr-only">Thao tác</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => (
+                  <ClickableTableRow key={item.id} onActivate={() => onInspect(item)}>
+                    <TableCell className="font-mono">{item.goodsReturnRequestCode}</TableCell>
+                    <TableCell className="font-mono">{item.stockIssueRequestCode}</TableCell>
+                    <TableCell className="max-w-64 truncate">{item.reason}</TableCell>
+                    <TableCell>
+                      <GoodsReturnRequestStatusBadge status={item.status} />
+                    </TableCell>
+                    <TableCell>{formatStockIssueDate(item.createdAt)}</TableCell>
+                    <TableCell className="text-right">{renderActions(item)}</TableCell>
+                  </ClickableTableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </>
         )}
         <OperationalPagination
           page={page}

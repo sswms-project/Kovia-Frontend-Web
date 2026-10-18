@@ -519,7 +519,7 @@ export default function MyWarehouseTasksPage({
           isError={query.isError}
           currentUserId={meQuery.data?.id}
           headerAction={
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:flex sm:flex-none sm:flex-wrap sm:items-center sm:justify-end">
               <NativeSelect
                 aria-label="Lọc theo loại công việc"
                 value={taskTypeFilter}
@@ -527,7 +527,7 @@ export default function MyWarehouseTasksPage({
                   setTaskTypeFilter(event.target.value as WarehouseTaskType | '')
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi loại việc</NativeSelectOption>
                 <NativeSelectOption value="Receiving">Nhận hàng</NativeSelectOption>
@@ -552,7 +552,7 @@ export default function MyWarehouseTasksPage({
                   )
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi trạng thái</NativeSelectOption>
                 <NativeSelectOption value="Queued">Chờ bắt đầu</NativeSelectOption>
@@ -566,7 +566,7 @@ export default function MyWarehouseTasksPage({
                   setDeadlineFilter(event.target.value as WarehouseTaskDeadlineStatus | '')
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi thời hạn</NativeSelectOption>
                 <NativeSelectOption value="Overdue">Quá hạn</NativeSelectOption>
@@ -575,7 +575,11 @@ export default function MyWarehouseTasksPage({
                 <NativeSelectOption value="NoDeadline">Chưa đặt hạn</NativeSelectOption>
               </NativeSelect>
               {canCreateRelocation ? (
-                <Button type="button" onClick={() => setCreateOpen(true)}>
+                <Button
+                  type="button"
+                  className="col-span-2 sm:col-auto"
+                  onClick={() => setCreateOpen(true)}
+                >
                   <Plus aria-hidden="true" /> Tạo task điều chuyển
                 </Button>
               ) : null}

@@ -124,8 +124,8 @@ export function SupplierDirectory({
               Danh sách nhà cung cấp
             </h2>
           </div>
-          <div className="flex w-full gap-2 sm:w-auto">
-            <InputGroup className="min-w-0 flex-1 sm:w-72">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
+            <InputGroup className="min-w-0 flex-1 basis-full sm:w-72 sm:basis-auto">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
@@ -138,7 +138,7 @@ export function SupplierDirectory({
             </InputGroup>
             <NativeSelect
               aria-label="Lọc nhà cung cấp theo trạng thái"
-              className="w-44"
+              className="flex-1 sm:w-44 sm:flex-none"
               value={status}
               onChange={(event) => onStatusChange(parseActiveStatusFilter(event.target.value))}
             >

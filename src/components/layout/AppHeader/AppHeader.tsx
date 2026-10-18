@@ -1,15 +1,26 @@
 'use client'
 
-import { Boxes } from 'lucide-react'
+import { Boxes, Menu } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useSidebar } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 import { AppHeaderActions } from './AppHeaderActions'
 
 export function AppHeader() {
-  const { state } = useSidebar()
+  const { state, toggleSidebar } = useSidebar()
 
   return (
     <header className="bg-sidebar border-sidebar-border sticky top-0 z-10 flex h-14 shrink-0 items-center border-b [--accent-foreground:var(--color-sidebar-accent-foreground)] [--accent:var(--color-sidebar-accent)] [--border:var(--color-sidebar-border)] [--foreground:rgb(255,255,255)] [--muted-foreground:rgba(255,255,255,0.55)] [--muted:var(--color-sidebar-accent)]">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="text-sidebar-foreground ml-1 shrink-0 md:hidden"
+        aria-label="Mở menu điều hướng"
+        onClick={toggleSidebar}
+      >
+        <Menu aria-hidden="true" />
+      </Button>
       <div
         className={cn(
           'flex shrink-0 items-center gap-2.5 px-3 transition-[width] duration-200 ease-linear sm:px-4',

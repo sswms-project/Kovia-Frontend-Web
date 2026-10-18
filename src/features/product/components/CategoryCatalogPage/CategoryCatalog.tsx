@@ -192,7 +192,7 @@ export function CategoryCatalog({
     visibleItems.length > 0 && visibleItems.every((item) => selectedIds.has(item.id))
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 items-start justify-between gap-4 border-b pb-4">
+      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex items-start gap-3">
           <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
             <FolderTree aria-hidden="true" />
@@ -210,7 +210,7 @@ export function CategoryCatalog({
                 Nhập từ tệp
               </Link>
             </Button>
-            <Button onClick={() => onCreate(null)}>
+            <Button className="flex-1 sm:flex-none" onClick={() => onCreate(null)}>
               <Plus data-icon="inline-start" aria-hidden="true" />
               Thêm nhóm
             </Button>
