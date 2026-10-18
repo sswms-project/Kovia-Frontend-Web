@@ -95,6 +95,50 @@ afterEach(() => {
 })
 
 describe('catalog integration with the application sidebar', () => {
+  it.each(['/tasks', '/tasks/history'])(
+    'opens the task group for %s and marks only its matching child',
+    (pathname) => {
+      session.pathname = pathname
+      session.permissions = [P.WAREHOUSE_TASKS_VIEW_OWN]
+      render(<Harness />)
+      expect(screen.getByRole('button', { name: 'Công việc kho' })).toHaveAttribute(
+        'aria-expanded',
+        'true'
+      )
+      const current = screen.getByRole('link', { name: 'Công việc hiện tại' })
+      const history = screen.getByRole('link', { name: 'Lịch sử công việc' })
+      expect(pathname === '/tasks' ? current : history).toHaveAttribute('aria-current', 'page')
+      expect(pathname === '/tasks' ? history : current).not.toHaveAttribute('aria-current')
+    }
+  )
+
+  it('groups owner billing and audit navigation under System without obsolete menus', async () => {
+    session.user = { ...session.user!, role: USER_ROLES.TenantOwner }
+    session.pathname = '/subscription/payments'
+    session.permissions = [
+      P.SUBSCRIPTIONS_VIEW,
+      P.PAYMENTS_VIEW,
+      P.AUDIT_LOGS_VIEW,
+      P.NOTIFICATIONS_VIEW,
+    ]
+    render(<Harness />)
+    expect(screen.getByRole('button', { name: 'Hệ thống' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+    expect(screen.getByRole('link', { name: 'Gói dịch vụ' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    expect(screen.getByRole('link', { name: 'Nhật ký hoạt động' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dịch vụ' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Thông báo' })).toHaveAttribute(
+      'href',
+      '/notifications'
+    )
+    expect(screen.queryByRole('link', { name: 'Cài đặt' })).not.toBeInTheDocument()
+  })
+
   it.each([false, true])(
     'places the catalog directly after other sections with a shared divider on mobile=%s',
     async (mobile) => {

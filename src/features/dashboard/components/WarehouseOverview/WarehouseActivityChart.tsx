@@ -8,26 +8,84 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import type { WarehouseOverview } from '../../schemas/warehouse-overview.schema'
 
-export function WarehouseActivityChart({ data }: { readonly data: WarehouseOverview }) {
+interface WarehouseActivityChartProps {
+  readonly data: WarehouseOverview
+  readonly activityDays: number
+  readonly onActivityDaysChange: (value: number) => void
+}
+
+const activityDateFormatter = new Intl.DateTimeFormat('vi-VN', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
+
+export function WarehouseActivityChart({
+  data,
+  activityDays,
+  onActivityDaysChange,
+}: WarehouseActivityChartProps) {
   const received = data.activity.reduce((sum, day) => sum + day.completedReceipts, 0)
   const issued = data.activity.reduce((sum, day) => sum + day.dispatchedIssues, 0)
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          Phiếu hoàn tất trong kỳ · {data.activityDateFrom} → {data.activityDateTo}
-        </CardTitle>
-        <p className="text-muted-foreground text-xs">
-          {received} phiếu nhận đã cất xong · {issued} phiếu đã xác nhận xuất. Tồn hiện tại bên trên
-          không thay đổi theo kỳ này.
-        </p>
+    <Card
+      className="min-h-0 min-w-0 flex-1 gap-0 rounded-xl border py-0 ring-0"
+      role="region"
+      aria-label="Phiếu hoàn tất trong kỳ"
+    >
+      <CardHeader className="shrink-0 border-b p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>
+            <h2>Phiếu hoàn tất trong kỳ</h2>
+          </CardTitle>
+          <label className="flex items-center gap-2 text-xs">
+            Kỳ hoạt động
+            <NativeSelect
+              value={String(activityDays)}
+              onChange={(event) => onActivityDaysChange(Number(event.target.value))}
+            >
+              {[7, 30, 90].map((days) => (
+                <NativeSelectOption key={days} value={String(days)}>
+                  {days} ngày gần nhất
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </label>
+        </div>
+        <CardDescription>
+          {activityDateFormatter.format(new Date(`${data.activityDateFrom}T00:00:00Z`))} –{' '}
+          {activityDateFormatter.format(new Date(`${data.activityDateTo}T00:00:00Z`))}
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+        <dl className="grid shrink-0 grid-cols-2 gap-3 border-b pb-3 text-xs">
+          <div>
+            <dt className="text-muted-foreground">Phiếu nhận cất xong</dt>
+            <dd className="mt-1 text-lg font-semibold tabular-nums">
+              {received.toLocaleString('vi-VN')}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Phiếu xác nhận xuất</dt>
+            <dd className="mt-1 text-lg font-semibold tabular-nums">
+              {issued.toLocaleString('vi-VN')}
+            </dd>
+          </div>
+        </dl>
         <div
-          className="h-64 min-w-0"
+          className="min-h-0 min-w-0 flex-1"
           role="img"
           aria-label={`Hoạt động trong kỳ: ${received} phiếu nhận cất xong và ${issued} phiếu xuất.`}
         >
@@ -59,11 +117,12 @@ export function WarehouseActivityChart({ data }: { readonly data: WarehouseOverv
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <p className="text-muted-foreground mt-2 text-xs">
-          Đếm chứng từ có mốc hoàn tất được ghi nhận theo giờ Việt Nam; không cộng số lượng khác
-          SKU. Phiếu nhận thiếu mốc cất cuối không được suy từ ngày sửa.
-        </p>
       </CardContent>
+      <CardFooter className="text-muted-foreground shrink-0 p-3 text-xs">
+        <p title="Đếm chứng từ có mốc hoàn tất được ghi nhận theo giờ Việt Nam; không cộng số lượng khác SKU. Phiếu nhận thiếu mốc cất cuối không được suy từ ngày sửa.">
+          Theo ngày hoàn tất (giờ Việt Nam). Kỳ này không thay đổi các chỉ số tồn hiện tại.
+        </p>
+      </CardFooter>
     </Card>
   )
 }

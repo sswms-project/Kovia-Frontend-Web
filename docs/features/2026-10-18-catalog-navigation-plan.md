@@ -1,5 +1,7 @@
 # Kế hoạch UI/UX: Danh mục tập trung trên sidebar
 
+Cập nhật cấu trúc sau triển khai: nhóm Công việc kho gồm Công việc hiện tại và Lịch sử công việc; Hệ thống gồm Thông báo, Nhật ký hoạt động và Gói dịch vụ. Gói dịch vụ mở workspace hai tab Gói dịch vụ / Thanh toán trên các URL cũ. Thông báo có cả trong Hệ thống và chuông; cài đặt cá nhân ở avatar. Chưa thêm Tích hợp. Quản trị doanh nghiệp và quyền nghiệp vụ giữ nguyên. Các mô tả cấu trúc trước cập nhật bên dưới là lịch sử kế hoạch; QA mới nhất ở `../qa/2026-10-18-catalog-navigation.md`.
+
 Trạng thái: đã triển khai ngày 18/10/2026 trên nhánh `screen/huytv`, chưa commit/push. Kết quả và giới hạn kiểm thử tại `../qa/2026-10-18-catalog-navigation.md`.
 
 Cập nhật mới nhất: thời gian chờ đóng Danh mục là **400ms (0,4 giây)**, thay thế các mốc 500ms trong kế hoạch ban đầu bên dưới. Nhóm đầu sidebar gồm Dashboard và Vật tư hàng hóa, có separator phía dưới; công việc kho/lịch sử vẫn giữ ngay sau nhóm này. Danh mục vẫn theo luồng menu, không ghim đáy.

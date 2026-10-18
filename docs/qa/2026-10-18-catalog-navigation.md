@@ -1,5 +1,17 @@
 # QA: Danh mục tập trung trên sidebar
 
+## Cập nhật mới nhất — Công việc kho và Hệ thống
+
+Điều chỉnh tiếp theo theo yêu cầu: giữ lại Thông báo trong Hệ thống cho cả ba vai trò tenant, theo `P.NOTIFICATIONS_VIEW`; icon chuông và Xem tất cả thông báo vẫn giữ. Cấu trúc Hệ thống hiện tại: Thông báo / Nhật ký hoạt động / Gói dịch vụ (khi có quyền). Nội dung chuyển thông báo khỏi sidebar bên dưới là lịch sử của lượt trước.
+
+- Gom hai route công việc hiện tại/lịch sử thành Collapsible Công việc kho, dùng renderer sidebar sẵn có: tự mở khi route con active, giữ match exact cho `/tasks`. Nhãn con thống nhất Công việc hiện tại / Lịch sử công việc; phạm vi dữ liệu và quyền all/own giữ nguyên.
+- Tenant Hệ thống chỉ giữ Nhật ký hoạt động và Gói dịch vụ (thuê bao vẫn chỉ cho owner theo cấu hình/route guard hiện có). Bỏ nhóm Dịch vụ; gói/thanh toán dùng một sidebar entry. Payment-only permission chọn đích `/subscription/payments`; không có hai quyền thì không hiện entry. SystemAdmin và Quản trị doanh nghiệp giữ nguyên.
+- Hai URL thuê bao cũ và link hóa đơn giữ nguyên. Header chung Gói dịch vụ & thanh toán cùng hai link-tab Gói dịch vụ / Thanh toán, theo style operational navigation; page truyền capability từ useMeQuery hiện có. Header còn hiển thị khi gói đang loading/error để có thể đổi tab.
+- Thông báo vẫn truy cập qua chuông có Xem tất cả thông báo. Thêm Cài đặt tài khoản vào avatar, cùng Hồ sơ cá nhân; không đổi logout hoặc security settings. Không tạo menu Tích hợp khi chưa có tính năng.
+- Kiểm tra: 7 files / 94 tests passed, gồm sidebar active/route, fallback payments-only, role/permission visibility, tab đích/current, avatar link và Escape phục hồi focus. Scoped ESLint và production TypeScript đạt; không chạy full build/full suite.
+- Đã xem trực tiếp trên Edge local: sidebar mới; chuyển Gói dịch vụ → Thanh toán hiển thị giao dịch; avatar có Cài đặt tài khoản. Chỉ đọc/điều hướng, không tạo giao dịch hoặc sửa dữ liệu. Ảnh `2026-10-18-catalog-sidebar-desktop.png` được cập nhật tại cùng đường dẫn, thay ảnh của lượt trước. Chưa có ma trận trực quan mobile/theme/zoom đầy đủ; các test sidebar mobile cũ vẫn đạt.
+- Dùng Ponytail/React/shadcn để tái sử dụng Collapsible, DropdownMenu và CSS operational navigation, không thêm package/UI primitive; GitNexus LOW cho các symbol sửa, keyword index degraded nên kiểm tra trực tiếp consumers. Không sửa BE/DB, không restart local, chưa commit/push lượt này.
+
 Ngày: 18/10/2026. Nhánh: `screen/huytv`. Chưa commit/push.
 
 ## Phạm vi đã thực hiện

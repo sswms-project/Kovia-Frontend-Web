@@ -7,7 +7,6 @@ import {
   ClipboardList,
   CreditCard,
   FileChartColumn,
-  FolderCog,
   LayoutDashboard,
   Megaphone,
   Package,
@@ -166,16 +165,6 @@ const tenantMemberSystemSection: NavSection = {
   items: [
     requiredNavItem(APP_ROUTES.notifications, 'Thông báo', Bell, P.NOTIFICATIONS_VIEW),
     requiredNavItem(APP_ROUTES.auditLogs, 'Nhật ký hoạt động', ScrollText, P.AUDIT_LOGS_VIEW),
-    { href: APP_ROUTES.settings.security, label: 'Cài đặt', icon: Settings },
-  ],
-}
-
-const staffSystemSection: NavSection = {
-  ...tenantMemberSystemSection,
-  items: [
-    requiredNavItem(APP_ROUTES.notifications, 'Thông báo', Bell, P.NOTIFICATIONS_VIEW),
-    requiredNavItem(APP_ROUTES.auditLogs, 'Hoạt động của tôi', ScrollText, P.AUDIT_LOGS_VIEW),
-    { href: APP_ROUTES.settings.security, label: 'Cài đặt', icon: Settings },
   ],
 }
 
@@ -250,11 +239,14 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
     },
     {
       id: 'tasks',
+      label: 'Công việc kho',
+      icon: ClipboardList,
+      collapsible: true,
       items: [
         {
           ...requiredNavItem(
             APP_ROUTES.myTasks,
-            'Công việc kho',
+            'Công việc hiện tại',
             ClipboardList,
             P.WAREHOUSE_TASKS_VIEW_ALL
           ),
@@ -262,7 +254,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         },
         requiredNavItem(
           APP_ROUTES.myTaskHistory,
-          'Lịch sử công việc kho',
+          'Lịch sử công việc',
           ScrollText,
           P.WAREHOUSE_TASKS_VIEW_ALL
         ),
@@ -311,29 +303,6 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
     },
     tenantReportsSection,
     {
-      id: 'services',
-      label: 'Dịch vụ',
-      icon: FolderCog,
-      collapsible: true,
-      separatorBefore: true,
-      items: [
-        {
-          href: APP_ROUTES.subscription,
-          label: 'Gói dịch vụ',
-          icon: CreditCard,
-          requiredPermission: P.SUBSCRIPTIONS_VIEW,
-          match: 'exact',
-        },
-        {
-          href: APP_ROUTES.subscriptionPayments,
-          label: 'Lịch sử thanh toán',
-          icon: ReceiptText,
-          requiredPermission: P.PAYMENTS_VIEW,
-          activePrefixes: [APP_ROUTES.subscriptionInvoices],
-        },
-      ],
-    },
-    {
       id: 'system',
       label: 'Hệ thống',
       icon: Settings,
@@ -342,7 +311,12 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
       items: [
         requiredNavItem(APP_ROUTES.notifications, 'Thông báo', Bell, P.NOTIFICATIONS_VIEW),
         requiredNavItem(APP_ROUTES.auditLogs, 'Nhật ký hoạt động', ScrollText, P.AUDIT_LOGS_VIEW),
-        { href: APP_ROUTES.settings.security, label: 'Cài đặt', icon: Settings },
+        {
+          href: APP_ROUTES.subscription,
+          label: 'Gói dịch vụ',
+          icon: CreditCard,
+          requiredPermission: P.SUBSCRIPTIONS_VIEW,
+        },
       ],
     },
     tenantCatalogSection,
@@ -360,11 +334,14 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
     },
     {
       id: 'tasks',
+      label: 'Công việc kho',
+      icon: ClipboardList,
+      collapsible: true,
       items: [
         {
           ...requiredNavItem(
             APP_ROUTES.myTasks,
-            'Công việc kho',
+            'Công việc hiện tại',
             ClipboardList,
             P.WAREHOUSE_TASKS_VIEW_OWN
           ),
@@ -372,7 +349,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         },
         requiredNavItem(
           APP_ROUTES.myTaskHistory,
-          'Lịch sử công việc kho',
+          'Lịch sử công việc',
           ScrollText,
           P.WAREHOUSE_TASKS_VIEW_OWN
         ),
@@ -397,11 +374,14 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
     },
     {
       id: 'tasks',
+      label: 'Công việc kho',
+      icon: ClipboardList,
+      collapsible: true,
       items: [
         {
           ...requiredNavItem(
             APP_ROUTES.myTasks,
-            'Công việc của tôi',
+            'Công việc hiện tại',
             ClipboardList,
             P.WAREHOUSE_TASKS_VIEW_OWN
           ),
@@ -409,7 +389,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         },
         requiredNavItem(
           APP_ROUTES.myTaskHistory,
-          'Công việc đã xử lý',
+          'Lịch sử công việc',
           ScrollText,
           P.WAREHOUSE_TASKS_VIEW_OWN
         ),
@@ -418,7 +398,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
     tenantStaffSection,
     tenantOperationsSection,
     tenantReportsSection,
-    staffSystemSection,
+    tenantMemberSystemSection,
     tenantCatalogSection,
   ],
 }
@@ -454,6 +434,19 @@ export function getVisibleNavSections(
       ...section,
       items: section.items
         .map((item) => {
+          // Keep a single billing entry without sending payment-only users to a forbidden plan page.
+          if (
+            item.href === APP_ROUTES.subscription &&
+            !permissions.has(P.SUBSCRIPTIONS_VIEW) &&
+            permissions.has(P.PAYMENTS_VIEW)
+          ) {
+            return {
+              ...item,
+              href: APP_ROUTES.subscriptionPayments,
+              requiredPermission: P.PAYMENTS_VIEW,
+              activePrefixes: [APP_ROUTES.subscriptionInvoices],
+            }
+          }
           // The merged workspace must open a route the user is actually allowed to view.
           if (item.href === APP_ROUTES.inbound && permissions.has(P.INBOUND_REQUESTS_VIEW)) {
             return {

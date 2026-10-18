@@ -20,6 +20,21 @@ function getVisibleNavItems(
 
 describe('application navigation visibility', () => {
   it.each([USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff])(
+    'retains notifications under System only with notification access for %s',
+    (role) => {
+      const system = getVisibleNavSections(role, new Set([P.NOTIFICATIONS_VIEW])).find(
+        (section) => section.id === 'system'
+      )
+      expect(system?.items.find((item) => item.href === APP_ROUTES.notifications)?.label).toBe(
+        'Thông báo'
+      )
+      expect(
+        getVisibleNavItems(role, []).some((item) => item.href === APP_ROUTES.notifications)
+      ).toBe(false)
+    }
+  )
+
+  it.each([USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff])(
     'groups dashboard and the permission-gated product shortcut above a divider for %s',
     (role) => {
       const workspace = NAV_CONFIG[role][0]
@@ -212,17 +227,37 @@ describe('application navigation visibility', () => {
 
   it('groups subscription management without duplicate payment entries', () => {
     const serviceSection = NAV_CONFIG[USER_ROLES.TenantOwner].find(
-      (section) => section.id === 'services'
+      (section) => section.id === 'system'
     )
 
-    expect(serviceSection?.label).toBe('Dịch vụ')
+    expect(serviceSection?.label).toBe('Hệ thống')
     expect(serviceSection?.items.map((item) => [item.label, item.href])).toEqual([
+      ['Thông báo', APP_ROUTES.notifications],
+      ['Nhật ký hoạt động', APP_ROUTES.auditLogs],
       ['Gói dịch vụ', APP_ROUTES.subscription],
-      ['Lịch sử thanh toán', APP_ROUTES.subscriptionPayments],
     ])
   })
 
   it('shows payment history only with the payment viewing permission', () => {
+    for (const permissions of [[P.SUBSCRIPTIONS_VIEW], [P.SUBSCRIPTIONS_VIEW, P.PAYMENTS_VIEW]]) {
+      const billing = getVisibleNavItems(USER_ROLES.TenantOwner, permissions).filter(
+        (item) => item.label === 'Gói dịch vụ'
+      )
+      expect(billing).toHaveLength(1)
+      expect(billing[0]?.href).toBe(APP_ROUTES.subscription)
+    }
+    const paymentOnly = getVisibleNavItems(USER_ROLES.TenantOwner, [P.PAYMENTS_VIEW]).find(
+      (item) => item.label === 'Gói dịch vụ'
+    )
+    expect(paymentOnly?.href).toBe(APP_ROUTES.subscriptionPayments)
+    expect(paymentOnly?.requiredPermission).toBe(P.PAYMENTS_VIEW)
+    for (const role of [USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff]) {
+      expect(
+        getVisibleNavItems(role, [P.SUBSCRIPTIONS_VIEW, P.PAYMENTS_VIEW]).some(
+          (item) => item.label === 'Gói dịch vụ'
+        )
+      ).toBe(false)
+    }
     expect(
       getVisibleNavItems(USER_ROLES.TenantOwner, [P.PAYMENTS_VIEW]).some(
         (item) => item.href === APP_ROUTES.subscriptionPayments
@@ -256,7 +291,7 @@ describe('application navigation visibility', () => {
       }))
     ).toEqual([
       { label: null, items: ['Dashboard', 'Vật tư hàng hóa'] },
-      { label: null, items: ['Công việc kho', 'Lịch sử công việc kho'] },
+      { label: 'Công việc kho', items: ['Công việc hiện tại', 'Lịch sử công việc'] },
       { label: 'Quản trị doanh nghiệp', items: ['Doanh nghiệp', 'Phân quyền', 'Nhân viên'] },
       {
         label: 'Hoạt Động Kho',
@@ -266,8 +301,7 @@ describe('application navigation visibility', () => {
         label: 'Báo cáo & phân tích',
         items: ['Báo cáo kho', 'Dự báo & bổ sung hàng'],
       },
-      { label: 'Dịch vụ', items: ['Gói dịch vụ', 'Lịch sử thanh toán'] },
-      { label: 'Hệ thống', items: ['Thông báo', 'Nhật ký hoạt động', 'Cài đặt'] },
+      { label: 'Hệ thống', items: ['Thông báo', 'Nhật ký hoạt động', 'Gói dịch vụ'] },
       {
         label: 'Danh mục',
         items: [
@@ -323,12 +357,12 @@ describe('application navigation visibility', () => {
     ])
 
     expect(items.find((item) => item.href === APP_ROUTES.myTaskHistory)?.label).toBe(
-      'Công việc đã xử lý'
+      'Lịch sử công việc'
     )
     expect(items.find((item) => item.href === APP_ROUTES.auditLogs)?.label).toBe(
-      'Hoạt động của tôi'
+      'Nhật ký hoạt động'
     )
-    expect(items.some((item) => item.href === APP_ROUTES.settings.security)).toBe(true)
+    expect(items.some((item) => item.href === APP_ROUTES.settings.security)).toBe(false)
   })
 
   it('lets staff see delegated staff-management navigation without role hard-coding', () => {
@@ -377,19 +411,18 @@ describe('application navigation visibility', () => {
     expect(isNavItemActive(pathname, dashboardItem!)).toBe(true)
   })
 
-  it('marks only the correct subscription navigation item as active', () => {
+  it('keeps one billing entry active for plans, payments and invoice routes', () => {
     const serviceItems = NAV_CONFIG[USER_ROLES.TenantOwner].find(
-      (section) => section.id === 'services'
+      (section) => section.id === 'system'
     )?.items
     const planItem = serviceItems?.find((item) => item.href === APP_ROUTES.subscription)
     const paymentsItem = serviceItems?.find((item) => item.href === APP_ROUTES.subscriptionPayments)
 
     expect(planItem).toBeDefined()
-    expect(paymentsItem).toBeDefined()
+    expect(paymentsItem).toBeUndefined()
     expect(isNavItemActive('/subscription', planItem!)).toBe(true)
-    expect(isNavItemActive('/subscription/payments', planItem!)).toBe(false)
-    expect(isNavItemActive('/subscription/payments', paymentsItem!)).toBe(true)
-    expect(isNavItemActive('/subscription/invoices/payment-1/print', paymentsItem!)).toBe(true)
+    expect(isNavItemActive('/subscription/payments', planItem!)).toBe(true)
+    expect(isNavItemActive('/subscription/invoices/payment-1/print', planItem!)).toBe(true)
   })
 
   it.each([USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff])(
