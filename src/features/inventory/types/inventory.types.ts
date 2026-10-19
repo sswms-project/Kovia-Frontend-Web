@@ -277,6 +277,7 @@ export interface DamageCase {
   dispositionAt: string | null
   linkedStockIssueRequestId: string | null
   linkedStockAdjustmentId: string | null
+  linkedSupplierReturnId: string | null
   version: string | null
   isQuantityConfirmed: boolean
   resolvedQuantity: number
@@ -311,7 +312,7 @@ export interface DecideDamageCaseDispositionRequest {
   expectedCaseVersion: string
   quantity?: number
   note?: string
-  stockRecipientId?: string
+  supplierId?: string
 }
 
 export interface AddDamageCaseEvidenceRequest {
@@ -499,6 +500,7 @@ export interface StockDiscrepancy {
   duplicateOfReportId: string | null
   linkedCycleCountId: string | null
   linkedStockAdjustmentId: string | null
+  linkedSupplierReturnId: string | null
   version: string | null
   evidence: InventoryEvidence[]
   correctSlotId: string | null

@@ -12,9 +12,15 @@ export const AI_ACTIONS = {
   createTransfer: 'create_transfer',
   createStockAdjustment: 'create_stock_adjustment',
   createStockIssueRequest: 'create_stock_issue_request',
+  createSupplierReturn: 'create_supplier_return',
 } as const
 
 export type AiAction = (typeof AI_ACTIONS)[keyof typeof AI_ACTIONS]
+
+/** Phiếu xuất kho và phiếu trả NCC không có ngày dự kiến nên chỉ sửa số lượng. */
+export function isAiDraftWithoutDate(action?: string | null) {
+  return action === AI_ACTIONS.createStockIssueRequest || action === AI_ACTIONS.createSupplierReturn
+}
 
 export const AI_DRAFT_STATUSES = {
   pending: 'Pending',

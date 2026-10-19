@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
-import { useStockRecipientsQuery } from '@/features/stock-recipient/hooks/use-stock-recipients'
+import { useSuppliersQuery } from '@/features/supplier/hooks/use-suppliers'
 import { useProductOptionsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { DamageCaseDirectory } from '../components/DamageCasesPage'
@@ -36,7 +36,7 @@ export default function DamageCasesPage() {
   const decisionMutation = useDecideDamageCaseDispositionMutation()
   const uploadMutation = useUploadInventoryEvidenceMutation()
   const evidenceMutation = useAddDamageCaseEvidenceMutation()
-  const recipientsQuery = useStockRecipientsQuery({ pageNumber: 1, pageSize: 100 })
+  const suppliersQuery = useSuppliersQuery({ pageNumber: 1, pageSize: 100, status: 'Active' })
   const warehousesQuery = useWarehousesQuery({
     top: 100,
     skip: 0,
@@ -65,7 +65,7 @@ export default function DamageCasesPage() {
     disposition: DamageDisposition,
     quantity: number | undefined,
     note: string,
-    stockRecipientId?: string
+    supplierId?: string
   ) {
     if (!item.version) {
       toast.error('Hồ sơ chưa có phiên bản. Vui lòng tải lại.')
@@ -79,7 +79,7 @@ export default function DamageCasesPage() {
         commandId: crypto.randomUUID(),
         expectedCaseVersion: item.version,
         ...(quantity ? { quantity } : {}),
-        ...(stockRecipientId ? { stockRecipientId } : {}),
+        ...(supplierId ? { supplierId } : {}),
       })
       toast.success('Đã ghi nhận phương án xử lý hàng hỏng.')
     } catch (error) {
@@ -151,11 +151,11 @@ export default function DamageCasesPage() {
       isPending={
         decisionMutation.isPending || uploadMutation.isPending || evidenceMutation.isPending
       }
-      recipientOptions={(recipientsQuery.data?.items ?? []).map((item) => ({
+      supplierOptions={(suppliersQuery.data?.items ?? []).map((item) => ({
         value: item.id,
-        label: `${item.recipientCode} · ${item.recipientName}`,
+        label: `${item.supplierCode} · ${item.supplierName}`,
       }))}
-      areRecipientsLoading={recipientsQuery.isLoading}
+      areSuppliersLoading={suppliersQuery.isLoading}
       canDecide={meQuery.data?.permissions.includes(P.STOCK_ADJUSTMENTS_APPROVE) ?? false}
       onRetry={() => void casesQuery.refetch()}
       onDecide={decide}

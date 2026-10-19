@@ -20,7 +20,7 @@ import {
   aiStockIssueDraftQuantitiesSchema,
   type AiDraftQuantitiesForm,
 } from '../../schemas/ai-draft-quantities.schema'
-import { AI_ACTIONS } from '../../types/ai-assistant.types'
+import { isAiDraftWithoutDate } from '../../types/ai-assistant.types'
 import { aiChatMessageSchema, type AiChatMessageForm } from '../../schemas/ai-chat-message.schema'
 import { AiChatComposer } from './AiChatComposer'
 import { AiChatThread } from './AiChatThread'
@@ -54,7 +54,7 @@ export function AiAssistantPanel({
   const quantitiesForm = useForm<AiDraftQuantitiesForm>({
     resolver: (values, context, options) =>
       zodResolver(
-        editingAction.current === AI_ACTIONS.createStockIssueRequest
+        isAiDraftWithoutDate(editingAction.current)
           ? aiStockIssueDraftQuantitiesSchema
           : aiDraftQuantitiesSchema
       )(values, context, options),

@@ -43,6 +43,11 @@ export function getAiActionResultLink(
         href: APP_ROUTES.stockIssueRequestDetail(resultEntityId) as Route,
         label: 'Xem phiếu xuất kho',
       }
+    case AI_ACTIONS.createSupplierReturn:
+      return {
+        href: `${APP_ROUTES.supplierReturns}?id=${encodeURIComponent(resultEntityId)}` as Route,
+        label: 'Xem phiếu trả NCC',
+      }
     default:
       return null
   }
