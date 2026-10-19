@@ -73,6 +73,60 @@ afterEach(() => {
 })
 
 describe('warehouse activity workspace', () => {
+  it.each([false, true])('matches the metrics and detail skeletons to compact=%s', (compact) => {
+    const view = render(
+      <WarehouseOperationsView {...props} compact={compact} data={undefined} isLoading />
+    )
+    const metrics = view.container.querySelector('[data-slot="warehouse-metrics-skeleton"]')
+    if (compact) expect(metrics).not.toBeInTheDocument()
+    else expect(metrics?.querySelectorAll('[data-slot="card"]')).toHaveLength(4)
+    const details = screen.getByRole('status', { name: 'Đang tải chỉ số vận hành' })
+    expect(details).toHaveAttribute('data-slot', 'operational-list-panel')
+    expect(details).toHaveAttribute('aria-busy', 'true')
+    expect(within(details).getAllByRole('row', { hidden: true })).toHaveLength(compact ? 21 : 16)
+    expect(within(details).queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it.each([true, false])(
+    'keeps the independent chart and filters visible when overview loading is %s and no overview exists',
+    (isLoading) => {
+      render(
+        <WarehouseOperationsView
+          {...props}
+          data={undefined}
+          isLoading={isLoading}
+          errorMessage={isLoading ? undefined : 'Lỗi kết nối tổng quan'}
+        />
+      )
+      const chart = screen.getByRole('region', { name: 'Nhập – xuất kho trong kỳ' })
+      expect(within(chart).getByText('6')).toBeInTheDocument()
+      expect(within(chart).getByRole('group', { name: 'Bộ lọc kỳ hoạt động' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Chỉ số hiện tại' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+      if (isLoading) expect(screen.getByRole('status')).toHaveTextContent('Đang tải chỉ số')
+      else {
+        expect(screen.getByRole('alert')).toHaveTextContent('Lỗi kết nối tổng quan')
+        fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }))
+        expect(props.onRefresh).toHaveBeenCalledOnce()
+      }
+    }
+  )
+
+  it('allows switching to the independent chart on compact screens before overview arrives', () => {
+    const view = render(<WarehouseOperationsView {...props} compact data={undefined} isLoading />)
+    expect(
+      screen.queryByRole('region', { name: 'Nhập – xuất kho trong kỳ' })
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: 'Biểu đồ' }))
+    expect(props.onSelectedViewChange).toHaveBeenCalledWith('chart')
+    view.rerender(
+      <WarehouseOperationsView {...props} compact selectedView="chart" data={undefined} isLoading />
+    )
+    expect(screen.getByRole('region', { name: 'Nhập – xuất kho trong kỳ' })).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('keeps four current metrics compact and avoids repeating their values in the detail table', () => {
     render(<WarehouseOperationsView {...props} />)
     const metrics = screen.getByRole('region', { name: 'Chỉ số hiện tại' })
@@ -157,6 +211,11 @@ describe('warehouse activity workspace', () => {
     expect(chart).toHaveAttribute('aria-busy', 'true')
     expect(within(chart).getByRole('button', { name: 'Áp dụng' })).toBeInTheDocument()
     expect(within(chart).getByRole('status')).toHaveTextContent('Đang tải biểu đồ')
+    expect(within(chart).queryByRole('img')).not.toBeInTheDocument()
+    expect(chart.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(10)
+    expect(
+      chart.querySelectorAll('[data-slot="skeleton"]:not(.motion-reduce\\:animate-none)')
+    ).toHaveLength(0)
     expect(screen.getByRole('region', { name: 'Chỉ số hiện tại' })).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('33%')).toBeInTheDocument()
   })

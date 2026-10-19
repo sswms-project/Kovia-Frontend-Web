@@ -11,9 +11,14 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent } from 'react'
+import type {
+  PointerEvent as ReactPointerEvent,
+  TouchEvent as ReactTouchEvent,
+  ReactNode,
+} from 'react'
 import { Circle, Group, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
 import { cn } from '@/lib/utils'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useRackCanvasGestures } from '../../hooks/use-rack-canvas-gestures'
 import { rackGroupBounds, selectedLayoutRacks } from '../../utils/layout-rack-operations'
 import type { RackEditingControls } from './rack-editing.types'
@@ -71,6 +76,7 @@ interface CanvasHoverInfo {
 
 interface WarehouseCanvasProps {
   readonly rackEditing?: RackEditingControls
+  readonly rackTools?: ReactNode
   readonly ref?: React.Ref<WarehouseCanvasHandle>
   readonly scene: WarehouseLayoutEditorScene
   readonly selection: WarehouseLayoutSelection | null
@@ -444,6 +450,7 @@ function renderDecorationSymbol(
 export function WarehouseCanvas({
   ref,
   rackEditing,
+  rackTools,
   scene,
   selection,
   canConfigure,
@@ -456,6 +463,14 @@ export function WarehouseCanvas({
 }: WarehouseCanvasProps) {
   const palette = useCanvasPalette()
   const { containerRef, size } = useContainerSize()
+  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
+  const setCanvasContainer = useCallback(
+    (element: HTMLDivElement | null) => {
+      containerRef.current = element
+      setContainerElement(element)
+    },
+    [containerRef]
+  )
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const objectNodes = useRef(new Map<string, Konva.Node>())
@@ -635,14 +650,7 @@ export function WarehouseCanvas({
   }, [onZoomChange, scale])
 
   const canTransformSelection = (() => {
-    if (
-      !canConfigure ||
-      !selection ||
-      rackEditing?.ids.length ||
-      rackEditing?.locked ||
-      rackEditing?.multiSelect
-    )
-      return false
+    if (!canConfigure || !selection || rackEditing?.ids.length || rackEditing?.locked) return false
     if (selection.kind === 'decoration') return true
     if (selection.kind === 'zone') {
       return scene.zones.some((zone) => zone.id === selection.id && zone.status === 'Active')
@@ -742,6 +750,8 @@ export function WarehouseCanvas({
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    // Portalled selection tools must keep their own focus and native button interaction.
+    if (event.target instanceof Node && !event.currentTarget.contains(event.target)) return
     event.currentTarget.focus({ preventScroll: true })
     if (!event.ctrlKey || event.button !== 0) return
     rackGestures.cancel()
@@ -884,8 +894,7 @@ export function WarehouseCanvas({
     const canMoveObject =
       canConfigure &&
       !rackEditing?.locked &&
-      (!isZone || !rackEditing?.multiSelect) &&
-      (!rackEditing?.multiSelect || isEditableRack) &&
+      (!isZone || !rackEditing || selected) &&
       object.status === 'Active' &&
       (isZone || (rack !== null && activeZoneIds.has(rack.zoneId)))
     return (
@@ -921,14 +930,12 @@ export function WarehouseCanvas({
           event.cancelBubble = true
           if (rackGestures.isClickSuppressed()) return
           if (isRack && rackGestures.selectRack(object.id, event.evt.shiftKey)) return
-          if (rackEditing?.multiSelect) return
           onSelect({ kind: target, id: object.id })
         }}
         onTap={(event) => {
           event.cancelBubble = true
           if (rackGestures.isClickSuppressed()) return
           if (isRack && rackGestures.selectRack(object.id, false)) return
-          if (rackEditing?.multiSelect) return
           onSelect({ kind: target, id: object.id })
         }}
         onDragStart={(event) => {
@@ -1081,9 +1088,23 @@ export function WarehouseCanvas({
     )
   }
 
+  const toolRacks = rackEditing ? selectedLayoutRacks(scene, rackEditing.ids) : null
+  const toolBounds = toolRacks?.length ? rackGroupBounds(toolRacks) : null
+  const toolsVisible = Boolean(
+    mode === 'designer' &&
+    canConfigure &&
+    !rackEditing?.locked &&
+    rackTools &&
+    toolBounds &&
+    viewport.x + toolBounds.maxX * scale >= 0 &&
+    viewport.x + toolBounds.minX * scale <= size.width &&
+    viewport.y + toolBounds.maxY * scale >= 0 &&
+    viewport.y + toolBounds.minY * scale <= size.height
+  )
+
   return (
     <div
-      ref={containerRef}
+      ref={setCanvasContainer}
       className={cn(
         'focus-visible:ring-ring relative h-full min-h-0 w-full touch-none overflow-auto overscroll-contain bg-[#eef1f5] outline-none select-none focus-visible:ring-2 focus-visible:ring-inset dark:bg-slate-950',
         isPanning ? 'cursor-grabbing' : 'cursor-default'
@@ -1242,7 +1263,7 @@ export function WarehouseCanvas({
                       width={decoration.width}
                       height={decoration.height}
                       rotation={decoration.rotation}
-                      draggable={canConfigure && !rackEditing?.locked && !rackEditing?.multiSelect}
+                      draggable={canConfigure && !rackEditing?.locked}
                       dragBoundFunc={(position) => ({
                         x:
                           snapToGrid(position.x - decoration.width / 2, scene.canvas.gridSize) +
@@ -1310,6 +1331,17 @@ export function WarehouseCanvas({
                 })}
               </Layer>
               <Layer listening={false}>
+                {toolBounds && (rackEditing?.ids.length ?? 0) > 1 ? (
+                  <Rect
+                    x={toolBounds.minX}
+                    y={toolBounds.minY}
+                    width={toolBounds.maxX - toolBounds.minX}
+                    height={toolBounds.maxY - toolBounds.minY}
+                    stroke={canvasPalette.primary}
+                    strokeWidth={1 / viewport.scale}
+                    dash={[5 / viewport.scale, 3 / viewport.scale]}
+                  />
+                ) : null}
                 {rackGestures.guides.map((guide) => (
                   <Line
                     key={`${guide.axis}:${guide.value}`}
@@ -1352,10 +1384,52 @@ export function WarehouseCanvas({
                 />
               </Layer>
             </Stage>
+            {toolsVisible && toolBounds ? (
+              <Popover
+                open
+                onOpenChange={(open) => {
+                  if (!open) rackEditing?.onSelectionChange([], null)
+                }}
+              >
+                <PopoverAnchor asChild>
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute size-px"
+                    style={{
+                      left: Math.max(
+                        8,
+                        Math.min(size.width - 8, viewport.x + toolBounds.maxX * scale)
+                      ),
+                      top: Math.max(
+                        8,
+                        Math.min(size.height - 8, viewport.y + toolBounds.maxY * scale)
+                      ),
+                    }}
+                  />
+                </PopoverAnchor>
+                <PopoverContent
+                  aria-label="Căn chỉnh nhóm kệ"
+                  align="end"
+                  sideOffset={8}
+                  collisionBoundary={containerElement}
+                  collisionPadding={12}
+                  className="data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 animation-duration-200 max-h-(--radix-popover-content-available-height) w-76 max-w-(--radix-popover-content-available-width) overflow-y-auto overscroll-contain motion-reduce:animate-none"
+                  onOpenAutoFocus={(event) => event.preventDefault()}
+                  onCloseAutoFocus={(event) => {
+                    event.preventDefault()
+                    if (document.activeElement === document.body)
+                      containerRef.current?.focus({ preventScroll: true })
+                  }}
+                  onInteractOutside={(event) => event.preventDefault()}
+                >
+                  {rackTools}
+                </PopoverContent>
+              </Popover>
+            ) : null}
           </div>
         </div>
       ) : null}
-      {hoverInfo ? (
+      {hoverInfo && !toolsVisible && !rackGestures.marquee ? (
         <div
           role="tooltip"
           className="bg-popover text-popover-foreground pointer-events-none fixed z-50 max-h-28 max-w-56 overflow-y-auto rounded-md border px-3 py-2 text-xs shadow-sm"

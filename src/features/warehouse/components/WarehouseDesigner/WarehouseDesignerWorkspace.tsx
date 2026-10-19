@@ -166,7 +166,6 @@ export function WarehouseDesignerWorkspace({
     referenceId: string | null
     notice?: number
   }>({ ids: [], referenceId: null })
-  const [multiSelect, setMultiSelect] = useState(false)
   const [snapObjects, setSnapObjects] = useState(true)
   const [gestureActive, setGestureActive] = useState(false)
   const gestureActiveRef = useRef(false)
@@ -507,23 +506,7 @@ export function WarehouseDesignerWorkspace({
 
   function handleSelectionChange(nextSelection: WarehouseLayoutSelection | null) {
     if (gestureActiveRef.current) return
-    if (
-      multiSelect &&
-      nextSelection?.kind === 'rack' &&
-      editableIds.has(nextSelection.id) &&
-      !editLocked
-    ) {
-      const ids = groupIds.includes(nextSelection.id)
-        ? groupIds.filter((id) => id !== nextSelection.id)
-        : [...groupIds, nextSelection.id]
-      handleRackSelection(
-        ids,
-        ids.includes(nextSelection.id) ? nextSelection.id : rackReferenceId(scene, ids)
-      )
-      return
-    }
     setRackSelection({ ids: [], referenceId: null })
-    if (nextSelection) setMultiSelect(false)
     setSelection(nextSelection)
     setIsInspectorOpen(false)
   }
@@ -532,7 +515,6 @@ export function WarehouseDesignerWorkspace({
     if (editLocked || gestureActiveRef.current) return
     setSelection(null)
     setIsInspectorOpen(false)
-    setMultiSelect(true)
     setRackSelection({ ids, referenceId })
   }
 
@@ -564,6 +546,12 @@ export function WarehouseDesignerWorkspace({
       return
     }
     if (editLocked) return
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.preventDefault()
+      const ids = [...editableIds]
+      handleRackSelection(ids, rackReferenceId(scene, ids))
+      return
+    }
     const directions: Record<string, { x: number; y: number }> = {
       ArrowLeft: { x: -1, y: 0 },
       ArrowRight: { x: 1, y: 0 },
@@ -698,7 +686,6 @@ export function WarehouseDesignerWorkspace({
         singleRackId:
           selection?.kind === 'rack' && editableIds.has(selection.id) ? selection.id : undefined,
         referenceId: rackSelection.referenceId,
-        multiSelect,
         snapObjects,
         locked: editLocked,
         onSelectionChange: handleRackSelection,
@@ -706,6 +693,30 @@ export function WarehouseDesignerWorkspace({
         onCommit: commitRackPositions,
         onError: toast.error,
       }}
+      rackTools={
+        canConfigure && groupIds.length > 0 && !gestureActive && !operationsPending ? (
+          <DesignerRackTools
+            count={groupIds.length}
+            referenceCode={
+              scene.racks.find((rack) => rack.id === rackSelection.referenceId)?.rackCode
+            }
+            snapObjects={snapObjects}
+            disabled={mutationBlocked}
+            canArrange={(operation) =>
+              Boolean(
+                rackSelection.referenceId &&
+                arrangeLayoutRacks(scene, groupIds, rackSelection.referenceId, operation).ok
+              )
+            }
+            onToggleSnap={() => {
+              if (canMutate()) setSnapObjects(!snapObjects)
+            }}
+            onArrange={arrangeRacks}
+            onFit={() => canvasRef.current?.fitRacks(groupIds)}
+            onClear={() => handleRackSelection([], null)}
+          />
+        ) : null
+      }
     />
   )
 
@@ -789,37 +800,7 @@ export function WarehouseDesignerWorkspace({
           dispatch({ type: 'update-canvas', canvas: nextCanvas })
         }}
         onClose={closeDesigner}
-      >
-        {canConfigure ? (
-          <DesignerRackTools
-            count={groupIds.length}
-            referenceCode={
-              scene.racks.find((rack) => rack.id === rackSelection.referenceId)?.rackCode
-            }
-            multiSelect={multiSelect}
-            snapObjects={snapObjects}
-            disabled={mutationBlocked}
-            canArrange={(operation) =>
-              Boolean(
-                rackSelection.referenceId &&
-                arrangeLayoutRacks(scene, groupIds, rackSelection.referenceId, operation).ok
-              )
-            }
-            onToggleMulti={() => {
-              if (!canMutate()) return
-              setMultiSelect(!multiSelect)
-              setRackSelection({ ids: [], referenceId: null })
-              setSelection(null)
-            }}
-            onToggleSnap={() => {
-              if (canMutate()) setSnapObjects(!snapObjects)
-            }}
-            onArrange={arrangeRacks}
-            onFit={() => canvasRef.current?.fitRacks(groupIds)}
-            onClear={() => handleRackSelection([], null)}
-          />
-        ) : null}
-      </DesignerToolbar>
+      />
 
       {!canConfigure ? (
         <Alert className="border-x-0 border-t-0">

@@ -4,7 +4,6 @@ export interface RackEditingControls {
   readonly singleRackId?: string
   readonly ids: readonly string[]
   readonly referenceId: string | null
-  readonly multiSelect: boolean
   readonly snapObjects: boolean
   readonly locked: boolean
   readonly onSelectionChange: (ids: readonly string[], referenceId: string | null) => void

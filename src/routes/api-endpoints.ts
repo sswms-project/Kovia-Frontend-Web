@@ -3,6 +3,7 @@ export const API_ENDPOINTS = {
     stockThresholdAlerts: '/dashboard/stock-alerts/thresholds',
     stockExpiryAlerts: '/dashboard/stock-alerts/expiry',
     overview: '/dashboard/overview',
+    activity: '/dashboard/activity',
     warehouses: '/dashboard/warehouses',
   },
   reports: {

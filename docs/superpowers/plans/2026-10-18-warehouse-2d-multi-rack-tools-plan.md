@@ -205,3 +205,12 @@ Chỉ xem xét sau khi có phản hồi sử dụng: khoảng cách nhập số 
 - Đã tái hiện hai lỗi bằng test đỏ trước sửa. Sau sửa: toàn bộ module warehouse **30 file / 189 test pass**, bao gồm DOM capture không có Stage touchmove, nhả một ngón sau pinch, late dragend, ba đường hủy nudge và wiring `event.repeat` từ workspace. Lint các file thay đổi, Prettier và diff whitespace check pass.
 - Các file dirty ngoài phạm vi ở FE/BE được đối chiếu SHA-256 và giữ nguyên. Không commit/push, đổi API hoặc ghi database. Chưa kiểm chứng bằng thiết bị touch/trình duyệt thật; giới hạn công cụ QA nêu trên vẫn còn.
 - Typecheck toàn source bằng `pnpm exec tsc --project tsconfig.production.json --noEmit --incremental false` pass sau sửa. Không chạy lại full FE suite hoặc production build trong lượt sửa hẹp này; kết quả full suite/build ở trên thuộc bản trước đợt sửa hồi quy.
+
+## 11. Điều chỉnh tương tác theo phản hồi — 19/10/2026
+
+- Thay thế chế độ bật/tắt chọn nhiều: mặc định giữ chuột trái kéo trên nền hoặc khu vực chưa chọn để khoanh các kệ. Kệ vẫn kéo trực tiếp; khu vực đã chọn vẫn di chuyển/resize qua luồng hiện có. Không khoanh chọn xuyên vào kệ/biểu tượng/Transformer; Ctrl + kéo vẫn pan.
+- Xóa hàng công cụ kệ ở header và state `multiSelect`. Căn/giãn đều, hít đối tượng, vừa vùng chọn và bỏ chọn nằm trong Popover cạnh biên nhóm kệ, hiển thị trực tiếp các nút thay vì menu nhiều tầng. Biên nhóm vẫn được vẽ sau khi thả chuột.
+- Dùng lại Popover/Button/Separator; portal không cướp focus của nút, không đóng nhóm trước khi kéo một thành viên. Popup ẩn trong gesture/khóa quyền/khi nhóm ra ngoài viewport; tự tránh biên và giới hạn chiều rộng/chiều cao theo canvas, cuộn nội bộ nếu cần. Tooltip vị trí không đè popup.
+- Giữ Shift-click, nudge, Escape/blur/pinch/reconcile và một bước Undo cho batch; thêm Ctrl/Cmd + A khi focus mặt bằng để chọn các kệ hợp lệ bằng bàn phím. Viewer không đổi. Không đổi API lưu/slot/geometry nghiệp vụ.
+- Browser QA ở tab riêng: kéo nền khu vực chọn 4 kệ, popup cạnh vùng chọn, bấm Căn trái trực tiếp và Undo một bước trở về trạng thái không dirty; không bấm Lưu. Kiểm tra viewport hẹp 900 × 700 rồi reset, popup không tràn canvas. Tab sơ đồ ban đầu không bị điều hướng bởi QA.
+- Kiểm tra 42 file / 280 test FE của dashboard + warehouse, typecheck production-config và scoped ESLint. Không chạy lại full FE suite hoặc production build đợt này. Không commit/push hoặc migration/seed/ghi tồn.

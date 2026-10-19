@@ -29,7 +29,7 @@ GET `/dashboard/overview` nhận `dateFrom`/`dateTo` theo ngày lịch Việt Na
 
 API trả `activityGranularity`: tối đa 31 ngày nhóm theo ngày, 32–93 ngày theo tuần, dài hơn theo tháng; tuần/tháng đầu và cuối chỉ tính phần trong khoảng đã chọn. Các kỳ trống được điền 0. FE kiểm tra ngày trả về khớp ngày yêu cầu, không hiển thị nhầm số liệu từ BE cũ.
 
-API vẫn trả cả thống kê và biểu đồ, nhưng FE dùng hai query key độc lập cho thống kê hiện tại và chuỗi biểu đồ. Đổi kỳ chỉ cập nhật query biểu đồ; giữ nguyên các ô thống kê và bảng chi tiết, trạng thái tải/lỗi/thử lại nằm trong biểu đồ. Hai query chỉ bật khi mở tab Hoạt động kho. Bộ lọc căn phải trong header biểu đồ, khoảng ngày mở rộng về trái và xuống dòng khi thiếu chiều rộng. Chỉ chuỗi phiếu hoàn tất thay đổi theo kỳ; không cộng lượng khác ĐVT thành một tổng.
+FE đọc chỉ số hiện tại qua `/dashboard/overview?includeActivity=false` và biểu đồ qua `/dashboard/activity`, không gọi lại toàn bộ phép đếm cho biểu đồ. Endpoint cũ vẫn mặc định trả đủ cả hai để tương thích client cũ. Hai query key độc lập gồm tenant, user, quyền, kho và kỳ tương ứng; truyền AbortSignal để hủy request cũ khi đổi bộ lọc. Đổi kỳ chỉ cập nhật query biểu đồ; giữ nguyên các ô thống kê và bảng chi tiết, trạng thái tải/lỗi/thử lại nằm trong biểu đồ. Hai query chỉ bật khi mở tab Hoạt động kho. Bộ lọc căn phải trong header biểu đồ, khoảng ngày mở rộng về trái và xuống dòng khi thiếu chiều rộng. Chỉ chuỗi phiếu hoàn tất thay đổi theo kỳ; không cộng lượng khác ĐVT thành một tổng.
 
 Cảnh báo có dữ liệu dùng icon, nhãn và màu ngữ nghĩa: đỏ cho quá hạn/thiếu tồn, cam cho sắp hết hạn/vượt tối đa. Không tô cả bảng; kết quả rỗng hoặc đang tải giữ màu trung tính. Ngưỡng nghiệp vụ không thay đổi.
 
@@ -53,7 +53,7 @@ Ngày đánh giá HSD dùng UTC để tương thích `ProductLotRules`/khả d�
 
 - Test tại `schemas/stock-alert.schema.test.ts`, `services/stock-alert.service.test.ts`, các test hook, `StockAlertPanel.test.tsx`, `WarehouseOverviewPage.test.tsx`.
 - BE: `Application.Tests/Features/Dashboard/StockAlertTests.cs` và bộ reporting hiện có; fixture InMemory và SQL Server ToQueryString không mở kết nối.
-- Chưa chứng nhận HTTP end-to-end/hiệu năng trên DB triển khai. FE và BE mới phải được đưa lên cùng đợt; FE cũ vẫn dùng được overview cũ khi BE mới triển khai trước.
+- Đo đọc SQL tại kho Đà Nẵng 19/10/2026 (không mở host/không ghi dữ liệu): bản cũ 24 SELECT và 5.464–6.493 ms cho một overview; bản mới 15 SELECT và 3.441–3.959 ms cho chỉ số, 2 SELECT và 476–508 ms cho biểu đồ. Đây là hai lượt đo reader cùng phạm vi, không phải SLA HTTP hay load test. Browser kiểm tra đổi tháng/năm chỉ tải biểu đồ. FE và BE mới phải được đưa lên cùng đợt; FE cũ vẫn dùng được overview cũ khi BE mới triển khai trước.
 - Không migration, polling, tự ghi tồn hoặc thay đổi quyền trong tính năng này. Không khởi động BE với startup migration bật khi kiểm thử.
 
 Kế hoạch và checklist chi tiết: [warehouse overview redesign](../../../docs/superpowers/plans/2026-10-17-warehouse-overview-redesign-plan.md).

@@ -20,10 +20,12 @@ vi.mock('next/dynamic', () => ({
       ref,
       onSelect,
       rackEditing,
+      rackTools,
     }: {
       ref?: React.Ref<WarehouseCanvasHandle>
       onSelect: (selection: WarehouseLayoutSelection) => void
       rackEditing?: RackEditingControls
+      rackTools?: React.ReactNode
     }) {
       useImperativeHandle(ref, () => ({
         zoomIn: vi.fn(),
@@ -38,6 +40,7 @@ vi.mock('next/dynamic', () => ({
       }))
       return (
         <>
+          {rackTools}
           <button onClick={() => onSelect({ kind: 'rack', id: 'rack' })}>Chọn trực tiếp</button>
           {rackEditing ? (
             <>
@@ -140,9 +143,17 @@ it('guards saving during a group gesture and saves one complete reversible batch
       />
     </TooltipProvider>
   )
-  await user.click(screen.getByRole('button', { name: 'Chọn nhóm kiểm thử' }))
-  expect(screen.getByRole('status')).toHaveTextContent('Đã chọn 2 kệ · Chuẩn: RB')
   const workspace = screen.getByRole('region', { name: 'Trình thiết kế bố cục kho' })
+  fireEvent.keyDown(workspace, { key: 'a', ctrlKey: true })
+  expect(screen.getByRole('status')).toHaveTextContent('Đã chọn 2 kệ')
+  fireEvent.keyDown(workspace, { key: 'Escape' })
+  expect(screen.queryByRole('group', { name: 'Công cụ chọn và căn kệ' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Chọn nhóm kiểm thử' }))
+  expect(screen.getByRole('status')).toHaveTextContent('Đã chọn 2 kệ')
+  expect(screen.getByRole('group', { name: 'Công cụ chọn và căn kệ' })).toHaveTextContent(
+    'Kệ chuẩn: RB'
+  )
+  expect(screen.queryByRole('button', { name: 'Chọn nhiều kệ' })).not.toBeInTheDocument()
   fireEvent.keyDown(workspace, { key: 'ArrowRight', repeat: false })
   expect(mocks.nudge).toHaveBeenLastCalledWith(['rack', 'rack-b'], { x: 20, y: 0 }, false)
   fireEvent.keyDown(workspace, { key: 'ArrowRight', repeat: true })

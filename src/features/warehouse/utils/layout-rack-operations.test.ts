@@ -303,7 +303,6 @@ describe('rack gesture transactions', () => {
     const controls: RackEditingControls = {
       ids: ['a', 'b'],
       referenceId: 'a',
-      multiSelect: true,
       snapObjects: true,
       locked: false,
       onSelectionChange: vi.fn(),
@@ -362,7 +361,6 @@ describe('rack gesture transactions', () => {
       const controls: RackEditingControls = {
         ids: ['a', 'b'],
         referenceId: 'a',
-        multiSelect: true,
         snapObjects: false,
         locked: false,
         onSelectionChange: vi.fn(),
@@ -436,7 +434,6 @@ describe('rack gesture transactions', () => {
       ids: [],
       singleRackId: 'a',
       referenceId: null,
-      multiSelect: false,
       snapObjects: true,
       locked: false,
       onSelectionChange: vi.fn(),

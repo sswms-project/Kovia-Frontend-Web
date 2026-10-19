@@ -1,5 +1,5 @@
 import { createRef, type ReactNode } from 'react'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Group as NativeGroup } from 'konva/lib/Group'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { WarehouseLayoutEditorScene } from '../../types/warehouse-layout-scene.types'
@@ -192,7 +192,6 @@ it('cancels a rack drag through DOM touch capture without any Konva touchmove de
       rackEditing={{
         ids: ['rack'],
         referenceId: 'rack',
-        multiSelect: true,
         snapObjects: false,
         locked: false,
         onSelectionChange: vi.fn(),
@@ -241,4 +240,101 @@ it('cancels a rack drag through DOM touch capture without any Konva touchmove de
   fireEvent.touchStart(touchTarget, { touches: [touches[0]], cancelable: true })
   expect(nativeTouch).toHaveBeenCalledTimes(1)
   node.destroy()
+})
+
+it('anchors selection tools, restores canvas focus after closing, and preserves external focus', async () => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    bottom: 600,
+    right: 800,
+    width: 800,
+    height: 600,
+    toJSON: () => ({}),
+  })
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() })
+  const scene: WarehouseLayoutEditorScene = {
+    canvas: { width: 1000, height: 700, gridSize: 20 },
+    slots: [],
+    decorations: [],
+    zones: [
+      {
+        id: 'zone',
+        zoneCode: 'Z',
+        zoneName: 'Zone',
+        status: 'Active',
+        x: 0,
+        y: 0,
+        width: 1000,
+        height: 700,
+        rotation: 0,
+        zIndex: 0,
+      },
+    ],
+    racks: [
+      {
+        id: 'rack',
+        zoneId: 'zone',
+        zoneCode: 'Z',
+        rackCode: 'R',
+        rackName: 'Rack',
+        description: null,
+        status: 'Active',
+        x: 100,
+        y: 100,
+        width: 80,
+        height: 40,
+        rotation: 0,
+        zIndex: 1,
+      },
+    ],
+  }
+  const controls = {
+    ids: ['rack'],
+    referenceId: 'rack',
+    snapObjects: true,
+    locked: false,
+    onSelectionChange: vi.fn(),
+    onGestureChange: vi.fn(),
+    onCommit: vi.fn(),
+    onError: vi.fn(),
+  }
+  const props = {
+    scene,
+    selection: null,
+    canConfigure: true,
+    isGridVisible: false,
+    onSelect: vi.fn(),
+    onGeometryChange: vi.fn(),
+    onZoomChange: vi.fn(),
+    onPaletteDrop: vi.fn(),
+    rackTools: <button>Test selection action</button>,
+  }
+  const view = render(<WarehouseCanvas {...props} rackEditing={controls} />)
+  const surface = screen.getByRole('application')
+  const dialog = screen.getByRole('dialog', { name: 'Căn chỉnh nhóm kệ' })
+  expect(surface.contains(dialog)).toBe(false)
+  expect(surface.querySelector('[data-slot="popover-anchor"]')).toHaveClass('absolute')
+  const action = screen.getByRole('button', { name: 'Test selection action' })
+  action.focus()
+  fireEvent.pointerDown(action)
+  expect(action).toHaveFocus()
+  view.rerender(<WarehouseCanvas {...props} rackEditing={{ ...controls, locked: true }} />)
+  expect(screen.queryByRole('dialog', { name: 'Căn chỉnh nhóm kệ' })).not.toBeInTheDocument()
+  await waitFor(() => expect(surface).toHaveFocus())
+  view.rerender(<WarehouseCanvas {...props} rackEditing={controls} />)
+  screen.getByRole('button', { name: 'Test selection action' }).focus()
+  const externalButton = document.createElement('button')
+  document.body.appendChild(externalButton)
+  try {
+    externalButton.focus()
+    view.rerender(<WarehouseCanvas {...props} rackEditing={{ ...controls, locked: true }} />)
+    await act(() => new Promise((resolve) => setTimeout(resolve, 10)))
+    expect(externalButton).toHaveFocus()
+  } finally {
+    externalButton.remove()
+  }
+  expect(controls.onCommit).not.toHaveBeenCalled()
 })

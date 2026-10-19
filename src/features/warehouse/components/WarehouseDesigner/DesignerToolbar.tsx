@@ -39,7 +39,6 @@ import {
 import type { WarehouseLayoutCanvas } from '../../types/warehouse-layout-scene.types'
 
 interface DesignerToolbarProps {
-  readonly children?: React.ReactNode
   readonly title: string
   readonly canvas: WarehouseLayoutCanvas
   readonly isGridVisible: boolean
@@ -231,7 +230,6 @@ function CanvasNumberField({
 }
 
 export function DesignerToolbar({
-  children,
   title,
   canvas,
   isGridVisible,
@@ -271,6 +269,8 @@ export function DesignerToolbar({
           <dd>Hủy thao tác đang kéo hoặc bỏ chọn</dd>
           <dt className="text-foreground font-mono">Shift + click</dt>
           <dd>Thêm hoặc bỏ kệ khỏi tập chọn</dd>
+          <dt className="text-foreground font-mono">Ctrl / Cmd + A</dt>
+          <dd>Chọn tất cả kệ đã bố trí khi đang ở mặt bằng</dd>
           <dt className="text-foreground font-mono">Mũi tên</dt>
           <dd>Dịch kệ theo một bước lưới; giữ Shift để dịch mười bước</dd>
         </dl>
@@ -279,16 +279,15 @@ export function DesignerToolbar({
         <p className="font-medium">Thiết kế sơ đồ kho</p>
         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
           Kéo biểu tượng từ bảng bên trái vào mặt bằng. Chọn đối tượng để đổi màu, xoay hoặc mở
-          thông tin chi tiết. Bật Chọn nhiều kệ rồi kéo nền để khoanh chọn hoặc chọn kệ trong danh
-          sách Đối tượng. Hít đối tượng ưu tiên mép/tâm kệ; ẩn lưới không tắt hít lưới. Sơ đồ không
-          thay đổi vị trí hay sức chứa nghiệp vụ.
+          thông tin chi tiết. Giữ chuột trái và kéo trên nền để khoanh các kệ, rồi chọn lệnh ngay
+          cạnh vùng chọn. Ctrl + kéo để di chuyển góc nhìn. Hít đối tượng ưu tiên mép/tâm kệ; ẩn
+          lưới không tắt hít lưới. Sơ đồ không thay đổi vị trí hay sức chứa nghiệp vụ.
         </p>
       </ToolbarInfoPopover>
       <Separator orientation="vertical" className="mx-1 h-7" />
       <ToolbarIconButton label="Đóng trình thiết kế" onClick={onClose}>
         <X aria-hidden="true" />
       </ToolbarIconButton>
-      {children ? <div className="w-full border-t pt-2">{children}</div> : null}
     </header>
   )
 }

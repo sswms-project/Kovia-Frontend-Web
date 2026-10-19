@@ -124,7 +124,7 @@ export function useRackCanvasGestures({
   function selectRack(id: string, additive: boolean) {
     if (locked || !controls || !eligibleLayoutRacks(scene).some((rack) => rack.id === id))
       return false
-    if (!controls.multiSelect && !additive) return false
+    if (!additive) return false
     const previous = controls.ids.length
       ? controls.ids
       : additive && controls.singleRackId
@@ -246,7 +246,6 @@ export function useRackCanvasGestures({
       gesture.current ||
       boxStart.current ||
       locked ||
-      !controls?.multiSelect ||
       ('ctrlKey' in event.evt && event.evt.ctrlKey) ||
       ('button' in event.evt && event.evt.button !== 0)
     )
@@ -255,7 +254,13 @@ export function useRackCanvasGestures({
     let target: Konva.Node | null = event.target
     while (target && target !== stage.current) {
       const kind = target.getAttr('layoutKind')
-      if (kind === 'rack' || kind === 'decoration') return
+      if (
+        kind === 'rack' ||
+        kind === 'decoration' ||
+        target.getClassName() === 'Transformer' ||
+        (kind === 'zone' && target.draggable())
+      )
+        return
       target = target.getParent()
     }
     const start = point()
