@@ -39,6 +39,7 @@ import {
 import type { WarehouseLayoutCanvas } from '../../types/warehouse-layout-scene.types'
 
 interface DesignerToolbarProps {
+  readonly children?: React.ReactNode
   readonly title: string
   readonly canvas: WarehouseLayoutCanvas
   readonly isGridVisible: boolean
@@ -138,7 +139,13 @@ function CanvasSettingsSheet({
       <Tooltip>
         <TooltipTrigger asChild>
           <SheetTrigger asChild>
-            <Button type="button" size="icon-sm" variant="ghost" aria-label="Cài đặt nền">
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Cài đặt nền"
+              disabled={disabled}
+            >
               <Settings2 aria-hidden="true" />
             </Button>
           </SheetTrigger>
@@ -153,6 +160,7 @@ function CanvasSettingsSheet({
         <form
           className="flex flex-1 flex-col"
           onSubmit={form.handleSubmit((values) => {
+            if (disabled) return
             onSubmit(values)
             setOpen(false)
           })}
@@ -223,6 +231,7 @@ function CanvasNumberField({
 }
 
 export function DesignerToolbar({
+  children,
   title,
   canvas,
   isGridVisible,
@@ -236,7 +245,7 @@ export function DesignerToolbar({
   onClose,
 }: DesignerToolbarProps) {
   return (
-    <header className="bg-surface-container-lowest flex min-h-16 shrink-0 items-center gap-1 border-b px-5 py-2">
+    <header className="bg-surface-container-lowest flex min-h-16 shrink-0 flex-wrap items-center gap-1 border-b px-5 py-2">
       <h1 className="mr-auto truncate text-xl font-semibold">{title}</h1>
       <ToolbarIconButton label="Hoàn tác" disabled={!canUndo || isReadOnly} onClick={onUndo}>
         <Undo2 aria-hidden="true" />
@@ -259,20 +268,27 @@ export function DesignerToolbar({
           <dt className="text-foreground font-mono">Delete</dt>
           <dd>Xóa biểu tượng đang chọn</dd>
           <dt className="text-foreground font-mono">Esc</dt>
-          <dd>Bỏ chọn đối tượng</dd>
+          <dd>Hủy thao tác đang kéo hoặc bỏ chọn</dd>
+          <dt className="text-foreground font-mono">Shift + click</dt>
+          <dd>Thêm hoặc bỏ kệ khỏi tập chọn</dd>
+          <dt className="text-foreground font-mono">Mũi tên</dt>
+          <dd>Dịch kệ theo một bước lưới; giữ Shift để dịch mười bước</dd>
         </dl>
       </ToolbarInfoPopover>
       <ToolbarInfoPopover label="Trợ giúp" icon={<HelpCircle aria-hidden="true" />}>
         <p className="font-medium">Thiết kế sơ đồ kho</p>
         <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
           Kéo biểu tượng từ bảng bên trái vào mặt bằng. Chọn đối tượng để đổi màu, xoay hoặc mở
-          thông tin chi tiết.
+          thông tin chi tiết. Bật Chọn nhiều kệ rồi kéo nền để khoanh chọn hoặc chọn kệ trong danh
+          sách Đối tượng. Hít đối tượng ưu tiên mép/tâm kệ; ẩn lưới không tắt hít lưới. Sơ đồ không
+          thay đổi vị trí hay sức chứa nghiệp vụ.
         </p>
       </ToolbarInfoPopover>
       <Separator orientation="vertical" className="mx-1 h-7" />
       <ToolbarIconButton label="Đóng trình thiết kế" onClick={onClose}>
         <X aria-hidden="true" />
       </ToolbarIconButton>
+      {children ? <div className="w-full border-t pt-2">{children}</div> : null}
     </header>
   )
 }

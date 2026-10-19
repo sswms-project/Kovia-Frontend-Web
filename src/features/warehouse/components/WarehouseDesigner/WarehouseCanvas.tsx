@@ -11,9 +11,12 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { PointerEvent as ReactPointerEvent, TouchEvent as ReactTouchEvent } from 'react'
 import { Circle, Group, Layer, Line, Rect, Stage, Text, Transformer } from 'react-konva'
 import { cn } from '@/lib/utils'
+import { useRackCanvasGestures } from '../../hooks/use-rack-canvas-gestures'
+import { rackGroupBounds, selectedLayoutRacks } from '../../utils/layout-rack-operations'
+import type { RackEditingControls } from './rack-editing.types'
 import type {
   WarehouseLayoutDecorationType,
   WarehouseLayoutEditorScene,
@@ -67,6 +70,7 @@ interface CanvasHoverInfo {
 }
 
 interface WarehouseCanvasProps {
+  readonly rackEditing?: RackEditingControls
   readonly ref?: React.Ref<WarehouseCanvasHandle>
   readonly scene: WarehouseLayoutEditorScene
   readonly selection: WarehouseLayoutSelection | null
@@ -84,6 +88,10 @@ interface WarehouseCanvasProps {
 }
 
 export interface WarehouseCanvasHandle {
+  cancelGesture: () => boolean
+  nudgeRacks: (ids: readonly string[], delta: { x: number; y: number }, repeat?: boolean) => void
+  finishNudge: () => void
+  fitRacks: (ids: readonly string[]) => void
   zoomIn: () => void
   zoomOut: () => void
   zoomTo: (zoomPercent: number) => void
@@ -435,6 +443,7 @@ function renderDecorationSymbol(
 
 export function WarehouseCanvas({
   ref,
+  rackEditing,
   scene,
   selection,
   canConfigure,
@@ -465,6 +474,14 @@ export function WarehouseCanvas({
   const pendingFocus = useRef(false)
   const [revealRevision, setRevealRevision] = useState(0)
   const [scale, setScale] = useState(1)
+  const rackGestures = useRackCanvasGestures({
+    scene,
+    controls: mode === 'designer' ? rackEditing : undefined,
+    nodes: objectNodes,
+    stage: stageRef,
+    scale,
+  })
+  const cancelRackGesture = rackGestures.cancel
   const [scrollPosition, setScrollPosition] = useState({ left: 0, top: 0 })
   const activeZoneIds = useMemo(
     () => new Set(scene.zones.filter((zone) => zone.status === 'Active').map((zone) => zone.id)),
@@ -497,16 +514,18 @@ export function WarehouseCanvas({
 
   const fit = useCallback(() => {
     if (!size.width || !size.height) return
+    cancelRackGesture()
     isFitMode.current = true
     pendingCenter.current = {
       x: (effectiveBounds.minX + effectiveBounds.maxX) / 2,
       y: (effectiveBounds.minY + effectiveBounds.maxY) / 2,
     }
     setScale(getFitScale(size.width, size.height, effectiveBounds))
-  }, [effectiveBounds, size.height, size.width])
+  }, [effectiveBounds, size.height, size.width, cancelRackGesture])
 
   const zoomAtCenter = useCallback(
     (factor: number) => {
+      cancelRackGesture()
       isFitMode.current = false
       pendingCenter.current = {
         x: (size.width / 2 - viewport.x) / viewport.scale,
@@ -514,11 +533,12 @@ export function WarehouseCanvas({
       }
       setScale((current) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, current * factor)))
     },
-    [size.height, size.width, viewport]
+    [size.height, size.width, viewport, cancelRackGesture]
   )
   const zoomTo = useCallback(
     (zoomPercent: number) => {
       if (!size.width || !size.height) return
+      cancelRackGesture()
       isFitMode.current = false
       pendingCenter.current = {
         x: (size.width / 2 - viewport.x) / viewport.scale,
@@ -526,7 +546,7 @@ export function WarehouseCanvas({
       }
       setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, zoomPercent / 100)))
     },
-    [size.height, size.width, viewport]
+    [size.height, size.width, viewport, cancelRackGesture]
   )
 
   const revealSelection = useCallback(
@@ -559,8 +579,24 @@ export function WarehouseCanvas({
       zoomTo,
       fit,
       revealSelection,
+      cancelGesture: rackGestures.cancel,
+      nudgeRacks: rackGestures.nudge,
+      finishNudge: rackGestures.finishNudge,
+      fitRacks: (ids) => {
+        const racks = selectedLayoutRacks(scene, ids)
+        if (!racks) return
+        const bounds = rackGroupBounds(racks)
+        isFitMode.current = false
+        pendingCenter.current = {
+          x: (bounds.minX + bounds.maxX) / 2,
+          y: (bounds.minY + bounds.maxY) / 2,
+        }
+        pendingFocus.current = true
+        setScale(getFitScale(size.width, size.height, bounds))
+        setRevealRevision((current) => current + 1)
+      },
     }),
-    [fit, revealSelection, zoomAtCenter, zoomTo]
+    [fit, revealSelection, zoomAtCenter, zoomTo, rackGestures, scene, size]
   )
 
   useEffect(() => {
@@ -599,7 +635,14 @@ export function WarehouseCanvas({
   }, [onZoomChange, scale])
 
   const canTransformSelection = (() => {
-    if (!canConfigure || !selection) return false
+    if (
+      !canConfigure ||
+      !selection ||
+      rackEditing?.ids.length ||
+      rackEditing?.locked ||
+      rackEditing?.multiSelect
+    )
+      return false
     if (selection.kind === 'decoration') return true
     if (selection.kind === 'zone') {
       return scene.zones.some((zone) => zone.id === selection.id && zone.status === 'Active')
@@ -692,13 +735,16 @@ export function WarehouseCanvas({
 
   function handleWheel(event: KonvaEventObject<WheelEvent>) {
     if (!event.evt.ctrlKey) return
+    rackGestures.cancel()
     event.evt.preventDefault()
     const direction = event.evt.deltaY > 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR
     zoomAtCenter(direction)
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    event.currentTarget.focus({ preventScroll: true })
     if (!event.ctrlKey || event.button !== 0) return
+    rackGestures.cancel()
     setHoverInfo(null)
     event.preventDefault()
     event.stopPropagation()
@@ -730,10 +776,17 @@ export function WarehouseCanvas({
     setIsPanning(false)
   }
 
-  function handleTouchMove(event: KonvaEventObject<TouchEvent>) {
-    if (event.evt.touches.length !== 2) return
-    event.evt.preventDefault()
-    const [firstTouch, secondTouch] = Array.from(event.evt.touches)
+  function handleTouchMove(event: ReactTouchEvent<HTMLDivElement>) {
+    if (event.touches.length < 2) {
+      if (lastPinchDistance.current !== null) {
+        event.stopPropagation()
+      }
+      return
+    }
+    // Capture before Konva suppresses touchmove during drag; touch-none prevents browser zoom.
+    event.stopPropagation()
+    rackGestures.cancel()
+    const [firstTouch, secondTouch] = Array.from(event.touches)
     if (!firstTouch || !secondTouch) return
     const distance = Math.hypot(
       secondTouch.clientX - firstTouch.clientX,
@@ -792,9 +845,15 @@ export function WarehouseCanvas({
     const isRack = 'rackCode' in object
     const code = isRack ? object.rackCode : object.zoneCode
     const key = `${target}:${object.id}`
-    const selected = isSelected(selection, target, object.id)
+    const selected =
+      isSelected(selection, target, object.id) ||
+      (isRack && Boolean(rackEditing?.ids.includes(object.id)))
     const isZone = !isRack
     const rack = isRack ? object : null
+    const usesRackGestures = Boolean(rackEditing && rack && !rack.placementPending)
+    const isEditableRack = Boolean(
+      usesRackGestures && rack?.status === 'Active' && activeZoneIds.has(rack.zoneId)
+    )
     const rackSlots = rack ? (slotsByRack.get(rack.id) ?? []) : []
     const hasStock = isZone
       ? scene.slots.some((slot) => slot.zoneId === object.id && slot.currentOccupancy > 0)
@@ -824,11 +883,15 @@ export function WarehouseCanvas({
     )
     const canMoveObject =
       canConfigure &&
+      !rackEditing?.locked &&
+      (!isZone || !rackEditing?.multiSelect) &&
+      (!rackEditing?.multiSelect || isEditableRack) &&
       object.status === 'Active' &&
       (isZone || (rack !== null && activeZoneIds.has(rack.zoneId)))
     return (
       <Group
         key={key}
+        layoutKind={target}
         ref={(node) => setObjectNode(key, node)}
         x={object.x + object.width / 2}
         y={object.y + object.height / 2}
@@ -838,24 +901,52 @@ export function WarehouseCanvas({
         height={object.height}
         rotation={object.rotation}
         draggable={canMoveObject}
-        dragBoundFunc={(position) => ({
-          x: snapToGrid(position.x - object.width / 2, scene.canvas.gridSize) + object.width / 2,
-          y: snapToGrid(position.y - object.height / 2, scene.canvas.gridSize) + object.height / 2,
-        })}
+        dragBoundFunc={
+          isEditableRack
+            ? (position) => position
+            : (position) => ({
+                x:
+                  snapToGrid(position.x - object.width / 2, scene.canvas.gridSize) +
+                  object.width / 2,
+                y:
+                  snapToGrid(position.y - object.height / 2, scene.canvas.gridSize) +
+                  object.height / 2,
+              })
+        }
         onMouseEnter={(event) =>
           showHoverInfo(event, code, isRack ? object.rackName : object.zoneName)
         }
         onMouseLeave={() => setHoverInfo(null)}
         onClick={(event) => {
           event.cancelBubble = true
+          if (rackGestures.isClickSuppressed()) return
+          if (isRack && rackGestures.selectRack(object.id, event.evt.shiftKey)) return
+          if (rackEditing?.multiSelect) return
           onSelect({ kind: target, id: object.id })
         }}
         onTap={(event) => {
           event.cancelBubble = true
+          if (rackGestures.isClickSuppressed()) return
+          if (isRack && rackGestures.selectRack(object.id, false)) return
+          if (rackEditing?.multiSelect) return
           onSelect({ kind: target, id: object.id })
+        }}
+        onDragStart={(event) => {
+          if (!isEditableRack) return
+          event.cancelBubble = true
+          if (!rackGestures.dragStart(object.id)) event.target.stopDrag()
+        }}
+        onDragMove={(event) => {
+          if (!isEditableRack) return
+          event.cancelBubble = true
+          rackGestures.dragMove(object.id, event.target)
         }}
         onDragEnd={(event) => {
           event.cancelBubble = true
+          if (usesRackGestures) {
+            rackGestures.dragEnd(object.id)
+            return
+          }
           commitNodeGeometry(target, object.id, event.target, object.zIndex)
         }}
         onTransformEnd={(event) => {
@@ -878,7 +969,10 @@ export function WarehouseCanvas({
                   : canvasPalette.foreground
           }
           strokeWidth={
-            selected ? (mode === 'viewer' ? 1.5 : 1.25) / viewport.scale : 1 / viewport.scale
+            selected
+              ? (rackEditing?.referenceId === object.id ? 2.5 : mode === 'viewer' ? 1.5 : 1.25) /
+                viewport.scale
+              : 1 / viewport.scale
           }
           cornerRadius={isZone ? 4 : 2}
         />
@@ -944,10 +1038,13 @@ export function WarehouseCanvas({
               rackSlots,
               canvasPalette,
               selection,
-              onSelect,
+              (next) => {
+                if (!rackGestures.isClickSuppressed()) onSelect(next)
+              },
               mode,
               showHoverInfo,
-              () => setHoverInfo(null)
+              () => setHoverInfo(null),
+              (shift) => rackGestures.isClickSuppressed() || rackGestures.selectRack(rack.id, shift)
             )
           : null}
         {mode === 'viewer' && selected && target === 'rack' ? (
@@ -1000,12 +1097,35 @@ export function WarehouseCanvas({
         backgroundSize: '16px 16px',
       }}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') onSelect(null)
+        if (event.key === 'Escape') {
+          if (rackGestures.cancel()) event.stopPropagation()
+          else onSelect(null)
+        }
       }}
       onPointerDownCapture={handlePointerDown}
+      onTouchStartCapture={(event) => {
+        if (event.touches.length >= 2) lastPinchDistance.current = null
+        handleTouchMove(event)
+      }}
+      onTouchMoveCapture={handleTouchMove}
+      onTouchEndCapture={(event) => {
+        if (lastPinchDistance.current === null) return
+        event.stopPropagation()
+        if (event.touches.length === 0) lastPinchDistance.current = null
+      }}
+      onTouchCancelCapture={(event) => {
+        rackGestures.cancel()
+        lastPinchDistance.current = event.touches.length ? 0 : null
+      }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerCancel={(event) => {
+        rackGestures.cancel()
+        handlePointerUp(event)
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) rackGestures.cancel()
+      }}
       onMouseLeave={() => setHoverInfo(null)}
       onDragOver={(event) => {
         if (hasLayoutDragData(event.dataTransfer)) event.preventDefault()
@@ -1059,10 +1179,13 @@ export function WarehouseCanvas({
                 if (event.evt.ctrlKey) event.cancelBubble = true
               }}
               onWheel={handleWheel}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={() => {
-                lastPinchDistance.current = null
-              }}
+              onMouseDown={rackGestures.startBox}
+              onMouseMove={rackGestures.moveBox}
+              onMouseUp={rackGestures.finishBox}
+              onMouseLeave={rackGestures.finishBox}
+              onTouchStart={rackGestures.startBox}
+              onTouchMove={rackGestures.moveBox}
+              onTouchEnd={rackGestures.finishBox}
             >
               <Layer>
                 <Rect
@@ -1072,8 +1195,12 @@ export function WarehouseCanvas({
                   width={effectiveBounds.maxX - effectiveBounds.minX}
                   height={effectiveBounds.maxY - effectiveBounds.minY}
                   fill={canvasPalette.background}
-                  onClick={() => onSelect(null)}
-                  onTap={() => onSelect(null)}
+                  onClick={() => {
+                    if (!rackGestures.isClickSuppressed()) onSelect(null)
+                  }}
+                  onTap={() => {
+                    if (!rackGestures.isClickSuppressed()) onSelect(null)
+                  }}
                 />
                 {gridLines.map((line) => (
                   <Line
@@ -1106,6 +1233,7 @@ export function WarehouseCanvas({
                   return (
                     <Group
                       key={key}
+                      layoutKind="decoration"
                       ref={(node) => setObjectNode(key, node)}
                       x={decoration.x + decoration.width / 2}
                       y={decoration.y + decoration.height / 2}
@@ -1114,7 +1242,7 @@ export function WarehouseCanvas({
                       width={decoration.width}
                       height={decoration.height}
                       rotation={decoration.rotation}
-                      draggable={canConfigure}
+                      draggable={canConfigure && !rackEditing?.locked && !rackEditing?.multiSelect}
                       dragBoundFunc={(position) => ({
                         x:
                           snapToGrid(position.x - decoration.width / 2, scene.canvas.gridSize) +
@@ -1181,6 +1309,33 @@ export function WarehouseCanvas({
                   )
                 })}
               </Layer>
+              <Layer listening={false}>
+                {rackGestures.guides.map((guide) => (
+                  <Line
+                    key={`${guide.axis}:${guide.value}`}
+                    points={
+                      guide.axis === 'x'
+                        ? [guide.value, 0, guide.value, scene.canvas.height]
+                        : [0, guide.value, scene.canvas.width, guide.value]
+                    }
+                    stroke={canvasPalette.primary}
+                    strokeWidth={1 / scale}
+                    dash={[5 / scale, 4 / scale]}
+                  />
+                ))}
+                {rackGestures.marquee ? (
+                  <Rect
+                    x={rackGestures.marquee.minX}
+                    y={rackGestures.marquee.minY}
+                    width={rackGestures.marquee.maxX - rackGestures.marquee.minX}
+                    height={rackGestures.marquee.maxY - rackGestures.marquee.minY}
+                    fill={canvasPalette.selectionFill}
+                    opacity={0.4}
+                    stroke={canvasPalette.primary}
+                    strokeWidth={1 / scale}
+                  />
+                ) : null}
+              </Layer>
               <Layer>
                 <Transformer
                   ref={transformerRef}
@@ -1230,7 +1385,8 @@ function renderRackSlots(
   onSelect: (selection: WarehouseLayoutSelection | null) => void,
   mode: 'designer' | 'viewer',
   onHover: (event: KonvaEventObject<MouseEvent>, code: string, name: string) => void,
-  onHoverEnd: () => void
+  onHoverEnd: () => void,
+  onRackSelect?: (shift: boolean) => boolean
 ) {
   if (slots.length === 0 || rack.width < 60 || rack.height < 45) return null
   const gap = 3
@@ -1275,10 +1431,12 @@ function renderRackSlots(
         onMouseLeave={onHoverEnd}
         onClick={(event) => {
           event.cancelBubble = true
+          if (onRackSelect?.(event.evt.shiftKey)) return
           onSelect({ kind: 'slot', id: slot.id })
         }}
         onTap={(event) => {
           event.cancelBubble = true
+          if (onRackSelect?.(false)) return
           onSelect({ kind: 'slot', id: slot.id })
         }}
       >

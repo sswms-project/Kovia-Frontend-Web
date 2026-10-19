@@ -1,8 +1,11 @@
 import { createRef, type ReactNode } from 'react'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { Group as NativeGroup } from 'konva/lib/Group'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { WarehouseLayoutEditorScene } from '../../types/warehouse-layout-scene.types'
 import { WarehouseCanvas, type WarehouseCanvasHandle } from './WarehouseCanvas'
+
+const rackEvents = vi.hoisted(() => new Map<string, (event: unknown) => void>())
 
 vi.mock('konva', () => ({ default: {} }))
 vi.mock('react-konva', () => {
@@ -10,7 +13,26 @@ vi.mock('react-konva', () => {
   return {
     Stage: Container,
     Layer: Container,
-    Group: Container,
+    Group: ({
+      children,
+      layoutKind,
+      onDragStart,
+      onDragMove,
+      onDragEnd,
+    }: {
+      children?: ReactNode
+      layoutKind?: string
+      onDragStart?: (event: unknown) => void
+      onDragMove?: (event: unknown) => void
+      onDragEnd?: (event: unknown) => void
+    }) => {
+      if (layoutKind === 'rack') {
+        if (onDragStart) rackEvents.set('start', onDragStart)
+        if (onDragMove) rackEvents.set('move', onDragMove)
+        if (onDragEnd) rackEvents.set('end', onDragEnd)
+      }
+      return <Container>{children}</Container>
+    },
     Circle: () => null,
     Line: () => null,
     Rect: () => null,
@@ -20,6 +42,7 @@ vi.mock('react-konva', () => {
 })
 const originalScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo')
 afterEach(() => {
+  rackEvents.clear()
   vi.restoreAllMocks()
   if (originalScrollTo) Object.defineProperty(HTMLElement.prototype, 'scrollTo', originalScrollTo)
   else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
@@ -103,3 +126,119 @@ it.each(['viewer', 'designer'] as const)(
     expect(scene.racks[0]?.placementPending).toBe(true)
   }
 )
+
+it('cancels a rack drag through DOM touch capture without any Konva touchmove delivery', () => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    bottom: 240,
+    right: 320,
+    width: 320,
+    height: 240,
+    toJSON: () => ({}),
+  })
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() })
+  const scene: WarehouseLayoutEditorScene = {
+    canvas: { width: 1000, height: 700, gridSize: 20 },
+    zones: [
+      {
+        id: 'zone',
+        zoneCode: 'Z',
+        zoneName: 'Zone',
+        status: 'Active',
+        x: 0,
+        y: 0,
+        width: 1000,
+        height: 700,
+        rotation: 0,
+        zIndex: 0,
+      },
+    ],
+    racks: [
+      {
+        id: 'rack',
+        zoneId: 'zone',
+        zoneCode: 'Z',
+        rackCode: 'R',
+        rackName: 'Rack',
+        description: null,
+        status: 'Active',
+        x: 100,
+        y: 100,
+        width: 80,
+        height: 40,
+        rotation: 0,
+        zIndex: 1,
+      },
+    ],
+    slots: [],
+    decorations: [],
+  }
+  const onCommit = vi.fn(),
+    onGestureChange = vi.fn(),
+    onZoomChange = vi.fn()
+  render(
+    <WarehouseCanvas
+      scene={scene}
+      selection={null}
+      canConfigure
+      isGridVisible={false}
+      onSelect={vi.fn()}
+      onGeometryChange={vi.fn()}
+      onZoomChange={onZoomChange}
+      onPaletteDrop={vi.fn()}
+      rackEditing={{
+        ids: ['rack'],
+        referenceId: 'rack',
+        multiSelect: true,
+        snapObjects: false,
+        locked: false,
+        onSelectionChange: vi.fn(),
+        onGestureChange,
+        onCommit,
+        onError: vi.fn(),
+      }}
+    />
+  )
+  const node = new NativeGroup({ x: 140, y: 120 })
+  const drag = { target: node, evt: new Event('drag'), cancelBubble: false }
+  act(() => {
+    rackEvents.get('start')!(drag)
+    node.position({ x: 160, y: 140 })
+    rackEvents.get('move')!(drag)
+  })
+  expect(onGestureChange).toHaveBeenLastCalledWith(true)
+  const surface = screen.getByRole('application')
+  expect(surface).toHaveClass('touch-none')
+  const touchTarget = document.createElement('div')
+  surface.appendChild(touchTarget)
+  const nativeTouch = vi.fn()
+  for (const type of ['touchstart', 'touchmove', 'touchend']) {
+    touchTarget.addEventListener(type, nativeTouch)
+  }
+  const touches = [
+    { identifier: 1, clientX: 100, clientY: 100 },
+    { identifier: 2, clientX: 200, clientY: 100 },
+  ]
+  fireEvent.touchStart(touchTarget, { touches, cancelable: true })
+  expect(nativeTouch).not.toHaveBeenCalled()
+  expect(onGestureChange).toHaveBeenLastCalledWith(false)
+  const initialZoom = onZoomChange.mock.calls.at(-1)![0]
+  fireEvent.touchMove(touchTarget, {
+    touches: [touches[0], { ...touches[1], clientX: 300 }],
+    cancelable: true,
+  })
+  expect(nativeTouch).not.toHaveBeenCalled()
+  expect(onZoomChange).toHaveBeenLastCalledWith(Math.min(400, initialZoom * 2))
+  act(() => rackEvents.get('end')!(drag))
+  expect(onCommit).not.toHaveBeenCalled()
+  fireEvent.touchEnd(touchTarget, { touches: [touches[0]], cancelable: true })
+  fireEvent.touchMove(touchTarget, { touches: [touches[0]], cancelable: true })
+  fireEvent.touchEnd(touchTarget, { touches: [], cancelable: true })
+  expect(nativeTouch).not.toHaveBeenCalled()
+  fireEvent.touchStart(touchTarget, { touches: [touches[0]], cancelable: true })
+  expect(nativeTouch).toHaveBeenCalledTimes(1)
+  node.destroy()
+})

@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { logger } from '@/lib/logger'
 import { cn } from '@/lib/utils'
 import { AlertCircle, Boxes, Info, RefreshCw, X } from 'lucide-react'
@@ -53,6 +53,15 @@ import { DesignerContextToolbar } from './DesignerContextToolbar'
 import { DesignerFooter, DesignerToolbar } from './DesignerToolbar'
 import { DesignerToolbox } from './DesignerToolbox'
 import type { WarehouseCanvasHandle } from './WarehouseCanvas'
+import { DesignerRackTools } from './DesignerRackTools'
+import {
+  arrangeLayoutRacks,
+  canResizeLayoutCanvas,
+  eligibleLayoutRacks,
+  rackReferenceId,
+  type RackOperation,
+  type RackPosition,
+} from '../../utils/layout-rack-operations'
 
 const WarehouseCanvas = dynamic(
   () => import('./WarehouseCanvas').then((module) => module.WarehouseCanvas),
@@ -114,7 +123,12 @@ function isFormControl(target: EventTarget | null): boolean {
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement ||
     (target instanceof HTMLElement &&
-      (target.isContentEditable || Boolean(target.closest('button, a, [role="button"]'))))
+      (target.isContentEditable ||
+        Boolean(
+          target.closest(
+            'button, a, [role="button"], [role="dialog"], [role="menu"], [role="listbox"], [data-slot="popover-content"]'
+          )
+        )))
   )
 }
 
@@ -147,6 +161,19 @@ export function WarehouseDesignerWorkspace({
 }: WarehouseDesignerWorkspaceProps) {
   const [history, dispatch] = useLayoutEditorHistory(initialScene)
   const [selection, setSelection] = useState<WarehouseLayoutSelection | null>(null)
+  const [rackSelection, setRackSelection] = useState<{
+    ids: readonly string[]
+    referenceId: string | null
+    notice?: number
+  }>({ ids: [], referenceId: null })
+  const [multiSelect, setMultiSelect] = useState(false)
+  const [snapObjects, setSnapObjects] = useState(true)
+  const [gestureActive, setGestureActive] = useState(false)
+  const gestureActiveRef = useRef(false)
+  const handleGestureChange = useCallback((active: boolean) => {
+    gestureActiveRef.current = active
+    setGestureActive(active)
+  }, [])
   const [isGridVisible, setIsGridVisible] = useState(true)
   const [zoomPercent, setZoomPercent] = useState(100)
   const [isToolboxOpen, setIsToolboxOpen] = useState(false)
@@ -166,6 +193,23 @@ export function WarehouseDesignerWorkspace({
   const setWarehouseDirty = useWarehouseLayoutEditorStore((state) => state.setWarehouseDirty)
   const scene = history.present
   const isDirty = hasGeneratedGeometry || history.past.length > 0
+  const operationsPending = isSaving || isUpdatingRack || isDeactivatingZone || isDeactivatingRack
+  const editLocked = !canConfigure || operationsPending
+  const mutationBlocked = editLocked || gestureActive
+  const canMutate = () => !editLocked && !gestureActiveRef.current
+  const editableIds = new Set(canConfigure ? eligibleLayoutRacks(scene).map((rack) => rack.id) : [])
+  const groupIds = rackSelection.ids.filter((id) => editableIds.has(id))
+  if (groupIds.length !== rackSelection.ids.length) {
+    setRackSelection({
+      ids: groupIds,
+      referenceId: rackReferenceId(scene, groupIds),
+      notice: (rackSelection.notice ?? 0) + 1,
+    })
+  }
+  useEffect(() => {
+    if (rackSelection.notice)
+      toast.info('Tập chọn đã được cập nhật vì có kệ không còn được phép chỉnh sửa.')
+  }, [rackSelection.notice])
 
   useEffect(() => {
     const resetRequested = resetRevisionRef.current !== resetRevision
@@ -174,10 +218,12 @@ export function WarehouseDesignerWorkspace({
 
     initialSceneRef.current = initialScene
     resetRevisionRef.current = resetRevision
+    canvasRef.current?.cancelGesture()
     if (resetRequested || !isDirty) {
       baseVersionRef.current = sceneVersion
       dispatch({ type: 'reset', scene: initialScene })
       setSelection(null)
+      setRackSelection({ ids: [], referenceId: null })
       setIsInspectorOpen(false)
       return
     }
@@ -231,7 +277,7 @@ export function WarehouseDesignerWorkspace({
     id: string,
     geometry: WarehouseLayoutGeometry
   ) {
-    if (!canConfigure) return
+    if (!canMutate()) return
     dispatch({
       type: 'update-geometry',
       target,
@@ -246,7 +292,7 @@ export function WarehouseDesignerWorkspace({
   }
 
   function updateColor(target: WarehouseLayoutGeometryTarget, id: string, color: string | null) {
-    if (!canConfigure) return
+    if (!canMutate()) return
     const placementPending =
       target === 'zone'
         ? scene.zones.find((zone) => zone.id === id)?.placementPending
@@ -265,7 +311,7 @@ export function WarehouseDesignerWorkspace({
     label: string,
     position?: WarehouseLayoutDropPosition
   ) {
-    if (!canConfigure) return
+    if (!canMutate()) return
     const clientKey = createClientKey()
     const offset = scene.decorations.length * scene.canvas.gridSize
     const geometry = constrainLayoutGeometryToCanvas(
@@ -291,7 +337,7 @@ export function WarehouseDesignerWorkspace({
   }
 
   function handlePaletteDrop(payload: LayoutPaletteDragData, x: number, y: number) {
-    if (!canConfigure) return
+    if (!canMutate()) return
     const position = { x, y }
     if (payload.kind === 'zone') onCreateZone(position)
     else if (payload.kind === 'rack') {
@@ -322,7 +368,7 @@ export function WarehouseDesignerWorkspace({
   }
 
   function duplicateSelectedDecoration() {
-    if (selection?.kind !== 'decoration' || !canConfigure) return
+    if (selection?.kind !== 'decoration' || !canMutate()) return
     const source = scene.decorations.find((decoration) => decoration.clientKey === selection.id)
     if (!source) return
     const clientKey = createClientKey()
@@ -352,14 +398,14 @@ export function WarehouseDesignerWorkspace({
   }
 
   function deleteSelectedDecoration() {
-    if (selection?.kind !== 'decoration' || !canConfigure) return
+    if (selection?.kind !== 'decoration' || !canMutate()) return
     dispatch({ type: 'delete-decoration', id: selection.id })
     setSelection(null)
     setIsInspectorOpen(false)
   }
 
   function rotateSelectedObject() {
-    if (!selection || selection.kind === 'slot' || !canConfigure) return
+    if (!selection || selection.kind === 'slot' || !canMutate()) return
     const object =
       selection.kind === 'zone'
         ? scene.zones.find((zone) => zone.id === selection.id)
@@ -387,13 +433,13 @@ export function WarehouseDesignerWorkspace({
   }
 
   function getSelectedActiveRack() {
-    if (selection?.kind !== 'rack' || !canConfigure) return null
+    if (selection?.kind !== 'rack' || !canMutate()) return null
     const rack = scene.racks.find((candidate) => candidate.id === selection.id)
     return rack?.status === 'Active' && activeZoneContainsRack(scene, rack) ? rack : null
   }
 
   function getSelectedActiveZone() {
-    if (selection?.kind !== 'zone' || !canConfigure) return null
+    if (selection?.kind !== 'zone' || !canMutate()) return null
     return scene.zones.find((zone) => zone.id === selection.id && zone.status === 'Active') ?? null
   }
 
@@ -426,7 +472,7 @@ export function WarehouseDesignerWorkspace({
   }
 
   async function confirmDeactivateRack() {
-    if (!rackDeactivateTarget) return
+    if (!rackDeactivateTarget || !canMutate()) return
     try {
       await onDeactivateRack(rackDeactivateTarget)
       toast.success('Đã ngừng hoạt động kệ hàng và gỡ khỏi sơ đồ.')
@@ -443,7 +489,7 @@ export function WarehouseDesignerWorkspace({
   }
 
   async function confirmDeactivateZone() {
-    if (!zoneDeactivateTarget) return
+    if (!zoneDeactivateTarget || !canMutate()) return
     try {
       await onDeactivateZone(zoneDeactivateTarget)
       toast.success('Đã ngừng hoạt động khu vực và gỡ khỏi sơ đồ.')
@@ -460,18 +506,87 @@ export function WarehouseDesignerWorkspace({
   }
 
   function handleSelectionChange(nextSelection: WarehouseLayoutSelection | null) {
+    if (gestureActiveRef.current) return
+    if (
+      multiSelect &&
+      nextSelection?.kind === 'rack' &&
+      editableIds.has(nextSelection.id) &&
+      !editLocked
+    ) {
+      const ids = groupIds.includes(nextSelection.id)
+        ? groupIds.filter((id) => id !== nextSelection.id)
+        : [...groupIds, nextSelection.id]
+      handleRackSelection(
+        ids,
+        ids.includes(nextSelection.id) ? nextSelection.id : rackReferenceId(scene, ids)
+      )
+      return
+    }
+    setRackSelection({ ids: [], referenceId: null })
+    if (nextSelection) setMultiSelect(false)
     setSelection(nextSelection)
     setIsInspectorOpen(false)
+  }
+
+  function handleRackSelection(ids: readonly string[], referenceId: string | null) {
+    if (editLocked || gestureActiveRef.current) return
+    setSelection(null)
+    setIsInspectorOpen(false)
+    setMultiSelect(true)
+    setRackSelection({ ids, referenceId })
+  }
+
+  function commitRackPositions(positions: readonly RackPosition[]) {
+    if (!canMutate()) return
+    dispatch({ type: 'move-racks', positions })
+  }
+
+  function arrangeRacks(operation: RackOperation) {
+    if (!canMutate() || !rackSelection.referenceId) return
+    const result = arrangeLayoutRacks(scene, groupIds, rackSelection.referenceId, operation)
+    if (!result.ok) {
+      toast.error(result.message)
+      return
+    }
+    commitRackPositions(result.positions)
   }
 
   function handleWorkspaceKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (isFormControl(event.target)) return
     if (event.key === 'Escape') {
+      if (canvasRef.current?.cancelGesture()) {
+        event.preventDefault()
+        return
+      }
       setSelection(null)
+      setRackSelection({ ids: [], referenceId: null })
       setIsInspectorOpen(false)
       return
     }
-    if (!canConfigure) return
+    if (editLocked) return
+    const directions: Record<string, { x: number; y: number }> = {
+      ArrowLeft: { x: -1, y: 0 },
+      ArrowRight: { x: 1, y: 0 },
+      ArrowUp: { x: 0, y: -1 },
+      ArrowDown: { x: 0, y: 1 },
+    }
+    const direction = directions[event.key]
+    const ids = groupIds.length
+      ? groupIds
+      : selection?.kind === 'rack' && editableIds.has(selection.id)
+        ? [selection.id]
+        : []
+    if (direction && ids.length && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      const step = scene.canvas.gridSize * (event.shiftKey ? 10 : 1)
+      canvasRef.current?.nudgeRacks(
+        ids,
+        { x: direction.x * step, y: direction.y * step },
+        event.repeat
+      )
+      return
+    }
+    if (gestureActiveRef.current) return
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
       event.preventDefault()
       dispatch({ type: event.shiftKey ? 'redo' : 'undo' })
@@ -489,6 +604,8 @@ export function WarehouseDesignerWorkspace({
   }
 
   function closeDesigner() {
+    canvasRef.current?.cancelGesture()
+    if (isSaving) return
     if (isDirty && canConfigure) {
       setIsCloseDialogOpen(true)
       return
@@ -505,12 +622,14 @@ export function WarehouseDesignerWorkspace({
     <DesignerToolbox
       scene={scene}
       selection={selection}
-      canConfigure={canConfigure}
+      canConfigure={!mutationBlocked}
       onCreateZone={() => {
+        if (!canMutate()) return
         setIsToolboxOpen(false)
         onCreateZone()
       }}
       onCreateRack={(shape) => {
+        if (!canMutate()) return
         const zoneId = getSelectedZoneId()
         if (zoneId) {
           setIsToolboxOpen(false)
@@ -533,6 +652,7 @@ export function WarehouseDesignerWorkspace({
         setIsToolboxOpen(false)
       }}
       onSelectUnplaced={(nextSelection) => {
+        if (gestureActiveRef.current) return
         handleSelectionChange(nextSelection)
         if (isCompact) {
           pendingUnplacedSelection.current = nextSelection
@@ -549,12 +669,12 @@ export function WarehouseDesignerWorkspace({
       key={`${selection.kind}:${selection.id}`}
       scene={scene}
       selection={selection}
-      canConfigure={canConfigure && isSelectionEditable(scene, selection)}
+      canConfigure={!mutationBlocked && isSelectionEditable(scene, selection)}
       isUpdatingRack={isUpdatingRack}
       isDeactivatingRack={isDeactivatingRack}
       onRackNameChange={updateSelectedRackName}
       onDecorationChange={(decoration) => {
-        if (selection.kind === 'decoration' && canConfigure) {
+        if (selection.kind === 'decoration' && canMutate()) {
           dispatch({ type: 'update-decoration', id: selection.id, decoration })
         }
       }}
@@ -573,47 +693,64 @@ export function WarehouseDesignerWorkspace({
       onGeometryChange={updateGeometry}
       onZoomChange={setZoomPercent}
       onPaletteDrop={handlePaletteDrop}
+      rackEditing={{
+        ids: groupIds,
+        singleRackId:
+          selection?.kind === 'rack' && editableIds.has(selection.id) ? selection.id : undefined,
+        referenceId: rackSelection.referenceId,
+        multiSelect,
+        snapObjects,
+        locked: editLocked,
+        onSelectionChange: handleRackSelection,
+        onGestureChange: handleGestureChange,
+        onCommit: commitRackPositions,
+        onError: toast.error,
+      }}
     />
   )
 
-  const contextToolbar = selection ? (
-    <DesignerContextToolbar
-      selection={selection}
-      color={getSelectedObjectColor()}
-      canConfigure={canConfigure && isSelectionEditable(scene, selection)}
-      canCreateRack={selection.kind === 'zone' && Boolean(getSelectedZoneId())}
-      canDuplicate={selection.kind === 'decoration'}
-      canRemove={
-        selection.kind === 'decoration' || selection.kind === 'rack' || selection.kind === 'zone'
-      }
-      removeDisabled={selectionHasInventory(scene, selection)}
-      removeDisabledReason="Vị trí còn tồn kho nên chưa thể ngừng sử dụng."
-      removeLabel={selection.kind === 'decoration' ? 'Xóa' : 'Ngừng dùng'}
-      onOpenDetails={() => {
-        if (
-          selection.kind === 'decoration' ||
-          !canConfigure ||
-          !isSelectionEditable(scene, selection)
-        )
-          setIsInspectorOpen(true)
-        else onOpenLocationDetails(selection)
-      }}
-      onCreateRack={() => {
-        const zoneId = getSelectedZoneId()
-        if (zoneId) onCreateRack(zoneId)
-      }}
-      onColorChange={(color) => {
-        if (selection.kind !== 'slot') updateColor(selection.kind, selection.id, color)
-      }}
-      onRotate={rotateSelectedObject}
-      onDuplicate={duplicateSelectedDecoration}
-      onRemove={() => {
-        if (selection.kind === 'decoration') deleteSelectedDecoration()
-        else if (selection.kind === 'rack') requestDeactivateSelectedRack()
-        else if (selection.kind === 'zone') requestDeactivateSelectedZone()
-      }}
-    />
-  ) : null
+  const contextToolbar =
+    selection && !gestureActive && !operationsPending ? (
+      <DesignerContextToolbar
+        selection={selection}
+        color={getSelectedObjectColor()}
+        canConfigure={!mutationBlocked && isSelectionEditable(scene, selection)}
+        canCreateRack={
+          !mutationBlocked && selection.kind === 'zone' && Boolean(getSelectedZoneId())
+        }
+        canDuplicate={selection.kind === 'decoration'}
+        canRemove={
+          selection.kind === 'decoration' || selection.kind === 'rack' || selection.kind === 'zone'
+        }
+        removeDisabled={selectionHasInventory(scene, selection)}
+        removeDisabledReason="Vị trí còn tồn kho nên chưa thể ngừng sử dụng."
+        removeLabel={selection.kind === 'decoration' ? 'Xóa' : 'Ngừng dùng'}
+        onOpenDetails={() => {
+          if (
+            selection.kind === 'decoration' ||
+            !canConfigure ||
+            !isSelectionEditable(scene, selection)
+          )
+            setIsInspectorOpen(true)
+          else onOpenLocationDetails(selection)
+        }}
+        onCreateRack={() => {
+          if (!canMutate()) return
+          const zoneId = getSelectedZoneId()
+          if (zoneId) onCreateRack(zoneId)
+        }}
+        onColorChange={(color) => {
+          if (selection.kind !== 'slot') updateColor(selection.kind, selection.id, color)
+        }}
+        onRotate={rotateSelectedObject}
+        onDuplicate={duplicateSelectedDecoration}
+        onRemove={() => {
+          if (selection.kind === 'decoration') deleteSelectedDecoration()
+          else if (selection.kind === 'rack') requestDeactivateSelectedRack()
+          else if (selection.kind === 'zone') requestDeactivateSelectedZone()
+        }}
+      />
+    ) : null
 
   return (
     <section
@@ -623,6 +760,9 @@ export function WarehouseDesignerWorkspace({
       )}
       aria-label="Trình thiết kế bố cục kho"
       onKeyDown={handleWorkspaceKeyDown}
+      onKeyUp={(event) => {
+        if (event.key.startsWith('Arrow')) canvasRef.current?.finishNudge()
+      }}
     >
       <DesignerToolbar
         title={`Thiết lập sơ đồ ${warehouseName}`}
@@ -630,13 +770,56 @@ export function WarehouseDesignerWorkspace({
         isGridVisible={isGridVisible}
         canUndo={history.past.length > 0}
         canRedo={history.future.length > 0}
-        isReadOnly={!canConfigure}
-        onUndo={() => dispatch({ type: 'undo' })}
-        onRedo={() => dispatch({ type: 'redo' })}
+        isReadOnly={mutationBlocked}
+        onUndo={() => {
+          if (canMutate()) dispatch({ type: 'undo' })
+        }}
+        onRedo={() => {
+          if (canMutate()) dispatch({ type: 'redo' })
+        }}
         onToggleGrid={() => setIsGridVisible((visible) => !visible)}
-        onCanvasChange={(nextCanvas) => dispatch({ type: 'update-canvas', canvas: nextCanvas })}
+        onCanvasChange={(nextCanvas) => {
+          if (!canMutate()) return
+          if (!canResizeLayoutCanvas(scene, nextCanvas)) {
+            toast.error(
+              'Kích thước mới không chứa đủ các đối tượng. Hãy bố trí lại hoặc tăng kích thước mặt bằng.'
+            )
+            return
+          }
+          dispatch({ type: 'update-canvas', canvas: nextCanvas })
+        }}
         onClose={closeDesigner}
-      />
+      >
+        {canConfigure ? (
+          <DesignerRackTools
+            count={groupIds.length}
+            referenceCode={
+              scene.racks.find((rack) => rack.id === rackSelection.referenceId)?.rackCode
+            }
+            multiSelect={multiSelect}
+            snapObjects={snapObjects}
+            disabled={mutationBlocked}
+            canArrange={(operation) =>
+              Boolean(
+                rackSelection.referenceId &&
+                arrangeLayoutRacks(scene, groupIds, rackSelection.referenceId, operation).ok
+              )
+            }
+            onToggleMulti={() => {
+              if (!canMutate()) return
+              setMultiSelect(!multiSelect)
+              setRackSelection({ ids: [], referenceId: null })
+              setSelection(null)
+            }}
+            onToggleSnap={() => {
+              if (canMutate()) setSnapObjects(!snapObjects)
+            }}
+            onArrange={arrangeRacks}
+            onFit={() => canvasRef.current?.fitRacks(groupIds)}
+            onClear={() => handleRackSelection([], null)}
+          />
+        ) : null}
+      </DesignerToolbar>
 
       {!canConfigure ? (
         <Alert className="border-x-0 border-t-0">
@@ -656,7 +839,16 @@ export function WarehouseDesignerWorkspace({
           <AlertDescription>{saveError}</AlertDescription>
           {hasConflict ? (
             <AlertAction>
-              <Button type="button" size="xs" variant="outline" onClick={onReload}>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={isSaving}
+                onClick={() => {
+                  canvasRef.current?.cancelGesture()
+                  onReload()
+                }}
+              >
                 <RefreshCw data-icon="inline-start" aria-hidden="true" />
                 Tải bản mới
               </Button>
@@ -751,7 +943,7 @@ export function WarehouseDesignerWorkspace({
       )}
       <DesignerFooter
         zoomPercent={zoomPercent}
-        canSave={isDirty && canConfigure}
+        canSave={isDirty && !mutationBlocked}
         isSaving={isSaving}
         isReadOnly={!canConfigure}
         onZoomIn={() => canvasRef.current?.zoomIn()}
@@ -759,7 +951,9 @@ export function WarehouseDesignerWorkspace({
         onZoomTo={(nextZoomPercent) => canvasRef.current?.zoomTo(nextZoomPercent)}
         onFit={() => canvasRef.current?.fit()}
         onCancel={closeDesigner}
-        onSave={() => onSave(scene, baseVersionRef.current)}
+        onSave={() => {
+          if (canMutate()) onSave(scene, baseVersionRef.current)
+        }}
       />
       {!isCompact && selection && isInspectorOpen ? (
         <Drawer open onOpenChange={setIsInspectorOpen} direction="right">
