@@ -34,6 +34,7 @@ export interface SupplierReturn {
   readonly reason: string
   readonly negotiationNote: string | null
   readonly damageCaseId: string | null
+  readonly createdById: string
   readonly createdByName: string
   readonly createdAt: string
   readonly approvedAt: string | null

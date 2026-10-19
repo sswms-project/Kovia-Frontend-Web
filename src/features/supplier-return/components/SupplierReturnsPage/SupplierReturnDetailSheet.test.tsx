@@ -8,7 +8,7 @@ import { SupplierReturnDetailSheet } from './SupplierReturnDetailSheet'
 function renderSheet(
   status: SupplierReturnStatus,
   permissions: string[],
-  currentUserName = 'Người khác'
+  currentUserId = 'user-other'
 ) {
   return render(
     <SupplierReturnDetailSheet
@@ -16,7 +16,7 @@ function renderSheet(
       isLoading={false}
       isError={false}
       permissions={permissions}
-      currentUserName={currentUserName}
+      currentUserId={currentUserId}
       onRetry={vi.fn()}
       onOpenChange={vi.fn()}
       onApprove={vi.fn()}
@@ -46,9 +46,14 @@ describe('SupplierReturnDetailSheet actions', () => {
   })
 
   it('lets the creator cancel without the approve permission', () => {
-    renderSheet('Pending', [P.SUPPLIER_RETURNS_VIEW], 'Nguyễn Văn A')
+    renderSheet('Pending', [P.SUPPLIER_RETURNS_VIEW], 'user-creator')
     expect(queryButton(/Huỷ phiếu/)).toBeInTheDocument()
     expect(queryButton(/^Duyệt$/)).not.toBeInTheDocument()
+  })
+
+  it('does not treat a namesake with a different id as the creator', () => {
+    renderSheet('Pending', [P.SUPPLIER_RETURNS_VIEW], 'user-namesake')
+    expect(queryButton(/Huỷ phiếu/)).not.toBeInTheDocument()
   })
 
   it('shows confirm delivery only to dispatchers on an approved return', () => {
@@ -62,7 +67,7 @@ describe('SupplierReturnDetailSheet actions', () => {
     renderSheet(
       status,
       [P.SUPPLIER_RETURNS_VIEW, P.SUPPLIER_RETURNS_APPROVE, P.SUPPLIER_RETURNS_DISPATCH],
-      'Nguyễn Văn A'
+      'user-creator'
     )
     expect(queryButton(/Xác nhận đã giao|^Duyệt$|Từ chối|Huỷ phiếu/)).not.toBeInTheDocument()
   })

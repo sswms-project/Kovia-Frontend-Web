@@ -285,7 +285,7 @@ export default function SupplierReturnsPage() {
         isLoading={Boolean(detailId) && detailQuery.isLoading}
         isError={Boolean(detailId) && detailQuery.isError}
         permissions={permissions}
-        currentUserName={meQuery.data?.fullName ?? null}
+        currentUserId={meQuery.data?.id ?? null}
         onRetry={() => void detailQuery.refetch()}
         onOpenChange={(open) => {
           if (!open) navigate({})

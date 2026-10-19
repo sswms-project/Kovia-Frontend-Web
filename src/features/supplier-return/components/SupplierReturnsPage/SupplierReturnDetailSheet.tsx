@@ -36,8 +36,7 @@ interface SupplierReturnDetailSheetProps {
   readonly isLoading: boolean
   readonly isError: boolean
   readonly permissions: readonly string[]
-  // BE exposes only the creator's display name, so the creator check compares names.
-  readonly currentUserName: string | null
+  readonly currentUserId: string | null
   readonly onRetry: () => void
   readonly onOpenChange: (open: boolean) => void
   readonly onApprove: (item: SupplierReturn) => void
@@ -61,7 +60,7 @@ export function SupplierReturnDetailSheet({
   isLoading,
   isError,
   permissions,
-  currentUserName,
+  currentUserId,
   onRetry,
   onOpenChange,
   onApprove,
@@ -72,7 +71,7 @@ export function SupplierReturnDetailSheet({
   const canApprove = permissions.includes(P.SUPPLIER_RETURNS_APPROVE)
   const canDispatch = permissions.includes(P.SUPPLIER_RETURNS_DISPATCH)
   const isOpenStatus = item?.status === 'Pending' || item?.status === 'Approved'
-  const isCreator = Boolean(item && currentUserName && item.createdByName === currentUserName)
+  const isCreator = Boolean(item && currentUserId && item.createdById === currentUserId)
   const canCancel = isOpenStatus && (canApprove || isCreator)
   const canDecide = canApprove && item?.status === 'Pending'
   const canDeliver = canDispatch && item?.status === 'Approved'

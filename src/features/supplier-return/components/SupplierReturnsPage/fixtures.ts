@@ -13,6 +13,7 @@ export function buildSupplierReturn(overrides: Partial<SupplierReturn> = {}): Su
     reason: 'Hàng lỗi',
     negotiationNote: null,
     damageCaseId: null,
+    createdById: 'user-creator',
     createdByName: 'Nguyễn Văn A',
     createdAt: '2026-10-19T00:00:00Z',
     approvedAt: null,
