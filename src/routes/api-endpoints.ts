@@ -144,6 +144,7 @@ export const API_ENDPOINTS = {
   },
   inventory: {
     list: '/inventory',
+    exportExcel: '/inventory/export',
     warehouseOptions: '/inventory/filter-options/warehouses',
     slotOptions: (warehouseId: string) =>
       `/inventory/filter-options/warehouses/${warehouseId}/slots`,
