@@ -39,6 +39,7 @@ import type {
   StockIssueRequestListQuery,
   GoodsReturnRequestListQuery,
 } from '@/features/stock-issue/types/stock-issue.types'
+import type { SupplierReturnListQuery } from '@/features/supplier-return/types/supplier-return.types'
 import type {
   StockRecipientListQuery,
   StockRecipientIssueHistoryQuery,
@@ -283,6 +284,11 @@ export const queryKeys = {
     list: (params: GoodsReturnRequestListQuery) =>
       ['goods-return-requests', 'list', params] as const,
     detail: (id: string) => ['goods-return-requests', 'detail', id] as const,
+  },
+  supplierReturns: {
+    all: ['supplier-returns'] as const,
+    list: (params: SupplierReturnListQuery) => ['supplier-returns', 'list', params] as const,
+    detail: (id: string) => ['supplier-returns', 'detail', id] as const,
   },
   stockRecipients: {
     all: ['stock-recipients'] as const,

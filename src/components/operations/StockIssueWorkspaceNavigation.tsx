@@ -3,7 +3,7 @@ import type { Route } from 'next'
 import { P } from '@/config/permissionCodes'
 import { APP_ROUTES } from '@/routes/app-routes'
 
-type StockIssueWorkspaceView = 'stockIssueRequests' | 'goodsReturnRequests'
+type StockIssueWorkspaceView = 'stockIssueRequests' | 'goodsReturnRequests' | 'supplierReturns'
 
 interface StockIssueWorkspaceNavigationProps {
   readonly currentView: StockIssueWorkspaceView
@@ -35,6 +35,15 @@ export function StockIssueWorkspaceNavigation({
           className={linkClassName}
         >
           Trả hàng
+        </Link>
+      ) : null}
+      {permissions.includes(P.SUPPLIER_RETURNS_VIEW) ? (
+        <Link
+          href={APP_ROUTES.supplierReturns as Route}
+          aria-current={currentView === 'supplierReturns' ? 'page' : undefined}
+          className={linkClassName}
+        >
+          Trả hàng NCC
         </Link>
       ) : null}
     </nav>
