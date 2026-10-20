@@ -47,7 +47,7 @@ function renderDirectory(overrides: Partial<ComponentProps<typeof SupplierReturn
 describe('supplier return list toolbar', () => {
   it('puts the create action beside navigation, outside the list panel', () => {
     const props = renderDirectory()
-    const navigation = screen.getByRole('navigation', { name: 'Không gian xuất kho và trả hàng' })
+    const navigation = screen.getByRole('navigation', { name: 'Không gian trả hàng' })
     const create = screen.getByRole('button', { name: 'Lập phiếu' })
     expect(navigation.closest('header')).toContainElement(create)
     expect(

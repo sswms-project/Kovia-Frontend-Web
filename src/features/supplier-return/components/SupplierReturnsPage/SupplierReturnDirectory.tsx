@@ -3,13 +3,13 @@
 import { Plus, Search } from 'lucide-react'
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
+import { ReturnsWorkspaceNavigation } from '@/components/operations/ReturnsWorkspaceNavigation'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import {
   OperationalEmptyState,
   OperationalErrorState,
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
-import { StockIssueWorkspaceNavigation } from '@/components/operations/StockIssueWorkspaceNavigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
@@ -51,8 +51,8 @@ interface SupplierReturnDirectoryProps {
   readonly dateTo: string
   readonly warehouses: readonly Option[]
   readonly suppliers: readonly Option[]
-  readonly permissions: readonly string[]
   readonly canCreate: boolean
+  readonly permissions: readonly string[]
   readonly isLoading: boolean
   readonly isFetching: boolean
   readonly isError: boolean
@@ -82,8 +82,8 @@ export function SupplierReturnDirectory({
   dateTo,
   warehouses,
   suppliers,
-  permissions,
   canCreate,
+  permissions,
   isLoading,
   isFetching,
   isError,
@@ -104,7 +104,7 @@ export function SupplierReturnDirectory({
       <h1 className="sr-only">Trả hàng nhà cung cấp</h1>
       <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
-          <StockIssueWorkspaceNavigation currentView="supplierReturns" permissions={permissions} />
+          <ReturnsWorkspaceNavigation currentView="supplierReturns" permissions={permissions} />
         </div>
         {canCreate ? (
           <Button type="button" size="sm" className="shrink-0 self-end" onClick={onCreate}>

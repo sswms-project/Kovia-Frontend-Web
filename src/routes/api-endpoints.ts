@@ -479,6 +479,8 @@ export const API_ENDPOINTS = {
       `/stock-issue-requests/${stockIssueRequestId}/pick-details/${pickDetailId}`,
     goodsReturnRequests: (stockIssueRequestId: string) =>
       `/stock-issue-requests/${stockIssueRequestId}/goods-return-requests`,
+    goodsReturnSuggestions: (stockIssueRequestId: string) =>
+      `/stock-issue-requests/${stockIssueRequestId}/goods-return-requests/suggestions`,
   },
   goodsReturnRequests: {
     list: '/goods-return-requests',
