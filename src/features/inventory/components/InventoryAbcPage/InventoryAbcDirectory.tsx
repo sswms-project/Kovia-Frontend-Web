@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { RefreshCw, TriangleAlert } from 'lucide-react'
 import {
   OperationalEmptyState,
@@ -40,6 +41,7 @@ interface InventoryAbcDirectoryProps {
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
   readonly onRetryWarehouses: () => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly historicalPeriodDays: number
   readonly metric: 'Quantity' | 'Activity'
@@ -88,6 +90,7 @@ export function InventoryAbcDirectory({
   onPageSizeChange,
   onRetryWarehouses,
   onRetry,
+  exportAction,
   historicalPeriodDays,
   metric,
   aThreshold,
@@ -262,6 +265,7 @@ export function InventoryAbcDirectory({
               ) : null}
             </div>
           </div>
+          {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

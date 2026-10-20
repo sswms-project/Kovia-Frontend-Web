@@ -1,5 +1,12 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+import {
+  toOperationalDateTimeStart,
+  toOperationalDateTimeEnd,
+} from '@/features/inbound-request/utils/inbound-request-format'
+
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
@@ -24,15 +31,16 @@ export default function DamageCasesPage() {
   const [status, setStatus] = useState<DamageCaseStatus | ''>('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const casesQuery = useDamageCasesQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize: 20,
     ...(warehouseId ? { warehouseId } : {}),
     ...(productId ? { productId } : {}),
     ...(status ? { status } : {}),
-    ...(dateFrom ? { dateFrom } : {}),
-    ...(dateTo ? { dateTo: `${dateTo}T23:59:59.999Z` } : {}),
-  })
+    ...(dateFrom ? { dateFrom: toOperationalDateTimeStart(dateFrom) } : {}),
+    ...(dateTo ? { dateTo: toOperationalDateTimeEnd(dateTo) } : {}),
+  }
+  const casesQuery = useDamageCasesQuery(exportFilters)
   const decisionMutation = useDecideDamageCaseDispositionMutation()
   const uploadMutation = useUploadInventoryEvidenceMutation()
   const evidenceMutation = useAddDamageCaseEvidenceMutation()
@@ -109,8 +117,20 @@ export default function DamageCasesPage() {
       throw error
     }
   }
+  const listExport = useListExport({
+    dataset: 'damage-cases',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.INVENTORY_VIEW,
+    totalCount: casesQuery.data?.totalCount ?? 0,
+    isFetching: casesQuery.isFetching,
+    isError: casesQuery.isError,
+  })
   return (
     <DamageCaseDirectory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
       permissions={meQuery.data?.permissions ?? []}
       currentUserId={meQuery.data?.id ?? null}
       items={casesQuery.data?.items ?? []}

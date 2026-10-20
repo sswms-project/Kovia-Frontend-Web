@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { RefreshCw } from 'lucide-react'
@@ -86,6 +87,7 @@ interface Props {
   readonly onStatusFilterChange: (value: StockDiscrepancyStatus | '') => void
   readonly onDateFromChange: (value: string) => void
   readonly onDateToChange: (value: string) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onCreate: (values: {
     type: StockDiscrepancyType
@@ -218,20 +220,23 @@ export function StockDiscrepancyDirectory(props: Props) {
               />
             </Field>
           </FieldGroup>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            aria-label="Làm mới chênh lệch"
-            disabled={props.isFetching}
-            onClick={props.onRetry}
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-            />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {props.exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              aria-label="Làm mới chênh lệch"
+              disabled={props.isFetching}
+              onClick={props.onRetry}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+              />
+            </Button>
+          </div>
         </div>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />

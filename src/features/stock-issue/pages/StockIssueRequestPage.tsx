@@ -1,5 +1,10 @@
 'use client'
 
+import { P } from '@/config/permissionCodes'
+
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
@@ -33,7 +38,7 @@ export default function StockIssueRequestPage() {
 
   const meQuery = useMeQuery()
   const workflow = useStockIssueWorkflow()
-  const ordersQuery = useStockIssueRequestsQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(status ? { status } : {}),
@@ -43,7 +48,8 @@ export default function StockIssueRequestPage() {
     ...(dateFrom ? { dateFrom } : {}),
     ...(dateTo ? { dateTo } : {}),
     ...(assignedToMe ? { assignedToMe } : {}),
-  })
+  }
+  const ordersQuery = useStockIssueRequestsQuery(exportFilters)
   const stockRecipientOptionsQuery = useStockRecipientOptionsQuery({ pageNumber: 1, pageSize: 200 })
   const warehousesQuery = useWarehousesQuery({
     top: 100,
@@ -73,6 +79,16 @@ export default function StockIssueRequestPage() {
     setPage(1)
   }
 
+  const listExport = useListExport({
+    dataset: 'stock-issues',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.STOCK_ISSUE_REQUESTS_VIEW,
+    totalCount: ordersQuery.data?.totalCount ?? 0,
+    isFetching: ordersQuery.isFetching,
+    isError: ordersQuery.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -101,6 +117,9 @@ export default function StockIssueRequestPage() {
         ) : null}
       </header>
       <StockIssueRequestDirectory
+        exportAction={
+          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        }
         items={ordersQuery.data?.items ?? []}
         totalCount={ordersQuery.data?.totalCount ?? 0}
         statusCounts={ordersQuery.data?.statusCounts ?? []}

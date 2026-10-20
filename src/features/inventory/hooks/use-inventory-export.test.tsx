@@ -5,13 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth.store'
 import { inventoryExportService } from '../services/inventory-export.service'
-import { downloadInventoryExport } from '../utils/inventory-export'
+import { downloadInventoryExport } from '@/lib/excel-download'
 import { useInventoryExport } from './use-inventory-export'
 
 vi.mock('../services/inventory-export.service', () => ({
   inventoryExportService: { exportExcel: vi.fn() },
 }))
-vi.mock('../utils/inventory-export', () => ({ downloadInventoryExport: vi.fn() }))
+vi.mock('@/lib/excel-download', () => ({ downloadInventoryExport: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/api-error', () => ({
   getApiErrorMessage: () => 'Không thể xuất',

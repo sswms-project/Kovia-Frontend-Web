@@ -5,6 +5,10 @@ import { P } from '@/config/permissionCodes'
 import type { MyWarehouseTask, MyWarehouseTaskQuery } from '../types/warehouse-task.types'
 import MyWarehouseTasksPage from './MyWarehouseTasksPage'
 
+vi.mock('@/features/list-export/hooks/use-list-export', () => ({
+  useListExport: () => ({ canExport: false, buttonProps: { isPending: false, onExport: vi.fn() } }),
+}))
+
 const { query, retryList, retryQueue, mutation, push, toastError } = vi.hoisted(() => ({
   query: vi.fn(),
   retryList: vi.fn(),

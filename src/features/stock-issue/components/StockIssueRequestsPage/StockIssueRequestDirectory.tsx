@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -47,6 +48,7 @@ interface StockIssueRequestDirectoryProps {
   readonly onAssignedToMeChange: (value: boolean) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -80,6 +82,7 @@ export function StockIssueRequestDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
 }: StockIssueRequestDirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
@@ -95,6 +98,7 @@ export function StockIssueRequestDirectory({
               Danh sách yêu cầu xuất kho
             </h2>
             <StockIssueRequestFilters
+              exportAction={exportAction}
               searchText={searchText}
               status={status}
               warehouseId={warehouseId}

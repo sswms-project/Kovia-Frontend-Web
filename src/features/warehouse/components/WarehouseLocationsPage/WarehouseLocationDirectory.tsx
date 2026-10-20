@@ -68,6 +68,7 @@ interface WarehouseLocationDirectoryProps {
   readonly onResetFilters: () => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onRetryFilterMetadata: () => void
 }
@@ -118,6 +119,7 @@ export function WarehouseLocationDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   onRetryFilterMetadata,
 }: WarehouseLocationDirectoryProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -159,6 +161,7 @@ export function WarehouseLocationDirectory({
             <ListFilter data-icon="inline-start" aria-hidden="true" />
             Bộ lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
           </Button>
+          {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

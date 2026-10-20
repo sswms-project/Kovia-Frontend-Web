@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { ListFilter, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import {
@@ -57,6 +58,7 @@ interface StockMovementHistoryProps {
   readonly onRetryLocations: () => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -97,6 +99,7 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
               <ListFilter aria-hidden="true" />
               Bộ lọc{activeFilterCount ? ` (${activeFilterCount})` : ''}
             </Button>
+            {props.exportAction}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

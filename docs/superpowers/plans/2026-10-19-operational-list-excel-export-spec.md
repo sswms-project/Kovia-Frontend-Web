@@ -1,7 +1,7 @@
 # Kovia — Xuất Excel cho danh sách nghiệp vụ
 
-- Ngày cập nhật: 19/10/2026, giờ Việt Nam.
-- Trạng thái: `INV01_IMPLEMENTED_PENDING_ACCEPTANCE` — người dùng đã yêu cầu triển khai; đã làm mẫu INV-01, chưa nhân rộng sang các đợt sau.
+- Ngày cập nhật: 20/10/2026, giờ Việt Nam.
+- Trạng thái: `ROLLOUT_IMPLEMENTED_PENDING_ACCEPTANCE` — mẫu INV-01 đã commit; các đợt 1B–4 đã code và kiểm tra cô lập theo yêu cầu tiếp tục của người dùng. Chưa nghiệm thu tải file từng trang bằng tài khoản thật.
 - Phạm vi: cả `SSWMS-Frontend` và `SSWMS-Backend`. File này là bản theo dõi chung, không nhân bản spec sang BE.
 - Yêu cầu đã xác nhận: nút chỉ có icon, không có label hiển thị; có tooltip “Xuất Excel”; đặt trước reload, reload ở ngoài cùng bên phải.
 - Tài liệu này thay thế kế hoạch xuất Excel trong hội thoại trước đó. Không phải xác nhận tính năng đã có, đã được kiểm thử hoặc được phép thay đổi quyền trên host.
@@ -73,7 +73,7 @@ Chưa làm trong phạm vi này:
 | CAT-02  | 2   | Nhà cung cấp           | Một nhà cung cấp.                                                                                                      |
 | CAT-03  | 2   | Khách hàng             | Một đối tượng khách hàng/người nhận theo danh sách hiện tại.                                                           |
 | CAT-04  | 2   | Kho                    | Một kho.                                                                                                               |
-| CAT-05  | 2   | Vị trí kho             | Một dòng của loại danh sách vị trí đang xem; không trộn khu/kệ/ô trong một dataset.                                    |
+| CAT-05  | 2   | Vị trí kho             | Một dòng theo đúng loại đã lọc; nếu đang xem tất cả thì giữ tất cả và có cột Loại rõ ràng.                             |
 | DOC-01  | 3   | Các danh sách nhập kho | Mỗi tab là dataset riêng: yêu cầu/phiếu là một chứng từ; danh sách việc nhận/cất giữ đúng một dòng công việc như bảng. |
 | DOC-02  | 3   | Các danh sách xuất kho | Mỗi tab là dataset riêng; một dòng theo chứng từ/công việc của đúng tab.                                               |
 | DOC-03  | 3   | Điều chuyển            | Một phiếu chuyển; không nhân dòng theo đợt chuyển hoặc mặt hàng.                                                       |
@@ -264,11 +264,11 @@ Không làm cả bốn đợt trong một thay đổi lớn chưa được kiể
 | Sửa spec theo F1–F6           | Hoàn tất đặc tả        | Chưa phải sửa code.                                                         |
 | Review/phê duyệt spec này     | Đã cho phép triển khai | Người dùng yêu cầu thực hiện và sửa các điểm chưa hợp lý ngày 19/10.        |
 | Hồ sơ contract INV-01         | Đã ghi bên dưới        | API, quyền, cột và bộ lọc đã đối chiếu code.                                |
-| Đợt 1A                        | Chờ nghiệm thu mẫu     | Đã code FE/BE và test cô lập; chưa bật quyền trên DB thật.                  |
-| Đợt 1B                        | Chưa bắt đầu           | Theo từng dataset INV-02…INV-08.                                            |
-| Đợt 2                         | Chưa bắt đầu           | CAT-01…CAT-05.                                                              |
-| Đợt 3                         | Chưa bắt đầu           | DOC-01…DOC-04, tách riêng mỗi tab.                                          |
-| Đợt 4                         | Chưa bắt đầu           | TASK-01/TASK-02, theo scope.                                                |
+| Đợt 1A                        | Chờ nghiệm thu mẫu     | Đã commit; danh mục quyền đã provision theo yêu cầu, không tự grant role.   |
+| Đợt 1B                        | Đã triển khai          | INV-02…INV-08; xem contract rollout bên dưới.                               |
+| Đợt 2                         | Đã triển khai          | CAT-01…CAT-05.                                                              |
+| Đợt 3                         | Đã triển khai          | Bốn tab nhập, danh sách yêu cầu xuất, điều chuyển, kiểm kê.                 |
+| Đợt 4                         | Đã triển khai          | Công việc hiện tại/lịch sử, tách mine/managed.                              |
 | Kiểm tra hồi quy liên phân hệ | Một phần               | Có test inventory và báo cáo kho; không coi mọi dataset đã được nghiệm thu. |
 
 Mẫu ghi contract ngay tại mục này: `Dataset / route-tab / query nguồn / khóa dòng / applied filters & sort / quyền & scope / masking / cột & kiểu / snapshot / selected / API & validator / test & kết quả / trạng thái review`.
@@ -293,6 +293,46 @@ Mẫu ghi contract ngay tại mục này: `Dataset / route-tab / query nguồn /
 
 Mọi thay đổi quyết định trong spec phải ghi ngày và lý do bên dưới; không tự đổi phạm vi triển khai khi gặp API khác dự kiến.
 
+### Contract rollout ngày 20/10/2026 — INV-02 đến TASK-02
+
+- API bổ sung: `POST /api/list-exports`, body `{ dataset, filters, selectedIds? }`. Dataset là allowlist đóng, không phải tên entity/table do client chọn. Mỗi case deserialize một query đã định kiểu, từ chối trường không biết và gọi lại validator/handler đọc danh sách hiện có. Không nhận tên cột hay biểu thức sort từ client. INV-01 giữ endpoint cũ.
+- Quyền của mọi case: `lists:export` AND quyền xem trong bảng dưới. Giữ tenant/kho/masking của handler nguồn; dữ liệu không qua FE để ghép trang. Internal `ExportAll` không bind được qua JSON, chỉ đường export bật đọc tối đa 10.001 dòng để phát hiện vượt 10.000; giới hạn API list công khai giữ nguyên.
+- `filters` là object cùng applied query của bảng, bỏ pageNumber/pageSize/top/skip/needTotalCount, tối đa 16.000 ký tự JSON. Trường ngày theo đúng hợp đồng query nguồn, không tạo khoảng ngày khác cho export. Bộ lọc đang debounce/loading/error không được xuất. Filter được chụp tại lúc bắt đầu; dữ liệu live có thể đổi sau lần xem trước.
+- Sort dùng lại thứ tự query nguồn, bổ sung ID làm tie-breaker ở các truy vấn chưa ổn định. Không có sort tự do trong export. Một dòng tương ứng khóa ở bảng dưới; không bung bảng chi tiết master/detail.
+- Allowlist cột cụ thể/kiểu ô được khai báo trực tiếp trong `Application/Features/ListExport/ExportListQuery.cs`, `ExportCatalogLists.cs`, `ExportDocumentLists.cs`; không reflection toàn entity. Workbook có sheet Danh sách và Thông tin xuất, số dòng thực tế, bộ lọc, doanh nghiệp, thời điểm bắt đầu/đọc xong UTC+7. Text giữ mã 0 đầu và không chạy công thức; decimal ngoài độ chính xác Excel giữ text, null/masking để trống.
+
+| Dataset                               | Query nguồn / khóa một dòng                             | Quyền xem / phạm vi                             | Các cột chính và đặc thù                                                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| movements                             | GetStockMovementsQuery / StockMovement.Id               | Inventory.View; tenant và kho của list          | SKU, kho/khu/kệ/vị trí/lô/ĐVT, loại, thay đổi, tồn sau, chứng từ, người/thời điểm                                                                        |
+| reservations                          | GetReservationsQuery / Reservation.Id                   | Inventory.View; tenant/kho/trạng thái như list  | Hàng, vị trí/lô/chất lượng, chứng từ, số giữ, trạng thái, người tạo/giải phóng                                                                           |
+| damage-cases                          | GetDamageCasesQuery / DamageCase.Id                     | Inventory.View; tenant/kho của list             | Số lượng/đã xử lý/còn lại theo ĐVT từng dòng, lý do/phương án; không xuất bằng chứng/lịch sử                                                             |
+| opening-stocks                        | GetOpeningStocksQuery / OpeningStockRecord.Id           | Inventory.View; kho được xem                    | Mã phiếu, kho, ngày ghi nhận, trạng thái, số dòng, người/ngày tạo/gửi/duyệt, lý do                                                                       |
+| discrepancies                         | GetStockDiscrepanciesQuery / StockDiscrepancy.Id        | Inventory.View; kho được xem                    | Hàng/vị trí/lô, loại, chênh lệch, mô tả, trạng thái/người báo/phụ trách; không tệp bằng chứng                                                            |
+| adjustments                           | GetStockAdjustmentVouchersQuery / voucher ID            | StockAdjustment.View; scope query voucher       | Một chứng từ, không từng dòng điều chỉnh; số dòng, không cộng tổng lượng khác ĐVT                                                                        |
+| abc                                   | InventoryCountPriorityAnalysis / analysisId + ProductId | Inventory.View + kiểm tra quyền xem kho         | Đúng analysisId/warehouseId/fingerprint/version; không lấy latest hoặc phân tích lại; metadata ngưỡng A/B, tiêu chí, kỳ và cơ sở tính từ snapshot đã lưu |
+| products                              | GetProductsQuery / Product.Id                           | Product.View; giữ kiểm tra quyền tồn của reader | SKU/nhóm/ĐVT/mã vạch/theo lô/trạng thái; số tồn bị che vẫn null, không tự tính lại                                                                       |
+| suppliers                             | GetSuppliersQuery / Supplier.Id                         | Supplier.View; tenant                           | Mã/tên, thuế, thông tin liên hệ kinh doanh và trạng thái                                                                                                 |
+| customers                             | GetStockRecipientsQuery / StockRecipient.Id             | StockRecipient.View; tenant                     | Mã/tên/loại, thuế, địa chỉ giao hàng/liên hệ, trạng thái                                                                                                 |
+| warehouses                            | GetWarehousesQuery / Warehouse.Id                       | Warehouse.View; kho được xem                    | Mã/tên/địa chỉ/quản lý/trạng thái/ngày tạo                                                                                                               |
+| locations                             | GetWarehouseLocationsQuery / Type + Id                  | Warehouse.View + kho trong route                | Loại, khu/kệ, lifecycle/occupancy/sức chứa/ĐVT; không xuất ô mặc định kỹ thuật; không dùng lựa chọn barcode làm lựa chọn export                          |
+| inbound-requests                      | GetInboundRequestsQuery / InboundRequest.Id             | InboundRequest.View; tenant/kho và ViewDraft    | Mã/nguồn/kho/trạng thái/số dòng/người/ngày tạo/dự kiến; không cộng lượng khác SKU                                                                        |
+| receiving                             | GetReceivingTasksQuery / request ID                     | GoodsReceipt.View; scope nhận hàng hiện có      | Yêu cầu/nguồn/kho/người nhận/trạng thái thực hiện/ưu tiên/hạn                                                                                            |
+| goods-receipts                        | GetGoodsReceiptsQuery / GoodsReceipt.Id                 | GoodsReceipt.View; scope phiếu nhận             | Phiếu/yêu cầu/kho/trạng thái/số dòng/người/ngày tạo/cất/hạn                                                                                              |
+| putaway                               | GetPutawayTasksQuery / GoodsReceipt.Id                  | GoodsReceipt.View; scope chờ cất                | Cùng schema phiếu nhận, bộ lọc và phạm vi tab chờ cất riêng                                                                                              |
+| stock-issues                          | GetStockIssueRequestsQuery / StockIssueRequest.Id       | StockIssue.View; tenant/kho và AssignedToMe     | Mã/kho/khách hàng/mục đích/tham chiếu/ngày/trạng thái/người lấy/xác nhận xuất; chưa gắn nút cho bảng nhỏ chi tiết hoặc hàng trả lại                      |
+| transfers                             | GetTransfersQuery / Transfer.Id                         | Transfer.View; scope điều chuyển hiện có        | Kho xuất/nhập/trạng thái/số dòng/lý do/người/ngày dự kiến/cờ chênh lệch                                                                                  |
+| cycle-counts                          | GetCycleCountsQuery / CycleCount.Id                     | CycleCount.View; scope kiểm kê                  | Chứng từ/lịch/người/ưu tiên/tiến độ đếm; VarianceItemCount bị che vẫn null; không xuất tồn chi tiết kiểm kê mù                                           |
+| my-tasks, managed-tasks               | GetMyWarehouseTasksQuery / TaskType + Id                | WarehouseTask.ViewOwn hoặc ViewAll              | MineOnly được BE ép theo dataset; giữ loại/trạng thái/deadline/kho; không xuất 6 thẻ gợi ý riêng                                                         |
+| my-task-history, managed-task-history | GetMyWarehouseTasksQuery / TaskType + Id                | WarehouseTask.ViewOwn hoặc ViewAll              | History được BE ép true, MineOnly theo dataset; không trộn công việc đang mở                                                                             |
+
+- Mặc định chỉ allFiltered. Riêng inbound-requests đang có checkbox chọn GUID hợp lệ nên icon mở menu khi có lựa chọn: toàn bộ kết quả hoặc N dòng đã chọn. Selected giới hạn 1–100 ID khác rỗng, không trùng, đúng dataset; BE giao lựa chọn với tenant/kho/ViewDraft/bộ lọc trước đọc, thiếu bất kỳ dòng nào thì từ chối toàn bộ. Đổi filter/page/pageSize xóa lựa chọn. Metadata ghi rõ selected, không giả là toàn bộ kết quả.
+- Chưa thêm selected cho vị trí kho (checkbox nội bộ phục vụ barcode có khóa ghép), hay tạo checkbox mới ở các bảng chưa có. Các bảng công việc không nhận mảng GUID để tránh mất TaskType.
+- File: `<Tên-doanh-nghiệp>-<Tên-danh-sách>-yyyyMMdd-HHmmss.xlsx`, tên doanh nghiệp lấy từ tenant đã xác thực ở BE, không nhận từ client. Chung quyền export không tự grant cho Manager/Staff; không cần migration mới hoặc seed quyền tổng.
+- Sửa contract phát hiện khi triển khai: GetPutawayTasksQuery nhận CreatedFrom/CreatedTo và validator khoảng ngày; reader áp dụng lên CreatedAt. FE trước đó đã gửi hai trường này nhưng BE bỏ qua. Đây là sửa tính đúng bộ lọc cho cả bảng và export.
+- Chưa bao gồm nhân sự, thanh toán, audit logs; cũng không tự thêm export cho thông báo, lời mời, vai trò, popup, bảng chi tiết hoặc hàng trả lại. Các nhóm nhạy cảm vẫn cần contract/masking và đánh giá riêng.
+- Kiểm tra: full FE 250 file / 1.555 test pass; test menu và hook export mới 18 pass; TypeScript production-config, scoped ESLint và production build cô lập pass. BE rollout/export 38 test pass; hồi quy rộng được ghi kết quả cuối trong AI_REVIEW. Full FE chạy trước khi discover file test menu mới; kết quả 18 test riêng bao phủ file mới, không gọi tổng hai số là số test duy nhất.
+- Giới hạn nghiệm thu: chưa benchmark SQL/API ở 10.000 dòng từng dataset, chưa chứng nhận RAM đỉnh hoặc các bộ chứng từ có rất nhiều dòng chi tiết; chưa test browser tải file từng trang bằng tài khoản thật. Không dùng kết quả test fixture thay cho chứng nhận triển khai. Chưa restart local; không DB write/migration/seed ở đợt rollout.
+
 ## 15. An toàn dữ liệu và vận hành
 
 - Dự kiến không cần thay schema DB. Nếu phát sinh migration, báo tên/tác động và dừng trước khi áp dụng để chờ người dùng cho phép.
@@ -304,6 +344,11 @@ Mọi thay đổi quyết định trong spec phải ghi ngày và lý do bên d�
 - File chỉ được trả qua request đã xác thực; không thêm public URL hoặc lưu lâu dài để “tiện tải lại”.
 
 ## 16. Lịch sử quyết định
+
+- 20/10/2026 — Sửa finding review R1/R2 theo yêu cầu: tồn đầu kỳ và phiếu điều chỉnh dùng bounded scalar projection và COUNT/SUM SQL, không tải dòng con/bằng chứng để xuất danh sách; xuất kho chỉ chọn header và kiểm tra totalCount trước đọc. Giữ predicate/permission và nhánh đọc thường. Tồn đầu kỳ truyền số dòng qua trường JsonIgnored, không đổi schema JSON công khai. Hai trang Hàng hỏng/Chênh lệch dùng helper mốc ngày +07:00 hiện có cho cả bảng/file, loại dư bảy giờ sang ngày sau. Test BE 1.313 pass/4 skip, FE liên quan 213 pass, TypeScript/lint/build FE pass. Chưa benchmark SQL/RAM tải lớn hoặc nghiệm thu trình duyệt tài khoản thật; không migration/seed/restart/commit/push ở lượt sửa này.
+
+- 20/10/2026 — Người dùng yêu cầu commit mẫu rồi triển khai các nhóm danh sách đã đề xuất. Đã commit mẫu BE 898fc34a / FE d814a47; chưa push. Bổ sung hợp đồng rollout phía trên. Reuse component/hook/request tải XLSX dùng chung khi dataset thứ hai đã tồn tại; không thêm dependency hoặc generic export entity.
+- 20/10/2026 — Thay đường dẫn riêng mỗi phân hệ trong đề xuất ban đầu bằng một endpoint allowlist dataset đóng để không nhân bản controller/download plumbing; từng dataset vẫn dùng typed query, quyền riêng và schema cột tường minh. INV-01 giữ endpoint cũ. Vị trí chế độ Tất cả giữ cột Loại như bảng thật thay vì tự thu hẹp khác UI.
 
 - 19/10/2026: hợp nhất kế hoạch và review thành một spec; chốt icon-only trước reload; xử lý F1–F6; bổ sung checkpoint contract, parity/security tests và lộ trình mẫu INV-01 trước khi nhân rộng. Chưa sửa source, quyền, schema hay runtime.
 - 19/10/2026 — Triển khai INV-01 theo yêu cầu người dùng. Repository phân trang luôn cắt ở 100 dòng dù Top cao hơn; bổ sung `GetBoundedAsync` opt-in đọc tối đa 10.001 dòng để phát hiện overflow, không nới list cap hoặc FE loop. Tách reader dùng chung thay vì sao chép logic tồn khả dụng.

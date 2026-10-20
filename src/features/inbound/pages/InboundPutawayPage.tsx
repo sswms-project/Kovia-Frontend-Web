@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { ChartColumn, PackageCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -46,14 +49,15 @@ export default function InboundPutawayPage() {
   const reportQuery = usePutawayDeviationReportQuery(reportPeriod, reportOpen)
   const canViewReport = meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_PLAN_PUTAWAY) ?? false
   const debouncedSearchText = useDebouncedValue(searchText, 350)
-  const query = usePutawayTasksQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
     ...(createdFrom ? { createdFrom: toOperationalDateTimeStart(createdFrom) } : {}),
     ...(createdTo ? { createdTo: toOperationalDateTimeEnd(createdTo) } : {}),
     ...(canAssign && assignmentFilter === 'unassigned' ? { unassigned: true } : {}),
-  })
+  }
+  const query = usePutawayTasksQuery(exportFilters)
 
   function openAssign(receipt: GoodsReceiptSummary) {
     assignment.open({
@@ -69,6 +73,16 @@ export default function InboundPutawayPage() {
     })
   }
 
+  const listExport = useListExport({
+    dataset: 'putaway',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.GOODS_RECEIPTS_VIEW,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <InboundPageHeader
@@ -102,6 +116,9 @@ export default function InboundPutawayPage() {
         ) : null}
       </div>
       <PutawayDirectory
+        exportAction={
+          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        }
         items={query.data?.items ?? []}
         totalCount={query.data?.totalCount ?? 0}
         page={page}
