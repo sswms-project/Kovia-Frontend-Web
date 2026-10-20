@@ -29,28 +29,30 @@ function DamageItemSummary({
   readonly evidenceActions: Pick<CycleCountEvidenceActions, 'onDownload'>
 }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:gap-6">
-      <div className="min-w-0 sm:w-56">
-        <p className="font-medium">{item.productName}</p>
-        <p className="text-muted-foreground font-mono text-xs">
+    <div className="grid min-w-0 flex-1 items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,14rem)_9rem_minmax(0,1fr)]">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{item.productName}</p>
+        <p className="text-muted-foreground truncate font-mono text-xs">
           {item.productSku} · {formatStockLocation(item)}
         </p>
-        <p className="mt-1 text-sm">
-          Hỏng{' '}
-          <b className="text-destructive font-semibold tabular-nums">
-            {formatCount(item.countedDamagedQuantity)}
-          </b>
-          {item.countedQuantity === null ? '' : ` / ${formatCount(item.countedQuantity)}`}{' '}
-          {item.unitName ?? ''}
-        </p>
       </div>
-      <div className="min-w-0 flex-1 text-sm">
-        <p className="text-muted-foreground text-xs">
-          Lý do{item.countedByName ? ` (${item.countedByName})` : ''}
+      <p className="text-sm">
+        Hỏng{' '}
+        <b className="text-destructive font-semibold tabular-nums">
+          {formatCount(item.countedDamagedQuantity)}
+        </b>
+        {item.countedQuantity === null ? '' : ` / ${formatCount(item.countedQuantity)}`}{' '}
+        {item.unitName ?? ''}
+      </p>
+      <div className="min-w-0 text-sm">
+        <p className="line-clamp-2 break-words" title={item.damageReason ?? undefined}>
+          <span className="text-muted-foreground text-xs">
+            Lý do{item.countedByName ? ` (${item.countedByName})` : ''}:{' '}
+          </span>
+          {item.damageReason ?? '—'}
         </p>
-        <p className="break-words">{item.damageReason ?? '—'}</p>
         {item.damageEvidence.length > 0 ? (
-          <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          <ul className="flex flex-wrap gap-x-3">
             {item.damageEvidence.map((file) => (
               <li key={file.id}>
                 <button
@@ -97,7 +99,7 @@ export function CycleCountDamagePanel({
     >
       <header
         className={cn(
-          'flex flex-wrap items-center gap-2 px-4 py-2 text-sm font-semibold',
+          'flex flex-wrap items-center gap-2 px-3 py-1.5 text-sm font-semibold',
           needsAttention ? 'bg-destructive/10 text-destructive' : 'border-b'
         )}
       >
@@ -131,14 +133,14 @@ export function CycleCountDamagePanel({
           </Button>
         ) : null}
       </header>
-      <ul className="divide-border divide-y">
+      <ul className="divide-border max-h-56 divide-y overflow-y-auto">
         {damagedItems.map((item) => (
-          <li key={item.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
+          <li key={item.id} className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center">
             <DamageItemSummary item={item} evidenceActions={evidenceActions} />
             {isReview ? (
               item.damageConfirmedAt === null ? (
                 canConfirm ? (
-                  <div className="flex shrink-0 flex-col gap-2 sm:w-44">
+                  <div className="flex shrink-0 flex-wrap gap-2">
                     <Button
                       type="button"
                       size="sm"
