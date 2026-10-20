@@ -11,6 +11,7 @@ import { OperationalPagination } from '@/components/operations/OperationalPagina
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
@@ -45,6 +46,7 @@ interface InventoryDirectoryProps {
   readonly warehouseId: string
   readonly productId: string
   readonly slotId: string
+  readonly showDepleted: boolean
   readonly warehouseOptions: readonly InventoryFilterOption[]
   readonly productOptions: readonly InventoryFilterOption[]
   readonly slotOptions: readonly InventoryFilterOption[]
@@ -61,6 +63,7 @@ interface InventoryDirectoryProps {
   readonly onWarehouseChange: (value: string) => void
   readonly onProductChange: (value: string) => void
   readonly onSlotChange: (value: string) => void
+  readonly onShowDepletedChange: (value: boolean) => void
   readonly onResetFilters: () => void
   readonly onRetryFilters: () => void
   readonly onPageChange: (page: number) => void
@@ -80,6 +83,7 @@ export function InventoryDirectory({
   warehouseId,
   productId,
   slotId,
+  showDepleted,
   warehouseOptions,
   productOptions,
   slotOptions,
@@ -95,6 +99,7 @@ export function InventoryDirectory({
   onWarehouseChange,
   onProductChange,
   onSlotChange,
+  onShowDepletedChange,
   onResetFilters,
   onRetryFilters,
   onPageChange,
@@ -164,7 +169,7 @@ export function InventoryDirectory({
               </FieldLabel>
               <NativeSelect
                 id="inventory-warehouse"
-                className="w-full sm:w-32"
+                className="w-full sm:w-44"
                 value={warehouseId}
                 disabled={areFiltersLoading}
                 onChange={(event) => onWarehouseChange(event.target.value)}
@@ -216,6 +221,15 @@ export function InventoryDirectory({
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
+            </Field>
+            <Field orientation="horizontal" className="w-full sm:w-auto">
+              <Checkbox
+                id="inventory-show-depleted"
+                name="show-depleted"
+                checked={showDepleted}
+                onCheckedChange={(checked) => onShowDepletedChange(checked === true)}
+              />
+              <FieldLabel htmlFor="inventory-show-depleted">Hiện hàng đã hết tồn</FieldLabel>
             </Field>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -302,6 +316,9 @@ export function InventoryDirectory({
               isPending={isFetching}
               onPageChange={onPageChange}
               onPageSizeChange={onPageSizeChange}
+              centerContent={
+                <span className="text-xs">Chi tiết theo vị trí, lô và trạng thái</span>
+              }
             />
           </>
         )}
@@ -384,7 +401,7 @@ function InventoryDesktopTable({
         <TableHeader>
           <TableRow>
             <TableHead className="sticky top-0 z-10 w-56">Sản phẩm</TableHead>
-            <TableHead className="sticky top-0 z-10 w-40">Kho / Vị trí</TableHead>
+            <TableHead className="sticky top-0 z-10 w-52">Kho / Vị trí</TableHead>
             <TableHead className="sticky top-0 z-10 w-40">Lô / Trạng thái</TableHead>
             <TableHead className="sticky top-0 z-10 w-24">ĐVT chính</TableHead>
             <TableHead className="sticky top-0 z-10 w-24 text-right">Tồn thực tế</TableHead>
@@ -407,11 +424,14 @@ function InventoryDesktopTable({
                 </p>
               </TableCell>
               <TableCell className="min-w-0">
-                <p className="truncate" title={item.warehouseName || 'Kho chưa xác định'}>
+                <p
+                  className="break-words whitespace-normal"
+                  title={item.warehouseName || 'Kho chưa xác định'}
+                >
                   {item.warehouseName || 'Kho chưa xác định'}
                 </p>
                 <p
-                  className="text-muted-foreground truncate text-xs"
+                  className="text-muted-foreground text-xs break-words whitespace-normal"
                   title={formatInventoryLocation(item)}
                 >
                   {formatInventoryLocation(item)}

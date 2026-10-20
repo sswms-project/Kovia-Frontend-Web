@@ -3,11 +3,14 @@
 import { RefreshCw, TriangleAlert } from 'lucide-react'
 import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { P } from '@/config/permissionCodes'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useUnitsQuery } from '@/features/product/hooks/use-products'
 import { getCapacityFormValues, getCapacityUpdateValues } from '../utils/storage-capacity'
@@ -44,6 +47,13 @@ import {
   getWarehousePhysicalDetails,
 } from '../utils/warehouse-physical-details'
 import { getWarehouseCapabilities } from '../utils/warehouse-capabilities'
+import {
+  buildWarehouseLocationTree,
+  filterWarehouseLocationTree,
+  flattenExpandedLocationTree,
+  getExpandableLocationIds,
+  matchesWarehouseLocationTreeNode,
+} from '../components/WarehouseLocationsPage/location-tree'
 import {
   buildWarehouseLayoutHref,
   getWarehouseLayoutSelection,
@@ -102,6 +112,31 @@ export function WarehouseLayoutPage({ warehouseId }: WarehouseLayoutPageProps) {
   const [deactivateTarget, setDeactivateTarget] = useState<DeactivateTarget | null>(null)
   const [deactivateErrorMessage, setDeactivateErrorMessage] = useState<string | null>(null)
   const zones = layoutQuery.data ?? []
+  const [locationSearchText, setLocationSearchText] = useState('')
+  const [locationStatus, setLocationStatus] = useState<'' | 'Active' | 'Inactive'>('')
+  const exportRowCount = useMemo(() => {
+    const tree = filterWarehouseLocationTree(
+      buildWarehouseLocationTree(layoutQuery.data ?? []),
+      locationSearchText,
+      locationStatus
+    )
+    return flattenExpandedLocationTree(tree, getExpandableLocationIds(tree)).filter((node) =>
+      matchesWarehouseLocationTreeNode(node, locationSearchText, locationStatus)
+    ).length
+  }, [layoutQuery.data, locationSearchText, locationStatus])
+  const listExport = useListExport({
+    dataset: 'locations',
+    filters: {
+      warehouseId,
+      ...(locationSearchText.trim() ? { searchText: locationSearchText.trim() } : {}),
+      ...(locationStatus ? { lifecycleStatus: locationStatus } : {}),
+    },
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.WAREHOUSES_VIEW,
+    totalCount: exportRowCount,
+    isFetching: layoutQuery.isFetching || warehouseQuery.isFetching || meQuery.isFetching,
+    isError: layoutQuery.isError || warehouseQuery.isError || meQuery.isError,
+  })
   const selection = getWarehouseLayoutSelection(
     zones,
     searchParams.get('zone'),
@@ -422,6 +457,13 @@ export function WarehouseLayoutPage({ warehouseId }: WarehouseLayoutPageProps) {
   return (
     <>
       <WarehouseLayoutView
+        searchText={locationSearchText}
+        lifecycleStatus={locationStatus}
+        onSearchTextChange={setLocationSearchText}
+        onLifecycleStatusChange={setLocationStatus}
+        exportAction={
+          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        }
         zones={zones}
         selectedZoneId={selection.selectedZoneId}
         selectedRackId={selection.selectedRackId}

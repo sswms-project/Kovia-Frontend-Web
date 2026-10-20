@@ -49,7 +49,7 @@ export function WarehouseOverview({
   ]
 
   return (
-    <div className="border">
+    <div className="bg-card text-card-foreground border">
       <dl className="grid min-w-0 grid-cols-1 divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         {metadata.map((item) => {
           const Icon = item.icon

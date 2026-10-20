@@ -153,22 +153,28 @@ export function GoodsReturnRequestDirectory({
         className="max-md:[&>[data-slot=table-container]]:hidden"
         aria-label="Danh sách phiếu hoàn hàng"
       >
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-3">
-          <div>
+        <div className="flex shrink-0 flex-col gap-3 border-b p-3">
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold">Danh sách yêu cầu trả hàng</h2>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-5">
-            <InputGroup className="min-w-0 lg:w-64">
+          <div
+            role="search"
+            aria-label="Bộ lọc yêu cầu trả hàng"
+            className="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(14rem,2fr)_repeat(2,minmax(9rem,1fr))_repeat(2,minmax(9.5rem,1fr))]"
+          >
+            <InputGroup className="min-w-0">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
               <InputGroupInput
                 aria-label="Tìm yêu cầu trả hàng"
+                placeholder="Tìm yêu cầu trả hàng…"
                 value={searchText}
                 onChange={(event) => onSearchChange(event.target.value)}
               />
             </InputGroup>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc trạng thái yêu cầu trả hàng"
               value={status}
               onChange={(event) =>
@@ -183,6 +189,7 @@ export function GoodsReturnRequestDirectory({
               ))}
             </NativeSelect>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc kho nhận hàng trả"
               value={warehouseId}
               onChange={(event) => onWarehouseChange(event.target.value)}

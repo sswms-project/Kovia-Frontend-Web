@@ -76,6 +76,10 @@ vi.mock('../components/WarehouseOverview/WarehouseActivityChart', () => ({
 }))
 
 beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: vi.fn(),
+  })
   vi.clearAllMocks()
   Object.assign(state, {
     compact: true,
@@ -275,6 +279,57 @@ describe('warehouse overview orchestration', () => {
       alerts.mock.calls.filter((call) => call[1] === true).every((call) => call[0].pageSize === 10)
     ).toBe(true)
   })
+  it('changes each panel page size independently, resets its page and keeps the shared 10/20/50 choices', async () => {
+    state.compact = false
+    const user = userEvent.setup()
+    render(<WarehouseOverviewPage />)
+    const panel = within(screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' }))
+    await user.click(panel.getByRole('button', { name: 'Trang sau' }))
+    expect(
+      alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
+        .pageNumber
+    ).toBe(2)
+    for (const size of [20, 50, 10]) {
+      fireEvent.keyDown(panel.getByRole('combobox', { name: 'Số dòng mỗi trang' }), {
+        key: 'Enter',
+      })
+      expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+        '10',
+        '20',
+        '50',
+      ])
+      await user.click(screen.getByRole('option', { name: String(size) }))
+      expect(
+        alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
+      ).toMatchObject({ pageNumber: 1, pageSize: size })
+      expect(
+        alerts.mock.calls.filter((call) => call[0].kind === 'above-maximum').at(-1)?.[0].pageSize
+      ).toBe(10)
+    }
+  })
+
+  it('retains the selected page size across compact group switches without loading hidden rows', async () => {
+    const user = userEvent.setup()
+    const view = render(<WarehouseOverviewPage />)
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Số dòng mỗi trang' }), { key: 'Enter' })
+    await user.click(screen.getByRole('option', { name: '50' }))
+    state.kind = 'expired'
+    view.rerender(<WarehouseOverviewPage />)
+    expect(
+      alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
+        .pageSize
+    ).toBe(1)
+    expect(
+      alerts.mock.calls.filter((call) => call[0].kind === 'expired').at(-1)?.[0].pageSize
+    ).toBe(10)
+    state.kind = 'below-minimum'
+    view.rerender(<WarehouseOverviewPage />)
+    expect(
+      alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
+        .pageSize
+    ).toBe(50)
+  })
+
   it('refreshes only the requested panel, while the header refreshes all four', async () => {
     const user = userEvent.setup()
     render(<WarehouseOverviewPage />)

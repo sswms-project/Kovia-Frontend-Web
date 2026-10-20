@@ -14,7 +14,7 @@ import {
   Search,
   Upload,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
@@ -52,6 +52,11 @@ import { formatWarehouseStatus } from '../../utils/warehouse-labels'
 import { formatStorageCapacity } from '../../utils/storage-capacity'
 
 interface WarehouseLayoutViewProps {
+  readonly searchText: string
+  readonly lifecycleStatus: '' | 'Active' | 'Inactive'
+  readonly onSearchTextChange: (value: string) => void
+  readonly onLifecycleStatusChange: (value: '' | 'Active' | 'Inactive') => void
+  readonly exportAction?: ReactNode
   readonly zones: readonly ZoneResponse[]
   readonly selectedZoneId: string | null
   readonly selectedRackId: string | null
@@ -84,8 +89,7 @@ interface WarehouseLayoutViewProps {
 type LifecycleFilter = '' | 'Active' | 'Inactive'
 
 export function WarehouseLayoutView(props: WarehouseLayoutViewProps) {
-  const [searchText, setSearchText] = useState('')
-  const [lifecycleStatus, setLifecycleStatus] = useState<LifecycleFilter>('')
+  const { searchText, lifecycleStatus } = props
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -155,7 +159,7 @@ export function WarehouseLayoutView(props: WarehouseLayoutViewProps) {
             value={searchText}
             onChange={(event) => {
               setPage(1)
-              setSearchText(event.currentTarget.value)
+              props.onSearchTextChange(event.currentTarget.value)
             }}
           />
         </InputGroup>
@@ -165,7 +169,7 @@ export function WarehouseLayoutView(props: WarehouseLayoutViewProps) {
           value={lifecycleStatus}
           onChange={(event) => {
             setPage(1)
-            setLifecycleStatus(event.currentTarget.value as LifecycleFilter)
+            props.onLifecycleStatusChange(event.currentTarget.value as LifecycleFilter)
           }}
         >
           <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
@@ -200,6 +204,7 @@ export function WarehouseLayoutView(props: WarehouseLayoutViewProps) {
         <Badge variant="secondary" className="md:ml-auto">
           {rows.length} vị trí đang hiển thị
         </Badge>
+        {props.exportAction}
       </div>
 
       {rows.length === 0 ? (
