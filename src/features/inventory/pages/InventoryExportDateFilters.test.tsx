@@ -19,8 +19,8 @@ vi.mock('@/features/product/hooks/use-products', () => ({
   useProductLotsQuery: () => ({ data: [] }),
 }))
 vi.mock('@/features/staff/hooks/use-staff', () => ({ useStaffListQuery: () => emptyQuery() }))
-vi.mock('@/features/stock-recipient/hooks/use-stock-recipients', () => ({
-  useStockRecipientsQuery: () => emptyQuery(),
+vi.mock('@/features/supplier/hooks/use-suppliers', () => ({
+  useSuppliersQuery: () => emptyQuery(),
 }))
 vi.mock('@/features/list-export/hooks/use-list-export', () => ({
   useListExport: (options: unknown) => {

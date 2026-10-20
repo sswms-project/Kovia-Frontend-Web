@@ -1,5 +1,12 @@
 # AI Review Handoff
 
+## 2026-10-20 — Post-dev-sync PR readiness
+
+- User authorized commit/push and PR screen/huytv to dev; human merge only. Self-review, not independent review; APPROVED_FINAL for inspected branch delta. Merge 185884e preserves dev supplier-return controls and the list-export action. No remaining Blocker/High established in inspected export/dashboard/rack-editing paths.
+- Fresh isolated production build compiled, TypeScript checked and generated 73 static pages; scoped ESLint over all changed TS/JS files passed. Vitest forks pool stalled without executing tests; threads pool executed the full suite: 255 files / 1,590 tests passed, one test failed because its damage-page harness still mocked the recipient hook removed by dev. Corrected that mock to the actual supplier hook without changing runtime source; focused rerun 3 files / 18 tests passed, including both Vietnam date-boundary cases, damage-directory supplier behavior and list-export hooks. No second full-suite run after the test-only fix is claimed. React act/description and expected mocked-error logs remain warnings, not hidden failures.
+- GitNexus compare is CRITICAL due the multi-page/canvas footprint, disclosed to user; individual earlier merge-resolution impacts LOW. The new test is unindexed/UNKNOWN; its hook consumer was checked directly. No new dependency or migration. Local AGENTS.md, CLAUDE.md and outputs remain excluded; no database command, seed, migration or deployment in this pass. No fresh real-account browser/export or production-volume benchmark claimed.
+- Coordinate with the backend list-export/activity PR. lists:export remains an explicit Admin/tenant delegation action; this PR does not grant permissions or fix legacy backend startup synchronization.
+
 ## 2026-10-20 — Fix calendar-day boundaries for inventory export
 
 - User-authorized implementation; self-verification, not independent review. Medium R2 FIXED. State APPROVED_FINAL after checking these prior findings and direct regressions. Historical OPEN entries below refer to the prior revision. BE High R1 also fixed in the backend handoff.
