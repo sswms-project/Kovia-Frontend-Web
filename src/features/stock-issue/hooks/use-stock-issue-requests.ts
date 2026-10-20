@@ -20,6 +20,8 @@ import type {
   StockIssueRequestSummary,
   UpdateStockIssueRequestRequest,
   CreateGoodsReturnRequestRequest,
+  GoodsReturnLineSuggestion,
+  GoodsReturnSuggestionLineRequest,
   RejectGoodsReturnRequestRequest,
   GoodsReturnRequestListQuery,
   GoodsReturnRequestListResponse,
@@ -267,6 +269,21 @@ export function useCreateGoodsReturnRequestMutation() {
   })
 }
 
+export function useGoodsReturnSlotSuggestionsQuery(
+  stockIssueRequestId: string | null,
+  items: readonly GoodsReturnSuggestionLineRequest[]
+) {
+  return useQuery<GoodsReturnLineSuggestion[], ApiErrorResponse>({
+    queryKey: queryKeys.goodsReturnRequests.slotSuggestions(stockIssueRequestId ?? '', items),
+    queryFn: () =>
+      stockIssueService
+        .suggestGoodsReturnSlots(stockIssueRequestId ?? '', items)
+        .then((response) => response.data),
+    enabled: Boolean(stockIssueRequestId) && items.length > 0,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
 export function useGoodsReturnRequestsQuery(params: GoodsReturnRequestListQuery, enabled = true) {
   return useQuery<GoodsReturnRequestListResponse, ApiErrorResponse>({
     queryKey: queryKeys.goodsReturnRequests.list(params),
@@ -290,8 +307,13 @@ export function useGoodsReturnRequestQuery(goodsReturnRequestId: string | null) 
 
 export function useApproveGoodsReturnRequestMutation() {
   const queryClient = useQueryClient()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
-    mutationFn: stockIssueService.approveGoodsReturnRequest,
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    { goodsReturnRequestId: string; selfApprovalAcknowledged?: boolean }
+  >({
+    mutationFn: ({ goodsReturnRequestId, selfApprovalAcknowledged }) =>
+      stockIssueService.approveGoodsReturnRequest(goodsReturnRequestId, selfApprovalAcknowledged),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.goodsReturnRequests.all })
       void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })

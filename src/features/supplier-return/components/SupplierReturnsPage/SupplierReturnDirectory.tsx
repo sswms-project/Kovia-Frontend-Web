@@ -3,13 +3,13 @@
 import { Plus, Search } from 'lucide-react'
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
+import { ReturnsWorkspaceNavigation } from '@/components/operations/ReturnsWorkspaceNavigation'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import {
   OperationalEmptyState,
   OperationalErrorState,
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
-import { StockIssueWorkspaceNavigation } from '@/components/operations/StockIssueWorkspaceNavigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
@@ -51,8 +51,8 @@ interface SupplierReturnDirectoryProps {
   readonly dateTo: string
   readonly warehouses: readonly Option[]
   readonly suppliers: readonly Option[]
-  readonly permissions: readonly string[]
   readonly canCreate: boolean
+  readonly permissions: readonly string[]
   readonly isLoading: boolean
   readonly isFetching: boolean
   readonly isError: boolean
@@ -82,8 +82,8 @@ export function SupplierReturnDirectory({
   dateTo,
   warehouses,
   suppliers,
-  permissions,
   canCreate,
+  permissions,
   isLoading,
   isFetching,
   isError,
@@ -102,7 +102,7 @@ export function SupplierReturnDirectory({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <h1 className="sr-only">Trả hàng nhà cung cấp</h1>
-      <StockIssueWorkspaceNavigation currentView="supplierReturns" permissions={permissions} />
+      <ReturnsWorkspaceNavigation currentView="supplierReturns" permissions={permissions} />
       <OperationalListPanel
         className="max-md:[&>[data-slot=table-container]]:hidden"
         aria-label="Danh sách phiếu trả hàng nhà cung cấp"
