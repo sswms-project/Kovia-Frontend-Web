@@ -179,7 +179,7 @@ export function CycleCountItemsTable({
     ? null
     : items.reduce((sum, item) => sum + (getLiveDifference(item) ?? 0), 0)
   const totalDamaged = items.reduce((sum, item) => sum + (getLiveDamaged(item) ?? 0), 0)
-  const columnCount = canSelect ? 16 : 15
+  const columnCount = canSelect ? 12 : 11
   const mustStart = allowedActions.includes('Start')
   // Cờ Scan do BE trả theo gói dịch vụ; không có thì chỉ nhập tay.
   const canScan = allowedActions.includes('Scan')
@@ -473,59 +473,25 @@ export function CycleCountItemsTable({
           />
         </>
       ) : (
-        <Table
-          aria-label="Dòng kiểm kê"
-          className="[&_td]:border-border [&_th]:border-border min-w-[1200px] [&_td]:border [&_td]:px-1.5 [&_td]:py-0.5 [&_td]:align-middle [&_th]:h-7 [&_th]:border [&_th]:px-1.5 [&_th]:text-center"
-        >
+        <Table aria-label="Dòng kiểm kê" className="min-w-[1280px] text-sm">
           <TableHeader>
             <TableRow>
               {canSelect ? (
-                <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-10">
+                <TableHead className="bg-card w-10">
                   <span className="sr-only">Chọn dòng kiểm đếm lại</span>
                 </TableHead>
               ) : null}
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-10">
-                #
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Mã VTHH
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Tên VTHH
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-                ĐVT
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-                Vị trí
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Lô / HSD
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-                Chất lượng sổ sách
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-                Tình trạng kiểm kê
-              </TableHead>
-              <TableHead colSpan={4} className="bg-muted sticky top-0 z-10 text-center">
-                Số lượng
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 min-w-48">
-                Ghi chú
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Lịch sử
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Xử lý
-              </TableHead>
-            </TableRow>
-            <TableRow>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo sổ sách</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo kiểm kê</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Trong đó hỏng</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Chênh lệch</TableHead>
+              <TableHead className="bg-card w-12">#</TableHead>
+              <TableHead className="bg-card min-w-56">Vật tư · Mã · ĐVT</TableHead>
+              <TableHead className="bg-card w-44">Vị trí · Lô / HSD</TableHead>
+              <TableHead className="bg-card w-40">Tình trạng · Phẩm chất</TableHead>
+              <TableHead className="bg-card w-28 text-right">Theo sổ sách</TableHead>
+              <TableHead className="bg-card w-32 text-right">Theo kiểm kê</TableHead>
+              <TableHead className="bg-card w-36 text-right">Trong đó hỏng</TableHead>
+              <TableHead className="bg-card w-28 text-right">Chênh lệch</TableHead>
+              <TableHead className="bg-card min-w-56">Ghi chú</TableHead>
+              <TableHead className="bg-card w-36">Lịch sử</TableHead>
+              <TableHead className="bg-card w-44">Xử lý</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -559,33 +525,47 @@ export function CycleCountItemsTable({
                     <TableCell className="text-muted-foreground tabular-nums">
                       {rowIndex + 1}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{item.productSku}</TableCell>
-                    <TableCell className="font-medium">{item.productName}</TableCell>
-                    <TableCell className="text-center">{item.unitName ?? '—'}</TableCell>
-                    <TableCell className="text-center font-mono">
-                      {formatStockLocation(item)}
+                    <TableCell className="min-w-0 whitespace-normal">
+                      <p className="font-medium">{item.productName}</p>
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        <span className="font-mono" translate="no">
+                          {item.productSku}
+                        </span>
+                        {item.unitName ? ` · ${item.unitName}` : ''}
+                      </p>
+                    </TableCell>
+                    <TableCell className="min-w-0">
+                      <p className="font-mono font-semibold" translate="no">
+                        {formatStockLocation(item)}
+                      </p>
+                      <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                        <span className="font-mono" translate="no">
+                          {item.lotNumber ?? 'Theo số lượng'}
+                        </span>
+                        {item.expiryDate ? ` · HSD ${formatCycleCountDay(item.expiryDate)}` : ''}
+                      </p>
                     </TableCell>
                     <TableCell>
-                      <p className="font-mono text-xs">{item.lotNumber ?? 'Theo số lượng'}</p>
-                      {item.expiryDate ? (
-                        <p className="text-muted-foreground text-xs">
-                          HSD {formatCycleCountDay(item.expiryDate)}
-                        </p>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={item.qualityStatus === 'Good' ? 'secondary' : 'outline'}>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant={state.variant}>{state.label}</Badge>
+                        {item.countedQuantity !== null && item.countMethod === 'Scanned' ? (
+                          <ScanBarcode
+                            className="text-muted-foreground size-4"
+                            aria-label="Đã quét mã"
+                          />
+                        ) : null}
+                      </div>
+                      <p
+                        className={cn(
+                          'mt-1 text-xs',
+                          item.qualityStatus === 'Good'
+                            ? 'text-muted-foreground'
+                            : 'text-destructive font-medium'
+                        )}
+                      >
+                        Phẩm chất:{' '}
                         {CYCLE_COUNT_QUALITY_LABELS[item.qualityStatus] ?? item.qualityStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={state.variant}>{state.label}</Badge>
-                      {item.countedQuantity !== null && item.countMethod === 'Scanned' ? (
-                        <ScanBarcode
-                          className="text-muted-foreground mx-auto mt-0.5 size-3.5"
-                          aria-label="Đã quét mã"
-                        />
-                      ) : null}
+                      </p>
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {item.systemQuantity === null ? (
@@ -603,7 +583,7 @@ export function CycleCountItemsTable({
                           inputRefs.current[item.id] = element
                         }}
                         aria-label={`Số đếm thực tế của ${item.productName} tại ${formatStockLocation(item)}`}
-                        className="ml-auto block h-6 w-full text-right font-mono"
+                        className="ml-auto block h-9 w-full text-right font-mono"
                         type="number"
                         min="0"
                         step="0.01"
@@ -620,10 +600,10 @@ export function CycleCountItemsTable({
                     </TableCell>
                     <TableCell>
                       {recordable ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <Input
                             aria-label={`Số lượng hỏng của ${item.productName} tại ${formatStockLocation(item)}`}
-                            className="ml-auto block h-6 w-full min-w-0 text-right font-mono"
+                            className="ml-auto block h-9 w-full min-w-0 text-right font-mono"
                             type="number"
                             min="0"
                             step="0.01"
@@ -651,7 +631,7 @@ export function CycleCountItemsTable({
                             <Button
                               type="button"
                               variant="outline"
-                              size="icon-xs"
+                              size="icon-sm"
                               className="relative shrink-0"
                               aria-label={
                                 isDamageIncomplete(item)
@@ -694,11 +674,11 @@ export function CycleCountItemsTable({
                     >
                       {formatCountDifference(liveDifference)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-normal">
                       {recordable ? (
                         <Input
                           aria-label={`Ghi chú của ${item.productName} tại ${formatStockLocation(item)}`}
-                          className="h-6 w-full"
+                          className="h-9 w-full"
                           maxLength={CYCLE_COUNT_NOTE_MAX_LENGTH}
                           placeholder="Ghi chú (nếu có)"
                           value={getNoteDraft(item)}
@@ -714,14 +694,14 @@ export function CycleCountItemsTable({
                           }}
                         />
                       ) : (
-                        <span className="text-xs">{item.note ?? '—'}</span>
+                        <span>{item.note ?? '—'}</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-normal">
                       {item.countHistory.length ? (
                         <Collapsible>
                           <CollapsibleTrigger asChild>
-                            <Button variant="link" size="xs" className="h-auto p-0 text-xs">
+                            <Button variant="link" size="sm" className="h-auto p-0">
                               <History aria-hidden="true" />
                               {item.countHistory.length} lần trước
                             </Button>
@@ -742,7 +722,7 @@ export function CycleCountItemsTable({
                           </CollapsibleContent>
                         </Collapsible>
                       ) : (
-                        <span className="text-muted-foreground text-xs">Chưa có</span>
+                        <span className="text-muted-foreground">Chưa có</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -771,7 +751,7 @@ export function CycleCountItemsTable({
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={canSelect ? 9 : 8} className="font-semibold">
+              <TableCell colSpan={canSelect ? 5 : 4} className="font-semibold">
                 Tổng cộng ({items.length} dòng)
               </TableCell>
               <TableCell className="text-right font-mono font-semibold tabular-nums">
