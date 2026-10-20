@@ -1,4 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRef } from 'react'
+import type { CreateReceiptInput, UpdateReceiptInput } from '../types/receipt-commands.types'
+import { receiptCommandId, type ReceiptCommandSnapshot } from '../utils/receipt-command-id'
+import type { LegacyReceiptStockRequest } from '../schemas/legacy-receipt-stock.schema'
 import { logger } from '@/lib/logger'
 import { formatApiError, isApiErrorResponse } from '@/lib/api-error'
 import { queryKeys } from '@/lib/query-keys'
@@ -23,7 +27,6 @@ import type {
   SavePutAwayPlanRequest,
   ReceivingTaskListResponse,
   ReceivingTaskQuery,
-  SaveGoodsReceiptRequest,
   StartInboundDocumentImportRequest,
   ReviewInboundDocumentImportRequest,
   CancelPutawayTaskRequest,
@@ -32,15 +35,17 @@ import type {
 
 interface UpdateReceiptVariables {
   receiptId: string
-  request: Omit<SaveGoodsReceiptRequest, 'inboundRequestId'>
+  request: UpdateReceiptInput
 }
 
 interface RejectReceiptVariables {
   receiptId: string
   reason: string
+  expectedVersion: string
 }
 
 interface ConfirmPhysicalArrivalVariables {
+  keepAtReceiving?: boolean
   receiptId: string
   expectedVersion: string
   selfApprovalAcknowledged: boolean
@@ -49,6 +54,9 @@ interface ConfirmPhysicalArrivalVariables {
 interface SubmitGoodsReceiptVariables {
   receiptId: string
   expectedVersion: string
+  receivingSlotId?: string | null
+  refusedGoodsHandedBack?: boolean
+  refusalEvidenceIds?: string[]
 }
 
 interface PutawayVariables {
@@ -211,9 +219,37 @@ export function useNextGoodsReceiptCodeQuery(enabled: boolean, sessionKey?: stri
 
 export function useCreateGoodsReceiptMutation() {
   const invalidate = useInvalidateInbound()
-  return useMutation<ApiResponse<string>, ApiErrorResponse, SaveGoodsReceiptRequest>({
-    mutationFn: inboundService.createReceipt,
+  const command = useRef<ReceiptCommandSnapshot | null>(null)
+  return useMutation<ApiResponse<string>, ApiErrorResponse, CreateReceiptInput>({
+    retry: false,
+    mutationFn: (request) => {
+      command.current = receiptCommandId(command.current, request)
+      return inboundService.createReceipt({ ...request, commandId: command.current.commandId })
+    },
     onSuccess: () => invalidate(),
+    onError: (error) => logger.warn(formatApiError(error)),
+  })
+}
+
+export function useReconcileLegacyReceiptStockMutation() {
+  const invalidate = useInvalidateInbound()
+  const command = useRef<ReceiptCommandSnapshot | null>(null)
+  return useMutation({
+    retry: false,
+    mutationFn: ({
+      receiptId,
+      request,
+    }: {
+      receiptId: string
+      request: Omit<LegacyReceiptStockRequest, 'commandId'>
+    }) => {
+      command.current = receiptCommandId(command.current, { receiptId, ...request })
+      return inboundService.reconcileArrivalStock(receiptId, {
+        ...request,
+        commandId: command.current.commandId,
+      })
+    },
+    onSuccess: (_, variables) => invalidate(variables.receiptId),
     onError: (error) => logger.warn(formatApiError(error)),
   })
 }
@@ -248,8 +284,16 @@ export function useCreateDraftFromDocumentMutation() {
 
 export function useUpdateGoodsReceiptMutation() {
   const invalidate = useInvalidateInbound()
+  const command = useRef<ReceiptCommandSnapshot | null>(null)
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, UpdateReceiptVariables>({
-    mutationFn: ({ receiptId, request }) => inboundService.updateReceipt(receiptId, request),
+    retry: false,
+    mutationFn: ({ receiptId, request }) => {
+      command.current = receiptCommandId(command.current, { receiptId, ...request })
+      return inboundService.updateReceipt(receiptId, {
+        ...request,
+        commandId: command.current.commandId,
+      })
+    },
     onSuccess: (_, variables) => invalidate(variables.receiptId),
     onError: (error) => logger.warn(formatApiError(error)),
   })
@@ -257,34 +301,95 @@ export function useUpdateGoodsReceiptMutation() {
 
 export function useSubmitGoodsReceiptMutation() {
   const invalidate = useInvalidateInbound()
+  const command = useRef<ReceiptCommandSnapshot | null>(null)
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, SubmitGoodsReceiptVariables>({
-    mutationFn: ({ receiptId, expectedVersion }) =>
-      inboundService.submitReceipt(receiptId, {
+    retry: false,
+    mutationFn: ({
+      receiptId,
+      expectedVersion,
+      receivingSlotId,
+      refusedGoodsHandedBack,
+      refusalEvidenceIds,
+    }) => {
+      command.current = receiptCommandId(command.current, {
+        receiptId,
         expectedVersion,
-        commandId: crypto.randomUUID(),
-      }),
+        receivingSlotId,
+        refusedGoodsHandedBack,
+        refusalEvidenceIds,
+      })
+      return inboundService.submitReceipt(receiptId, {
+        expectedVersion,
+        receivingSlotId,
+        refusedGoodsHandedBack,
+        refusalEvidenceIds,
+        commandId: command.current.commandId,
+      })
+    },
     onSuccess: (_, variables) => invalidate(variables.receiptId),
   })
 }
 
 export function useApproveGoodsReceiptMutation() {
   const invalidate = useInvalidateInbound()
+  const command = useRef<ReceiptCommandSnapshot | null>(null)
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, ConfirmPhysicalArrivalVariables>({
-    mutationFn: ({ receiptId, expectedVersion, selfApprovalAcknowledged }) =>
-      inboundService.approveReceipt(receiptId, {
+    retry: false,
+    mutationFn: ({ receiptId, expectedVersion, selfApprovalAcknowledged, keepAtReceiving }) => {
+      command.current = receiptCommandId(command.current, {
+        receiptId,
         expectedVersion,
-        commandId: crypto.randomUUID(),
         selfApprovalAcknowledged,
-      }),
+        keepAtReceiving,
+      })
+      return inboundService.approveReceipt(receiptId, {
+        expectedVersion,
+        commandId: command.current.commandId,
+        selfApprovalAcknowledged,
+        keepAtReceiving,
+      })
+    },
     onSuccess: (_, variables) => invalidate(variables.receiptId),
     onError: (error) => logger.error(error),
   })
 }
 
+export function useIsolateReceiptDamageMutation() {
+  const invalidate = useInvalidateInbound()
+  const command = useRef<ReceiptCommandSnapshot | null>(null)
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    {
+      receiptId: string
+      request: Omit<Parameters<typeof inboundService.isolateDamage>[1], 'commandId'>
+    }
+  >({
+    retry: false,
+    mutationFn: ({ receiptId, request }) => {
+      command.current = receiptCommandId(command.current, { receiptId, ...request })
+      return inboundService.isolateDamage(receiptId, {
+        ...request,
+        commandId: command.current.commandId,
+      })
+    },
+    onSuccess: (_, variables) => invalidate(variables.receiptId),
+  })
+}
+
 export function useRejectGoodsReceiptMutation() {
   const invalidate = useInvalidateInbound()
+  const command = useRef<ReceiptCommandSnapshot | null>(null)
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, RejectReceiptVariables>({
-    mutationFn: ({ receiptId, reason }) => inboundService.rejectReceipt(receiptId, reason),
+    retry: false,
+    mutationFn: ({ receiptId, reason, expectedVersion }) => {
+      const request = { reason, expectedVersion }
+      command.current = receiptCommandId(command.current, { receiptId, ...request })
+      return inboundService.rejectReceipt(receiptId, {
+        ...request,
+        commandId: command.current.commandId,
+      })
+    },
     onSuccess: (_, variables) => invalidate(variables.receiptId),
     onError: (error) => logger.error(error),
   })

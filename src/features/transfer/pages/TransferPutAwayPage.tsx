@@ -84,7 +84,7 @@ export default function TransferPutAwayPage({
   const canPutAway = Boolean(
     shipment &&
     getShipmentCapabilities(viewer, shipment, transfer).canOpenPutAway &&
-    sheet?.receipt.receiptFlowVersion === 1
+    [1, 2].includes(sheet?.receipt.receiptFlowVersion ?? 0)
   )
   const [tab, setTab] = useState(initialTab)
   const [applyPlanOpen, setApplyPlanOpen] = useState(false)
@@ -347,9 +347,11 @@ export default function TransferPutAwayPage({
               <Alert>
                 <AlertDescription>
                   Đã nhận, chưa cất:{' '}
-                  <strong className="tabular-nums">{formatQuantity(remaining)}</strong>. Chỉ bước
-                  này mới tăng tồn kho nhận. Chỉ cất hàng tốt thực nhận; hàng hỏng xử lý ở hồ sơ
-                  chênh lệch.
+                  <strong className="tabular-nums">{formatQuantity(remaining)}</strong>.{' '}
+                  {sheet.receipt.receiptFlowVersion === 2
+                    ? 'Thực nhận đã được ghi tồn. Cất chỉ chuyển vị trí và mở khả dụng cho hàng đạt, không nhận tồn thêm.'
+                    : 'Theo luồng cũ, bước cất ghi tăng tồn kho nhận.'}{' '}
+                  Chỉ cất hàng tốt; hàng hỏng giữ Hold/cách biệt.
                 </AlertDescription>
               </Alert>
               {canPutAway && remaining > 0 ? (

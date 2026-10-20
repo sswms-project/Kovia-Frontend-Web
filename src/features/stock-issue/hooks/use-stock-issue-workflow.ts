@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -18,6 +18,8 @@ import type {
   StockIssueRowActionHandlers,
 } from '../types/stock-issue.types'
 import { buildStockPickingLines } from '../utils/stock-issue-picking'
+import { crossDockService } from '../services/cross-dock.service'
+import type { RecordStockPickingRequest } from '../types/stock-issue.types'
 import {
   useAssignStockIssuePickerMutation,
   useAuthorizeStockDispatchMutation,
@@ -49,6 +51,8 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   const [reportingOrder, setReportingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [cancellingOrder, setCancellingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [releaseStaffId, setReleaseStaffId] = useState('')
+  const preparingPick = useRef(false)
+  const pickCommand = useRef<{ body: string; commandId: string } | null>(null)
 
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions
@@ -108,28 +112,78 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   }
 
   // Vị trí cần lấy đã nằm sẵn trong phiếu nên nhân viên không cần quyền xem tồn kho.
-  function openPicking(order: StockIssueRequestSummary) {
-    pickingForm.reset({ lines: buildStockPickingLines(order) })
-    setPickingOrder(order)
+  async function openPicking(order: StockIssueRequestSummary) {
+    if (preparingPick.current || !capabilities.canPick || meQuery.isError || !order.version) return
+    preparingPick.current = true
+    try {
+      const lines = buildStockPickingLines(order)
+      const destinations = await Promise.all(
+        [...new Set(lines.map((line) => line.inventoryStockId).filter(Boolean))].map((stockId) =>
+          crossDockService.destination(order.id, stockId)
+        )
+      )
+      if (
+        destinations.some(
+          (target) =>
+            target.stockIssueRequestId !== order.id ||
+            target.warehouseId !== order.warehouseId ||
+            target.version !== order.version
+        )
+      )
+        throw new Error('Phiếu đã thay đổi. Tải lại trước khi lấy hàng.')
+      pickingForm.reset({
+        lines: lines.map((line) => {
+          const destination = destinations.find(
+            (target) => target.inventoryStockId === line.inventoryStockId
+          )
+          return {
+            ...line,
+            destinationStagingSlotId: destination?.slotId,
+            stagingSlotCode: destination?.slotCode,
+            stagingPath: destination?.path,
+            scannedStagingSlotCode: '',
+          }
+        }),
+      })
+      pickCommand.current = null
+      setPickingOrder(order)
+    } catch (error) {
+      notifyError(error, 'Không tải được khu chờ xuất hợp lệ. Chưa ghi nhận lấy hàng.')
+    } finally {
+      preparingPick.current = false
+    }
   }
 
   async function submitPicking(values: RecordStockPickingFormValues) {
-    if (!pickingOrder) return
+    if (
+      !pickingOrder?.version ||
+      !capabilities.canPick ||
+      meQuery.isError ||
+      meQuery.isFetching ||
+      recordPickingMutation.isPending
+    )
+      return
     try {
+      const request: RecordStockPickingRequest = {
+        expectedVersion: pickingOrder.version,
+        items: values.lines
+          .filter((line) => line.pickedQuantity > 0)
+          .map((line) => ({
+            stockIssueRequestItemId: line.stockIssueRequestItemId,
+            inventoryStockId: line.inventoryStockId,
+            pickedQuantity: line.pickedQuantity * line.unitFactor,
+            scannedBarcode: line.scannedBarcode?.trim() || null,
+            scannedSlotCode: line.scannedSlotCode?.trim() || null,
+            destinationStagingSlotId: line.destinationStagingSlotId,
+            scannedStagingSlotCode: line.scannedStagingSlotCode?.trim() || null,
+          })),
+      }
+      const body = JSON.stringify(request)
+      if (pickCommand.current?.body !== body)
+        pickCommand.current = { body, commandId: crypto.randomUUID() }
       await recordPickingMutation.mutateAsync({
         stockIssueRequestId: pickingOrder.id,
-        request: {
-          items: values.lines
-            .filter((line) => line.pickedQuantity > 0)
-            .map((line) => ({
-              stockIssueRequestItemId: line.stockIssueRequestItemId,
-              inventoryStockId: line.inventoryStockId,
-              // Nhân viên nhập theo kiện; backend nhận số lượng theo đơn vị cơ sở.
-              pickedQuantity: line.pickedQuantity * line.unitFactor,
-              scannedBarcode: line.scannedBarcode?.trim() || null,
-              scannedSlotCode: line.scannedSlotCode?.trim() || null,
-            })),
-        },
+        request: { ...request, commandId: pickCommand.current.commandId },
       })
       toast.success('Đã ghi nhận lấy hàng và chuyển hàng ra khu chờ xuất.')
       closePicking()
@@ -248,7 +302,9 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
 
   const handlers: StockIssueRowActionHandlers = {
     onReleaseForPicking: openRelease,
-    onRecordStockPicking: openPicking,
+    onRecordStockPicking: (order) => {
+      void openPicking(order)
+    },
     onReportPickIssue: setReportingOrder,
     onAuthorizeDispatch: setAuthorizingOrder,
     onConfirmDispatch: setDispatchingOrder,

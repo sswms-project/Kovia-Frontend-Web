@@ -45,6 +45,7 @@ export function ReceiveQuickActions({ task, form, disabled }: ReceiveQuickAction
         // Số hỏng đang nhập theo đơn vị cũ, không còn nghĩa khi đổi đơn vị.
         form.setValue(`lines.${index}.enteredUnitId`, remaining.unitId, { shouldDirty: true })
         form.setValue(`lines.${index}.damagedQty`, 0, { shouldDirty: true })
+        form.setValue(`lines.${index}.rejectedQty`, 0, { shouldDirty: true })
       }
       form.setValue(`lines.${index}.receivedQty`, remaining.quantity, {
         shouldDirty: true,
@@ -139,8 +140,8 @@ export function ReceiveQuickActions({ task, form, disabled }: ReceiveQuickAction
         </p>
       ) : (
         <p className="text-muted-foreground text-xs">
-          Giao đủ cả chuyến thì bấm “Nhận đủ tất cả”. Phiếu nhận đủ, không hàng hỏng sẽ tự hoàn tất
-          kiểm hàng và chuyển sang cất hàng.
+          Chỉ bấm “Nhận đủ tất cả” sau khi đã kiểm đếm thực tế. Xác nhận nhận hàng ghi tồn chờ kiểm;
+          kết quả kiểm hàng vẫn cần được người có quyền phê duyệt trước khi cất.
         </p>
       )}
     </section>
