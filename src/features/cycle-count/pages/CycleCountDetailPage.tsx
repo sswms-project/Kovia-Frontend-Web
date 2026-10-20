@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,7 +14,6 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { CycleCountDetailView } from '../components/CycleCountDetailPage'
-import type { CycleCountDetailMode } from '../components/CycleCountDetailPage/types'
 import { cycleCountService } from '../services/cycle-count.service'
 import {
   useCancelCycleCountMutation,
@@ -39,13 +37,7 @@ import {
   type RecountFormValues,
 } from '../schemas/cycle-count.schema'
 
-export default function CycleCountDetailPage({
-  cycleCountId,
-  view = 'overview',
-}: {
-  readonly cycleCountId: string
-  readonly view?: CycleCountDetailMode
-}) {
+export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleCountId: string }) {
   const router = useRouter()
   const detail = useCycleCountQuery(cycleCountId)
   const actions = useCycleCountAllowedActionsQuery(cycleCountId)
@@ -110,17 +102,6 @@ export default function CycleCountDetailPage({
     }
   }
 
-  // Nhân viên đang đếm chỉ cần bảng: vào thẳng trang chi tiết kiểm đếm, trừ khi chủ động mở trang phiếu (?full=1).
-  const isCounter =
-    (actions.data?.allowedActions.some((action) => action === 'Start' || action === 'Record') ??
-      false) ||
-    actions.data?.denialReasonCode === 'NOT_YET_SCHEDULED'
-  useEffect(() => {
-    if (view !== 'overview' || !isCounter) return
-    if (new URLSearchParams(window.location.search).get('full') === '1') return
-    router.replace(APP_ROUTES.cycleCountLines(cycleCountId))
-  }, [view, isCounter, cycleCountId, router])
-
   if (detail.isLoading || actions.isLoading) return <OperationalLoadingState rows={8} />
   if (detail.isError || actions.isError || !detail.data)
     return (
@@ -132,7 +113,6 @@ export default function CycleCountDetailPage({
   return (
     <CycleCountDetailView
       detail={detail.data}
-      mode={view}
       allowedActions={actions.data?.allowedActions ?? []}
       isPending={pending}
       isBeforeSchedule={actions.data?.denialReasonCode === 'NOT_YET_SCHEDULED'}

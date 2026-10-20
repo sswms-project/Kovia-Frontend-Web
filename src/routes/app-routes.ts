@@ -73,12 +73,6 @@ export const APP_ROUTES = {
   cycleCountCreate: '/inventory/cycle-counts/new',
   cycleCountDetail: (cycleCountId: string): Route =>
     `/inventory/cycle-counts/${cycleCountId}` as Route,
-  // Trang làm việc riêng cho bảng dòng kiểm đếm; ?filter=variance|uncounted|counted mở sẵn bộ lọc.
-  cycleCountLines: (cycleCountId: string, filter?: string): Route =>
-    `/inventory/cycle-counts/${cycleCountId}/lines${filter ? `?filter=${filter}` : ''}` as Route,
-  // ?full=1 giữ nhân viên đếm ở trang phiếu thay vì tự chuyển sang trang đếm.
-  cycleCountOverview: (cycleCountId: string): Route =>
-    `/inventory/cycle-counts/${cycleCountId}?full=1` as Route,
   stockAdjustments: '/inventory/stock-adjustments',
   stockAdjustmentDetail: (adjustmentId: string): Route =>
     `/inventory/stock-adjustments/${adjustmentId}` as Route,

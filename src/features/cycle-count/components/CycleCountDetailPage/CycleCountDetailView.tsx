@@ -18,27 +18,10 @@ import { CycleCountInfoSection } from './CycleCountInfoSection'
 import { CycleCountItemsTable } from './CycleCountItemsTable'
 import { CycleCountResolutionSummary } from './CycleCountResolutionSummary'
 import { CycleCountUrgentBanner } from './CycleCountUrgentBanner'
-import { CycleCountLinesSummary } from './CycleCountLinesSummary'
-import type {
-  CycleCountDetailMode,
-  CycleCountDialog,
-  CycleCountEvidenceActions,
-  CycleCountItemFilter,
-  CycleCountRecordEntry,
-} from './types'
-
-const ITEM_FILTERS: readonly CycleCountItemFilter[] = ['all', 'uncounted', 'counted', 'variance']
-
-// Bộ lọc mở sẵn từ đường dẫn (?filter=variance); giá trị lạ thì bỏ qua.
-function readInitialFilter(): CycleCountItemFilter {
-  if (typeof window === 'undefined') return 'all'
-  const value = new URLSearchParams(window.location.search).get('filter')
-  return ITEM_FILTERS.find((filter) => filter === value) ?? 'all'
-}
+import type { CycleCountDialog, CycleCountEvidenceActions, CycleCountRecordEntry } from './types'
 
 interface CycleCountDetailViewProps {
   readonly detail: CycleCountDetail
-  readonly mode: CycleCountDetailMode
   readonly allowedActions: readonly string[]
   readonly isPending: boolean
   readonly isBeforeSchedule: boolean
@@ -62,7 +45,6 @@ interface CycleCountDetailViewProps {
 
 export function CycleCountDetailView({
   detail,
-  mode,
   allowedActions,
   isPending,
   isBeforeSchedule,
@@ -84,8 +66,6 @@ export function CycleCountDetailView({
   onCreateVoucher,
 }: CycleCountDetailViewProps) {
   const [dialog, setDialog] = useState<CycleCountDialog | null>(null)
-  const [initialFilter] = useState(readInitialFilter)
-  const isLines = mode === 'lines'
   // Dòng được chọn sẵn từ panel hàng hỏng chỉ giữ lại nếu quản lý xác nhận đếm lại.
   const [isRecountFromPanel, setIsRecountFromPanel] = useState(false)
   const selectedItemIds = recountForm.watch('itemIds')
@@ -158,7 +138,6 @@ export function CycleCountDetailView({
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
       <CycleCountDetailHeader
         detail={detail}
-        mode={mode}
         allowedActions={allowedActions}
         isPending={isPending}
         recountSelectedCount={selectedItemIds.length}
@@ -190,51 +169,39 @@ export function CycleCountDetailView({
           onCreateAll={() => openAdjustment(adjustableItems.map((item) => item.id))}
         />
       ) : null}
-      {isLines ? null : (
-        <>
-          <CycleCountDamagePanel
-            detail={detail}
-            canConfirm={canConfirmDamage}
-            canOpenDamageCases={canOpenDamageCases}
-            isPending={isPending}
-            evidenceActions={evidenceActions}
-            onConfirm={onConfirmDamage}
-            onRecountItem={(itemId) => {
-              recountForm.setValue('itemIds', [itemId], { shouldValidate: true })
-              setIsRecountFromPanel(true)
-              setDialog('recount')
-            }}
-          />
-          <CycleCountInfoSection
-            detail={detail}
-            countedCount={countedCount}
-            varianceCount={varianceCount}
-          />
-          <CycleCountLinesSummary
-            detail={detail}
-            countedCount={countedCount}
-            varianceCount={varianceCount}
-          />
-        </>
-      )}
-      {isLines ? (
-        <CycleCountItemsTable
-          detail={detail}
-          initialFilter={initialFilter}
-          allowedActions={allowedActions}
-          isPending={isPending}
-          canCreateAdjustment={canCreateAdjustment}
-          selectedItemIds={selectedItemIds}
-          onToggleSelect={toggleSelect}
-          canSubmit={allCounted}
-          isBeforeSchedule={isBeforeSchedule}
-          evidenceActions={evidenceActions}
-          onSaveItems={onSaveItems}
-          onSubmit={onSubmit}
-          onCreateAdjustment={(itemId) => openAdjustment([itemId])}
-        />
-      ) : null}
-      {!isLines && showResolution ? <CycleCountResolutionSummary items={detail.items} /> : null}
+      <CycleCountDamagePanel
+        detail={detail}
+        canConfirm={canConfirmDamage}
+        canOpenDamageCases={canOpenDamageCases}
+        isPending={isPending}
+        evidenceActions={evidenceActions}
+        onConfirm={onConfirmDamage}
+        onRecountItem={(itemId) => {
+          recountForm.setValue('itemIds', [itemId], { shouldValidate: true })
+          setIsRecountFromPanel(true)
+          setDialog('recount')
+        }}
+      />
+      <CycleCountInfoSection
+        detail={detail}
+        countedCount={countedCount}
+        varianceCount={varianceCount}
+      />
+      <CycleCountItemsTable
+        detail={detail}
+        allowedActions={allowedActions}
+        isPending={isPending}
+        canCreateAdjustment={canCreateAdjustment}
+        selectedItemIds={selectedItemIds}
+        onToggleSelect={toggleSelect}
+        canSubmit={allCounted}
+        isBeforeSchedule={isBeforeSchedule}
+        evidenceActions={evidenceActions}
+        onSaveItems={onSaveItems}
+        onSubmit={onSubmit}
+        onCreateAdjustment={(itemId) => openAdjustment([itemId])}
+      />
+      {showResolution ? <CycleCountResolutionSummary items={detail.items} /> : null}
       <CycleCountActionDialog
         dialog={dialog}
         recountForm={recountForm}
