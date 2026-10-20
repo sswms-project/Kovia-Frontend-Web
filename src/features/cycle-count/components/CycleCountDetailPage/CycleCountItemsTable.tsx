@@ -384,12 +384,12 @@ export function CycleCountItemsTable({
           </TabsList>
         </Tabs>
         {mustStart ? (
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-sm">
             Bấm &quot;Bắt đầu kiểm kê&quot; để chốt tồn sổ sách và nhập số đếm.
           </p>
         ) : null}
         {isBeforeSchedule ? (
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-sm">
             Phiếu chưa đến thời gian kiểm kê nên chưa thể nhập số đếm.
           </p>
         ) : null}
@@ -475,7 +475,7 @@ export function CycleCountItemsTable({
       ) : (
         <Table
           aria-label="Dòng kiểm kê"
-          className="[&_td]:border-border [&_th]:border-border min-w-[1200px] [&_td]:border [&_td]:px-1.5 [&_td]:py-0.5 [&_td]:align-middle [&_th]:h-7 [&_th]:border [&_th]:px-1.5 [&_th]:text-center"
+          className="[&_td]:border-border [&_th]:border-border min-w-[1400px] text-sm [&_td]:border [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle [&_th]:h-11 [&_th]:border [&_th]:px-3 [&_th]:text-center"
         >
           <TableHeader>
             <TableRow>
@@ -522,10 +522,10 @@ export function CycleCountItemsTable({
               </TableHead>
             </TableRow>
             <TableRow>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo sổ sách</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo kiểm kê</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Trong đó hỏng</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Chênh lệch</TableHead>
+              <TableHead className="bg-muted sticky top-11 z-10 w-24">Theo sổ sách</TableHead>
+              <TableHead className="bg-muted sticky top-11 z-10 w-24">Theo kiểm kê</TableHead>
+              <TableHead className="bg-muted sticky top-11 z-10 w-24">Trong đó hỏng</TableHead>
+              <TableHead className="bg-muted sticky top-11 z-10 w-24">Chênh lệch</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -559,16 +559,16 @@ export function CycleCountItemsTable({
                     <TableCell className="text-muted-foreground tabular-nums">
                       {rowIndex + 1}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{item.productSku}</TableCell>
+                    <TableCell className="font-mono text-sm">{item.productSku}</TableCell>
                     <TableCell className="font-medium">{item.productName}</TableCell>
                     <TableCell className="text-center">{item.unitName ?? '—'}</TableCell>
                     <TableCell className="text-center font-mono">
                       {formatStockLocation(item)}
                     </TableCell>
                     <TableCell>
-                      <p className="font-mono text-xs">{item.lotNumber ?? 'Theo số lượng'}</p>
+                      <p className="font-mono text-sm">{item.lotNumber ?? 'Theo số lượng'}</p>
                       {item.expiryDate ? (
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-muted-foreground text-sm">
                           HSD {formatCycleCountDay(item.expiryDate)}
                         </p>
                       ) : null}
@@ -603,7 +603,7 @@ export function CycleCountItemsTable({
                           inputRefs.current[item.id] = element
                         }}
                         aria-label={`Số đếm thực tế của ${item.productName} tại ${formatStockLocation(item)}`}
-                        className="ml-auto block h-6 w-full text-right font-mono"
+                        className="ml-auto block h-9 w-full text-right font-mono text-sm"
                         type="number"
                         min="0"
                         step="0.01"
@@ -623,7 +623,7 @@ export function CycleCountItemsTable({
                         <div className="flex items-center gap-1">
                           <Input
                             aria-label={`Số lượng hỏng của ${item.productName} tại ${formatStockLocation(item)}`}
-                            className="ml-auto block h-6 w-full min-w-0 text-right font-mono"
+                            className="ml-auto block h-9 w-full min-w-0 text-right font-mono text-sm"
                             type="number"
                             min="0"
                             step="0.01"
@@ -698,7 +698,7 @@ export function CycleCountItemsTable({
                       {recordable ? (
                         <Input
                           aria-label={`Ghi chú của ${item.productName} tại ${formatStockLocation(item)}`}
-                          className="h-6 w-full"
+                          className="h-9 w-full text-sm"
                           maxLength={CYCLE_COUNT_NOTE_MAX_LENGTH}
                           placeholder="Ghi chú (nếu có)"
                           value={getNoteDraft(item)}
@@ -714,19 +714,19 @@ export function CycleCountItemsTable({
                           }}
                         />
                       ) : (
-                        <span className="text-xs">{item.note ?? '—'}</span>
+                        <span className="text-sm">{item.note ?? '—'}</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {item.countHistory.length ? (
                         <Collapsible>
                           <CollapsibleTrigger asChild>
-                            <Button variant="link" size="xs" className="h-auto p-0 text-xs">
+                            <Button variant="link" size="xs" className="h-auto p-0 text-sm">
                               <History aria-hidden="true" />
                               {item.countHistory.length} lần trước
                             </Button>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="text-muted-foreground mt-2 space-y-1 text-xs">
+                          <CollapsibleContent className="text-muted-foreground mt-2 space-y-1 text-sm">
                             {item.countHistory.map((history) => (
                               <p key={history.id}>
                                 Vòng {history.recountRound}:{' '}
@@ -742,7 +742,7 @@ export function CycleCountItemsTable({
                           </CollapsibleContent>
                         </Collapsible>
                       ) : (
-                        <span className="text-muted-foreground text-xs">Chưa có</span>
+                        <span className="text-muted-foreground text-sm">Chưa có</span>
                       )}
                     </TableCell>
                     <TableCell>
