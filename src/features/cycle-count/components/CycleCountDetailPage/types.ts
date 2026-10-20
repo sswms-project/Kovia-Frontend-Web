@@ -3,6 +3,8 @@ import type { CycleCountItem, CycleCountMethod } from '../../types/cycle-count.t
 
 export type CycleCountDialog = 'start' | 'recount' | 'adjustment' | 'cancel'
 export type CycleCountItemFilter = 'all' | 'uncounted' | 'counted' | 'variance'
+// overview: tổng quan phiếu cho người duyệt; lines: trang làm việc với bảng dòng kiểm đếm.
+export type CycleCountDetailMode = 'overview' | 'lines'
 
 export interface CycleCountRecordEntry {
   readonly itemId: string

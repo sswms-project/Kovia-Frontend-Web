@@ -105,6 +105,7 @@ interface CycleCountItemsTableProps {
   readonly selectedItemIds: readonly string[]
   readonly onToggleSelect: (itemId: string, checked: boolean) => void
   readonly canSubmit: boolean
+  readonly initialFilter?: CycleCountItemFilter
   readonly isBeforeSchedule: boolean
   readonly evidenceActions: CycleCountEvidenceActions
   readonly onSaveItems: (entries: readonly CycleCountRecordEntry[]) => Promise<boolean>
@@ -120,13 +121,14 @@ export function CycleCountItemsTable({
   selectedItemIds,
   onToggleSelect,
   canSubmit,
+  initialFilter = 'all',
   isBeforeSchedule,
   evidenceActions,
   onSaveItems,
   onSubmit,
   onCreateAdjustment,
 }: CycleCountItemsTableProps) {
-  const [filter, setFilter] = useState<CycleCountItemFilter>('all')
+  const [filter, setFilter] = useState<CycleCountItemFilter>(initialFilter)
   const [searchTerm, setSearchTerm] = useState('')
   const [damageDialogItemId, setDamageDialogItemId] = useState<string | null>(null)
   const [isScanOpen, setIsScanOpen] = useState(false)
