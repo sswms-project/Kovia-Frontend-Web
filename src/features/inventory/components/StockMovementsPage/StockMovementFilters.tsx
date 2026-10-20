@@ -54,6 +54,7 @@ const movementOptions = [
   { value: STOCK_MOVEMENT_TYPES.transferIn, label: 'Điều chuyển đến' },
   { value: STOCK_MOVEMENT_TYPES.adjustment, label: 'Điều chỉnh' },
   { value: STOCK_MOVEMENT_TYPES.returnIn, label: 'Nhập hàng trả lại' },
+  { value: STOCK_MOVEMENT_TYPES.returnOut, label: 'Trả nhà cung cấp' },
   { value: STOCK_MOVEMENT_TYPES.scrap, label: 'Loại bỏ' },
   { value: STOCK_MOVEMENT_TYPES.opening, label: 'Tồn đầu kỳ' },
   { value: STOCK_MOVEMENT_TYPES.reclassification, label: 'Phân loại lại' },

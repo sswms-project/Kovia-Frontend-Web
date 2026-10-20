@@ -1,5 +1,6 @@
 'use client'
 
+import type { Route } from 'next'
 import Link from 'next/link'
 import { Check, CircleDot, ExternalLink } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +34,8 @@ interface DamageCaseDetailDialogProps {
   // Người xem được phép quyết định xử lý / bổ sung bằng chứng cho hồ sơ này (điều kiện do trang tính).
   readonly canDecide: boolean
   readonly canAddEvidence: boolean
+  // Người xem có quyền xem phiếu trả NCC nên mới hiện liên kết tới phiếu.
+  readonly canViewSupplierReturn: boolean
   readonly onClose: () => void
   readonly onDecide: (item: DamageCase) => void
   readonly onAddEvidence: (item: DamageCase) => void
@@ -154,6 +157,7 @@ export function DamageCaseDetailDialog({
   item,
   canDecide,
   canAddEvidence,
+  canViewSupplierReturn,
   onClose,
   onDecide,
   onAddEvidence,
@@ -335,6 +339,18 @@ export function DamageCaseDetailDialog({
                     <Button asChild variant="link" size="xs" className="h-auto justify-start p-0">
                       <Link href={APP_ROUTES.stockAdjustmentDetail(item.linkedStockAdjustmentId)}>
                         Mở phiếu điều chỉnh liên kết
+                        <ExternalLink aria-hidden="true" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                  {item.linkedSupplierReturnId && canViewSupplierReturn ? (
+                    <Button asChild variant="link" size="xs" className="h-auto justify-start p-0">
+                      <Link
+                        href={
+                          `${APP_ROUTES.supplierReturns}?id=${item.linkedSupplierReturnId}` as Route
+                        }
+                      >
+                        Phiếu trả NCC
                         <ExternalLink aria-hidden="true" />
                       </Link>
                     </Button>

@@ -9,7 +9,7 @@ import {
   aiStockIssueDraftQuantitiesSchema,
   type AiDraftQuantitiesForm,
 } from '../../schemas/ai-draft-quantities.schema'
-import type { AiCard } from '../../types/ai-assistant.types'
+import { isAiDraftWithoutDate, type AiCard } from '../../types/ai-assistant.types'
 import { AiActionConfirmationCard } from './AiActionConfirmationCard'
 
 const editableCard: AiCard = {
@@ -42,7 +42,7 @@ function Card({
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
   const form = useForm<AiDraftQuantitiesForm>({
     resolver: zodResolver(
-      card.action === 'create_stock_issue_request'
+      isAiDraftWithoutDate(card.action)
         ? aiStockIssueDraftQuantitiesSchema
         : aiDraftQuantitiesSchema
     ),
@@ -85,7 +85,35 @@ const stockIssueCard: AiCard = {
   ],
 }
 
+const supplierReturnCard: AiCard = {
+  type: 'action_confirmation',
+  draftId: 'd3',
+  action: 'create_supplier_return',
+  summary: 'Tạo phiếu trả NCC 5 Thùng PA-MI cho Thiện Group',
+  details: [
+    { label: 'Nhà cung cấp', value: 'Thiện Group' },
+    { label: 'PA-MI · Mì gói', value: '5 Thùng', productId: 'p-mi', quantity: 5, unit: 'Thùng' },
+  ],
+}
+
 describe('AiActionConfirmationCard quantity editing', () => {
+  it('edits the quantity of a supplier return draft without asking for a date', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<Card card={supplierReturnCard} onSave={onSave} />)
+
+    await user.click(screen.getByRole('button', { name: 'Chỉnh sửa' }))
+    expect(screen.queryByLabelText(/Ngày dự kiến hàng về/)).not.toBeInTheDocument()
+    const input = screen.getByLabelText(/PA-MI · Mì gói/)
+    await user.clear(input)
+    await user.type(input, '3')
+    await user.click(screen.getByRole('button', { name: 'Lưu số lượng' }))
+
+    expect(onSave.mock.calls[0]?.[0]).toMatchObject({
+      lines: [{ productId: 'p-mi', quantity: 3 }],
+    })
+  })
+
   it('edits the quantity of a stock issue draft without asking for a date', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn()

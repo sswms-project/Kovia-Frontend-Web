@@ -61,6 +61,7 @@ import { rowActivationProps } from '@/features/inbound/utils/row-activation-prop
 
 interface DamageCaseDirectoryProps {
   readonly permissions: readonly string[]
+  readonly canViewSupplierReturn: boolean
   readonly currentUserId: string | null
   readonly items: readonly DamageCase[]
   readonly page: number
@@ -78,8 +79,8 @@ interface DamageCaseDirectoryProps {
   readonly isError: boolean
   readonly isPending: boolean
   readonly canDecide: boolean
-  readonly recipientOptions: readonly { value: string; label: string }[]
-  readonly areRecipientsLoading: boolean
+  readonly supplierOptions: readonly { value: string; label: string }[]
+  readonly areSuppliersLoading: boolean
   readonly onRetry: () => void
   readonly onPageChange: (page: number) => void
   readonly onWarehouseChange: (value: string) => void
@@ -92,7 +93,7 @@ interface DamageCaseDirectoryProps {
     disposition: DamageDisposition,
     quantity: number | undefined,
     note: string,
-    stockRecipientId?: string
+    supplierId?: string
   ) => Promise<void>
   readonly onAddEvidence: (
     item: DamageCase,
@@ -105,7 +106,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
   const [selected, setSelected] = useState<DamageCase | null>(null)
   const [disposition, setDisposition] = useState<DamageDisposition>('ContinueHold')
   const [note, setNote] = useState('')
-  const [stockRecipientId, setStockRecipientId] = useState('')
+  const [supplierId, setSupplierId] = useState('')
   const [detailItem, setDetailItem] = useState<DamageCase | null>(null)
   const [dispositionQuantity, setDispositionQuantity] = useState(0)
   const [evidenceItem, setEvidenceItem] = useState<DamageCase | null>(null)
@@ -118,7 +119,8 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
       item.status === 'Open' &&
       item.reportedByUserId !== props.currentUserId &&
       !item.linkedStockIssueRequestId &&
-      !item.linkedStockAdjustmentId
+      !item.linkedStockAdjustmentId &&
+      !item.linkedSupplierReturnId
     )
   }
 
@@ -149,11 +151,11 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
         ? dispositionQuantity
         : undefined,
       note,
-      stockRecipientId || undefined
+      disposition === 'SupplierReturn' ? supplierId || undefined : undefined
     )
     setSelected(null)
     setNote('')
-    setStockRecipientId('')
+    setSupplierId('')
     setDispositionQuantity(0)
   }
 
@@ -402,6 +404,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
         item={detailItem}
         canDecide={detailItem ? canDecideCase(detailItem) : false}
         canAddEvidence={detailItem ? canAddEvidenceToCase(detailItem) : false}
+        canViewSupplierReturn={props.canViewSupplierReturn}
         onClose={() => setDetailItem(null)}
         onDecide={(item) => {
           setDetailItem(null)
@@ -464,15 +467,15 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
           ) : null}
           {disposition === 'SupplierReturn' ? (
             <Field>
-              <FieldLabel htmlFor="damage-recipient">Đơn vị nhận hàng trả</FieldLabel>
+              <FieldLabel htmlFor="damage-supplier">Nhà cung cấp nhận hàng trả</FieldLabel>
               <NativeSelect
-                id="damage-recipient"
-                value={stockRecipientId}
-                disabled={props.areRecipientsLoading}
-                onChange={(event) => setStockRecipientId(event.target.value)}
+                id="damage-supplier"
+                value={supplierId}
+                disabled={props.areSuppliersLoading}
+                onChange={(event) => setSupplierId(event.target.value)}
               >
-                <NativeSelectOption value="">Chọn đơn vị nhận</NativeSelectOption>
-                {props.recipientOptions.map((option) => (
+                <NativeSelectOption value="">Chọn nhà cung cấp</NativeSelectOption>
+                {props.supplierOptions.map((option) => (
                   <NativeSelectOption key={option.value} value={option.value}>
                     {option.label}
                   </NativeSelectOption>
@@ -495,7 +498,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
             <Button
               disabled={
                 props.isPending ||
-                (disposition === 'SupplierReturn' && !stockRecipientId) ||
+                (disposition === 'SupplierReturn' && !supplierId) ||
                 (['ReturnToAvailable', 'InventoryAdjustment', 'SupplierReturn'].includes(
                   disposition
                 ) &&
