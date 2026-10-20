@@ -1,6 +1,5 @@
 'use client'
 
-import { P } from '@/config/permissionCodes'
 import { useState } from 'react'
 import Link from 'next/link'
 import { RefreshCw } from 'lucide-react'
@@ -62,6 +61,7 @@ import { rowActivationProps } from '@/features/inbound/utils/row-activation-prop
 
 interface DamageCaseDirectoryProps {
   readonly permissions: readonly string[]
+  readonly canViewSupplierReturn: boolean
   readonly currentUserId: string | null
   readonly items: readonly DamageCase[]
   readonly page: number
@@ -119,7 +119,8 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
       item.status === 'Open' &&
       item.reportedByUserId !== props.currentUserId &&
       !item.linkedStockIssueRequestId &&
-      !item.linkedStockAdjustmentId
+      !item.linkedStockAdjustmentId &&
+      !item.linkedSupplierReturnId
     )
   }
 
@@ -403,7 +404,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
         item={detailItem}
         canDecide={detailItem ? canDecideCase(detailItem) : false}
         canAddEvidence={detailItem ? canAddEvidenceToCase(detailItem) : false}
-        canViewSupplierReturn={props.permissions.includes(P.SUPPLIER_RETURNS_VIEW)}
+        canViewSupplierReturn={props.canViewSupplierReturn}
         onClose={() => setDetailItem(null)}
         onDecide={(item) => {
           setDetailItem(null)

@@ -21,7 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { P } from '@/config/permissionCodes'
 import {
   formatEligibilityStatus,
   formatInventoryQuantity,
@@ -35,7 +34,8 @@ interface SupplierReturnDetailSheetProps {
   readonly item: SupplierReturn | null
   readonly isLoading: boolean
   readonly isError: boolean
-  readonly permissions: readonly string[]
+  readonly canApprove: boolean
+  readonly canDispatch: boolean
   readonly currentUserId: string | null
   readonly onRetry: () => void
   readonly onOpenChange: (open: boolean) => void
@@ -59,7 +59,8 @@ export function SupplierReturnDetailSheet({
   item,
   isLoading,
   isError,
-  permissions,
+  canApprove,
+  canDispatch,
   currentUserId,
   onRetry,
   onOpenChange,
@@ -68,8 +69,6 @@ export function SupplierReturnDetailSheet({
   onCancel,
   onDeliver,
 }: SupplierReturnDetailSheetProps) {
-  const canApprove = permissions.includes(P.SUPPLIER_RETURNS_APPROVE)
-  const canDispatch = permissions.includes(P.SUPPLIER_RETURNS_DISPATCH)
   const isOpenStatus = item?.status === 'Pending' || item?.status === 'Approved'
   const isCreator = Boolean(item && currentUserId && item.createdById === currentUserId)
   const canCancel = isOpenStatus && (canApprove || isCreator)

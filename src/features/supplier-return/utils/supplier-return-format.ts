@@ -7,3 +7,7 @@ export const SUPPLIER_RETURN_STATUS_LABELS: Record<SupplierReturnStatus, string>
   Cancelled: 'Đã huỷ',
   Completed: 'Hoàn tất',
 }
+
+export function isSupplierReturnStatus(value: string): value is SupplierReturnStatus {
+  return Object.hasOwn(SUPPLIER_RETURN_STATUS_LABELS, value)
+}

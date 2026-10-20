@@ -33,6 +33,7 @@ export function useSupplierReturnQuery(supplierReturnId: string | null) {
 }
 
 // Reservations and stock change with every state transition, so inventory is refreshed too.
+// The inventory prefix also covers damage cases (['inventory', 'damage-cases', …]) linked to a return.
 function useInvalidateAfterTransition() {
   const queryClient = useQueryClient()
   return () =>

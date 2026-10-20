@@ -40,6 +40,9 @@ import {
 } from '../schemas/supplier-return.schema'
 import type { SupplierReturn, SupplierReturnStatus } from '../types/supplier-return.types'
 
+// Giới hạn trang của GET /inventory; quá số này thì phân trang trong hộp chọn.
+const STOCK_PAGE_SIZE = 100
+
 const EMPTY_CREATE_VALUES: CreateSupplierReturnFormValues = {
   warehouseId: '',
   supplierId: '',
@@ -56,6 +59,8 @@ export default function SupplierReturnsPage() {
   const isCreateOpen = searchParams.get('create') === '1'
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
+  const canApprove = permissions.includes(P.SUPPLIER_RETURNS_APPROVE)
+  const canDispatch = permissions.includes(P.SUPPLIER_RETURNS_DISPATCH)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchText, setSearchText] = useState('')
@@ -105,10 +110,14 @@ export default function SupplierReturnsPage() {
     defaultValues: { items: [] },
   })
   const createWarehouseId = useWatch({ control: createForm.control, name: 'warehouseId' })
+  // Trang tồn quay về 1 khi đổi kho hoặc từ khoá tìm (không cần effect).
+  const stockPageKey = `${createWarehouseId}|${debouncedStockSearch}`
+  const [stockPaging, setStockPaging] = useState({ key: stockPageKey, page: 1 })
+  const stockPage = stockPaging.key === stockPageKey ? stockPaging.page : 1
   const stocksQuery = useInventoryQuery(
     {
-      pageNumber: 1,
-      pageSize: 50,
+      pageNumber: stockPage,
+      pageSize: STOCK_PAGE_SIZE,
       warehouseId: createWarehouseId,
       inStockOnly: true,
       ...(debouncedStockSearch ? { searchTerm: debouncedStockSearch } : {}),
@@ -133,6 +142,7 @@ export default function SupplierReturnsPage() {
 
   function navigate(query: Record<string, string>) {
     const search = new URLSearchParams(query).toString()
+    // Typed routes cannot type-check a query string built at runtime; the path itself is this page's own route.
     router.replace((search ? `${pathname}?${search}` : pathname) as Route)
   }
 
@@ -284,7 +294,8 @@ export default function SupplierReturnsPage() {
         item={detailId ? (detailQuery.data ?? null) : null}
         isLoading={Boolean(detailId) && detailQuery.isLoading}
         isError={Boolean(detailId) && detailQuery.isError}
-        permissions={permissions}
+        canApprove={canApprove}
+        canDispatch={canDispatch}
         currentUserId={meQuery.data?.id ?? null}
         onRetry={() => void detailQuery.refetch()}
         onOpenChange={(open) => {
@@ -305,6 +316,12 @@ export default function SupplierReturnsPage() {
         isStocksLoading={stocksQuery.isLoading}
         isPending={createMutation.isPending}
         onStockSearchChange={setStockSearch}
+        stockPage={stockPage}
+        stockPageCount={Math.max(
+          1,
+          Math.ceil((stocksQuery.data?.totalCount ?? 0) / STOCK_PAGE_SIZE)
+        )}
+        onStockPageChange={(page) => setStockPaging({ key: stockPageKey, page })}
         onOpenChange={(open) => {
           if (!open) closeCreate()
         }}

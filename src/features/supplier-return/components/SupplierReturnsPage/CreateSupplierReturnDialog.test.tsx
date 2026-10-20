@@ -25,8 +25,14 @@ const stocks = [
 
 function Harness({
   onSubmit,
+  stockPage = 1,
+  stockPageCount = 1,
+  onStockPageChange = vi.fn(),
 }: {
   readonly onSubmit: (values: CreateSupplierReturnFormValues) => void
+  readonly stockPage?: number
+  readonly stockPageCount?: number
+  readonly onStockPageChange?: (page: number) => void
 }) {
   const form = useForm<CreateSupplierReturnFormValues>({
     resolver: zodResolver(createSupplierReturnSchema),
@@ -49,6 +55,9 @@ function Harness({
       isStocksLoading={false}
       isPending={false}
       onStockSearchChange={vi.fn()}
+      stockPage={stockPage}
+      stockPageCount={stockPageCount}
+      onStockPageChange={onStockPageChange}
       onOpenChange={vi.fn()}
       onSubmit={onSubmit}
     />
@@ -64,6 +73,29 @@ async function addStock(slotCode: string) {
 }
 
 describe('CreateSupplierReturnDialog', () => {
+  it('searches stock by product name or SKU only', () => {
+    render(<Harness onSubmit={vi.fn()} />)
+    const search = screen.getByLabelText('Tìm hàng tồn')
+    expect(search).toHaveAttribute('placeholder', 'Tên hoặc SKU sản phẩm…')
+    expect(screen.queryByRole('button', { name: 'Trang tồn sau' })).not.toBeInTheDocument()
+  })
+
+  it('pages through stock rows beyond the first page', async () => {
+    const onStockPageChange = vi.fn()
+    render(
+      <Harness
+        onSubmit={vi.fn()}
+        stockPage={1}
+        stockPageCount={3}
+        onStockPageChange={onStockPageChange}
+      />
+    )
+    expect(screen.getByText('Trang 1/3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Trang tồn trước' })).toBeDisabled()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Trang tồn sau' }))
+    expect(onStockPageChange).toHaveBeenCalledWith(2)
+  })
+
   it('shows returnable quantity as on hand minus reserved, including held stock', () => {
     render(<Harness onSubmit={vi.fn()} />)
     expect(screen.getByRole('option', { name: /A-01.*có thể trả 7/ })).toBeInTheDocument()

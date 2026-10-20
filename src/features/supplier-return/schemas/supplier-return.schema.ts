@@ -4,12 +4,16 @@ export const createSupplierReturnSchema = z
   .object({
     warehouseId: z.string().min(1, 'Vui lòng chọn kho.'),
     supplierId: z.string().min(1, 'Vui lòng chọn nhà cung cấp.'),
-    reason: z.string().trim().min(1, 'Vui lòng nhập lý do trả hàng.').max(500),
-    negotiationNote: z.string().trim().max(1000),
+    reason: z
+      .string()
+      .trim()
+      .min(1, 'Vui lòng nhập lý do trả hàng.')
+      .max(500, 'Lý do trả hàng tối đa 500 ký tự.'),
+    negotiationNote: z.string().trim().max(1000, 'Ghi chú thương lượng tối đa 1000 ký tự.'),
     lines: z
       .array(
         z.object({
-          inventoryStockId: z.string().min(1),
+          inventoryStockId: z.string().min(1, 'Vui lòng chọn vị trí tồn.'),
           // Display-only fields; BE only receives inventoryStockId + quantity.
           label: z.string(),
           maxQuantity: z.number(),
@@ -49,7 +53,7 @@ export const createSupplierReturnSchema = z
 export type CreateSupplierReturnFormValues = z.infer<typeof createSupplierReturnSchema>
 
 export const supplierReturnReasonSchema = z.object({
-  reason: z.string().trim().min(1, 'Vui lòng nhập lý do.').max(500),
+  reason: z.string().trim().min(1, 'Vui lòng nhập lý do.').max(500, 'Lý do tối đa 500 ký tự.'),
 })
 
 export type SupplierReturnReasonFormValues = z.infer<typeof supplierReturnReasonSchema>
@@ -58,7 +62,7 @@ export const confirmSupplierReturnDeliverySchema = z
   .object({
     items: z.array(
       z.object({
-        itemId: z.string().min(1),
+        itemId: z.string().min(1, 'Thiếu dòng hàng của phiếu.'),
         approvedQuantity: z.number(),
         deliveredQuantity: z.number({ error: 'Vui lòng nhập số lượng giao.' }),
       })

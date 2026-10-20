@@ -15,7 +15,8 @@ function renderSheet(
       item={buildSupplierReturn({ status })}
       isLoading={false}
       isError={false}
-      permissions={permissions}
+      canApprove={permissions.includes(P.SUPPLIER_RETURNS_APPROVE)}
+      canDispatch={permissions.includes(P.SUPPLIER_RETURNS_DISPATCH)}
       currentUserId={currentUserId}
       onRetry={vi.fn()}
       onOpenChange={vi.fn()}

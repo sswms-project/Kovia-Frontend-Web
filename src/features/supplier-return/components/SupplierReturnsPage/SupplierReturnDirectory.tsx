@@ -27,7 +27,10 @@ import { rowActivationProps } from '@/features/inbound/utils/row-activation-prop
 import { formatInventoryQuantity } from '@/features/inventory/utils/inventory-format'
 import { formatStockIssueDate } from '@/features/stock-issue/utils/stock-issue-format'
 import type { SupplierReturnStatus, SupplierReturnSummary } from '../../types/supplier-return.types'
-import { SUPPLIER_RETURN_STATUS_LABELS } from '../../utils/supplier-return-format'
+import {
+  isSupplierReturnStatus,
+  SUPPLIER_RETURN_STATUS_LABELS,
+} from '../../utils/supplier-return-format'
 import { SupplierReturnStatusBadge } from './SupplierReturnStatusBadge'
 
 interface Option {
@@ -129,7 +132,10 @@ export function SupplierReturnDirectory({
             <NativeSelect
               aria-label="Lọc trạng thái phiếu trả hàng NCC"
               value={status}
-              onChange={(event) => onStatusChange(event.target.value as SupplierReturnStatus | '')}
+              onChange={(event) => {
+                const value = event.target.value
+                onStatusChange(isSupplierReturnStatus(value) ? value : '')
+              }}
             >
               <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
               {Object.entries(SUPPLIER_RETURN_STATUS_LABELS).map(([value, label]) => (

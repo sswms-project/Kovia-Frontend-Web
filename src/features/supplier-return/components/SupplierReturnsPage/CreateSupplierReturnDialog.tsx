@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useFieldArray, type UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
@@ -59,6 +59,9 @@ export function CreateSupplierReturnDialog({
   isStocksLoading,
   isPending,
   onStockSearchChange,
+  stockPage,
+  stockPageCount,
+  onStockPageChange,
   onOpenChange,
   onSubmit,
 }: {
@@ -71,6 +74,10 @@ export function CreateSupplierReturnDialog({
   readonly isStocksLoading: boolean
   readonly isPending: boolean
   readonly onStockSearchChange: (value: string) => void
+  /** Vị trí tồn được tải theo trang (tối đa 100 dòng/trang) để không dòng nào bị khuất. */
+  readonly stockPage: number
+  readonly stockPageCount: number
+  readonly onStockPageChange: (page: number) => void
   readonly onOpenChange: (open: boolean) => void
   readonly onSubmit: (values: CreateSupplierReturnFormValues) => void
 }) {
@@ -168,7 +175,7 @@ export function CreateSupplierReturnDialog({
                 <Input
                   id="supplier-return-stock-search"
                   autoComplete="off"
-                  placeholder="Tên, SKU hoặc mã vị trí…"
+                  placeholder="Tên hoặc SKU sản phẩm…"
                   disabled={!warehouseId}
                   value={stockSearch}
                   onChange={(event) => onStockSearchChange(event.target.value)}
@@ -209,6 +216,39 @@ export function CreateSupplierReturnDialog({
                   Thêm dòng
                 </Button>
               </div>
+              {stockPageCount > 1 ? (
+                <div className="flex items-center justify-end gap-2 text-sm">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Trang tồn trước"
+                    disabled={isStocksLoading || stockPage <= 1}
+                    onClick={() => {
+                      setSelectedStockId('')
+                      onStockPageChange(stockPage - 1)
+                    }}
+                  >
+                    <ChevronLeft />
+                  </Button>
+                  <span className="text-muted-foreground tabular-nums">
+                    Trang {stockPage}/{stockPageCount}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Trang tồn sau"
+                    disabled={isStocksLoading || stockPage >= stockPageCount}
+                    onClick={() => {
+                      setSelectedStockId('')
+                      onStockPageChange(stockPage + 1)
+                    }}
+                  >
+                    <ChevronRight />
+                  </Button>
+                </div>
+              ) : null}
               {lines.fields.map((line, index) => {
                 const quantityError = errors.lines?.[index]?.quantity
                 return (

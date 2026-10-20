@@ -50,3 +50,63 @@ it('exposes reservation filters directly in the toolbar and retains callbacks', 
   expect(props.onStatusChange).toHaveBeenCalledWith('Released')
   expect(props.onRetry).toHaveBeenCalledOnce()
 })
+
+it('labels supplier-return reservations with the return code', () => {
+  render(
+    <InventoryReservationDirectory
+      permissions={[]}
+      items={[
+        {
+          id: 'r-1',
+          inventoryStockId: 'st-1',
+          productId: 'p-1',
+          productSku: 'SKU1',
+          productName: 'Sữa',
+          warehouseId: 'w-1',
+          warehouseCode: 'MAIN',
+          warehouseName: 'Kho chính',
+          slotId: 's-1',
+          slotCode: 'A-01',
+          lotId: null,
+          lotNumber: null,
+          qualityStatus: 'Good',
+          eligibilityStatus: 'Available',
+          referenceType: 'SupplierReturnLine',
+          referenceId: 'sri-1',
+          referenceCode: 'SRT-20261019100000-ABC123',
+          reservedQuantity: 5,
+          status: 'Active',
+          createdByUserId: 'u-1',
+          createdByName: 'Người lập',
+          releasedAt: null,
+          createdAt: '2026-10-19T00:00:00Z',
+        },
+      ]}
+      page={1}
+      pageSize={20}
+      totalCount={1}
+      warehouseId=""
+      productId=""
+      status="Active"
+      warehouseOptions={[]}
+      productOptions={[]}
+      isLoading={false}
+      isFetching={false}
+      isError={false}
+      areFiltersLoading={false}
+      areFiltersError={false}
+      activeFilterCount={0}
+      onWarehouseChange={vi.fn()}
+      onProductChange={vi.fn()}
+      onStatusChange={vi.fn()}
+      onPageChange={vi.fn()}
+      onPageSizeChange={vi.fn()}
+      onResetFilters={vi.fn()}
+      onRetryFilters={vi.fn()}
+      onRetry={vi.fn()}
+    />
+  )
+  expect(screen.getAllByText(/Trả hàng NCC ·/).length).toBeGreaterThan(0)
+  expect(screen.getAllByText('SRT-20261019100000-ABC123').length).toBeGreaterThan(0)
+  expect(screen.queryByText(/Điều chuyển kho/)).not.toBeInTheDocument()
+})

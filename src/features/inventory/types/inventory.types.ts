@@ -96,6 +96,7 @@ export const STOCK_MOVEMENT_TYPES = {
   transferIn: 'TransferIn',
   adjustment: 'Adjustment',
   returnIn: 'ReturnIn',
+  returnOut: 'ReturnOut',
   scrap: 'Scrap',
   opening: 'Opening',
   reclassification: 'Reclassification',
@@ -178,7 +179,7 @@ export interface InventoryReservation {
   lotNumber: string | null
   qualityStatus: QualityStatus
   eligibilityStatus: InventoryEligibilityStatus
-  referenceType: 'StockIssueRequestLine' | 'StockIssuePick' | 'StockTransfer'
+  referenceType: 'StockIssueRequestLine' | 'StockIssuePick' | 'StockTransfer' | 'SupplierReturnLine'
   referenceId: string
   referenceCode: string
   reservedQuantity: number
@@ -500,7 +501,6 @@ export interface StockDiscrepancy {
   duplicateOfReportId: string | null
   linkedCycleCountId: string | null
   linkedStockAdjustmentId: string | null
-  linkedSupplierReturnId: string | null
   version: string | null
   evidence: InventoryEvidence[]
   correctSlotId: string | null

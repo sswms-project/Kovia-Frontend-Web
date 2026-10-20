@@ -52,6 +52,7 @@ function baseProps(): ComponentProps<typeof DamageCaseDirectory> {
   const noop = vi.fn()
   return {
     permissions: [],
+    canViewSupplierReturn: false,
     currentUserId: 'u-owner',
     items: [openCase],
     page: 1,
@@ -103,6 +104,12 @@ it('requires a supplier for the supplier-return disposition and submits supplier
   expect(props.onDecide).toHaveBeenCalledWith(openCase, 'SupplierReturn', 10, '', 'sup-1')
 })
 
+it('hides the decide action while a supplier return is still pending for the case', () => {
+  const pending: DamageCase = { ...openCase, linkedSupplierReturnId: 'sr-1' }
+  render(<DamageCaseDirectory {...baseProps()} items={[pending]} />)
+  expect(screen.queryByRole('button', { name: 'Chọn xử lý' })).not.toBeInTheDocument()
+})
+
 it('links the detail dialog to the supplier return only when the user can view it', () => {
   const resolved: DamageCase = {
     ...openCase,
@@ -112,13 +119,13 @@ it('links the detail dialog to the supplier return only when the user can view i
     linkedSupplierReturnId: 'sr-9',
   }
   const props = { ...baseProps(), items: [resolved] }
-  const view = render(<DamageCaseDirectory {...props} permissions={['supplier-returns:view']} />)
+  const view = render(<DamageCaseDirectory {...props} canViewSupplierReturn />)
   fireEvent.click(screen.getAllByText('Mì gói')[0]!)
   const link = screen.getByRole('link', { name: /Phiếu trả NCC/ })
   expect(link).toHaveAttribute('href', '/supplier-returns?id=sr-9')
   view.unmount()
 
-  render(<DamageCaseDirectory {...props} permissions={[]} />)
+  render(<DamageCaseDirectory {...props} canViewSupplierReturn={false} />)
   fireEvent.click(screen.getAllByText('Mì gói')[0]!)
   expect(screen.queryByRole('link', { name: /Phiếu trả NCC/ })).not.toBeInTheDocument()
 })
@@ -127,6 +134,7 @@ it('refreshes damage cases and locks the reload button during fetching', () => {
   const noop = vi.fn()
   const props: ComponentProps<typeof DamageCaseDirectory> = {
     permissions: [],
+    canViewSupplierReturn: false,
     currentUserId: null,
     items: [],
     page: 1,

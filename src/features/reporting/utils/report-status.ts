@@ -24,6 +24,7 @@ const labels: Record<string, string> = {
   Adjustment: 'Điều chỉnh',
   Correction: 'Sửa biến động',
   ReturnIn: 'Nhập trả lại',
+  ReturnOut: 'Trả nhà cung cấp',
   Scrap: 'Loại bỏ',
   Draft: 'Bản nháp',
   Pending: 'Chờ xử lý',

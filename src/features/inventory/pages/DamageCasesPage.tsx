@@ -112,6 +112,7 @@ export default function DamageCasesPage() {
   return (
     <DamageCaseDirectory
       permissions={meQuery.data?.permissions ?? []}
+      canViewSupplierReturn={meQuery.data?.permissions.includes(P.SUPPLIER_RETURNS_VIEW) ?? false}
       currentUserId={meQuery.data?.id ?? null}
       items={casesQuery.data?.items ?? []}
       page={casesQuery.data?.pageNumber ?? page}
