@@ -9,7 +9,7 @@ import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
@@ -33,6 +33,11 @@ import {
 } from '../components/ReceivingPage'
 import { AssignWarehouseTaskDialog } from '../components/TaskAssignment'
 import { useAssignWarehouseTask } from '../hooks/use-assign-warehouse-task'
+import { useReceivingLocationSelection } from '../hooks/use-receiving-location-selection'
+import { ReceivingLocationPicker } from '../components/ReceivingLocationPicker'
+import { RefusalEvidencePanel } from '../components/RefusalEvidencePanel'
+import { useRefusalEvidence } from '../hooks/use-refusal-evidence'
+import type { CreateReceiptInput } from '../types/receipt-commands.types'
 import { useWarehouseTaskAssignmentAccess } from '../hooks/use-warehouse-task-assignment-access'
 import {
   useCreateDraftFromDocumentMutation,
@@ -50,7 +55,7 @@ import {
   type InboundDocumentReviewFormValues,
 } from '../schemas/inbound-document-import.schema'
 import { goodsReceiptSchema, type GoodsReceiptFormValues } from '../schemas/inbound.schema'
-import type { ReceivingTask, SaveGoodsReceiptRequest } from '../types/inbound.types'
+import type { ReceivingTask } from '../types/inbound.types'
 import { inboundService } from '../services/inbound.service'
 import {
   toOperationalDateTimeEnd,
@@ -79,6 +84,15 @@ export default function InboundReceivingPage() {
   const codeInstanceId = useId()
   const [codeSession, setCodeSession] = useState(0)
   const codeSessionKey = `${codeInstanceId}:${codeSession}`
+  const refusal = useRefusalEvidence(
+    selectedTask?.warehouseId,
+    `${codeSessionKey}:${currentUserId}`
+  )
+  const receivingLocation = useReceivingLocationSelection(
+    selectedTask?.warehouseId,
+    codeSessionKey,
+    !!selectedTask
+  )
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const exportFilters = {
     pageNumber: page,
@@ -138,6 +152,7 @@ export default function InboundReceivingPage() {
     })
   }, [importId, importQuery.data?.review, importForm])
 
+  const receiptLines = useWatch({ control: form.control, name: 'lines' })
   function openReceive(task: ReceivingTask) {
     if (task.activeGoodsReceiptId) {
       router.push(APP_ROUTES.goodsReceiptDetail(task.activeGoodsReceiptId) as Route)
@@ -154,7 +169,7 @@ export default function InboundReceivingPage() {
         .map((line) => ({
           inboundRequestItemId: line.inboundRequestItemId,
           enteredUnitId: getRemainingReceiptQuantity(line, line.enteredUnitId).unitId,
-          receivedQty: getRemainingReceiptQuantity(line, line.enteredUnitId).quantity,
+          receivedQty: 0,
           damagedQty: 0,
           exceptionReason: '',
           isLotTracked: line.isLotTracked,
@@ -273,15 +288,36 @@ export default function InboundReceivingPage() {
   }
 
   async function save(values: GoodsReceiptFormValues, shouldSubmit: boolean) {
+    if (!selectedTask?.version) {
+      toast.error(
+        'Dữ liệu đã được người dùng khác cập nhật. Vui lòng tải lại trang trước khi tiếp tục.'
+      )
+      return
+    }
+    if (
+      shouldSubmit &&
+      values.lines.some((line) => line.receivedQty > 0) &&
+      (!receivingLocation.selected ||
+        receivingLocation.query.isError ||
+        receivingLocation.query.isFetching)
+    ) {
+      toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
+      return
+    }
     try {
-      const request: SaveGoodsReceiptRequest = {
+      const refusalPayload = shouldSubmit
+        ? refusal.payload(values.lines.some((line) => (line.rejectedQty ?? 0) > 0))
+        : {}
+      const request: CreateReceiptInput = {
         inboundRequestId: values.inboundRequestId,
+        expectedInboundVersion: selectedTask.version,
         receiptCode: values.receiptCode,
         lines: values.lines.map((line) => ({
           inboundRequestItemId: line.inboundRequestItemId,
           receivedQty: line.receivedQty,
           enteredUnitId: line.enteredUnitId,
           damagedQty: line.damagedQty,
+          rejectedQty: line.rejectedQty ?? 0,
           exceptionReason: line.exceptionReason.trim() || null,
           lotNumber: line.isLotTracked ? line.lotNumber.trim() || null : null,
           manufacturedDate: line.isLotTracked ? line.manufacturedDate || null : null,
@@ -295,6 +331,10 @@ export default function InboundReceivingPage() {
           await submitMutation.mutateAsync({
             receiptId: response.data,
             expectedVersion: receipt.data.version,
+            receivingSlotId: values.lines.some((line) => line.receivedQty > 0)
+              ? receivingLocation.selected?.id
+              : null,
+            ...refusalPayload,
           })
         } catch (error) {
           if (isApiErrorResponse(error)) logger.warn(formatApiError(error))
@@ -343,7 +383,7 @@ export default function InboundReceivingPage() {
     })
   }
 
-  const isPending = createMutation.isPending || submitMutation.isPending
+  const isPending = createMutation.isPending || submitMutation.isPending || refusal.busy
   const listExport = useListExport({
     dataset: 'receiving',
     filters: exportFilters,
@@ -424,6 +464,17 @@ export default function InboundReceivingPage() {
         onUnassign={assignment.onUnassign}
       />
       <ReceiveGoodsDialog
+        receivingLocationField={
+          <>
+            <ReceivingLocationPicker
+              state={receivingLocation}
+              disabled={createMutation.isPending || submitMutation.isPending}
+            />
+            {receiptLines.some((line) => (line.rejectedQty ?? 0) > 0) && (
+              <RefusalEvidencePanel state={refusal} />
+            )}
+          </>
+        }
         isLoadingCode={nextCodeQuery.isFetching}
         isCodeSuggestionError={nextCodeQuery.isError}
         onReceiptCodeChange={codeSuggestion.markEdited}

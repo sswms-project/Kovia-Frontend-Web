@@ -19,11 +19,14 @@ import { useSubmitTransferReceiptMutation } from './use-transfer-receipt'
 function initialCounts(sheet: TransferReceiptSheet): TransferCountFormValues {
   const submitted = Boolean(sheet.receiptSubmittedAt)
   return {
+    keepAtReceiving: false,
+    damagedSlotId: '',
+    scannedDamagedSlotCode: '',
     entries: sheet.lines.flatMap((line) =>
       line.lots.map((lot) => ({
         lineId: line.lineId,
         lotId: lot.lotId,
-        goodQuantity: submitted ? lot.initialGoodQuantity : lot.dispatchedQuantity,
+        goodQuantity: submitted ? lot.initialGoodQuantity : Number.NaN,
         damagedQuantity: submitted ? lot.initialDamagedQuantity : 0,
         missingQuantity: submitted ? lot.initialMissingQuantity : 0,
         reasonCode: '',
@@ -81,7 +84,11 @@ export function useTransferCountForm(sheet: TransferReceiptSheet | undefined, ca
       setUnknownResult(false)
       setReloadRequired(true)
       setNotice(
-        'Đã nộp phiếu kiểm hàng. Hàng tốt và hàng hỏng chờ cất; tồn kho chưa được ghi ở bước này.'
+        current.receiptFlowVersion === 2
+          ? request.keepAtReceiving
+            ? 'Đã ghi thực nhận một lần. Hàng đạt giữ tại khu nhận, có thể phân bổ FEFO; hàng hỏng Hold/cách biệt.'
+            : 'Đã ghi thực nhận một lần. Hàng đạt chờ cất; hàng hỏng đã Hold/cách biệt.'
+          : 'Đã nộp phiếu kiểm hàng theo luồng cũ. Hàng tốt chờ cất; tồn chưa ghi ở bước này.'
       )
       toast.success('Đã nộp phiếu kiểm hàng.')
       return true
@@ -133,6 +140,19 @@ export function useTransferCountForm(sheet: TransferReceiptSheet | undefined, ca
       const request: SubmitTransferReceiptRequest = {
         expectedVersion: snapshot.current.version,
         commandId: newCommandId(),
+        ...(snapshot.current.receiptFlowVersion === 2
+          ? {
+              keepAtReceiving: form.getValues('keepAtReceiving') === true,
+              damagedSlotId: form.getValues('entries').some((entry) => entry.damagedQuantity > 0)
+                ? form.getValues('damagedSlotId') || null
+                : null,
+              scannedDamagedSlotCode: form
+                .getValues('entries')
+                .some((entry) => entry.damagedQuantity > 0)
+                ? form.getValues('scannedDamagedSlotCode')?.trim() || null
+                : null,
+            }
+          : {}),
         entries: form.getValues('entries').map((entry) => ({
           ...entry,
           reasonCode: entry.reasonCode || null,

@@ -3,6 +3,7 @@
 import { Save, Send } from 'lucide-react'
 import { BusinessCodeField } from '@/components/forms/BusinessCodeField'
 import type { UseFormReturn } from 'react-hook-form'
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,6 +23,8 @@ import { formatQuantity } from '@/features/inbound-request/utils/inbound-request
 import { ReceiveQuickActions } from './ReceiveQuickActions'
 
 interface ReceiveGoodsDialogProps {
+  readonly receivingLocationField?: ReactNode
+  readonly acceptanceFirst?: boolean
   readonly task: ReceivingTask | null
   readonly form: UseFormReturn<GoodsReceiptFormValues>
   readonly isPending: boolean
@@ -47,6 +50,8 @@ export function ReceiveGoodsDialog({
   saveDraftLabel = 'Lưu nháp',
   mode = 'create',
   canEditReceivedQuantity = true,
+  receivingLocationField,
+  acceptanceFirst = true,
   isLoadingCode = false,
   isCodeSuggestionError = false,
   onReceiptCodeChange,
@@ -60,6 +65,7 @@ export function ReceiveGoodsDialog({
     setValue,
     formState: { errors },
   } = form
+  const selectedLines = watch('lines')
   return (
     <Dialog open={Boolean(task)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
@@ -67,11 +73,12 @@ export function ReceiveGoodsDialog({
           <DialogTitle>{title ?? `Nhận hàng ${task?.inboundRequestCode ?? ''}`}</DialogTitle>
           <DialogDescription>
             {description ??
-              'Nhập số lượng thực nhận và ghi rõ tình trạng hàng hỏng trước khi lưu phiếu.'}
+              'Kiểm trước nhận: ghi riêng phần chấp nhận và phần từ chối bên giao giữ/mang về. Phần từ chối không vào tồn.'}
           </DialogDescription>
         </DialogHeader>
         {task ? (
           <div className="flex flex-col gap-3">
+            {receivingLocationField}
             <div className="bg-muted grid gap-3 border p-3 text-sm sm:grid-cols-2">
               <BusinessCodeField
                 label="Mã phiếu nhận *"
@@ -124,9 +131,9 @@ export function ReceiveGoodsDialog({
             ) : null}
             {task.lines
               .filter((line) =>
-                form
-                  .getValues('lines')
-                  .some((value) => value.inboundRequestItemId === line.inboundRequestItemId)
+                selectedLines.some(
+                  (value) => value.inboundRequestItemId === line.inboundRequestItemId
+                )
               )
               .map((line, index) => {
                 const unitId = watch(`lines.${index}.enteredUnitId`)
@@ -134,6 +141,11 @@ export function ReceiveGoodsDialog({
                 const remaining = getRemainingReceiptQuantity(line, unitId)
                 const damaged = watch(`lines.${index}.damagedQty`) ?? 0
                 const received = watch(`lines.${index}.receivedQty`) ?? 0
+                const refused = watch(`lines.${index}.rejectedQty`) ?? 0
+                const editsRefusal = acceptanceFirst && canEditReceivedQuantity
+                const classificationError = editsRefusal
+                  ? errors.lines?.[index]?.rejectedQty
+                  : errors.lines?.[index]?.damagedQty
                 return (
                   <section key={line.inboundRequestItemId} className="border p-3">
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
@@ -155,6 +167,28 @@ export function ReceiveGoodsDialog({
                           </>
                         )}
                       </p>
+                      {canEditReceivedQuantity && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={isPending}
+                          aria-label={`Không nhận ${line.productSKU} trong lần này`}
+                          onClick={() =>
+                            setValue(
+                              'lines',
+                              form
+                                .getValues('lines')
+                                .filter(
+                                  (value) =>
+                                    value.inboundRequestItemId !== line.inboundRequestItemId
+                                ),
+                              { shouldDirty: true, shouldValidate: true }
+                            )
+                          }
+                        >
+                          Không nhận dòng này
+                        </Button>
+                      )}
                     </div>
                     <input type="hidden" {...register(`lines.${index}.inboundRequestItemId`)} />
                     <div className="grid gap-3 sm:grid-cols-3">
@@ -170,6 +204,8 @@ export function ReceiveGoodsDialog({
                             })
                             setValue(`lines.${index}.receivedQty`, 0, { shouldDirty: true })
                             setValue(`lines.${index}.damagedQty`, 0, { shouldDirty: true })
+                            setValue(`lines.${index}.rejectedQty`, 0, { shouldDirty: true })
+                            setValue(`lines.${index}.rejectedQty`, 0, { shouldDirty: true })
                           }}
                         >
                           {line.baseUnitId ? (
@@ -187,12 +223,16 @@ export function ReceiveGoodsDialog({
                         </NativeSelect>
                       </Field>
                       <Field data-invalid={Boolean(errors.lines?.[index]?.receivedQty)}>
-                        <FieldLabel htmlFor={`received-${index}`}>Số lượng thực nhận</FieldLabel>
+                        <FieldLabel htmlFor={`received-${index}`}>
+                          {acceptanceFirst
+                            ? 'Số lượng chấp nhận nhận'
+                            : 'Số lượng thực nhận lịch sử'}
+                        </FieldLabel>
                         <Input
                           id={`received-${index}`}
                           readOnly={!canEditReceivedQuantity}
                           type="number"
-                          min={10 ** -unit.precision}
+                          min={0}
                           max={
                             mode === 'create'
                               ? remaining.unitId === unitId
@@ -207,22 +247,32 @@ export function ReceiveGoodsDialog({
                         />
                         <FieldError>{errors.lines?.[index]?.receivedQty?.message}</FieldError>
                       </Field>
-                      <Field data-invalid={Boolean(errors.lines?.[index]?.damagedQty)}>
-                        <FieldLabel htmlFor={`damaged-${index}`}>Số lượng hỏng</FieldLabel>
+                      <Field data-invalid={Boolean(classificationError)}>
+                        <FieldLabel htmlFor={`damaged-${index}`}>
+                          {acceptanceFirst && canEditReceivedQuantity
+                            ? 'Số từ chối trước nhận'
+                            : 'Hỏng sau khi đã nhận'}
+                        </FieldLabel>
                         <Input
                           id={`damaged-${index}`}
                           type="number"
                           min="0"
                           step={10 ** -unit.precision}
                           disabled={isPending}
-                          aria-invalid={Boolean(errors.lines?.[index]?.damagedQty)}
-                          {...register(`lines.${index}.damagedQty`, { valueAsNumber: true })}
+                          aria-invalid={Boolean(classificationError)}
+                          {...register(
+                            acceptanceFirst && canEditReceivedQuantity
+                              ? `lines.${index}.rejectedQty`
+                              : `lines.${index}.damagedQty`,
+                            { setValueAs: (value: string) => (value === '' ? 0 : Number(value)) }
+                          )}
                         />
-                        <FieldError>{errors.lines?.[index]?.damagedQty?.message}</FieldError>
+                        <FieldError>{classificationError?.message}</FieldError>
                       </Field>
                     </div>
                     <p className="text-muted-foreground mt-2 text-xs" aria-live="polite">
-                      Hàng đạt: {formatQuantity(Math.max(0, received - damaged))} {unit.name}
+                      Phần chấp nhận: {formatQuantity(Math.max(0, received - damaged))} {unit.name}
+                      {editsRefusal ? ` · Từ chối: ${formatQuantity(refused)} ${unit.name}` : ''}
                       {' · '}Quy đổi: {formatQuantity(received * unit.factor)}{' '}
                       {line.baseUnitName ?? '—'}
                     </p>
@@ -250,12 +300,14 @@ export function ReceiveGoodsDialog({
                         Nhận toàn bộ còn lại
                       </Button>
                     ) : null}
-                    {damaged > 0 ? (
+                    {damaged > 0 || refused > 0 ? (
                       <Field
                         className="mt-3"
                         data-invalid={Boolean(errors.lines?.[index]?.exceptionReason)}
                       >
-                        <FieldLabel htmlFor={`exception-${index}`}>Tình trạng hàng hỏng</FieldLabel>
+                        <FieldLabel htmlFor={`exception-${index}`}>
+                          {editsRefusal ? 'Lý do từ chối nhận' : 'Tình trạng hàng hỏng'}
+                        </FieldLabel>
                         <Input
                           id={`exception-${index}`}
                           maxLength={500}
@@ -306,6 +358,55 @@ export function ReceiveGoodsDialog({
                   </section>
                 )
               })}
+            {canEditReceivedQuantity &&
+              task.lines
+                .filter(
+                  (line) =>
+                    line.remainingQuantity > 0 &&
+                    !selectedLines.some(
+                      (value) => value.inboundRequestItemId === line.inboundRequestItemId
+                    )
+                )
+                .map((line) => (
+                  <Button
+                    key={line.inboundRequestItemId}
+                    type="button"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={() =>
+                      setValue(
+                        'lines',
+                        [
+                          ...form.getValues('lines'),
+                          {
+                            inboundRequestItemId: line.inboundRequestItemId,
+                            enteredUnitId: getRemainingReceiptQuantity(line, line.enteredUnitId)
+                              .unitId,
+                            receivedQty: 0,
+                            damagedQty: 0,
+                            exceptionReason: '',
+                            isLotTracked: line.isLotTracked,
+                            lotNumber: '',
+                            manufacturedDate: '',
+                            expiryDate: '',
+                          },
+                        ].sort(
+                          (a, b) =>
+                            task.lines.findIndex(
+                              (item) => item.inboundRequestItemId === a.inboundRequestItemId
+                            ) -
+                            task.lines.findIndex(
+                              (item) => item.inboundRequestItemId === b.inboundRequestItemId
+                            )
+                        ),
+                        { shouldDirty: true }
+                      )
+                    }
+                  >
+                    Chọn nhận {line.productSKU}
+                  </Button>
+                ))}
+            <FieldError>{errors.lines?.root?.message ?? errors.lines?.message}</FieldError>
           </div>
         ) : null}
         <DialogFooter>

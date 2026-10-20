@@ -52,6 +52,10 @@ export function ReceiptItemsTable({ items }: ReceiptItemsTableProps) {
                 unit={item.baseUnitName}
               />
             </dl>
+            <p className="text-muted-foreground text-xs">
+              Từ chối trước nhận: {formatQuantity(item.rejectedQuantity ?? 0)} · Hỏng còn cần cách
+              biệt: {formatQuantity(item.remainingDamageIsolationQuantity ?? 0)} {item.baseUnitName}
+            </p>
             {item.enteredUnitId &&
             item.enteredUnitId !== item.baseUnitId &&
             item.enteredUnitName ? (
@@ -61,6 +65,12 @@ export function ReceiptItemsTable({ items }: ReceiptItemsTableProps) {
               </p>
             ) : null}
             <p className="text-muted-foreground text-xs">
+              {(item.keptAtReceivingQuantity ?? 0) > 0 && (
+                <>
+                  Giữ tại khu nhận: {formatQuantity(item.keptAtReceivingQuantity ?? 0)}{' '}
+                  {item.baseUnitName}.{' '}
+                </>
+              )}
               Vị trí cất:{' '}
               {item.putAwayDetails.length
                 ? item.putAwayDetails
@@ -141,6 +151,11 @@ export function ReceiptItemsTable({ items }: ReceiptItemsTableProps) {
                 <TableCell>
                   <p className="font-medium">{item.productName}</p>
                   <p className="text-muted-foreground font-mono text-xs">{item.productSKU}</p>
+                  <p className="text-muted-foreground text-xs">
+                    Từ chối trước nhận: {formatQuantity(item.rejectedQuantity ?? 0)} · Hỏng còn cần
+                    cách biệt: {formatQuantity(item.remainingDamageIsolationQuantity ?? 0)}{' '}
+                    {item.baseUnitName}
+                  </p>
                   {item.exceptionReason ? (
                     <p className="text-destructive mt-1 text-xs">{item.exceptionReason}</p>
                   ) : null}
@@ -169,6 +184,12 @@ export function ReceiptItemsTable({ items }: ReceiptItemsTableProps) {
                   {formatQuantity(item.remainingPutAwayQuantity)}
                 </TableCell>
                 <TableCell>
+                  {(item.keptAtReceivingQuantity ?? 0) > 0 && (
+                    <p className="font-medium">
+                      Giữ tại khu nhận: {formatQuantity(item.keptAtReceivingQuantity ?? 0)}{' '}
+                      {item.baseUnitName}
+                    </p>
+                  )}
                   {item.putAwayDetails.length ? (
                     <ul className="flex flex-col gap-1">
                       {item.putAwayDetails.map((detail) => (

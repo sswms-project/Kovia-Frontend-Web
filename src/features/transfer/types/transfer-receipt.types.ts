@@ -28,6 +28,9 @@ export interface TransferReceiptSheetLine {
 }
 
 export interface TransferReceiptSheet {
+  receivingSlotId?: string | null
+  arrivalStockPostedAt?: string | null
+  keptAtReceiving?: boolean
   transferId: string
   shipmentId: string
   transferCode: string
@@ -43,6 +46,7 @@ export interface TransferReceiptSheet {
 }
 
 export interface TransferPutAwaySheetRow {
+  keptAtReceivingQuantity?: number
   lineId: string
   itemId: string
   productId: string
@@ -85,6 +89,8 @@ export interface TransferPutAwaySheet {
 }
 
 export interface StartTransferReceivingRequest {
+  receivingSlotId?: string
+  scannedSlotCode?: string
   expectedVersion: string
   commandId: string
 }
@@ -100,6 +106,9 @@ export interface SubmitTransferReceiptEntry {
 }
 
 export interface SubmitTransferReceiptRequest extends StartTransferReceivingRequest {
+  keepAtReceiving?: boolean
+  damagedSlotId?: string | null
+  scannedDamagedSlotCode?: string | null
   entries: SubmitTransferReceiptEntry[]
 }
 

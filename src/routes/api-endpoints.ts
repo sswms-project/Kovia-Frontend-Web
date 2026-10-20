@@ -255,6 +255,9 @@ export const API_ENDPOINTS = {
       `/inbound-requests/${inboundRequestId}/allowed-actions`,
   },
   goodsReceipts: {
+    receivingLocations: '/goods-receipts/receiving-locations',
+    reconcileArrivalStock: (receiptId: string) =>
+      `/goods-receipts/${receiptId}/reconcile-arrival-stock`,
     nextCode: '/goods-receipts/next-code',
     list: '/goods-receipts',
     create: '/goods-receipts',

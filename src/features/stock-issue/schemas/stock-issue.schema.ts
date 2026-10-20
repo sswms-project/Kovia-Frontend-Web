@@ -36,6 +36,12 @@ export const createStockIssueRequestSchema = z
   })
 
 export const recordStockPickingLineSchema = z.object({
+  destinationStagingSlotId: z.string().optional(),
+  stagingSlotCode: z.string().optional(),
+  stagingPath: z.string().optional(),
+  scannedStagingSlotCode: z.string().trim().max(200).optional(),
+  directFromReceiving: z.boolean().optional(),
+  allocationReason: z.string().nullable().optional(),
   stockIssueRequestItemId: z.string(),
   productId: z.string(),
   productName: z.string(),
@@ -71,6 +77,21 @@ export const recordStockPickingSchema = z
     }
 
     values.lines.forEach((line, index) => {
+      if (line.pickedQuantity > 0) {
+        if (!line.destinationStagingSlotId || !line.scannedStagingSlotCode?.trim())
+          context.addIssue({
+            code: 'custom',
+            path: ['lines', index, 'scannedStagingSlotCode'],
+            message: 'Xác nhận đúng mã khu chờ xuất được hướng dẫn.',
+          })
+        // The server accepts canonical location labels, rack labels and custom barcodes too.
+        if (!line.scannedSlotCode?.trim())
+          context.addIssue({
+            code: 'custom',
+            path: ['lines', index, 'scannedSlotCode'],
+            message: 'Quét hoặc nhập đúng mã vị trí nguồn.',
+          })
+      }
       if (line.pickedQuantity > 0 && !line.inventoryStockId) {
         context.addIssue({
           code: 'custom',

@@ -338,7 +338,8 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                           : tab === 'putaway'
                             ? shipments.filter(
                                 (shipment) =>
-                                  shipment.receiptFlowVersion === 1 && shipment.putAwayTaskId
+                                  [1, 2].includes(shipment.receiptFlowVersion ?? 0) &&
+                                  shipment.putAwayTaskId
                               )
                             : shipments.filter(
                                 (shipment) =>

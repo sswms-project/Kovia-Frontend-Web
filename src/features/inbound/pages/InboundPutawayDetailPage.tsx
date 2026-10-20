@@ -23,6 +23,9 @@ import {
   type SlotOption,
 } from '../components/PutawayDetailPage'
 import { PutawayPlanSheet } from '../components/ReceiptDetailPage'
+import { Button } from '@/components/ui/button'
+import { ReceiptDamageIsolationDialog } from '../components/ReceiptDamageIsolationDialog'
+import { useReceiptDamageIsolation } from '../hooks/use-receipt-damage-isolation'
 import { AssignWarehouseTaskDialog } from '../components/TaskAssignment'
 import { useAssignWarehouseTask } from '../hooks/use-assign-warehouse-task'
 import { useWarehouseTaskAssignmentAccess } from '../hooks/use-warehouse-task-assignment-access'
@@ -96,6 +99,10 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
   const meQuery = useMeQuery()
   const receiptQuery = useGoodsReceiptQuery(receiptId)
   const allowedActionsQuery = useInboundAllowedActionsQuery(receiptId)
+  const damageIsolation = useReceiptDamageIsolation(
+    receiptQuery.data,
+    allowedActionsQuery.data?.allowedActions.includes('IsolateDamage') === true
+  )
   const heldSlotsQuery = usePutawayHeldSlotsQuery(receiptId)
   const { currentUserId, canAssign } = useWarehouseTaskAssignmentAccess()
   const assignment = useAssignWarehouseTask()
@@ -443,6 +450,14 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
     !['Completed', 'Cancelled'].includes(receipt.putAwayTaskExecutionStatus)
   return (
     <>
+      {allowedActionsQuery.data?.allowedActions.includes('IsolateDamage') && (
+        <div className="shrink-0 py-3">
+          <Button variant="outline" onClick={damageIsolation.open}>
+            Xác nhận cách biệt hàng hỏng đã nhập
+          </Button>
+        </div>
+      )}
+      <ReceiptDamageIsolationDialog state={damageIsolation} />
       <PutawayForm
         receipt={receipt}
         form={form}
