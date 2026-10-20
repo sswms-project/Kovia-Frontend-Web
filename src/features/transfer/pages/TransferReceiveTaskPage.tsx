@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { PackageCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export default function TransferReceiveTaskPage({ transferId, shipmentId }: Props) {
+  const router = useRouter()
   const { viewer, isReady } = useTransferViewer()
   const detail = useTransferQuery(transferId)
   const query = useTransferReceiptSheetQuery(transferId, shipmentId)
@@ -72,14 +74,24 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
     { good: 0, damaged: 0, missing: 0 }
   )
 
-  async function reload() {
+  async function reload(continueToPutAway = false) {
     if (reloadLock.current || startLock.current || count.isPending) return
     reloadLock.current = true
     setIsReloading(true)
     try {
-      const [fresh] = await Promise.all([query.refetch(), detail.refetch()])
+      const [fresh, freshDetail] = await Promise.all([query.refetch(), detail.refetch()])
       if (fresh.data && !fresh.isError) {
         count.acceptFresh(fresh.data)
+        const nextShipment = freshDetail.data?.shipments?.find((row) => row.id === shipmentId)
+        if (
+          continueToPutAway &&
+          fresh.data.status === 'AwaitingPutAway' &&
+          !freshDetail.isError &&
+          nextShipment?.putAwayAssigneeId === viewer.currentUserId &&
+          getShipmentCapabilities(viewer, nextShipment, freshDetail.data).canOpenPutAway
+        ) {
+          router.push(APP_ROUTES.transferPutAwayTask(transferId, shipmentId))
+        }
         realtime.dismiss()
         if (fresh.data.status !== 'InTransit') {
           startIntent.current = null
@@ -161,9 +173,18 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         <AlertTitle>Kiểm hàng trước khi cất</AlertTitle>
         <AlertDescription>
           Tốt, hỏng và thiếu phải khớp số đã xuất. Nộp phiếu không ghi tồn kho và không cần duyệt;
-          hàng thực nhận sẽ được cất ở bước riêng.
+          chỉ hàng tốt được cất ở bước riêng. Hàng hỏng, thiếu được xử lý theo chênh lệch.
         </AlertDescription>
       </Alert>
+      {sheet.status === 'AwaitingPutAway' ? (
+        <Alert role="status">
+          <AlertDescription>
+            {shipment.putAwayAssigneeId
+              ? `Việc cất hàng được giao cho ${shipment.putAwayAssigneeName || 'nhân viên kho nhập'}.`
+              : 'Đã kiểm nhận. Công việc cất hàng đang chờ quản lý kho nhập phân công.'}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {realtime.hasPendingChange ? (
         <TransferChangedBanner onReload={() => void reload()} onDismiss={realtime.dismiss} />
       ) : null}
@@ -180,7 +201,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
                 disabled={busy}
                 onClick={() =>
                   void count.retryUnknown().then((done) => {
-                    if (done) void reload()
+                    if (done) void reload(true)
                   })
                 }
               >
@@ -220,7 +241,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
               {count.isPending ? <Spinner /> : null}Nộp phiếu nhập
             </Button>
           ) : null}
-          {sheet.status === 'AwaitingPutAway' ? (
+          {sheet.status === 'AwaitingPutAway' && caps?.canOpenPutAway ? (
             <Button asChild>
               <Link href={APP_ROUTES.transferPutAwayTask(transferId, shipmentId)}>
                 Mở trang cất hàng
@@ -246,7 +267,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         isPending={count.isPending}
         onConfirm={() =>
           void count.confirm().then((done) => {
-            if (done) void reload()
+            if (done) void reload(true)
           })
         }
       />

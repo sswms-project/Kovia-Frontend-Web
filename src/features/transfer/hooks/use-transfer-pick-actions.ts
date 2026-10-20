@@ -3,6 +3,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMemo, useReducer, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { queryKeys } from '@/lib/query-keys'
+import { transferService } from '../services/transfer.service'
+import { describeTransferError, logTransferError } from '../utils/transfer-errors'
 import {
   transferPickEscalateSchema,
   transferPickReturnSchema,
@@ -16,6 +21,7 @@ import type {
   TransferPickDetail,
   TransferPickSheet,
   TransferPickSheetLine,
+  RecordTransferPickRequest,
 } from '../types/transfer.types'
 import { useScanPreferences } from '../utils/scan-preferences'
 import { newCommandId } from '../utils/transfer-command-id'
@@ -57,6 +63,12 @@ export function useTransferPickActions(
   sheet: TransferPickSheet | undefined
 ) {
   const run = useTransferActionRunner()
+  const queryClient = useQueryClient()
+  const pickLock = useRef(false)
+  const pickIntent = useRef<RecordTransferPickRequest | null>(null)
+  const [isAdvancing, setIsAdvancing] = useState(false)
+  const [pickUncertain, setPickUncertain] = useState(false)
+  const [needsPickRefresh, setNeedsPickRefresh] = useState(false)
   const [scanPreferences] = useScanPreferences()
   const eachUnit = scanPreferences.eachUnit
 
@@ -115,6 +127,8 @@ export function useTransferPickActions(
   const isNonFefo = chosenAlternative ? isNonFefoChoice(chosenAlternative, alternatives) : false
 
   function openSwitch(line: TransferPickSheetLine, preset?: TransferPickAlternative) {
+    if (pickLock.current || pickUncertain || needsPickRefresh) return
+    setEntryLine(null)
     const from = line.suggestions[0]
     switchForm.reset({
       ...EMPTY_SWITCH,
@@ -137,8 +151,17 @@ export function useTransferPickActions(
       quantity,
       maximumQuantity,
       quantityError,
-      isPending: recordMutation.isPending,
+      isPending: recordMutation.isPending || isAdvancing,
+      uncertain: pickUncertain,
+      needsRefresh: needsPickRefresh,
+      acceptFresh: () => {
+        if (!pickLock.current) {
+          setNeedsPickRefresh(false)
+          if (!pickUncertain) setEntryLine(null)
+        }
+      },
       open: (line: TransferPickSheetLine) => {
+        if (pickLock.current || pickUncertain || needsPickRefresh) return
         dispatchScan({ type: 'reset' })
         setQuantityOverride(null)
         setQuantityError(null)
@@ -148,7 +171,7 @@ export function useTransferPickActions(
       onOpenChange: (open: boolean) => !open && setEntryLine(null),
       eachUnit,
       scanSlot: (code: string) => {
-        if (!entryLine) return false
+        if (!entryLine || pickLock.current || pickUncertain) return false
         // Quét từng đơn vị: số lượng bắt đầu từ 0 và tăng 1 sau mỗi lần quét mã hàng.
         setQuantityOverride(eachUnit ? 0 : null)
         setQuantityError(null)
@@ -164,7 +187,7 @@ export function useTransferPickActions(
         return !next.error
       },
       scanProduct: (code: string) => {
-        if (!entryLine) return false
+        if (!entryLine || pickLock.current || pickUncertain) return false
         const action = { type: 'scan-product' as const, code, line: entryLine }
         const next = pickScanReducer(scan, action)
         if (next.error) {
@@ -184,41 +207,88 @@ export function useTransferPickActions(
         return true
       },
       changeQuantity: (value: number) => {
+        if (pickLock.current || pickUncertain) return
         setQuantityOverride(value)
         setQuantityError(null)
       },
       rescan: () => {
+        if (pickLock.current || pickUncertain) return
         dispatchScan({ type: 'reset' })
         setQuantityOverride(null)
         setQuantityError(null)
       },
       useAlternative: (alternative: TransferPickAlternative) => {
+        if (pickLock.current || pickUncertain) return
         const line = entryLine
         setEntryLine(null)
         if (line) openSwitch(line, alternative)
       },
       confirm: async () => {
-        if (!entryLine || !suggestion) return
+        if (!entryLine || !suggestion || pickLock.current) return
         const problem = validatePickQuantity(quantity, maximumQuantity)
         if (problem) return setQuantityError(problem)
+        pickLock.current = true
+        const request = pickIntent.current ?? {
+          commandId: commandIds.current.pick,
+          lineId: entryLine.lineId,
+          inventoryStockId: suggestion.inventoryStockId,
+          quantity,
+          scannedSlotCode: scan.slotCode,
+          scannedProductCode: scan.productCode || null,
+        }
+        pickIntent.current = request
         const done = await run(
-          () =>
-            recordMutation.mutateAsync({
-              transferId,
-              shipmentId,
-              request: {
-                commandId: commandIds.current.pick,
-                lineId: entryLine.lineId,
-                inventoryStockId: suggestion.inventoryStockId,
-                quantity,
-                scannedSlotCode: scan.slotCode,
-                scannedProductCode: scan.productCode || null,
-              },
-            }),
+          async () => {
+            try {
+              await recordMutation.mutateAsync({ transferId, shipmentId, request })
+            } catch (error) {
+              const uncertain = describeTransferError(error, '').kind === 'unknown-result'
+              setPickUncertain(uncertain)
+              if (!uncertain) pickIntent.current = null
+              throw error
+            }
+          },
           `Đã ghi nhận lấy ${quantity} ${entryLine.baseUnitName} ${entryLine.sku}.`,
           'Không thể ghi nhận lấy hàng.'
         )
-        if (done) setEntryLine(null)
+        if (done) {
+          setEntryLine(null)
+          pickIntent.current = null
+          setPickUncertain(false)
+          setIsAdvancing(true)
+          setNeedsPickRefresh(true)
+          try {
+            const fresh = await queryClient.fetchQuery({
+              queryKey: queryKeys.transfers.pickSheet(transferId, shipmentId),
+              queryFn: () =>
+                transferService
+                  .getPickSheet(transferId, shipmentId)
+                  .then((response) => response.data),
+              staleTime: 0,
+            })
+            const pending = fresh.lines.filter(
+              (line) => line.remainingQuantity > 0 && line.status !== 'PendingManager'
+            )
+            const next =
+              fresh.shipmentStatus === 'Picking'
+                ? (pending.find((line) => line.lineId === entryLine.lineId) ?? pending[0])
+                : undefined
+            dispatchScan({ type: 'reset' })
+            setQuantityOverride(null)
+            setQuantityError(null)
+            commandIds.current.pick = newCommandId()
+            setNeedsPickRefresh(false)
+            setEntryLine(next ?? null)
+          } catch (error) {
+            logTransferError(error)
+            toast.error(
+              'Đã ghi nhận lấy hàng nhưng chưa tải được dòng tiếp theo. Hãy tải lại phiếu.'
+            )
+          } finally {
+            setIsAdvancing(false)
+          }
+        }
+        pickLock.current = false
       },
     },
     switch: {
@@ -261,6 +331,8 @@ export function useTransferPickActions(
       form: escalateForm,
       isPending: escalateMutation.isPending,
       open: (line: TransferPickSheetLine) => {
+        if (pickLock.current || pickUncertain || needsPickRefresh) return
+        setEntryLine(null)
         escalateForm.reset(EMPTY_ESCALATE)
         commandIds.current.escalate = newCommandId()
         setEscalateLine(line)
@@ -293,6 +365,8 @@ export function useTransferPickActions(
       scanError: returnScanError,
       isPending: returnMutation.isPending,
       open: (line: TransferPickSheetLine) => {
+        if (pickLock.current || pickUncertain || needsPickRefresh) return
+        setEntryLine(null)
         const picks = line.picks.filter((pick) => outstandingOf(pick) > 0)
         const first = picks[0]
         returnForm.reset({
@@ -336,7 +410,7 @@ export function useTransferPickActions(
       open: () => setIsCompleteOpen(true),
       onOpenChange: setIsCompleteOpen,
       confirm: async () => {
-        if (!sheet?.version) return
+        if (!sheet?.version || pickLock.current || pickUncertain || needsPickRefresh) return
         const done = await run(
           () =>
             completeMutation.mutateAsync({

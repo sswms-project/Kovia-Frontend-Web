@@ -19,6 +19,7 @@ vi.mock('../hooks/use-transfers', () => ({
   useTransferQuery: () => ({ data: mock.transfer, isLoading: false, isError: false }),
 }))
 vi.mock('../hooks/use-transfer-realtime', () => ({ useTransferRealtime: () => ({}) }))
+vi.mock('../hooks/use-transfer-receipt', () => ({ useTransferAssignableStaffQuery: () => ({}) }))
 vi.mock('../hooks/use-transfer-start-receiving', () => ({
   useTransferStartReceiving: () => ({ notice: null, isPending: false }),
 }))
@@ -91,10 +92,10 @@ describe('Transfer detail responsive tabs', () => {
       'justify-start'
     )
     const tabs = within(list).getAllByRole('tab')
-    expect(tabs).toHaveLength(6)
+    expect(tabs).toHaveLength(3)
     for (const tab of tabs) expect(tab).toHaveClass('h-auto', 'min-h-11', 'flex-none')
-    const active = within(list).getByRole('tab', { name: 'Chờ cất hàng (0)' })
-    const panel = screen.getByRole('tabpanel', { name: 'Chờ cất hàng (0)' })
+    const active = within(list).getByRole('tab', { name: 'Thực hiện' })
+    const panel = screen.getByRole('tabpanel', { name: 'Thực hiện' })
     expect(active).toHaveAttribute('aria-selected', 'true')
     expect(active).toHaveAttribute('aria-controls', panel.id)
     expect(within(panel).getByText('Chưa có đợt xuất')).toBeInTheDocument()
@@ -107,10 +108,7 @@ describe('Transfer detail responsive tabs', () => {
       ],
     })
     const view = render(<TransferDetailPage transferId="test" />)
-    expect(screen.getByRole('tab', { name: 'Chờ cất hàng (1)' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    )
+    expect(screen.getByRole('tab', { name: 'Thực hiện' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('heading', { name: 'Đợt 1' })).toBeInTheDocument()
     fireEvent.mouseDown(screen.getByRole('tab', { name: 'Lịch sử' }), { button: 0, ctrlKey: false })
     expect(new URLSearchParams(window.location.search).get('tab')).toBe('history')

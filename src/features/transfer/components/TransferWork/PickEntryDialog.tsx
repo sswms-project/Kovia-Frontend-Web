@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -29,6 +28,7 @@ interface PickEntryDialogProps {
   readonly maximumQuantity: number
   readonly quantityError: string | null
   readonly isPending: boolean
+  readonly uncertain?: boolean
   /** Quét từng đơn vị: mỗi lần quét mã hàng cộng 1 vào số lượng. */
   readonly eachUnit?: boolean
   readonly onScanSlot: (code: string) => ScanResult
@@ -45,13 +45,31 @@ const subscribeNothing = () => () => undefined
 /** Quét từng đơn vị: cho phép quét lại cùng mã sau khoảng ngắn để đếm từng thùng giống nhau. */
 const EACH_UNIT_REPEAT_GUARD_MS = 600
 
-export function PickEntryDialog({
+export function PickEntryDialog(props: PickEntryDialogProps) {
+  return (
+    <Dialog
+      open={Boolean(props.line)}
+      onOpenChange={(next) => !props.isPending && props.onOpenChange(next)}
+    >
+      <DialogContent size="lg" className="sm:max-w-lg">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Lấy hàng</DialogTitle>
+          <DialogDescription>Quét vị trí và mã hàng để ghi nhận lấy hàng.</DialogDescription>
+        </DialogHeader>
+        <PickEntryWorkspace {...props} />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function PickEntryWorkspace({
   line,
   scan,
   quantity,
   maximumQuantity,
   quantityError,
   isPending,
+  uncertain = false,
   eachUnit = false,
   onScanSlot,
   onScanProduct,
@@ -59,8 +77,7 @@ export function PickEntryDialog({
   onUseAlternative,
   onRescan,
   onConfirm,
-  onOpenChange,
-}: PickEntryDialogProps) {
+}: Omit<PickEntryDialogProps, 'onOpenChange'>) {
   const isReady = scan.step === 'ready'
   const offered = scan.offeredAlternative
   const quantityRef = useRef<HTMLInputElement>(null)
@@ -69,7 +86,8 @@ export function PickEntryDialog({
   const [cameraOn, setCameraOn] = useState(false)
   // Camera chạy xuyên bước 1 (vị trí) và bước 2 (mã hàng); xong thì tự dừng để nhập số lượng.
   // Quét từng đơn vị vẫn cần quét tiếp nên camera ở lại cho tới khi người dùng tắt hoặc đóng hộp thoại.
-  const cameraActive = cameraOn && Boolean(line) && !isPending && (!isReady || eachUnit)
+  const cameraActive =
+    cameraOn && Boolean(line) && !isPending && !uncertain && (!isReady || eachUnit)
   const latest = useRef({
     step: scan.step,
     onScanSlot,
@@ -95,21 +113,26 @@ export function PickEntryDialog({
     quantityRef.current?.select()
   }, [isReady, eachUnit])
   return (
-    <Dialog open={Boolean(line)} onOpenChange={(next) => !isPending && onOpenChange(next)}>
-      <DialogContent size="lg" className="sm:max-w-lg">
-        {line ? (
-          <div className="grid gap-4">
-            <DialogHeader>
-              <DialogTitle>Lấy hàng</DialogTitle>
-              <DialogDescription>
-                <span className="font-mono" translate="no">
-                  {line.sku}
-                </span>{' '}
-                · {line.productName} · còn cần lấy {formatQuantity(line.remainingQuantity)}{' '}
-                {line.baseUnitName}
-              </DialogDescription>
-            </DialogHeader>
-
+    <section aria-label="Khu vực quét lấy hàng" className="bg-card min-w-0 border p-3">
+      {line ? (
+        <div className="grid gap-4">
+          <header>
+            <h2 className="text-sm font-semibold">Lấy hàng</h2>
+            <p className="text-muted-foreground text-sm">
+              <span className="font-mono" translate="no">
+                {line.sku}
+              </span>{' '}
+              · {line.productName} · còn cần lấy {formatQuantity(line.remainingQuantity)}{' '}
+              {line.baseUnitName}
+            </p>
+          </header>
+          {uncertain ? (
+            <p role="alert" className="text-destructive text-sm">
+              Chưa xác định kết quả lấy hàng. Bấm kiểm tra lại để gửi đúng thao tác trước, không
+              nhập lượt lấy mới.
+            </p>
+          ) : null}
+          <fieldset disabled={isPending || uncertain} className="grid min-w-0 gap-4">
             <ScanPreferencesBar showEachUnit />
             {canUseCamera ? (
               <div className="grid gap-2">
@@ -208,29 +231,37 @@ export function PickEntryDialog({
               </FieldDescription>
               <FieldError>{quantityError}</FieldError>
             </Field>
+          </fieldset>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11"
-                disabled={isPending}
-                onClick={onRescan}
-              >
-                Quét lại
-              </Button>
-              <Button
-                type="button"
-                className="h-11"
-                disabled={!isReady || isPending}
-                onClick={onConfirm}
-              >
-                {isPending ? 'Đang ghi nhận…' : 'Xác nhận lấy'}
-              </Button>
-            </DialogFooter>
-          </div>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+          <footer className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11"
+              disabled={isPending || uncertain}
+              onClick={onRescan}
+            >
+              Quét lại
+            </Button>
+            <Button
+              type="button"
+              className="h-11"
+              disabled={!isReady || isPending}
+              onClick={onConfirm}
+            >
+              {isPending
+                ? 'Đang ghi nhận…'
+                : uncertain
+                  ? 'Kiểm tra lại thao tác'
+                  : 'Xác nhận & tiếp tục'}
+            </Button>
+          </footer>
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-sm" role="status">
+          Chọn dòng cần lấy ở bảng bên cạnh để bắt đầu quét.
+        </p>
+      )}
+    </section>
   )
 }

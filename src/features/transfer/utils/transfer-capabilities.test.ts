@@ -162,6 +162,54 @@ describe('getTransferCapabilities', () => {
 })
 
 describe('getShipmentCapabilities', () => {
+  it('restricts picking to the assigned worker or source dispatch coordinator', () => {
+    const shipment = buildShipment({ pickAssigneeId: 'other-worker' })
+    const transfer = buildTransfer()
+    const worker = viewer([P.TRANSFERS_PICK], { warehouseIds: [transfer.sourceWarehouseId] })
+    expect(getShipmentCapabilities(worker, shipment, transfer).canOpenPick).toBe(false)
+    expect(
+      getShipmentCapabilities(worker, { ...shipment, pickAssigneeId: OWNER_ID }, transfer)
+        .canOpenPick
+    ).toBe(true)
+    expect(
+      getShipmentCapabilities(
+        { ...worker, permissions: [P.TRANSFERS_PICK, P.TRANSFERS_DISPATCH] },
+        shipment,
+        transfer
+      ).canOpenPick
+    ).toBe(true)
+    expect(
+      getShipmentCapabilities(
+        { ...worker, warehouseIds: [transfer.destinationWarehouseId] },
+        { ...shipment, pickAssigneeId: OWNER_ID },
+        transfer
+      ).canOpenPick
+    ).toBe(false)
+  })
+
+  it('limits worksheet navigation to the relevant warehouse and view permission', () => {
+    const transfer = buildTransfer()
+    const shipment = buildShipment()
+    const source = viewer([P.TRANSFERS_VIEW], { warehouseIds: [transfer.sourceWarehouseId] })
+    expect(getShipmentCapabilities(source, shipment, transfer)).toMatchObject({
+      canViewPick: true,
+      canViewReceive: false,
+      canViewPutAway: false,
+    })
+    expect(
+      getShipmentCapabilities(
+        { ...source, warehouseIds: [transfer.destinationWarehouseId] },
+        shipment,
+        transfer
+      )
+    ).toMatchObject({ canViewPick: false, canViewReceive: true, canViewPutAway: true })
+    expect(
+      getShipmentCapabilities({ ...source, permissions: [] }, shipment, transfer)
+    ).toMatchObject({ canViewPick: false, canViewReceive: false, canViewPutAway: false })
+    expect(
+      getShipmentCapabilities({ ...source, isTenantOwner: true }, shipment, transfer)
+    ).toMatchObject({ canViewPick: true, canViewReceive: true, canViewPutAway: true })
+  })
   it('allows a manager to cancel only a shipment that is still being picked', () => {
     const manager = viewer([P.TRANSFERS_DISPATCH])
     expect(getShipmentCapabilities(manager, buildShipment()).canCancel).toBe(true)
@@ -171,9 +219,12 @@ describe('getShipmentCapabilities', () => {
   })
 
   it('opens the pick screen for pickers and the receive screen for receivers', () => {
-    expect(getShipmentCapabilities(viewer([P.TRANSFERS_PICK]), buildShipment()).canOpenPick).toBe(
-      true
-    )
+    expect(
+      getShipmentCapabilities(
+        viewer([P.TRANSFERS_PICK]),
+        buildShipment({ pickAssigneeId: OWNER_ID })
+      ).canOpenPick
+    ).toBe(true)
     expect(
       getShipmentCapabilities(viewer([P.TRANSFERS_PICK]), buildShipment({ status: 'InTransit' }))
         .canOpenPick

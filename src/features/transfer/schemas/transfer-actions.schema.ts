@@ -40,7 +40,10 @@ export const shipmentLineDraftSchema = z.object({
 })
 
 export const createShipmentSchema = z
-  .object({ lines: z.array(shipmentLineDraftSchema) })
+  .object({
+    lines: z.array(shipmentLineDraftSchema),
+    staffId: z.union([z.literal(''), dotNetGuidSchema('Người lấy hàng không hợp lệ.')]).optional(),
+  })
   .superRefine((values, context) => {
     const selected = values.lines.filter((line) => line.selected)
     if (selected.length === 0) {

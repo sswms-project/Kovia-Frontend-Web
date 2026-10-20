@@ -81,7 +81,7 @@ export function useTransferCountForm(sheet: TransferReceiptSheet | undefined, ca
       setUnknownResult(false)
       setReloadRequired(true)
       setNotice(
-        'Đã nộp phiếu kiểm hàng. Hàng tốt và hàng hỏng chờ cất; tồn kho chưa được ghi ở bước này.'
+        'Đã nộp phiếu kiểm hàng. Chỉ hàng tốt được chuyển sang cất; hàng hỏng, thiếu được xử lý riêng. Tồn kho chưa thay đổi.'
       )
       toast.success('Đã nộp phiếu kiểm hàng.')
       return true

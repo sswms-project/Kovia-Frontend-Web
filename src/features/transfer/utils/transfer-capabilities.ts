@@ -40,6 +40,9 @@ export interface TransferCapabilities {
 }
 
 export interface ShipmentCapabilities {
+  readonly canViewPick?: boolean
+  readonly canViewReceive?: boolean
+  readonly canViewPutAway?: boolean
   readonly canOpenPutAway?: boolean
   readonly canAssignPutAway?: boolean
   readonly canCancel: boolean
@@ -180,7 +183,7 @@ export function canChoosePutAwaySlot(item: TransferItem) {
 export function getShipmentCapabilities(
   viewer: TransferViewer,
   shipment: Pick<TransferShipment, 'status' | 'lines'> &
-    Partial<Pick<TransferShipment, 'receiveAssigneeId' | 'putAwayAssigneeId'>>,
+    Partial<Pick<TransferShipment, 'pickAssigneeId' | 'receiveAssigneeId' | 'putAwayAssigneeId'>>,
   warehouses?: TransferWarehouses
 ): ShipmentCapabilities {
   const isPicking = shipment.status === 'Picking'
@@ -191,6 +194,11 @@ export function getShipmentCapabilities(
     viewer.currentUserId !== null && assigneeId === viewer.currentUserId
   const canManageTasks = has(viewer, P.WAREHOUSE_TASKS_ASSIGN)
   return {
+    canViewPick: has(viewer, P.TRANSFERS_VIEW) && manages(viewer, warehouses?.sourceWarehouseId),
+    canViewReceive:
+      has(viewer, P.TRANSFERS_VIEW) && manages(viewer, warehouses?.destinationWarehouseId),
+    canViewPutAway:
+      has(viewer, P.TRANSFERS_VIEW) && manages(viewer, warehouses?.destinationWarehouseId),
     canOpenPutAway:
       has(viewer, P.TRANSFERS_RECEIVE) &&
       shipment.status === 'AwaitingPutAway' &&
@@ -206,7 +214,12 @@ export function getShipmentCapabilities(
       isPicking &&
       manages(viewer, warehouses?.sourceWarehouseId),
     canOpenPick:
-      has(viewer, P.TRANSFERS_PICK) && isPicking && manages(viewer, warehouses?.sourceWarehouseId),
+      has(viewer, P.TRANSFERS_PICK) &&
+      isPicking &&
+      (isAssignedTo(shipment.pickAssigneeId) ||
+        has(viewer, P.TRANSFERS_DISPATCH) ||
+        viewer.isTenantOwner) &&
+      manages(viewer, warehouses?.sourceWarehouseId),
     canConfirmDeparture:
       has(viewer, P.TRANSFERS_DISPATCH) &&
       isReady &&

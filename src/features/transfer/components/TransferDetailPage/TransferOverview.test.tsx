@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { buildTransfer } from '../../utils/transfer-test-fixtures'
 import { TransferOverview } from './TransferOverview'
@@ -13,6 +13,9 @@ describe('TransferOverview dates', () => {
         })}
       />
     )
+    const toggle = screen.getByRole('button', { name: 'Thông tin phiếu' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
     expect(screen.getByText('Ngày dự kiến điều chuyển')).toBeInTheDocument()
     expect(screen.getByText('Ngày hàng dự kiến về kho nhập')).toBeInTheDocument()
     expect(screen.getByText('20/10/2026 00:00')).toBeInTheDocument()

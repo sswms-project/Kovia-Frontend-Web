@@ -1,6 +1,7 @@
-export { PickEntryDialog } from './PickEntryDialog'
+export { PickEntryDialog, PickEntryWorkspace } from './PickEntryDialog'
 export { PickEscalateDialog } from './PickEscalateDialog'
 export { PickLineCard } from './PickLineCard'
+export { TransferPickLinesTable } from './TransferPickLinesTable'
 export { PickSwitchDialog } from './PickSwitchDialog'
 export { ReceiveEntryCard } from './ReceiveEntryCard'
 export { ReturnPickDialog } from './ReturnPickDialog'

@@ -485,6 +485,9 @@ export interface ReplyTransferFeedbackRequest {
 
 export interface CreateTransferShipmentRequest {
   lines: Array<{ itemId: string; quantity: number | null }>
+  staffId?: string | null
+  expectedVersion?: string | null
+  commandId?: string
 }
 
 export interface CancelTransferShipmentRequest {

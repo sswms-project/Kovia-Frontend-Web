@@ -43,10 +43,42 @@ const shipment = buildShipment({
 const viewer = {
   currentUserId: 'manager',
   isTenantOwner: false,
-  permissions: [P.TRANSFERS_RECEIVE, P.WAREHOUSE_TASKS_ASSIGN],
+  permissions: [P.TRANSFERS_VIEW, P.TRANSFERS_RECEIVE, P.WAREHOUSE_TASKS_ASSIGN],
 }
 
 describe('TransferShipmentsPanel destination assignment', () => {
+  it('keeps one primary action visible while shipment goods are collapsed in execution', () => {
+    render(
+      <TransferShipmentsPanel
+        transferId="transfer"
+        shipments={[shipment]}
+        capabilities={{}}
+        mode="execution"
+        unitsByItem={{}}
+        onAssignTask={vi.fn()}
+        onCancelShipment={vi.fn()}
+        onConfirmDeparture={vi.fn()}
+        onReopenPicking={vi.fn()}
+        onResolveEscalation={vi.fn()}
+        onNextAction={vi.fn()}
+        nextSteps={[
+          {
+            id: 'next',
+            title: 'Kiểm nhận',
+            description: '',
+            actionLabel: 'Tiếp tục kiểm hàng',
+            action: { type: 'openReceive', shipmentId: shipment.id },
+          },
+        ]}
+      />
+    )
+    expect(screen.getAllByRole('link', { name: 'Tiếp tục kiểm hàng' })).toHaveLength(1)
+    expect(screen.queryByRole('cell', { name: 'Hàng kiểm thử' })).not.toBeInTheDocument()
+    const goods = screen.getByRole('button', { name: 'Hàng hóa đợt 1 · 1 dòng' })
+    expect(goods).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(goods)
+    expect(screen.getByRole('cell', { name: 'Hàng kiểm thử' })).toBeInTheDocument()
+  })
   it.each(['receive', 'putaway'] as const)(
     'shows received quantity for every shipment line in the %s tab',
     (mode) => {

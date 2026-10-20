@@ -7,8 +7,7 @@ import {
   MapPinned,
   MessageSquareWarning,
   PencilLine,
-  Plus,
-  UserPlus,
+  MoreHorizontal,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -21,6 +20,15 @@ import {
 } from '@/components/operations/OperationalState'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { P } from '@/config/permissionCodes'
+import { useTransferAssignableStaffQuery } from '../hooks/use-transfer-receipt'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -69,7 +77,6 @@ import { buildTransferHistory } from '../utils/transfer-history'
 
 import {
   parseTransferDetailTab,
-  defaultTransferDetailTab,
   type TransferDetailTab as DetailTab,
 } from '../utils/transfer-detail-tabs'
 
@@ -89,6 +96,15 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   useTransferRealtime({ transferId })
 
   const requestActions = useTransferRequestActions(transfer)
+  const canAssignPreparation =
+    viewer.permissions.includes(P.WAREHOUSE_TASKS_ASSIGN) &&
+    viewer.permissions.includes(P.TRANSFERS_DISPATCH)
+  const preparationStaff = useTransferAssignableStaffQuery(
+    requestActions.shipment.isOpen && canAssignPreparation
+      ? (transfer?.sourceWarehouseId ?? null)
+      : null,
+    'TransferPick'
+  )
   const resolutionActions = useTransferResolutionActions(transfer)
   const allocationActions = useTransferAllocationActions(transfer)
   const capabilities = getTransferCapabilities(viewer, transfer)
@@ -111,9 +127,8 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
       transfer ? getTransferNextSteps(viewer, transfer, capabilities, shipmentCapabilities) : [],
     [viewer, transfer, capabilities, shipmentCapabilities]
   )
-  const tab = requested ?? defaultTransferDetailTab(nextSteps)
+  const tab = requested ?? 'execution'
   const tabIds = transferTabIds(tabBaseId, tab)
-  const headerAssignStep = nextSteps.find((step) => step.action.type === 'assign')
   function runNextStep(action: TransferNextStepAction) {
     if (action.type === 'createShipment') requestActions.shipment.open()
     else if (action.type === 'adjustAllocation') allocationActions.open()
@@ -121,9 +136,11 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
     else if (action.type === 'startReceiving') void receiving.start(action.shipment)
     else if (action.type === 'assign') resolutionActions.assign.open(action.shipment, action.kind)
     else if (action.type === 'confirmDeparture') resolutionActions.departure.open(action.shipment)
-    else if (action.type === 'resolveDiscrepancy') setTab('discrepancies')
-    else if (action.type === 'resolveEscalation') {
-      setTab('pick')
+    else if (action.type === 'resolveDiscrepancy') {
+      setTab('execution')
+      document.getElementById('transfer-exceptions')?.scrollIntoView({ block: 'start' })
+    } else if (action.type === 'resolveEscalation') {
+      setTab('execution')
       resolutionActions.escalation.open(action.shipment)
     }
   }
@@ -135,23 +152,8 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   )
 
   const tabs: ReadonlyArray<{ value: DetailTab; label: string }> = [
+    { value: 'execution', label: 'Thực hiện' },
     { value: 'goods', label: 'Hàng hóa' },
-    {
-      value: 'pick',
-      label: `Lấy hàng (${shipments.filter((shipment) => shipment.status === 'Picking' || shipment.status === 'ReadyToDispatch').length})`,
-    },
-    {
-      value: 'receive',
-      label: `Phiếu nhập điều chuyển (${shipments.filter((shipment) => shipment.status === 'InTransit' || shipment.status === 'Receiving').length})`,
-    },
-    {
-      value: 'putaway',
-      label: `Chờ cất hàng (${shipments.filter((shipment) => shipment.status === 'AwaitingPutAway').length})`,
-    },
-    {
-      value: 'discrepancies',
-      label: `Chênh lệch / Phản hồi (${discrepancies.filter((item) => item.isOpen).length + feedbacks.filter((item) => item.status === 'Open').length})`,
-    },
     { value: 'history', label: 'Lịch sử' },
   ]
 
@@ -192,63 +194,59 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                 </Link>
               </Button>
             ) : null}
-            {capabilities.canEdit ? (
-              <Button asChild size="sm" variant="outline">
-                <Link href={APP_ROUTES.transferEdit(transfer.id)}>
-                  <PencilLine aria-hidden="true" />
-                  Sửa yêu cầu
-                </Link>
-              </Button>
-            ) : null}
-            {capabilities.canGiveFeedback ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={requestActions.feedback.open}
-              >
-                <MessageSquareWarning aria-hidden="true" />
-                Phản hồi
-              </Button>
-            ) : null}
-            {capabilities.canSetPutAwaySlots ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => router.push(APP_ROUTES.transferPlan(transferId))}
-              >
-                <MapPin aria-hidden="true" />
-                Kế hoạch cất hàng
-              </Button>
-            ) : null}
-            {capabilities.canAdjustAllocation ? (
-              <Button type="button" size="sm" variant="outline" onClick={allocationActions.open}>
-                <MapPinned aria-hidden="true" />
-                Điều chỉnh phân bổ
-              </Button>
-            ) : null}
-            {headerAssignStep?.action.type === 'assign' ? (
-              <Button type="button" size="sm" onClick={() => runNextStep(headerAssignStep.action)}>
-                <UserPlus aria-hidden="true" />
-                {headerAssignStep.actionLabel}
-              </Button>
-            ) : null}
-            {capabilities.canCreateShipment ? (
-              <Button type="button" size="sm" onClick={requestActions.shipment.open}>
-                <Plus aria-hidden="true" />
-                Tạo đợt xuất
-              </Button>
-            ) : null}
-            {capabilities.closingAction ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={() => closing.open(capabilities.closingAction ?? 'cancel')}
-              >
-                {capabilities.closingAction === 'stop' ? 'Dừng phần còn lại' : 'Hủy phiếu'}
-              </Button>
+            {capabilities.canEdit ||
+            capabilities.canGiveFeedback ||
+            capabilities.canSetPutAwaySlots ||
+            capabilities.canAdjustAllocation ||
+            capabilities.closingAction ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <MoreHorizontal aria-hidden="true" />
+                    Thao tác khác
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={4}>
+                  <DropdownMenuGroup>
+                    {capabilities.canEdit ? (
+                      <DropdownMenuItem asChild>
+                        <Link href={APP_ROUTES.transferEdit(transfer.id)}>
+                          <PencilLine aria-hidden="true" />
+                          Sửa yêu cầu
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {capabilities.canGiveFeedback ? (
+                      <DropdownMenuItem onSelect={requestActions.feedback.open}>
+                        <MessageSquareWarning aria-hidden="true" />
+                        Phản hồi
+                      </DropdownMenuItem>
+                    ) : null}
+                    {capabilities.canSetPutAwaySlots ? (
+                      <DropdownMenuItem
+                        onSelect={() => router.push(APP_ROUTES.transferPlan(transferId))}
+                      >
+                        <MapPin aria-hidden="true" />
+                        Kế hoạch cất hàng
+                      </DropdownMenuItem>
+                    ) : null}
+                    {capabilities.canAdjustAllocation ? (
+                      <DropdownMenuItem onSelect={allocationActions.open}>
+                        <MapPinned aria-hidden="true" />
+                        Điều chỉnh phân bổ
+                      </DropdownMenuItem>
+                    ) : null}
+                    {capabilities.closingAction ? (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => closing.open(capabilities.closingAction ?? 'cancel')}
+                      >
+                        {capabilities.closingAction === 'stop' ? 'Dừng phần còn lại' : 'Hủy phiếu'}
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
           </div>
         ) : null}
@@ -268,8 +266,9 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               <MessageSquareWarning aria-hidden="true" />
               <AlertTitle>Có phản hồi cần xử lý</AlertTitle>
               <AlertDescription>
-                Quản lý kho đã báo vấn đề với phiếu này. Xem tab Chênh lệch / Phản hồi để trả lời,
-                sửa phiếu, dừng phần còn lại hoặc hủy phiếu.
+                Quản lý kho đã báo vấn đề với phiếu này. Xem phần Chênh lệch / Phản hồi trong tab
+                Thực hiện để trả lời, sửa phiếu, dừng phần còn lại hoặc hủy phiếu trong mục Thao tác
+                khác.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -280,7 +279,6 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
               </AlertDescription>
             </Alert>
           ) : null}
-          <TransferNextSteps transferId={transfer.id} steps={nextSteps} onAction={runNextStep} />
           <TransferOverview transfer={transfer} />
           <Tabs
             value={tab}
@@ -327,64 +325,63 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                 />
               ) : (
                 <div data-slot="operational-list-body">
-                  {tab === 'pick' || tab === 'receive' || tab === 'putaway' ? (
-                    <TransferShipmentsPanel
-                      transferId={transfer.id}
-                      mode={tab}
-                      currentUserId={viewer.currentUserId}
-                      shipments={
-                        tab === 'pick'
-                          ? shipments
-                          : tab === 'putaway'
-                            ? shipments.filter(
-                                (shipment) =>
-                                  shipment.receiptFlowVersion === 1 && shipment.putAwayTaskId
-                              )
-                            : shipments.filter(
-                                (shipment) =>
-                                  shipment.dispatchedAt ||
-                                  shipment.lines.some((line) => line.dispatchedQuantity > 0)
-                              )
-                      }
-                      planLabels={Object.fromEntries(
-                        transfer.items.map((item) => [
-                          item.id,
-                          (item.putAwayPlan ?? [])
-                            .map(
-                              (line) =>
-                                `${line.path}: ${formatQuantity(line.plannedTotal)} ${item.baseUnitName ?? ''}`
-                            )
-                            .join(' · '),
-                        ])
-                      )}
-                      onOpenPlan={
-                        canSeeWarehouse(viewer, transfer.destinationWarehouseId)
-                          ? () => router.push(APP_ROUTES.transferPlan(transferId))
-                          : undefined
-                      }
-                      capabilities={shipmentCapabilities}
-                      onCancelShipment={requestActions.cancelShipment.open}
-                      onConfirmDeparture={resolutionActions.departure.open}
-                      onReopenPicking={resolutionActions.reopen.open}
-                      onAssignTask={resolutionActions.assign.open}
-                      onStartReceiving={(shipment) => void receiving.start(shipment)}
-                      isStartingReceive={receiving.isPending}
-                      onResolveEscalation={resolutionActions.escalation.open}
-                      unitsByItem={unitsByItem}
-                    />
-                  ) : tab === 'discrepancies' ? (
-                    <div className="grid gap-4">
-                      <TransferDiscrepancyPanel
-                        discrepancies={discrepancies}
-                        canResolve={capabilities.canResolveDiscrepancy}
-                        onResolve={resolutionActions.discrepancy.open}
+                  {tab === 'execution' ? (
+                    <>
+                      <TransferNextSteps
+                        transferId={transfer.id}
+                        steps={nextSteps.filter((step) => step.action.type === 'createShipment')}
+                        onAction={runNextStep}
                       />
-                      <TransferFeedbackPanel
-                        feedbacks={feedbacks}
-                        canReply={capabilities.canReplyFeedback}
-                        onReply={requestActions.reply.open}
-                      />
-                    </div>
+                      {shipments.length > 0 || !capabilities.canCreateShipment ? (
+                        <TransferShipmentsPanel
+                          transferId={transfer.id}
+                          mode="execution"
+                          nextSteps={nextSteps}
+                          onNextAction={runNextStep}
+                          currentUserId={viewer.currentUserId}
+                          shipments={shipments}
+                          planLabels={Object.fromEntries(
+                            transfer.items.map((item) => [
+                              item.id,
+                              (item.putAwayPlan ?? [])
+                                .map(
+                                  (line) =>
+                                    `${line.path}: ${formatQuantity(line.plannedTotal)} ${item.baseUnitName ?? ''}`
+                                )
+                                .join(' · '),
+                            ])
+                          )}
+                          onOpenPlan={
+                            canSeeWarehouse(viewer, transfer.destinationWarehouseId)
+                              ? () => router.push(APP_ROUTES.transferPlan(transferId))
+                              : undefined
+                          }
+                          capabilities={shipmentCapabilities}
+                          onCancelShipment={requestActions.cancelShipment.open}
+                          onConfirmDeparture={resolutionActions.departure.open}
+                          onReopenPicking={resolutionActions.reopen.open}
+                          onAssignTask={resolutionActions.assign.open}
+                          onStartReceiving={(shipment) => void receiving.start(shipment)}
+                          isStartingReceive={receiving.isPending}
+                          onResolveEscalation={resolutionActions.escalation.open}
+                          unitsByItem={unitsByItem}
+                        />
+                      ) : null}
+                      {discrepancies.length > 0 || feedbacks.length > 0 ? (
+                        <div id="transfer-exceptions" className="grid gap-4 border-t">
+                          <TransferDiscrepancyPanel
+                            discrepancies={discrepancies}
+                            canResolve={capabilities.canResolveDiscrepancy}
+                            onResolve={resolutionActions.discrepancy.open}
+                          />
+                          <TransferFeedbackPanel
+                            feedbacks={feedbacks}
+                            canReply={capabilities.canReplyFeedback}
+                            onReply={requestActions.reply.open}
+                          />
+                        </div>
+                      ) : null}
+                    </>
                   ) : (
                     <div className="p-4">
                       <LifecycleTimeline events={history} />
@@ -475,6 +472,13 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         open={requestActions.shipment.isOpen}
         form={requestActions.shipment.form}
         isPending={requestActions.shipment.isPending}
+        uncertain={requestActions.shipment.uncertain}
+        canAssign={canAssignPreparation}
+        currentUserId={viewer.currentUserId}
+        staff={preparationStaff.data}
+        isLoadingStaff={preparationStaff.isLoading}
+        isErrorStaff={preparationStaff.isError}
+        onRetryStaff={() => void preparationStaff.refetch()}
         onOpenChange={requestActions.shipment.onOpenChange}
         onSubmit={(values) => void requestActions.shipment.submit(values)}
       />
@@ -575,8 +579,12 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onSubmit={(values) => void resolutionActions.discrepancy.submit(values)}
       />
       <TransferUnsavedChanges
-        dirty={resolutionActions.discrepancy.unknownResult}
-        busy={resolutionActions.discrepancy.isPending || receiving.isPending}
+        dirty={resolutionActions.discrepancy.unknownResult || requestActions.shipment.uncertain}
+        busy={
+          resolutionActions.discrepancy.isPending ||
+          receiving.isPending ||
+          requestActions.shipment.isPending
+        }
       />
     </div>
   )
