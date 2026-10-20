@@ -15,7 +15,7 @@ import {
   SlidersHorizontal,
   TriangleAlert,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
   AlertDialog,
@@ -48,10 +48,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
-import {
-  CYCLE_COUNT_NOTE_MAX_LENGTH,
-  recordCycleCountItemSchema,
-} from '../../schemas/cycle-count.schema'
+import { CYCLE_COUNT_NOTE_MAX_LENGTH, parseCountQuantity } from '../../schemas/cycle-count.schema'
 import type { CycleCountDetail, CycleCountItem } from '../../types/cycle-count.types'
 import {
   CYCLE_COUNT_QUALITY_LABELS,
@@ -73,6 +70,7 @@ import type {
   CycleCountItemRowModel,
   CycleCountRecordEntry,
 } from './types'
+import { getCycleCountDraftKey, useCycleCountDrafts } from './use-cycle-count-drafts'
 
 const FILTERS: ReadonlyArray<{ readonly value: CycleCountItemFilter; readonly label: string }> = [
   { value: 'all', label: 'Tất cả' },
@@ -130,14 +128,25 @@ export function CycleCountItemsTable({
 }: CycleCountItemsTableProps) {
   const [filter, setFilter] = useState<CycleCountItemFilter>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [drafts, setDrafts] = useState<Record<string, string>>({})
-  const [damagedDrafts, setDamagedDrafts] = useState<Record<string, string>>({})
-  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
-  const [damageDrafts, setDamageDrafts] = useState<Record<string, CycleCountDamageDraft>>({})
   const [damageDialogItemId, setDamageDialogItemId] = useState<string | null>(null)
   const [isScanOpen, setIsScanOpen] = useState(false)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const canRecord = allowedActions.includes('Record')
+  const {
+    drafts,
+    damagedDrafts,
+    noteDrafts,
+    damageDrafts,
+    setDrafts,
+    setDamagedDrafts,
+    setNoteDrafts,
+    setDamageDrafts,
+    discardDrafts,
+  } = useCycleCountDrafts(
+    canRecord && detail.assignedTo
+      ? getCycleCountDraftKey(detail.id, detail.recountRound, detail.assignedTo)
+      : null
+  )
   const isMobile = useIsMobile()
   const canSelect = allowedActions.includes('RequestRecount')
   const items = detail.items
@@ -185,7 +194,7 @@ export function CycleCountItemsTable({
   // Tính chênh lệch ngay trên FE theo số đang nhập; server chỉ chốt khi lưu.
   function getLiveCounted(item: CycleCountItem): number | null {
     const draft = getDraft(item)
-    return recordCycleCountItemSchema.safeParse(draft).success ? Number(draft) : null
+    return parseCountQuantity(draft)
   }
 
   function getLiveDifference(item: CycleCountItem): number | null {
@@ -208,7 +217,7 @@ export function CycleCountItemsTable({
   function getLiveDamaged(item: CycleCountItem): number | null {
     const draft = getDamagedDraft(item)
     if (draft === '') return null
-    return recordCycleCountItemSchema.safeParse(draft).success ? Number(draft) : null
+    return parseCountQuantity(draft)
   }
 
   function isDamagedInvalid(item: CycleCountItem): boolean {
@@ -245,7 +254,7 @@ export function CycleCountItemsTable({
   // Chỉ lưu các dòng có số đếm hợp lệ và khác giá trị đã lưu trên server.
   const dirtyEntries: CycleCountRecordEntry[] = items.flatMap((item) => {
     const draft = getDraft(item)
-    if (!isRecordable(item) || !recordCycleCountItemSchema.safeParse(draft).success) return []
+    if (!isRecordable(item) || parseCountQuantity(draft) === null) return []
     if (isDamagedInvalid(item) || isDamageIncomplete(item)) return []
     const note = getNoteDraft(item).trim() || null
     const damagedQuantity = getLiveDamaged(item)
@@ -296,12 +305,14 @@ export function CycleCountItemsTable({
     }))
   }
 
-  function discardDrafts() {
-    setDrafts({})
-    setDamagedDrafts({})
-    setNoteDrafts({})
-    setDamageDrafts({})
-  }
+  // Nháp đã giữ trên máy, nhưng vẫn nhắc trước khi rời trang vì kết quả chưa về server.
+  const hasUnsavedDrafts = dirtyEntries.length > 0
+  useEffect(() => {
+    if (!hasUnsavedDrafts) return
+    const warnBeforeLeave = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener('beforeunload', warnBeforeLeave)
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+  }, [hasUnsavedDrafts])
 
   async function saveAll() {
     if (await onSaveItems(dirtyEntries)) discardDrafts()
@@ -321,7 +332,7 @@ export function CycleCountItemsTable({
       recordable: isRecordable(item),
       selected: selectedItemIds.includes(item.id),
       quantity: draft,
-      quantityInvalid: draft !== '' && !recordCycleCountItemSchema.safeParse(draft).success,
+      quantityInvalid: draft !== '' && parseCountQuantity(draft) === null,
       damaged: getDamagedDraft(item),
       damagedInvalid: isDamagedInvalid(item),
       hasDamage: (getLiveDamaged(item) ?? 0) > 0,
@@ -598,9 +609,7 @@ export function CycleCountItemsTable({
                         step="0.01"
                         value={draft}
                         disabled={!recordable || isPending}
-                        aria-invalid={
-                          draft !== '' && !recordCycleCountItemSchema.safeParse(draft).success
-                        }
+                        aria-invalid={draft !== '' && parseCountQuantity(draft) === null}
                         onChange={(event) =>
                           setDrafts((current) => ({ ...current, [item.id]: event.target.value }))
                         }

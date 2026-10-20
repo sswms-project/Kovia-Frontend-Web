@@ -187,8 +187,8 @@ export const API_ENDPOINTS = {
     create: '/cycle-counts',
     detail: (cycleCountId: string) => `/cycle-counts/${cycleCountId}`,
     allowedActions: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/allowed-actions`,
-    recordItem: (cycleCountId: string, itemId: string) =>
-      `/cycle-counts/${cycleCountId}/items/${itemId}`,
+    recordItems: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/items`,
+    assignableStaff: '/cycle-counts/assignable-staff',
     evidence: '/cycle-counts/evidence',
     evidenceFile: (evidenceId: string) => `/cycle-counts/evidence/${evidenceId}`,
     start: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/start`,

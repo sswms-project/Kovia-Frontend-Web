@@ -19,10 +19,9 @@ import {
   useCancelCycleCountMutation,
   useCreateStockAdjustmentVoucherMutation,
   useCycleCountAllowedActionsQuery,
-  useInvalidateCycleCount,
   useCycleCountQuery,
   useFinalizeCycleCountMutation,
-  useRecordCycleCountItemMutation,
+  useRecordCycleCountItemsMutation,
   useRequestRecountMutation,
   useConfirmCycleCountDamageMutation,
   useStartCycleCountMutation,
@@ -43,9 +42,8 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
   const detail = useCycleCountQuery(cycleCountId)
   const actions = useCycleCountAllowedActionsQuery(cycleCountId)
   const me = useMeQuery()
-  const record = useRecordCycleCountItemMutation()
+  const record = useRecordCycleCountItemsMutation()
   const uploadEvidence = useUploadCycleCountEvidenceMutation()
-  const invalidateCycleCount = useInvalidateCycleCount()
   const start = useStartCycleCountMutation()
   const submit = useSubmitCycleCountMutation()
   const recount = useRequestRecountMutation()
@@ -135,12 +133,11 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
       voucherForm={voucherForm}
       cancelForm={cancelForm}
       onSaveItems={(entries) =>
-        perform(async () => {
-          // ponytail: ghi lần lượt từng dòng, thêm API lưu hàng loạt nếu phiếu có hàng trăm dòng.
-          try {
-            for (const entry of entries)
-              await record.mutateAsync({
-                cycleCountId,
+        perform(
+          () =>
+            record.mutateAsync({
+              cycleCountId,
+              items: entries.map((entry) => ({
                 itemId: entry.itemId,
                 countedQuantity: entry.quantity,
                 countedDamagedQuantity: entry.damagedQuantity,
@@ -149,12 +146,10 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
                 scannedBarcode: entry.scannedBarcode,
                 damageReason: entry.damageReason,
                 damageEvidenceIds: entry.damageEvidenceIds,
-              })
-          } finally {
-            // Dòng đã lưu trước khi lỗi vẫn cần hiện lại, nên invalidate cả khi thất bại.
-            await invalidateCycleCount()
-          }
-        }, `Đã lưu ${entries.length} dòng kiểm kê.`)
+              })),
+            }),
+          `Đã lưu ${entries.length} dòng kiểm kê.`
+        )
       }
       onStart={() =>
         perform(
