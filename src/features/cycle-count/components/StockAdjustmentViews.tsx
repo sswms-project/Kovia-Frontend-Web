@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
@@ -76,6 +77,7 @@ interface DirectoryProps {
   readonly onStatusChange: (value: '' | StockAdjustmentStatus) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -169,20 +171,23 @@ export function StockAdjustmentDirectory(props: DirectoryProps) {
               </NativeSelect>
             </label>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            onClick={props.onRetry}
-            disabled={props.isFetching}
-            aria-label="Làm mới"
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
-            />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {props.exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={props.onRetry}
+              disabled={props.isFetching}
+              aria-label="Làm mới"
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
+              />
+            </Button>
+          </div>
         </div>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />

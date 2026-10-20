@@ -17,13 +17,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import type { WarehouseOverview } from '../../schemas/warehouse-overview.schema'
+import type { WarehouseActivity } from '../../schemas/warehouse-overview.schema'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
 interface WarehouseActivityChartProps {
-  readonly data?: WarehouseOverview
+  readonly data?: WarehouseActivity
   readonly periodFilter?: ReactNode
   readonly isLoading?: boolean
   readonly errorMessage?: string
@@ -63,6 +64,11 @@ export function WarehouseActivityChart({
               {activityDateFormatter.format(new Date(`${data.activityDateFrom}T00:00:00Z`))} –{' '}
               {activityDateFormatter.format(new Date(`${data.activityDateTo}T00:00:00Z`))}
             </CardDescription>
+          ) : isLoading ? (
+            <Skeleton
+              aria-hidden="true"
+              className="h-4 w-40 rounded-sm motion-reduce:animate-none"
+            />
           ) : null}
         </div>
         {periodFilter ? <div className="min-w-0 flex-1 basis-112">{periodFilter}</div> : null}
@@ -70,8 +76,52 @@ export function WarehouseActivityChart({
       <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-3">
         {isLoading ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3" role="status">
-            <p className="text-muted-foreground text-xs">Đang tải biểu đồ…</p>
-            <Skeleton className="min-h-0 flex-1" />
+            <p className="sr-only">Đang tải biểu đồ…</p>
+            <div
+              className="grid shrink-0 grid-cols-2 gap-3 border-b pb-3 text-xs"
+              aria-hidden="true"
+            >
+              {['Phiếu nhập hoàn tất', 'Phiếu xuất hoàn tất'].map((label) => (
+                <div key={label}>
+                  <p className="text-muted-foreground">{label}</p>
+                  <Skeleton className="mt-1 h-7 w-10 rounded-sm motion-reduce:animate-none" />
+                </div>
+              ))}
+            </div>
+            <div className="flex min-h-0 flex-1 gap-2" aria-hidden="true">
+              <div className="flex shrink-0 flex-col justify-between pb-6">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <Skeleton key={index} className="h-3 w-5 rounded-sm motion-reduce:animate-none" />
+                ))}
+              </div>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+                <div className="flex min-h-0 flex-1 items-end gap-4 border-b border-l px-3 pt-6">
+                  {['h-2/5', 'h-3/4', 'h-1/3', 'h-3/5', 'h-1/2', 'h-4/5'].map((height) => (
+                    <div key={height} className="flex h-full min-w-0 flex-1 items-end gap-1">
+                      <Skeleton
+                        className={cn(
+                          'min-w-0 flex-1 rounded-t-sm motion-reduce:animate-none',
+                          height
+                        )}
+                      />
+                      <Skeleton className="h-1/4 min-w-0 flex-1 rounded-t-sm motion-reduce:animate-none" />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between gap-2">
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <Skeleton
+                      key={index}
+                      className="h-3 w-8 rounded-sm motion-reduce:animate-none"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 justify-center gap-4" aria-hidden="true">
+              <Skeleton className="h-3 w-28 rounded-sm motion-reduce:animate-none" />
+              <Skeleton className="h-3 w-28 rounded-sm motion-reduce:animate-none" />
+            </div>
           </div>
         ) : errorMessage || !data ? (
           <Alert variant="destructive">

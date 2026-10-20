@@ -20,6 +20,7 @@ import {
 import {
   useReportingWarehousesQuery,
   useWarehouseOverviewQuery,
+  useWarehouseActivityQuery,
 } from '../hooks/use-warehouse-overview'
 import { useStockAlertsQuery } from '../hooks/use-stock-alerts'
 import { useOverviewCompactLayout, useOverviewNavigation } from '../hooks/use-overview-navigation'
@@ -120,10 +121,9 @@ export default function WarehouseOverviewPage() {
     location.warehouseId || undefined,
     enabled && location.tab === 'activity',
     permissionKey,
-    currentOverviewRange,
-    'current'
+    currentOverviewRange
   )
-  const activity = useWarehouseOverviewQuery(
+  const activity = useWarehouseActivityQuery(
     location.warehouseId || undefined,
     enabled && location.tab === 'activity',
     permissionKey,

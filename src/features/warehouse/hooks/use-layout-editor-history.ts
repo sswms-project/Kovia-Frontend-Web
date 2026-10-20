@@ -10,6 +10,11 @@ import type {
   WarehouseLayoutRackShape,
 } from '../types/warehouse-layout-scene.types'
 import { normalizeLayoutGeometry } from '../utils/layout-grid'
+import {
+  applyRackPositions,
+  canResizeLayoutCanvas,
+  type RackPosition,
+} from '../utils/layout-rack-operations'
 
 const MAX_HISTORY_LENGTH = 100
 
@@ -20,6 +25,7 @@ export interface LayoutEditorHistoryState {
 }
 
 export type LayoutEditorHistoryAction =
+  | { type: 'move-racks'; positions: readonly RackPosition[] }
   | {
       type: 'update-geometry'
       target: WarehouseLayoutGeometryTarget
@@ -107,22 +113,7 @@ function updateCanvas(
   scene: WarehouseLayoutEditorScene,
   canvas: WarehouseLayoutCanvas
 ): WarehouseLayoutEditorScene {
-  return {
-    ...scene,
-    canvas,
-    zones: scene.zones.map((zone) => ({
-      ...zone,
-      ...normalizeLayoutGeometry(zone, canvas),
-    })),
-    racks: scene.racks.map((rack) => ({
-      ...rack,
-      ...normalizeLayoutGeometry(rack, canvas),
-    })),
-    decorations: scene.decorations.map((decoration) => ({
-      ...decoration,
-      ...normalizeLayoutGeometry(decoration, canvas),
-    })),
-  }
+  return canResizeLayoutCanvas(scene, canvas) ? { ...scene, canvas } : scene
 }
 
 function updateColor(
@@ -201,6 +192,8 @@ export function layoutEditorHistoryReducer(
   state: LayoutEditorHistoryState,
   action: LayoutEditorHistoryAction
 ): LayoutEditorHistoryState {
+  if (action.type === 'move-racks')
+    return commitScene(state, applyRackPositions(state.present, action.positions))
   if (action.type === 'reset') return createLayoutEditorHistory(action.scene)
 
   if (action.type === 'reconcile-server-scene') {

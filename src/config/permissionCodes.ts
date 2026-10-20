@@ -14,6 +14,9 @@ export const P = {
   // Audit Logs
   AUDIT_LOGS_VIEW: 'audit-logs:view',
 
+  // Shared list export (requires the corresponding list's view permission)
+  LISTS_EXPORT: 'lists:export',
+
   // Cycle Counts
   CYCLE_COUNTS_VIEW: 'cycle-counts:view',
   CYCLE_COUNTS_RECORD: 'cycle-counts:record',

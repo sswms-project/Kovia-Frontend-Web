@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { RefreshCw } from 'lucide-react'
@@ -79,6 +80,7 @@ interface DamageCaseDirectoryProps {
   readonly isError: boolean
   readonly isPending: boolean
   readonly canDecide: boolean
+  readonly exportAction?: ReactNode
   readonly supplierOptions: readonly { value: string; label: string }[]
   readonly areSuppliersLoading: boolean
   readonly onRetry: () => void
@@ -217,20 +219,23 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
               onChange={(event) => props.onDateToChange(event.target.value)}
             />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            aria-label="Làm mới hàng hỏng"
-            disabled={props.isFetching}
-            onClick={props.onRetry}
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-            />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {props.exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              aria-label="Làm mới hàng hỏng"
+              disabled={props.isFetching}
+              onClick={props.onRetry}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+              />
+            </Button>
+          </div>
         </div>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />

@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { CalendarRange, RefreshCw, Search, X } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ interface InboundRequestFiltersProps {
   readonly onStatusChange: (value: InboundRequestStatus | '') => void
   readonly onCreatedFromChange: (value: string) => void
   readonly onCreatedToChange: (value: string) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -37,6 +39,7 @@ export function InboundRequestFilters({
   onCreatedFromChange,
   onCreatedToChange,
   onRetry,
+  exportAction,
 }: InboundRequestFiltersProps) {
   const hasDateFilter = Boolean(createdFrom || createdTo)
 
@@ -129,6 +132,7 @@ export function InboundRequestFilters({
         </PopoverContent>
       </Popover>
 
+      {exportAction}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

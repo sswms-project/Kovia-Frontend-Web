@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -52,6 +53,7 @@ interface InboundRequestDirectoryProps {
   readonly onCreatedToChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onDelete: (item: InboundRequestSummary) => void
   readonly onSubmit: (item: InboundRequestSummary) => void
@@ -97,6 +99,7 @@ export function InboundRequestDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   onDelete,
   onSubmit,
   onApprove,
@@ -173,6 +176,7 @@ export function InboundRequestDirectory({
               </div>
             </div>
             <InboundRequestFilters
+              exportAction={exportAction}
               searchText={searchText}
               status={status}
               createdFrom={createdFrom}

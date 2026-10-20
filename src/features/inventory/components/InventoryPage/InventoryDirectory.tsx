@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { FilterX, RefreshCw, Search, TriangleAlert, X } from 'lucide-react'
 import {
   OperationalEmptyState,
@@ -34,6 +35,7 @@ import {
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
 
 interface InventoryDirectoryProps {
+  readonly exportAction?: ReactNode
   readonly permissions: readonly string[]
   readonly items: readonly InventoryStock[]
   readonly totalCount: number
@@ -68,6 +70,7 @@ interface InventoryDirectoryProps {
 }
 
 export function InventoryDirectory({
+  exportAction,
   permissions,
   items,
   totalCount,
@@ -233,6 +236,7 @@ export function InventoryDirectory({
               <TooltipContent sideOffset={4}>Xóa bộ lọc</TooltipContent>
             </Tooltip>
           </FieldGroup>
+          {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

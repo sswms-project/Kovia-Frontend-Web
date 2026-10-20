@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import {
   CircleOff,
@@ -62,6 +63,7 @@ interface SupplierDirectoryProps {
   readonly onEdit: (supplier: Supplier) => void
   readonly onDeactivate: (supplier: Supplier) => void
   readonly onReactivate: (supplier: Supplier) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -88,6 +90,7 @@ export function SupplierDirectory({
   onDeactivate,
   onReactivate,
   onRetry,
+  exportAction,
 }: SupplierDirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
@@ -149,6 +152,7 @@ export function SupplierDirectory({
                 </NativeSelectOption>
               ))}
             </NativeSelect>
+            {exportAction}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

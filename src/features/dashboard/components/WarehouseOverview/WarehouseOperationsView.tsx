@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -21,6 +20,7 @@ import {
   type WarehouseOperationMetric,
 } from './WarehouseOperationMetrics'
 import { WarehouseActivityChart } from './WarehouseActivityChart'
+import { WarehouseDetailsSkeleton, WarehouseMetricsSkeleton } from './WarehouseOperationsSkeleton'
 
 export interface OverviewLinks {
   readonly inventory?: UrlObject
@@ -52,23 +52,49 @@ export function WarehouseOperationsView({
   onSelectedViewChange,
   links,
 }: WarehouseOperationsViewProps) {
-  if (isLoading)
+  const viewToggle = compact ? (
+    <ToggleGroup
+      type="single"
+      value={selectedView}
+      variant="outline"
+      aria-label="Hiển thị hoạt động"
+      onValueChange={(value) => {
+        if (value) onSelectedViewChange(value)
+      }}
+      className="shrink-0"
+    >
+      <ToggleGroupItem value="indices">Chỉ số</ToggleGroupItem>
+      <ToggleGroupItem value="chart">Biểu đồ</ToggleGroupItem>
+    </ToggleGroup>
+  ) : null
+  const bodyClassName = cn(
+    'min-h-0 min-w-0 flex-1',
+    compact ? 'flex' : 'grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3'
+  )
+  if (!data || isLoading)
     return (
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <Skeleton className="min-h-0 flex-1" />
-      </div>
-    )
-  if (!data)
-    return (
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <Alert variant="destructive">
-          <AlertDescription>
-            {errorMessage ?? 'Chưa tải được tổng quan hoạt động.'}
-            <Button type="button" variant="outline" onClick={onRefresh}>
-              Thử lại
-            </Button>
-          </AlertDescription>
-        </Alert>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+        {viewToggle}
+        {isLoading && !compact ? <WarehouseMetricsSkeleton /> : null}
+        <div className={bodyClassName}>
+          {!compact || selectedView === 'chart'
+            ? (activityChart ?? <WarehouseActivityChart isLoading={isLoading} />)
+            : null}
+          {!compact || selectedView !== 'chart' ? (
+            isLoading ? (
+              <WarehouseDetailsSkeleton compact={compact} showForecast={Boolean(links.forecast)} />
+            ) : (
+              <Alert variant="destructive" className="self-start">
+                <AlertDescription>
+                  {errorMessage ?? 'Chưa tải được tổng quan hoạt động.'}
+                  <Button type="button" variant="outline" onClick={onRefresh}>
+                    Thử lại
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )
+          ) : null}
+        </div>
       </div>
     )
   const pending =
@@ -156,29 +182,8 @@ export function WarehouseOperationsView({
           <AlertDescription>Đang hiển thị dữ liệu cũ. {errorMessage}</AlertDescription>
         </Alert>
       ) : null}
-      {!compact ? (
-        <WarehouseOperationMetrics metrics={metrics} />
-      ) : (
-        <ToggleGroup
-          type="single"
-          value={selectedView}
-          variant="outline"
-          aria-label="Hiển thị hoạt động"
-          onValueChange={(value) => {
-            if (value) onSelectedViewChange(value)
-          }}
-          className="shrink-0"
-        >
-          <ToggleGroupItem value="indices">Chỉ số</ToggleGroupItem>
-          <ToggleGroupItem value="chart">Biểu đồ</ToggleGroupItem>
-        </ToggleGroup>
-      )}
-      <div
-        className={cn(
-          'min-h-0 min-w-0 flex-1',
-          compact ? 'flex' : 'grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3'
-        )}
-      >
+      {!compact ? <WarehouseOperationMetrics metrics={metrics} /> : viewToggle}
+      <div className={bodyClassName}>
         {!compact || selectedView === 'chart'
           ? (activityChart ?? <WarehouseActivityChart data={data} />)
           : null}

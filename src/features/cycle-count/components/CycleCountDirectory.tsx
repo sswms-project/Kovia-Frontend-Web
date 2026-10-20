@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ClipboardCheck, Eye, Flame, Plus, RefreshCw, Search, TriangleAlert } from 'lucide-react'
@@ -82,6 +83,7 @@ interface Props {
   readonly onSearchTermChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onPrefetchDetail: (cycleCountId: string) => void
 }
@@ -219,18 +221,21 @@ export function CycleCountDirectory(props: Props) {
                 <Badge variant="destructive">{props.needsAdjustmentCount}</Badge>
               </Button>
             ) : null}
-            <Button
-              variant="outline"
-              size="icon"
-              className="max-sm:h-11 max-sm:w-full"
-              aria-label="Làm mới"
-              disabled={props.isFetching}
-              onClick={props.onRetry}
-            >
-              <RefreshCw
-                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
-              />
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {props.exportAction}
+              <Button
+                variant="outline"
+                size="icon"
+                className="max-sm:h-11 max-sm:w-full"
+                aria-label="Làm mới"
+                disabled={props.isFetching}
+                onClick={props.onRetry}
+              >
+                <RefreshCw
+                  className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
+                />
+              </Button>
+            </div>
           </div>
         </div>
         {props.isLoading ? (

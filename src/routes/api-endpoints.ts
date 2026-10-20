@@ -1,8 +1,10 @@
 export const API_ENDPOINTS = {
+  listExports: '/list-exports',
   dashboard: {
     stockThresholdAlerts: '/dashboard/stock-alerts/thresholds',
     stockExpiryAlerts: '/dashboard/stock-alerts/expiry',
     overview: '/dashboard/overview',
+    activity: '/dashboard/activity',
     warehouses: '/dashboard/warehouses',
   },
   reports: {
@@ -143,6 +145,7 @@ export const API_ENDPOINTS = {
   },
   inventory: {
     list: '/inventory',
+    exportExcel: '/inventory/export',
     warehouseOptions: '/inventory/filter-options/warehouses',
     slotOptions: (warehouseId: string) =>
       `/inventory/filter-options/warehouses/${warehouseId}/slots`,

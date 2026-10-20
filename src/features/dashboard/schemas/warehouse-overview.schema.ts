@@ -39,4 +39,12 @@ export const warehouseOverviewSchema = z.object({
   ),
 })
 export type WarehouseOverview = z.infer<typeof warehouseOverviewSchema>
+export const warehouseActivitySchema = warehouseOverviewSchema.pick({
+  generatedAt: true,
+  activityDateFrom: true,
+  activityDateTo: true,
+  activityGranularity: true,
+  activity: true,
+})
+export type WarehouseActivity = z.infer<typeof warehouseActivitySchema>
 export type ReportingWarehouse = z.infer<typeof reportingWarehouseSchema>

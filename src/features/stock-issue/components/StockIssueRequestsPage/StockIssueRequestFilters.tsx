@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { RefreshCw, Search } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ interface StockIssueRequestFiltersProps {
   readonly onDateFromChange: (value: string) => void
   readonly onDateToChange: (value: string) => void
   readonly onAssignedToMeChange: (value: boolean) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -58,6 +60,7 @@ export function StockIssueRequestFilters({
   onDateToChange,
   onAssignedToMeChange,
   onRetry,
+  exportAction,
 }: StockIssueRequestFiltersProps) {
   const searchInputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -149,6 +152,7 @@ export function StockIssueRequestFilters({
         <FieldLabel htmlFor="stock-issue-request-filter-assigned-to-me">Giao cho tôi</FieldLabel>
       </Field>
 
+      {exportAction}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

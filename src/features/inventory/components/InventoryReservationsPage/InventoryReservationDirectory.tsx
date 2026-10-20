@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,7 @@ interface InventoryReservationDirectoryProps {
   readonly onPageSizeChange: (pageSize: number) => void
   readonly onResetFilters: () => void
   readonly onRetryFilters: () => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -167,20 +169,23 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
               Đặt lại
             </Button>
           </FieldGroup>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0 justify-self-end"
-            disabled={props.isFetching}
-            aria-label="Làm mới lịch sử giữ hàng"
-            onClick={props.onRetry}
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-            />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {props.exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0 justify-self-end"
+              disabled={props.isFetching}
+              aria-label="Làm mới lịch sử giữ hàng"
+              onClick={props.onRetry}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+              />
+            </Button>
+          </div>
         </div>
 
         {props.isLoading ? (

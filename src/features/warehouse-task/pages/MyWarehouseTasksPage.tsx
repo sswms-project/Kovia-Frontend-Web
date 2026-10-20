@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -142,17 +145,15 @@ export default function MyWarehouseTasksPage({
   const canCreateRelocation = permissions.includes(P.WAREHOUSE_TASKS_CREATE)
   const canAssignRelocation = permissions.includes(P.WAREHOUSE_TASKS_ASSIGN)
   const scope = managesWarehouseTasks ? 'managed' : 'mine'
-  const query = useMyWarehouseTasksQuery(
-    {
-      pageNumber: page,
-      pageSize,
-      warehouseId: warehouseFilter,
-      taskType: taskTypeFilter || undefined,
-      executionStatus: executionStatusFilter || undefined,
-      deadlineStatus: deadlineFilter || undefined,
-    },
-    scope
-  )
+  const exportFilters = {
+    pageNumber: page,
+    pageSize,
+    warehouseId: warehouseFilter,
+    taskType: taskTypeFilter || undefined,
+    executionStatus: executionStatusFilter || undefined,
+    deadlineStatus: deadlineFilter || undefined,
+  }
+  const query = useMyWarehouseTasksQuery(exportFilters, scope)
   const canSeeOwnWork = permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN)
   // Lọc trước khi lấy sáu việc mới nhất để việc vừa giao không bị khuất sau trang đầu.
   const ownWorkQuery = useMyWarehouseTasksQuery(
@@ -471,6 +472,15 @@ export default function MyWarehouseTasksPage({
     }
   }
 
+  const listExport = useListExport({
+    dataset: managesWarehouseTasks ? 'managed-tasks' : 'my-tasks',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: managesWarehouseTasks ? P.WAREHOUSE_TASKS_VIEW_ALL : P.WAREHOUSE_TASKS_VIEW_OWN,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+  })
   return (
     <>
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
@@ -502,6 +512,9 @@ export default function MyWarehouseTasksPage({
           />
         ) : null}
         <WarehouseTaskDirectory
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
           title={managesWarehouseTasks ? 'Công việc kho' : 'Công việc của tôi'}
           description={
             managesWarehouseTasks
