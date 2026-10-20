@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createTransferCountSchema } from './transfer-receipt.schema'
+import { createTransferCountSchema, parseTransferQuantityInput } from './transfer-receipt.schema'
 import { createTransferPutAwaySchema } from './transfer-putaway.schema'
 import { createTransferAssignmentSchema, toTransferLocalDate } from './transfer-assignment.schema'
 import { buildTransferPutAwayEntries } from '../utils/transfer-putaway'
@@ -9,6 +9,24 @@ import {
   RECEIPT_LINE,
   RECEIPT_SLOT,
 } from '../utils/transfer-receipt-test-fixtures'
+
+describe('Quantity text parsing', () => {
+  it.each(['', ' ', '1e2', '0x10', '-1', '1.2.3', 'abc'])(
+    'rejects empty or non-decimal input: %s',
+    (value) => {
+      expect(parseTransferQuantityInput(value)).toBeNaN()
+    }
+  )
+  it.each([
+    ['10', 10],
+    ['1.25', 1.25],
+    ['1,25', 1.25],
+    ['0', 0],
+    [10, 10],
+  ] as const)('parses decimal input %s without rounding', (value, expected) => {
+    expect(parseTransferQuantityInput(value)).toBe(expected)
+  })
+})
 
 describe('Phiếu kiểm hàng tách cất', () => {
   const entry = {

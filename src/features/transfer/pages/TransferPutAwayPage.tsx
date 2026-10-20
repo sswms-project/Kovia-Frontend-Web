@@ -135,27 +135,32 @@ export default function TransferPutAwayPage({
   )
   const capacitySlots = useMemo(() => getPutawaySlotOptions(layout.data ?? []), [layout.data])
   const suggestions = useTransferPutAwayPlanSuggestionsQuery(transferId, shipmentId)
+  const reloadLock = useRef(false)
+  const [reloading, setReloading] = useState(false)
+  const busy = editor.isPending || putAway.isPending || putAway.isFindingSlot || reloading
   const sourceVersion = `${transferId}|${shipmentId ?? ''}|${transfer?.version}|${sheet?.receipt.version}|${sheet?.planVersion}`
-  const rules = useTransferPutAwayRulesQuery(
-    transferId,
-    shipmentId,
-    sourceVersion,
-    Boolean(
-      isReady &&
-      canSee &&
-      (canPlan || canPutAway) &&
-      transfer &&
-      (!shipmentId ||
-        shipment?.status === 'AwaitingPutAway' ||
-        shipment?.status === 'Receiving' ||
-        shipment?.status === 'InTransit')
-    )
+  const rulesReady = Boolean(
+    isReady &&
+    canSee &&
+    (canPlan || canPutAway) &&
+    transfer &&
+    !detail.isError &&
+    !detail.isFetching &&
+    !busy &&
+    (!shipmentId ||
+      (sheet &&
+        !query.isError &&
+        !query.isFetching &&
+        (shipment?.status === 'AwaitingPutAway' ||
+          shipment?.status === 'Receiving' ||
+          shipment?.status === 'InTransit')))
   )
+  const rules = useTransferPutAwayRulesQuery(transferId, shipmentId, sourceVersion, rulesReady)
   useEffect(() => {
-    if (!rules.data || rules.isFetching) return
+    if (!rulesReady || !rules.data || rules.isFetching) return
     editor.seedSuggestions(rules.data)
     if (sheet && mapIndex === null) putAway.applySuggestions(rules.data, sheet, true)
-  }, [rules.data, rules.isFetching, editor, putAway, sheet, mapIndex])
+  }, [rulesReady, rules.data, rules.isFetching, editor, putAway, sheet, mapIndex])
   const visibleSuggestions =
     suggestionVersion === sourceVersion && !hideSuggestions ? suggestions.data : undefined
   function applySuggestion(only?: { itemId: string; slotId: string }) {
@@ -187,9 +192,6 @@ export default function TransferPutAwayPage({
       suggestionLock.current = false
     }
   }
-  const reloadLock = useRef(false)
-  const [reloading, setReloading] = useState(false)
-  const busy = editor.isPending || putAway.isPending || putAway.isFindingSlot || reloading
   const entries = putAway.form.watch('entries')
   const planStates = sheet ? transferPutAwayPlanStates(sheet, entries) : []
   async function reload(source: 'reload' | 'saved' = 'reload') {
@@ -209,8 +211,7 @@ export default function TransferPutAwayPage({
       setReloading(false)
     }
   }
-  const isInitialRulesLoading = rules.isFetching && !rules.data && !rules.error
-  if (!isReady || detail.isLoading || (shipmentId && query.isLoading) || isInitialRulesLoading)
+  if (!isReady || detail.isLoading || (shipmentId && query.isLoading))
     return <OperationalLoadingState rows={4} />
   if (!transfer || detail.isError || (shipmentId && (!shipment || query.isError || !sheet)))
     return (
@@ -295,6 +296,7 @@ export default function TransferPutAwayPage({
       >
         <div
           data-slot="operational-list-body"
+          data-scrollbar="slim"
           className={cn('flex flex-col', tab === 'plan' ? 'gap-5 px-0' : 'gap-3 p-3')}
         >
           {rules.data &&

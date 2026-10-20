@@ -1,4 +1,5 @@
 import { axiosClient } from '@/lib/axios'
+import { transferWriteConfig } from '@/features/transfer/utils/transfer-client'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse } from '@/types/api'
 import type {
@@ -46,7 +47,9 @@ export const warehouseTaskService = {
       .then((response) => response.data),
   assign: (taskId: string, request: AssignWarehouseTaskRequest) =>
     axiosClient
-      .put<ApiResponse<unknown>>(API_ENDPOINTS.warehouseTasks.assignment(taskId), request)
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.warehouseTasks.assignment(taskId), request, transferWriteConfig())
       .then((response) => response.data),
   updateSchedule: (taskType: string, taskId: string, request: UpdateWarehouseTaskScheduleRequest) =>
     axiosClient

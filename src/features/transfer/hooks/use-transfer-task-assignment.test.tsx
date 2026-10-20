@@ -93,6 +93,7 @@ describe('Giao hai việc độc lập', () => {
     })
     await waitFor(() => expect(result.current.target).toBeNull())
     expect(mock.assign.mock.calls.map((call) => call[0])).toEqual(['receive-task', 'putaway-task'])
+    expect(mock.read).toHaveBeenCalledTimes(1)
   })
 
   it('can assign only put-away through the same dialog without changing the receiving worker', async () => {

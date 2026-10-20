@@ -47,7 +47,7 @@ const viewer = {
 }
 
 describe('TransferShipmentsPanel destination assignment', () => {
-  it('keeps one primary action visible while shipment goods are collapsed in execution', () => {
+  it('opens shipment goods in the shared panel while retaining one primary action', () => {
     render(
       <TransferShipmentsPanel
         transferId="transfer"
@@ -73,9 +73,15 @@ describe('TransferShipmentsPanel destination assignment', () => {
       />
     )
     expect(screen.getAllByRole('link', { name: 'Tiếp tục kiểm hàng' })).toHaveLength(1)
-    expect(screen.queryByRole('cell', { name: 'Hàng kiểm thử' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Hàng hóa đợt 1' })).toHaveAttribute(
+      'data-slot',
+      'operational-list-panel'
+    )
+    expect(screen.getByRole('cell', { name: 'Hàng kiểm thử' })).toBeInTheDocument()
     const goods = screen.getByRole('button', { name: 'Hàng hóa đợt 1 · 1 dòng' })
-    expect(goods).toHaveAttribute('aria-expanded', 'false')
+    expect(goods).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(goods)
+    expect(screen.queryByRole('cell', { name: 'Hàng kiểm thử' })).not.toBeInTheDocument()
     fireEvent.click(goods)
     expect(screen.getByRole('cell', { name: 'Hàng kiểm thử' })).toBeInTheDocument()
   })

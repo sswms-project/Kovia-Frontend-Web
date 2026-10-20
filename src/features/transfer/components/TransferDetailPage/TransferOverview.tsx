@@ -1,6 +1,4 @@
-import { ChevronDown, Info } from 'lucide-react'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Button } from '@/components/ui/button'
+import { Info } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   formatOperationalDateTime,
@@ -60,17 +58,11 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
   }
 
   return (
-    <Collapsible className="bg-card shrink-0 border p-3">
+    <section aria-labelledby="transfer-overview-title" className="bg-card shrink-0 border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="min-w-0 text-sm font-medium">
           {transfer.sourceWarehouseName} → {transfer.destinationWarehouseName}
         </p>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm">
-            Thông tin phiếu
-            <ChevronDown aria-hidden="true" />
-          </Button>
-        </CollapsibleTrigger>
       </div>
       {transfer.isLegacyWorkflow ? (
         <Alert className="mt-3">
@@ -82,7 +74,7 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
           </AlertDescription>
         </Alert>
       ) : null}
-      <CollapsibleContent className="pt-3">
+      <div className="pt-3">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h2 id="transfer-overview-title" className="text-sm font-semibold">
             Thông tin phiếu
@@ -116,7 +108,7 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
             </dl>
           </section>
         </div>
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+    </section>
   )
 }

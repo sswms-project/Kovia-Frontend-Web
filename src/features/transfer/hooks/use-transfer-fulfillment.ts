@@ -72,14 +72,14 @@ export function useTransferReceiveSheetQuery(transferId: string | null, shipment
   })
 }
 
-/** Tra vị trí cất hàng theo mã quét; coi như một lệnh gọi theo yêu cầu, không phải dữ liệu cần cache. */
+/** Tra vị trí theo mã quét là đọc, không phải lệnh ghi điều chuyển. */
 export function useFindReceivableSlotMutation() {
   return useMutation<
     ReceivableSlot | null,
     ApiErrorResponse,
     { warehouseId: string; scannedCode: string }
   >({
-    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationKey: ['transfer-slot-lookup'],
     mutationFn: ({ warehouseId, scannedCode }) =>
       transferService.findReceivableSlot(warehouseId, scannedCode),
     onError: (error) => logTransferError(error),
@@ -125,7 +125,8 @@ export function useRecordTransferPickMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.recordPick(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    // The scanner owns the mandatory fresh-sheet read before advancing to another line.
+    onSuccess: () => invalidateTransferQueries(queryClient, 'none'),
     onError: (error) => logTransferError(error),
   })
 }

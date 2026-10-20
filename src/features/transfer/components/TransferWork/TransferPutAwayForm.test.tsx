@@ -67,7 +67,7 @@ describe('Cất hàng theo hàng hóa/lô', () => {
   it('expands only invalid collapsed groups, exposes errors and focuses the scan without losing edits', async () => {
     const user = userEvent.setup()
     render(<ValidationTestForm />)
-    const quantity = screen.getAllByRole('spinbutton')[0]!
+    const quantity = screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]!
     await user.clear(quantity)
     await user.type(quantity, '3')
     const invalidToggle = screen.getByRole('button', { name: 'Mở/thu gọn phân bổ SKU-01' })
@@ -81,24 +81,24 @@ describe('Cất hàng theo hàng hóa/lô', () => {
       'Hãy quét hoặc nhập mã vị trí để xác nhận.'
     )
     await waitFor(() => expect(document.getElementById('putaway-slot-0')).toHaveFocus())
-    expect(screen.getAllByRole('spinbutton')[0]).toHaveValue(3)
+    expect(screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]).toHaveValue('3')
     expect(screen.queryByText('Đã mở xác nhận')).not.toBeInTheDocument()
     await user.click(invalidToggle)
     await user.click(screen.getByRole('button', { name: 'Xác nhận cất hàng' }))
     await waitFor(() => expect(invalidToggle).toHaveAttribute('aria-expanded', 'true'))
-    expect(screen.getAllByRole('spinbutton')[0]).toHaveValue(3)
+    expect(screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]).toHaveValue('3')
   })
   it('groups prefilled allocations under one product and excludes damaged stock', () => {
     render(<TestForm />)
     expect(screen.getAllByRole('heading', { name: 'SKU-01 · Hàng QA' })).toHaveLength(1)
     expect(screen.getByText(/Thực nhận tốt 8/)).toBeInTheDocument()
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(2)
+    expect(screen.getAllByRole('textbox', { name: /Số lượng cất/ })).toHaveLength(2)
     expect(screen.queryByText('Hàng hỏng')).not.toBeInTheDocument()
   })
   it('preserves quantity edits after keyboard collapse and expand', async () => {
     const user = userEvent.setup()
     render(<TestForm />)
-    const quantity = screen.getAllByRole('spinbutton')[0]!
+    const quantity = screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]!
     await user.clear(quantity)
     await user.type(quantity, '3')
     const toggle = screen.getByRole('button', { name: 'Mở/thu gọn phân bổ SKU-01' })
@@ -106,7 +106,7 @@ describe('Cất hàng theo hàng hóa/lô', () => {
     await user.keyboard('{Enter}')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await user.keyboard('{Enter}')
-    expect(screen.getAllByRole('spinbutton')[0]).toHaveValue(3)
+    expect(screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]).toHaveValue('3')
   })
 })
 

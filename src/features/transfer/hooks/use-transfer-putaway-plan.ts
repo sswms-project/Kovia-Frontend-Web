@@ -35,9 +35,9 @@ export function useTransferPutAwayRulesQuery(
       'rules',
       version,
     ],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       transferService
-        .getPutAwayPlanSuggestions(transferId, shipmentId, false)
+        .getPutAwayPlanSuggestions(transferId, shipmentId, false, signal)
         .then((response) => response.data),
     enabled,
     retry: false,
@@ -58,7 +58,8 @@ export function useSetTransferPutAwayPlanMutation() {
       transferId: string
       request: SetTransferPutAwayPlanRequest
     }) => transferService.setPutAwayPlan(transferId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    // The plan workspace owns the single mandatory detail/sheet reload after saving.
+    onSuccess: () => invalidateTransferQueries(queryClient, 'none'),
     onError: logTransferError,
   })
 }

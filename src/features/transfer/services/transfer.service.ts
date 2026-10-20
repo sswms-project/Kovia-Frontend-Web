@@ -1,4 +1,5 @@
 import { axiosClient } from '@/lib/axios'
+import { transferWriteConfig } from '../utils/transfer-client'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
@@ -90,13 +91,13 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.startReceiving(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.startReceiving(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
   submitReceipt: (transferId: string, shipmentId: string, request: SubmitTransferReceiptRequest) =>
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.submitReceipt(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.submitReceipt(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
   putAwayShipment: (
     transferId: string,
@@ -106,19 +107,27 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.putAwayShipment(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.putAwayShipment(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
   setPutAwayPlan: (transferId: string, request: SetTransferPutAwayPlanRequest) =>
     axiosClient
-      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request)
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request, transferWriteConfig())
       .then(unwrap),
 
-  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string, useAi = true) =>
+  getPutAwayPlanSuggestions: (
+    transferId: string,
+    shipmentId?: string,
+    useAi = true,
+    signal?: AbortSignal
+  ) =>
     axiosClient
       .get<ApiResponse<TransferPutAwayPlanSuggestions>>(
         API_ENDPOINTS.transfers.putAwayPlanSuggestions(transferId),
         {
           params: { shipmentId, useAi },
+          signal,
         }
       )
       .then(unwrap),
@@ -192,48 +201,64 @@ export const transferService = {
       .then(unwrap),
 
   createDraft: (request: SaveTransferDraftRequest) =>
-    axiosClient.post<ApiResponse<string>>(API_ENDPOINTS.transfers.drafts, request).then(unwrap),
+    axiosClient
+      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.drafts, request, transferWriteConfig())
+      .then(unwrap),
 
   updateDraft: (transferId: string, request: SaveTransferDraftRequest) =>
     axiosClient
-      .put<ApiResponse<string>>(API_ENDPOINTS.transfers.draft(transferId), request)
+      .put<
+        ApiResponse<string>
+      >(API_ENDPOINTS.transfers.draft(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   submitDraft: (transferId: string, request: SubmitTransferRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.submitDraft(transferId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.submitDraft(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   updateTransfer: (transferId: string, request: UpdateTransferRequest) =>
     axiosClient
-      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.update(transferId), request)
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.update(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   cancelTransfer: (transferId: string, request: CancelTransferRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.cancel(transferId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.cancel(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   stopRemaining: (transferId: string, request: CancelTransferRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.stopRemaining(transferId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.stopRemaining(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   addFeedback: (transferId: string, request: AddTransferFeedbackRequest) =>
     axiosClient
-      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.feedback(transferId), request)
+      .post<
+        ApiResponse<string>
+      >(API_ENDPOINTS.transfers.feedback(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   replyFeedback: (transferId: string, feedbackId: string, request: ReplyTransferFeedbackRequest) =>
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.replyFeedback(transferId, feedbackId), request)
+      >(API_ENDPOINTS.transfers.replyFeedback(transferId, feedbackId), request, transferWriteConfig())
       .then(unwrap),
 
   createShipment: (transferId: string, request: CreateTransferShipmentRequest) =>
     axiosClient
-      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.shipments(transferId), request)
+      .post<
+        ApiResponse<string>
+      >(API_ENDPOINTS.transfers.shipments(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   cancelShipment: (
@@ -244,7 +269,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.cancelShipment(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.cancelShipment(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   getPickSheet: (transferId: string, shipmentId: string) =>
@@ -263,7 +288,9 @@ export const transferService = {
 
   recordPick: (transferId: string, shipmentId: string, request: RecordTransferPickRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.picks(transferId, shipmentId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.picks(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   getAllocationOptions: (transferId: string, itemId: string) =>
@@ -275,7 +302,9 @@ export const transferService = {
 
   adjustAllocation: (transferId: string, request: AdjustTransferAllocationRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.adjustAllocation(transferId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.adjustAllocation(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   switchPick: (
@@ -287,7 +316,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.switchPick(transferId, shipmentId, lineId), request)
+      >(API_ENDPOINTS.transfers.switchPick(transferId, shipmentId, lineId), request, transferWriteConfig())
       .then(unwrap),
 
   escalatePick: (
@@ -299,7 +328,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<string>
-      >(API_ENDPOINTS.transfers.escalatePick(transferId, shipmentId, lineId), request)
+      >(API_ENDPOINTS.transfers.escalatePick(transferId, shipmentId, lineId), request, transferWriteConfig())
       .then(unwrap),
 
   resolveEscalation: (
@@ -312,14 +341,14 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.resolveEscalation(transferId, shipmentId, lineId, exceptionId), request)
+      >(API_ENDPOINTS.transfers.resolveEscalation(transferId, shipmentId, lineId, exceptionId), request, transferWriteConfig())
       .then(unwrap),
 
   returnPick: (transferId: string, shipmentId: string, request: ReturnTransferPickRequest) =>
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.returnPick(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.returnPick(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   completePicking: (
@@ -330,14 +359,14 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.completePicking(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.completePicking(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   reopenPicking: (transferId: string, shipmentId: string, request: ReopenTransferPickingRequest) =>
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.reopenPicking(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.reopenPicking(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   dispatchShipment: (
@@ -348,7 +377,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.dispatchShipment(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.dispatchShipment(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   getReceiveSheet: (transferId: string, shipmentId: string) =>
@@ -364,7 +393,9 @@ export const transferService = {
     request: ReceiveTransferShipmentRequest
   ) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.receipt(transferId, shipmentId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.receipt(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   resolveDiscrepancy: (
@@ -375,6 +406,6 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.resolveDiscrepancy(transferId, discrepancyId), request)
+      >(API_ENDPOINTS.transfers.resolveDiscrepancy(transferId, discrepancyId), request, transferWriteConfig())
       .then(unwrap),
 }

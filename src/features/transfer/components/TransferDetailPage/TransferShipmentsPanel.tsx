@@ -1,6 +1,7 @@
 import { ChevronDown, PackageCheck, PackageSearch, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import {
@@ -199,7 +200,7 @@ export function TransferShipmentsPanel({
                   </div>
                 ) : null}
               </div>
-              <Collapsible defaultOpen={workspaceMode !== 'execution'}>
+              <Collapsible defaultOpen>
                 {workspaceMode === 'execution' ? (
                   <CollapsibleTrigger asChild>
                     <Button variant="ghost" size="sm" className="m-2">
@@ -209,7 +210,10 @@ export function TransferShipmentsPanel({
                   </CollapsibleTrigger>
                 ) : null}
                 <CollapsibleContent>
-                  <div>
+                  <OperationalListPanel
+                    aria-label={`Hàng hóa đợt ${shipment.shipmentNumber}`}
+                    className="flex-none border-x-0"
+                  >
                     <Table className={mode === 'pick' ? 'min-w-[860px]' : 'min-w-[960px]'}>
                       <TableHeader>
                         <TableRow>
@@ -267,7 +271,7 @@ export function TransferShipmentsPanel({
                         })}
                       </TableBody>
                     </Table>
-                  </div>
+                  </OperationalListPanel>
                 </CollapsibleContent>
               </Collapsible>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">

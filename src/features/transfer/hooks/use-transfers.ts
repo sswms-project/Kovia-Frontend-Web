@@ -30,11 +30,14 @@ import type {
 export const TRANSFER_MUTATION_KEY = ['transfers', 'write'] as const
 
 /** Mọi thao tác trên phiếu có thể đổi tồn kho, giữ chỗ và công việc được giao. */
-export function invalidateTransferQueries(queryClient: QueryClient) {
+export function invalidateTransferQueries(
+  queryClient: QueryClient,
+  refetchType: 'active' | 'none' = 'active'
+) {
   return Promise.all([
-    queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-    queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all, refetchType }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all, refetchType }),
+    queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'], refetchType }),
   ])
 }
 
@@ -172,11 +175,13 @@ export function useSaveTransferDraftMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<string>, ApiErrorResponse, SaveDraftVariables>({
     mutationKey: TRANSFER_MUTATION_KEY,
+    retry: false,
     mutationFn: ({ transferId, request }) =>
       transferId
         ? transferService.updateDraft(transferId, request)
         : transferService.createDraft(request),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all, refetchType: 'none' }),
     onError: (error) => logTransferError(error),
   })
 }
@@ -185,8 +190,9 @@ export function useSubmitTransferDraftMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, SubmitDraftVariables>({
     mutationKey: TRANSFER_MUTATION_KEY,
+    retry: false,
     mutationFn: ({ transferId, request }) => transferService.submitDraft(transferId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    onSuccess: () => invalidateTransferQueries(queryClient, 'none'),
     onError: (error) => logTransferError(error),
   })
 }
@@ -195,6 +201,7 @@ export function useUpdateTransferMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, UpdateTransferVariables>({
     mutationKey: TRANSFER_MUTATION_KEY,
+    retry: false,
     mutationFn: ({ transferId, request }) => transferService.updateTransfer(transferId, request),
     onSuccess: () => invalidateTransferQueries(queryClient),
     onError: (error) => logTransferError(error),

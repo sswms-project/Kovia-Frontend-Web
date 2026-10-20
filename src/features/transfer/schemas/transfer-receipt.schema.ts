@@ -19,6 +19,14 @@ export const transferCountEntrySchema = z.object({
 export type TransferCountEntryValues = z.infer<typeof transferCountEntrySchema>
 export type TransferCountFormValues = { entries: TransferCountEntryValues[] }
 
+/** Text inputs keep wheel scrolling from changing quantities; reject non-decimal notation. */
+export function parseTransferQuantityInput(value: unknown): number {
+  if (typeof value === 'number') return value
+  if (typeof value !== 'string') return Number.NaN
+  const normalized = value.trim().replace(',', '.')
+  return /^\d+(?:\.\d*)?$/.test(normalized) ? Number(normalized) : Number.NaN
+}
+
 export function hasTransferQuantityPrecision(quantity: number, precision: number) {
   const scale = 10 ** Math.min(2, Math.max(0, precision))
   return Math.abs(quantity * scale - Math.round(quantity * scale)) < 1e-7

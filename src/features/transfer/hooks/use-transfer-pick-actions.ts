@@ -209,7 +209,9 @@ export function useTransferPickActions(
       changeQuantity: (value: number) => {
         if (pickLock.current || pickUncertain) return
         setQuantityOverride(value)
-        setQuantityError(null)
+        setQuantityError(
+          validatePickQuantity(value, maximumQuantity, entryLine?.baseQuantityPrecision ?? 2)
+        )
       },
       rescan: () => {
         if (pickLock.current || pickUncertain) return
@@ -225,7 +227,11 @@ export function useTransferPickActions(
       },
       confirm: async () => {
         if (!entryLine || !suggestion || pickLock.current) return
-        const problem = validatePickQuantity(quantity, maximumQuantity)
+        const problem = validatePickQuantity(
+          quantity,
+          maximumQuantity,
+          entryLine.baseQuantityPrecision ?? 2
+        )
         if (problem) return setQuantityError(problem)
         pickLock.current = true
         const request = pickIntent.current ?? {
@@ -258,6 +264,12 @@ export function useTransferPickActions(
           setIsAdvancing(true)
           setNeedsPickRefresh(true)
           try {
+            // A focus/manual read may have started before the write committed.
+            // Do not advance the scanner using that pre-write request.
+            await queryClient.cancelQueries({
+              queryKey: queryKeys.transfers.pickSheet(transferId, shipmentId),
+              exact: true,
+            })
             const fresh = await queryClient.fetchQuery({
               queryKey: queryKeys.transfers.pickSheet(transferId, shipmentId),
               queryFn: () =>

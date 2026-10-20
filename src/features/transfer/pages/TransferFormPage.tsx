@@ -3,6 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDialog'
@@ -12,6 +13,7 @@ import {
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { P } from '@/config/permissionCodes'
 import {
   useInboundRequestProductDetails,
@@ -394,11 +396,42 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
         </div>
       </header>
 
-      {realtime.hasPendingChange || actions.hasConflict ? (
+      {!actions.unknownResult && (realtime.hasPendingChange || actions.hasConflict) ? (
         <TransferChangedBanner
           onReload={() => void actions.reload()}
           onDismiss={actions.dismissChange}
         />
+      ) : null}
+
+      {actions.unknownResult ? (
+        <Alert className="shrink-0" role="status" aria-live="polite">
+          <AlertTitle>Cần đối chiếu kết quả lưu</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            <span>
+              Server có thể đã lưu phiếu nhưng phản hồi bị mất. Nội dung được giữ lại và tạm khóa
+              gửi lại để tránh tạo trùng.
+              {!actions.unknownTransferId
+                ? ' Mở danh sách để kiểm tra theo mã phiếu trước khi tạo yêu cầu khác.'
+                : null}
+            </span>
+            {actions.unknownTransferId ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={actions.isChecking}
+                onClick={() => void actions.checkResult()}
+              >
+                {actions.isChecking ? 'Đang kiểm tra…' : 'Kiểm tra phiếu đã lưu'}
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="outline">
+                <Link href={APP_ROUTES.transfers} target="_blank" rel="noopener noreferrer">
+                  Mở danh sách ở tab mới
+                </Link>
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {unavailable ? (
@@ -445,6 +478,7 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
           lockByItemId={lockInfoByItemId}
           isProductSearchLoading={productsQuery.isFetching}
           isSaving={actions.isSaving}
+          isBlocked={actions.unknownResult}
           requesterNames={requesterNames}
           codeSuggestionStatus={
             mode === 'create'

@@ -8,6 +8,7 @@ export const transferChangedEventSchema = z.object({
   shipmentId: z.string().nullish(),
   changeType: z.string(),
   occurredAt: z.string(),
+  originClientId: z.string().nullish(),
 })
 
 export type TransferChangedEvent = z.infer<typeof transferChangedEventSchema>

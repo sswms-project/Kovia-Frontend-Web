@@ -65,7 +65,7 @@ export function useStartTransferReceivingMutation() {
     retry: false,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.startReceiving(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(client),
+    onSuccess: () => invalidateTransferQueries(client, 'none'),
     onError: logTransferError,
   })
 }
@@ -81,7 +81,7 @@ export function useSubmitTransferReceiptMutation() {
     retry: false,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.submitReceipt(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(client),
+    onSuccess: () => invalidateTransferQueries(client, 'none'),
     onError: logTransferError,
   })
 }
@@ -97,7 +97,7 @@ export function usePutAwayTransferShipmentMutation() {
     retry: false,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.putAwayShipment(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(client),
+    onSuccess: () => invalidateTransferQueries(client, 'none'),
     onError: logTransferError,
   })
 }

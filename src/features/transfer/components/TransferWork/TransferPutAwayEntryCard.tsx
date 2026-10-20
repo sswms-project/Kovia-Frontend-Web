@@ -14,6 +14,7 @@ import {
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import { UNREADABLE_SLOT_REASONS } from '@/types/putaway.types'
 import type { TransferPutAwayFormValues } from '../../schemas/transfer-putaway.schema'
+import { parseTransferQuantityInput } from '../../schemas/transfer-receipt.schema'
 import type { TransferPutAwaySheetRow } from '../../types/transfer-receipt.types'
 import type { ReceiptPlanState } from '../../utils/transfer-receive-plan'
 import { ScanInput } from './ScanInput'
@@ -155,16 +156,15 @@ export function TransferPutAwayEntryCard({
             <FieldLabel htmlFor={quantityId}>Số lượng cất ({row.baseUnitName})</FieldLabel>
             <Input
               id={quantityId}
-              className="h-11 md:h-8 pointer-coarse:h-11"
-              type="number"
-              min={0}
-              max={row.remainingQuantity}
-              step={10 ** -Math.min(2, row.baseQuantityPrecision)}
-              inputMode="decimal"
+              className="h-11 text-base md:h-8 md:text-xs pointer-coarse:h-11"
+              type="text"
+              inputMode={row.baseQuantityPrecision === 0 ? 'numeric' : 'decimal'}
               disabled={disabled}
               aria-invalid={Boolean(errors?.quantity)}
               aria-describedby={errors?.quantity ? `${quantityId}-error` : undefined}
-              {...form.register(`entries.${index}.quantity`, { valueAsNumber: true })}
+              {...form.register(`entries.${index}.quantity`, {
+                setValueAs: parseTransferQuantityInput,
+              })}
             />
             <FieldError id={`${quantityId}-error`}>{errors?.quantity?.message}</FieldError>
           </Field>

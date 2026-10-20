@@ -7,6 +7,10 @@ import TransferPutAwayPage from './TransferPutAwayPage'
 const mock = vi.hoisted(() => ({
   rules: vi.fn(),
   rulesLoading: false,
+  detailFetching: false,
+  sheetFetching: false,
+  missingSheet: false,
+  canPlan: false,
   ai: vi.fn(),
   seed: vi.fn(),
   apply: vi.fn(),
@@ -46,11 +50,20 @@ vi.mock('@/features/warehouse/hooks/use-warehouse', () => ({
   useWarehouseLayoutQuery: () => ({ data: [], isFetching: false }),
 }))
 vi.mock('../hooks/use-transfers', () => ({
-  useTransferQuery: () => ({ data: transfer, isLoading: false, refetch: vi.fn() }),
+  useTransferQuery: () => ({
+    data: transfer,
+    isLoading: false,
+    isFetching: mock.detailFetching,
+    refetch: vi.fn(),
+  }),
   useTransferPutAwaySlotsQuery: () => ({ data: [], isFetching: false }),
 }))
 vi.mock('../hooks/use-transfer-receipt', () => ({
-  useTransferPutAwaySheetQuery: () => ({ data: sheet, isLoading: false }),
+  useTransferPutAwaySheetQuery: () => ({
+    data: mock.missingSheet ? undefined : sheet,
+    isLoading: mock.missingSheet,
+    isFetching: mock.sheetFetching,
+  }),
 }))
 vi.mock('../hooks/use-transfer-realtime', () => ({
   useTransferRealtime: () => ({ hasPendingChange: false }),
@@ -74,7 +87,7 @@ vi.mock('../hooks/use-transfer-putaway-plan', () => ({
 }))
 vi.mock('../utils/transfer-capabilities', () => ({
   canSeeWarehouse: () => true,
-  getTransferCapabilities: () => ({ canSetPutAwaySlots: false }),
+  getTransferCapabilities: () => ({ canSetPutAwaySlots: mock.canPlan }),
   getShipmentCapabilities: () => ({ canOpenPutAway: true }),
 }))
 vi.mock('../components/TransferDetailPage', () => ({ TransferPutawayPlanWorkspace: () => null }))
@@ -110,12 +123,41 @@ vi.mock('@/components/operations/putaway', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mock.rulesLoading = false
+  mock.detailFetching = false
+  mock.sheetFetching = false
+  mock.missingSheet = false
+  mock.canPlan = false
   mock.form.formState.isDirty = false
   mock.ai.mockResolvedValue({ data: suggestions, isError: false })
 })
 afterEach(cleanup)
 describe('Trang cất hàng — tự điền và AI theo yêu cầu', () => {
-  it('keeps one stable skeleton while initial rule suggestions are loading', () => {
+  it('waits for the complete sheet and stops rules during either snapshot refresh', () => {
+    mock.canPlan = true
+    mock.missingSheet = true
+    const page = render(
+      <TransferPutAwayPage transferId={transfer.id} shipmentId={sheet.receipt.shipmentId} />
+    )
+    expect(mock.rules.mock.lastCall?.[3]).toBe(false)
+    mock.missingSheet = false
+    mock.detailFetching = true
+    page.rerender(
+      <TransferPutAwayPage transferId={transfer.id} shipmentId={sheet.receipt.shipmentId} />
+    )
+    expect(mock.rules.mock.lastCall?.[3]).toBe(false)
+    mock.detailFetching = false
+    mock.sheetFetching = true
+    page.rerender(
+      <TransferPutAwayPage transferId={transfer.id} shipmentId={sheet.receipt.shipmentId} />
+    )
+    expect(mock.rules.mock.lastCall?.[3]).toBe(false)
+    mock.sheetFetching = false
+    page.rerender(
+      <TransferPutAwayPage transferId={transfer.id} shipmentId={sheet.receipt.shipmentId} />
+    )
+    expect(mock.rules.mock.lastCall?.[3]).toBe(true)
+  })
+  it('renders the ready work area without waiting for optional rule suggestions', () => {
     mock.rulesLoading = true
     render(
       <TransferPutAwayPage
@@ -124,8 +166,8 @@ describe('Trang cất hàng — tự điền và AI theo yêu cầu', () => {
         initialTab="execution"
       />
     )
-    expect(screen.getByLabelText('Đang tải dữ liệu')).toBeInTheDocument()
-    expect(screen.queryByText(/Chỉ cất hàng tốt thực nhận/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Đang tải dữ liệu')).not.toBeInTheDocument()
+    expect(screen.getByText(/Chỉ cất hàng tốt thực nhận/)).toBeInTheDocument()
   })
 
   it('auto fills without requiring row creation, calling AI or sending a write', async () => {

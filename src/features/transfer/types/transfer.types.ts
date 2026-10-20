@@ -678,6 +678,7 @@ export interface TransferPickSheetLine {
   productName: string
   productBarcode: string | null
   baseUnitName: string
+  baseQuantityPrecision?: number
   plannedQuantity: number
   pickedQuantity: number
   remainingQuantity: number

@@ -114,7 +114,7 @@ describe('TransferPutAwayEntryCard camera scanning', () => {
     expect(onScanProduct).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await waitFor(() =>
-      expect(screen.getByRole('spinbutton', { name: 'Số lượng cất (Cái)' })).toHaveFocus()
+      expect(screen.getByRole('textbox', { name: 'Số lượng cất (Cái)' })).toHaveFocus()
     )
     expect(stop).toHaveBeenCalled()
   })
@@ -171,6 +171,6 @@ describe('TransferPutAwayEntryCard camera scanning', () => {
     await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
     await act(async () => startCameraScan.mock.calls[0]?.[1]('WRONG-SLOT'))
     expect(onScanSlot).toHaveBeenCalledExactlyOnceWith(0, 'WRONG-SLOT')
-    expect(screen.getByRole('spinbutton', { name: 'Số lượng cất (Cái)' })).not.toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Số lượng cất (Cái)' })).not.toHaveFocus()
   })
 })

@@ -20,6 +20,7 @@ import { InlineCameraScanner } from './InlineCameraScanner'
 import { ScanInput, type ScanResult } from './ScanInput'
 import { ScanPreferencesBar } from './ScanPreferencesBar'
 import { formatTransferLocation } from '../../utils/transfer-location'
+import { parseTransferQuantityInput } from '../../schemas/transfer-receipt.schema'
 
 interface PickEntryDialogProps {
   readonly line: TransferPickSheetLine | null
@@ -84,6 +85,14 @@ export function PickEntryWorkspace({
   const [preferences] = useScanPreferences()
   const canUseCamera = useSyncExternalStore(subscribeNothing, isCameraScanSupported, () => false)
   const [cameraOn, setCameraOn] = useState(false)
+  const [quantityText, setQuantityText] = useState(String(quantity))
+  const [previousQuantity, setPreviousQuantity] = useState(quantity)
+  if (!Object.is(previousQuantity, quantity)) {
+    setPreviousQuantity(quantity)
+    const parsed = parseTransferQuantityInput(quantityText)
+    if (!Object.is(parsed, quantity))
+      setQuantityText(Number.isFinite(quantity) ? String(quantity) : '')
+  }
   // Camera chạy xuyên bước 1 (vị trí) và bước 2 (mã hàng); xong thì tự dừng để nhập số lượng.
   // Quét từng đơn vị vẫn cần quét tiếp nên camera ở lại cho tới khi người dùng tắt hoặc đóng hộp thoại.
   const cameraActive =
@@ -209,15 +218,16 @@ export function PickEntryWorkspace({
               <Input
                 id="pick-quantity"
                 ref={quantityRef}
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
+                type="text"
+                inputMode={line.baseQuantityPrecision === 0 ? 'numeric' : 'decimal'}
                 className="h-11 text-base tabular-nums"
                 disabled={!isReady || isPending}
-                value={Number.isFinite(quantity) ? quantity : ''}
+                value={quantityText}
                 aria-invalid={Boolean(quantityError)}
-                onChange={(event) => onQuantityChange(event.target.valueAsNumber)}
+                onChange={(event) => {
+                  setQuantityText(event.target.value)
+                  onQuantityChange(parseTransferQuantityInput(event.target.value))
+                }}
                 onKeyDown={(event) => {
                   if (event.key !== 'Enter' || !isReady || isPending) return
                   event.preventDefault()
@@ -246,7 +256,7 @@ export function PickEntryWorkspace({
             <Button
               type="button"
               className="h-11"
-              disabled={!isReady || isPending}
+              disabled={!isReady || isPending || (!uncertain && Boolean(quantityError))}
               onClick={onConfirm}
             >
               {isPending

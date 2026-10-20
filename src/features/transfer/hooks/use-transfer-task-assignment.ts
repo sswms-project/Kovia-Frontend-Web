@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { queryKeys } from '@/lib/query-keys'
 import type { AssignWarehouseTaskFormValues } from '@/features/inbound/schemas/inbound.schema'
 import type { AssignWarehouseTaskTarget } from '@/features/inbound/components/TaskAssignment'
 import { warehouseTaskService } from '@/features/warehouse-task/services/warehouse-task.service'
@@ -159,7 +160,8 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
       if (current && pending)
         for (const kind of pending.kinds)
           pending.versions[kind] = transferAssignmentTask(current, kind).version
-      await invalidateTransferQueries(client)
+      await invalidateTransferQueries(client, 'none')
+      client.setQueryData(queryKeys.transfers.detail(transfer.id), fresh)
       setNeedsVerify(false)
     } catch (error) {
       toast.error(describeTransferError(error, 'Không tải được phiên bản công việc mới.').message)
@@ -201,11 +203,13 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
     }
     attempt.current = pending
     try {
+      const fresh = (await transferService.getTransfer(transfer.id)).data
+      const current = fresh.shipments?.find((row) => row.id === selected.shipmentId)
+      if (!current) throw new Error('Đợt xuất không còn tồn tại.')
       for (const kind of pending.kinds) {
         if (pending.done.has(kind)) continue
-        const fresh = (await transferService.getTransfer(transfer.id)).data
-        const current = fresh.shipments?.find((row) => row.id === selected.shipmentId)
-        if (!current) throw new Error('Đợt xuất không còn tồn tại.')
+        // The two tasks have independent row versions. The API checks each expected
+        // version/assignee atomically, including changes made after this snapshot.
         const next = transferAssignmentTask(current, kind)
         if (!next.id || !next.version) throw new Error('Công việc chưa có phiên bản để giao.')
         if (next.version !== pending.versions[kind]) {
@@ -247,7 +251,6 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
           })
           pending.done.add(kind)
           setResults((old) => ({ ...old, [kind]: 'Đã giao thành công.' }))
-          await invalidateTransferQueries(client)
         } catch (error) {
           const result = describeTransferError(error, 'Không thể giao việc.')
           setResults((old) => ({ ...old, [kind]: result.message }))
@@ -266,6 +269,7 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
     } catch (error) {
       toast.error(describeTransferError(error, 'Không tải được công việc để giao.').message)
     } finally {
+      if (pending.done.size > 0) await invalidateTransferQueries(client)
       lock.current = false
       setWorking(false)
     }

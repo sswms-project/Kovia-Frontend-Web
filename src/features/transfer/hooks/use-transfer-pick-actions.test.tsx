@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { isCancelledError, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-keys'
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TransferPickSheet, TransferPickSheetLine } from '../types/transfer.types'
@@ -84,6 +85,61 @@ beforeEach(() => {
 })
 
 describe('Continuous picking', () => {
+  it('rejects fractional quantities for integer units before sending a write', async () => {
+    const integerLine = { ...first, baseQuantityPrecision: 0 }
+    const { result } = renderHook(
+      () => useTransferPickActions('transfer', 'shipment', sheet([integerLine])),
+      { wrapper }
+    )
+    act(() => result.current.entry.open(integerLine))
+    act(() => {
+      result.current.entry.scanSlot('A1')
+    })
+    act(() => {
+      result.current.entry.scanProduct(first.sku)
+    })
+    act(() => result.current.entry.changeQuantity(1.25))
+    await act(() => result.current.entry.confirm())
+    expect(result.current.entry.quantityError).toContain('số nguyên')
+    expect(mock.pick).not.toHaveBeenCalled()
+  })
+
+  it('discards a read started before the write and advances only from a post-commit snapshot', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const key = queryKeys.transfers.pickSheet('transfer', 'shipment')
+    client.setQueryData(key, sheet([first]))
+    const oldRead = client
+      .fetchQuery({ queryKey: key, queryFn: () => new Promise<TransferPickSheet>(() => undefined) })
+      .catch((error: unknown) => {
+        if (!isCancelledError(error)) throw error
+      })
+    mock.read.mockResolvedValue({
+      data: sheet([{ ...first, remainingQuantity: 3, pickedQuantity: 2 }]),
+    })
+    const { result, unmount } = renderHook(
+      () => useTransferPickActions('transfer', 'shipment', sheet([first])),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        ),
+      }
+    )
+    act(() => result.current.entry.open(first))
+    act(() => {
+      result.current.entry.scanSlot('A1')
+    })
+    act(() => {
+      result.current.entry.scanProduct(first.sku)
+    })
+    act(() => result.current.entry.changeQuantity(2))
+    await act(() => result.current.entry.confirm())
+    await oldRead
+    expect(mock.read).toHaveBeenCalledTimes(1)
+    expect(result.current.entry.line?.remainingQuantity).toBe(3)
+    expect(result.current.entry.needsRefresh).toBe(false)
+    unmount()
+    client.clear()
+  })
   it('advances only after confirmed recording and a fresh sheet, skipping manager-blocked lines', async () => {
     const second = line('SKU-2', { status: 'PendingManager' })
     const third = line('SKU-3')

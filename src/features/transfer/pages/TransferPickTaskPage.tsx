@@ -157,7 +157,10 @@ export default function TransferPickTaskPage({
                 onReturn={actions.returnPick.open}
               />
               {canAct ? (
-                <div className="min-h-0 overflow-y-auto">
+                <div
+                  data-scrollbar="slim"
+                  className="order-first min-h-0 lg:order-last lg:overflow-y-auto"
+                >
                   <PickEntryWorkspace
                     line={actions.entry.line}
                     scan={actions.entry.scan}
