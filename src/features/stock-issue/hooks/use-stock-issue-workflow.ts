@@ -6,14 +6,10 @@ import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useStaffListQuery } from '@/features/staff/hooks/use-staff'
 import { STAFF_DIRECTORY_KINDS } from '@/features/staff/types/staff.types'
-import { useWarehouseLocationsQuery } from '@/features/warehouse/hooks/use-warehouse'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import {
-  createGoodsReturnRequestSchema,
   recordStockPickingSchema,
-  type CreateGoodsReturnRequestFormValues,
   type RecordStockPickingFormValues,
 } from '../schemas/stock-issue.schema'
 import type {
@@ -27,7 +23,6 @@ import {
   useAuthorizeStockDispatchMutation,
   useCancelStockIssueRequestMutation,
   useConfirmStockDispatchMutation,
-  useCreateGoodsReturnRequestMutation,
   useRecordStockPickingMutation,
   useReleaseStockIssueRequestMutation,
   useRemovePickDetailMutation,
@@ -42,21 +37,18 @@ function notifyError(error: unknown, fallback: string) {
 }
 
 /**
- * Luồng thao tác trên một phiếu xuất (giao việc, lấy hàng, cho phép xuất, xác nhận rời kho, trả hàng,
- * huỷ) dùng chung cho trang danh sách và trang chi tiết. `contextWarehouseId` là kho của phiếu đang
+ * Luồng thao tác trên một phiếu xuất (giao việc, lấy hàng, cho phép xuất, xác nhận rời kho, huỷ)
+ * dùng chung cho trang danh sách và trang chi tiết. `contextWarehouseId` là kho của phiếu đang
  * xem để tải sẵn danh sách người lấy hàng khi chưa mở hộp thoại giao việc.
  */
 export function useStockIssueWorkflow(contextWarehouseId?: string) {
   const [pickingOrder, setPickingOrder] = useState<StockIssueRequestSummary | null>(null)
-  const [returningOrder, setReturningOrder] = useState<StockIssueRequestSummary | null>(null)
   const [dispatchingOrder, setDispatchingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [authorizingOrder, setAuthorizingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [releasingOrder, setReleasingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [reportingOrder, setReportingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [cancellingOrder, setCancellingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [releaseStaffId, setReleaseStaffId] = useState('')
-  const [returnSlotSearch, setReturnSlotSearch] = useState('')
-  const debouncedReturnSlotSearch = useDebouncedValue(returnSlotSearch, 350)
 
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions
@@ -69,18 +61,9 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
       canAuthorizeDispatch: granted.includes(P.STOCK_ISSUE_REQUESTS_AUTHORIZE_DISPATCH),
       canDispatch: granted.includes(P.STOCK_ISSUE_REQUESTS_DISPATCH),
       canCancel: granted.includes(P.STOCK_ISSUE_REQUESTS_CANCEL),
-      canReturn: granted.includes(P.STOCK_ISSUE_REQUESTS_RETURN),
     }
   }, [permissions])
 
-  const returnSlotsQuery = useWarehouseLocationsQuery(returningOrder?.warehouseId ?? '', {
-    top: 200,
-    skip: 0,
-    needTotalCount: true,
-    type: 'Slot',
-    lifecycleStatus: 'Active',
-    ...(debouncedReturnSlotSearch.trim() ? { searchText: debouncedReturnSlotSearch.trim() } : {}),
-  })
   const pickerWarehouseId = releasingOrder?.warehouseId ?? contextWarehouseId
   const canLoadPickers = capabilities.canAssignPicker && Boolean(pickerWarehouseId)
   const staffQuery = useStaffListQuery(
@@ -106,7 +89,6 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   }, [managerQuery.data?.items, pickerWarehouseId, staffQuery.data?.items])
 
   const recordPickingMutation = useRecordStockPickingMutation()
-  const createReturnMutation = useCreateGoodsReturnRequestMutation()
   const confirmDispatchMutation = useConfirmStockDispatchMutation()
   const authorizeDispatchMutation = useAuthorizeStockDispatchMutation()
   const removePickDetailMutation = useRemovePickDetailMutation()
@@ -118,10 +100,6 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   const pickingForm = useForm<RecordStockPickingFormValues>({
     resolver: zodResolver(recordStockPickingSchema),
     defaultValues: { lines: [] },
-  })
-  const returnForm = useForm<CreateGoodsReturnRequestFormValues>({
-    resolver: zodResolver(createGoodsReturnRequestSchema),
-    defaultValues: { reason: '', lines: [] },
   })
 
   function closePicking() {
@@ -157,56 +135,6 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
       closePicking()
     } catch (error) {
       notifyError(error, 'Không thể ghi nhận lấy hàng. Vui lòng thử lại.')
-    }
-  }
-
-  function openReturn(order: StockIssueRequestSummary) {
-    setReturningOrder(order)
-    setReturnSlotSearch('')
-    returnForm.reset({
-      reason: '',
-      lines: order.items.flatMap((item) =>
-        item.pickDetails
-          .filter((detail) => detail.issuedAt && detail.returnableQuantity > 0)
-          .map((detail) => ({
-            stockIssuePickDetailId: detail.id,
-            productName: item.productName,
-            lotNumber: detail.lotNumber,
-            returnableQuantity: detail.returnableQuantity,
-            quantity: 0,
-            condition: 'Good' as const,
-            restockSlotId: '',
-          }))
-      ),
-    })
-  }
-
-  function closeReturn() {
-    setReturningOrder(null)
-    setReturnSlotSearch('')
-  }
-
-  async function submitReturn(values: CreateGoodsReturnRequestFormValues) {
-    if (!returningOrder) return
-    try {
-      await createReturnMutation.mutateAsync({
-        stockIssueRequestId: returningOrder.id,
-        request: {
-          reason: values.reason,
-          items: values.lines
-            .filter((line) => line.quantity > 0)
-            .map((line) => ({
-              stockIssuePickDetailId: line.stockIssuePickDetailId,
-              quantity: line.quantity,
-              condition: line.condition,
-              restockSlotId: line.condition === 'Scrap' ? null : line.restockSlotId,
-            })),
-        },
-      })
-      toast.success('Đã tạo yêu cầu trả hàng.')
-      closeReturn()
-    } catch (error) {
-      notifyError(error, 'Không thể tạo yêu cầu trả hàng.')
     }
   }
 
@@ -324,7 +252,6 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
     onReportPickIssue: setReportingOrder,
     onAuthorizeDispatch: setAuthorizingOrder,
     onConfirmDispatch: setDispatchingOrder,
-    onCreateGoodsReturnRequest: openReturn,
     onCancel: setCancellingOrder,
   }
 
@@ -344,21 +271,6 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
         if (!open) closePicking()
       },
       onSubmit: submitPicking,
-    },
-    goodsReturn: {
-      order: returningOrder,
-      form: returnForm,
-      isPending: createReturnMutation.isPending,
-      slotOptions: (returnSlotsQuery.data?.items ?? []).map((slot) => ({
-        id: slot.id,
-        label: slot.code,
-      })),
-      slotSearch: returnSlotSearch,
-      onSlotSearchChange: setReturnSlotSearch,
-      onOpenChange: (open: boolean) => {
-        if (!open) closeReturn()
-      },
-      onSubmit: submitReturn,
     },
     release: {
       order: releasingOrder,

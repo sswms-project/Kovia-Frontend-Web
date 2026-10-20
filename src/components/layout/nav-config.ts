@@ -150,12 +150,17 @@ const tenantOperationsSection: NavSection = {
     requiredNavItem(APP_ROUTES.cycleCounts, 'Kiểm kê', ClipboardCheck, P.CYCLE_COUNTS_VIEW),
     requiredNavItem(
       APP_ROUTES.stockIssueRequests,
-      'Xuất kho & Trả hàng',
+      'Xuất kho',
       PackageMinus,
-      P.STOCK_ISSUE_REQUESTS_VIEW,
-      [APP_ROUTES.goodsReturnRequests]
+      P.STOCK_ISSUE_REQUESTS_VIEW
     ),
-    requiredNavItem(APP_ROUTES.supplierReturns, 'Trả hàng NCC', Undo2, P.SUPPLIER_RETURNS_VIEW),
+    requiredNavItem(
+      APP_ROUTES.goodsReturnRequests,
+      'Trả hàng',
+      Undo2,
+      P.GOODS_RETURN_REQUESTS_VIEW,
+      [APP_ROUTES.supplierReturns]
+    ),
   ],
 }
 
@@ -296,12 +301,17 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         requiredNavItem(APP_ROUTES.cycleCounts, 'Kiểm kê', ClipboardCheck, P.CYCLE_COUNTS_VIEW),
         requiredNavItem(
           APP_ROUTES.stockIssueRequests,
-          'Xuất kho & Trả hàng',
+          'Xuất kho',
           PackageMinus,
-          P.STOCK_ISSUE_REQUESTS_VIEW,
-          [APP_ROUTES.goodsReturnRequests]
+          P.STOCK_ISSUE_REQUESTS_VIEW
         ),
-        requiredNavItem(APP_ROUTES.supplierReturns, 'Trả hàng NCC', Undo2, P.SUPPLIER_RETURNS_VIEW),
+        requiredNavItem(
+          APP_ROUTES.goodsReturnRequests,
+          'Trả hàng',
+          Undo2,
+          P.GOODS_RETURN_REQUESTS_VIEW,
+          [APP_ROUTES.supplierReturns]
+        ),
       ],
     },
     tenantReportsSection,

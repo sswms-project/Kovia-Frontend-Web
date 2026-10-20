@@ -1,7 +1,7 @@
 'use client'
 
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
-import { Check, Eye, MoreHorizontal, Search, Undo2, X } from 'lucide-react'
+import { Check, Eye, MoreHorizontal, Plus, Search, Undo2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -37,7 +37,7 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
-import { StockIssueWorkspaceNavigation } from '@/components/operations/StockIssueWorkspaceNavigation'
+import { ReturnsWorkspaceNavigation } from '@/components/operations/ReturnsWorkspaceNavigation'
 import { P } from '@/config/permissionCodes'
 import type {
   GoodsReturnRequestStatus,
@@ -73,6 +73,7 @@ interface GoodsReturnRequestDirectoryProps {
   readonly onApprove: (item: GoodsReturnRequestSummary) => void
   readonly onReject: (item: GoodsReturnRequestSummary) => void
   readonly onRestock: (item: GoodsReturnRequestSummary) => void
+  readonly onCreate: () => void
   readonly onRetry: () => void
 }
 
@@ -103,9 +104,13 @@ export function GoodsReturnRequestDirectory({
   onApprove,
   onReject,
   onRestock,
+  onCreate,
   onRetry,
 }: GoodsReturnRequestDirectoryProps) {
   const canApprove = permissions.includes(P.GOODS_RETURN_REQUESTS_APPROVE)
+  const canSelfApprove = permissions.includes(P.GOODS_RETURN_REQUESTS_SELF_APPROVE)
+  const canRestock = permissions.includes(P.GOODS_RETURN_REQUESTS_RESTOCK)
+  const canCreate = permissions.includes(P.STOCK_ISSUE_REQUESTS_RETURN)
   const renderActions = (item: GoodsReturnRequestSummary) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -123,19 +128,21 @@ export function GoodsReturnRequestDirectory({
             <Eye />
             Chi tiết
           </DropdownMenuItem>
-          {canApprove && item.status === 'Requested' && item.createdBy !== currentUserId ? (
-            <>
-              <DropdownMenuItem onSelect={() => onApprove(item)}>
-                <Check />
-                Duyệt
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onSelect={() => onReject(item)}>
-                <X />
-                Từ chối
-              </DropdownMenuItem>
-            </>
+          {canApprove &&
+          item.status === 'Requested' &&
+          (item.createdBy !== currentUserId || canSelfApprove) ? (
+            <DropdownMenuItem onSelect={() => onApprove(item)}>
+              <Check />
+              {item.createdBy === currentUserId ? 'Tự duyệt' : 'Duyệt'}
+            </DropdownMenuItem>
           ) : null}
-          {canApprove && item.status === 'Approved' ? (
+          {canApprove && item.status === 'Requested' && item.createdBy !== currentUserId ? (
+            <DropdownMenuItem variant="destructive" onSelect={() => onReject(item)}>
+              <X />
+              Từ chối
+            </DropdownMenuItem>
+          ) : null}
+          {canRestock && item.status === 'Approved' ? (
             <DropdownMenuItem onSelect={() => onRestock(item)}>
               <Undo2 />
               Nhập lại kho
@@ -148,14 +155,20 @@ export function GoodsReturnRequestDirectory({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <h1 className="sr-only">Yêu cầu trả hàng</h1>
-      <StockIssueWorkspaceNavigation currentView="goodsReturnRequests" permissions={permissions} />
+      <ReturnsWorkspaceNavigation currentView="goodsReturnRequests" permissions={permissions} />
       <OperationalListPanel
         className="max-md:[&>[data-slot=table-container]]:hidden"
         aria-label="Danh sách phiếu hoàn hàng"
       >
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-3">
-          <div>
+          <div className="flex items-center gap-3">
             <h2 className="text-sm font-semibold">Danh sách yêu cầu trả hàng</h2>
+            {canCreate ? (
+              <Button type="button" size="sm" onClick={onCreate}>
+                <Plus data-icon="inline-start" />
+                Lập phiếu
+              </Button>
+            ) : null}
           </div>
           <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-5">
             <InputGroup className="min-w-0 lg:w-64">

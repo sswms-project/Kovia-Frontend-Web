@@ -283,6 +283,33 @@ export interface CreateGoodsReturnRequestRequest {
   items: CreateGoodsReturnRequestItemRequest[]
 }
 
+/** Dòng hàng cần gợi ý vị trí nhập lại; số lượng theo đơn vị cơ sở. */
+export interface GoodsReturnSuggestionLineRequest {
+  stockIssuePickDetailId: string
+  quantity: number
+  condition: GoodsReturnRequestItemCondition
+}
+
+export interface GoodsReturnSlotSuggestion {
+  slotId: string
+  slotCode: string
+  path: string
+  suggestedQuantity: number
+  /** Số lượng tối đa vị trí còn nhận được; null khi không giới hạn. */
+  availableQuantity: number | null
+  /** Vị trí hàng được lấy ra khi xuất kho. */
+  isOriginalSlot: boolean
+  reason: string
+  warnings: string[]
+}
+
+export interface GoodsReturnLineSuggestion {
+  stockIssuePickDetailId: string
+  condition: GoodsReturnRequestItemCondition
+  suggestions: GoodsReturnSlotSuggestion[]
+  unallocatedQuantity: number
+}
+
 export interface GoodsReturnRequestItem {
   id: string
   stockIssuePickDetailId: string | null
@@ -356,7 +383,6 @@ export interface StockIssueCapabilities {
   readonly canAuthorizeDispatch: boolean
   readonly canDispatch: boolean
   readonly canCancel: boolean
-  readonly canReturn: boolean
 }
 
 export interface StockIssueRowActionHandlers {
@@ -365,6 +391,5 @@ export interface StockIssueRowActionHandlers {
   readonly onReportPickIssue: (order: StockIssueRequestSummary) => void
   readonly onAuthorizeDispatch: (order: StockIssueRequestSummary) => void
   readonly onConfirmDispatch: (order: StockIssueRequestSummary) => void
-  readonly onCreateGoodsReturnRequest: (order: StockIssueRequestSummary) => void
   readonly onCancel: (order: StockIssueRequestSummary) => void
 }

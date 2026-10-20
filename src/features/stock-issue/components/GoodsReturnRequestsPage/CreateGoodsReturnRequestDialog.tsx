@@ -17,12 +17,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Spinner } from '@/components/ui/spinner'
 import type { CreateGoodsReturnRequestFormValues } from '../../schemas/stock-issue.schema'
 import type { StockIssueRequestSummary } from '../../types/stock-issue.types'
+import type { GoodsReturnLineSuggestion } from '../../types/stock-issue.types'
+import {
+  describeSlotSuggestion,
+  formatSlotSuggestionLabel,
+} from '../../utils/goods-return-suggestion'
 
 export function CreateGoodsReturnRequestDialog({
   order,
   form,
   isPending,
   slotOptions,
+  suggestionsByPickDetail,
   allowableByPickDetail,
   slotSearch,
   onSlotSearchChange,
@@ -33,6 +39,7 @@ export function CreateGoodsReturnRequestDialog({
   readonly form: UseFormReturn<CreateGoodsReturnRequestFormValues>
   readonly isPending: boolean
   readonly slotOptions: readonly { id: string; label: string }[]
+  readonly suggestionsByPickDetail: Readonly<Record<string, GoodsReturnLineSuggestion>>
   readonly allowableByPickDetail: Readonly<Record<string, number>>
   readonly slotSearch: string
   readonly onSlotSearchChange: (value: string) => void
@@ -124,12 +131,32 @@ export function CreateGoodsReturnRequestDialog({
                           {...form.register(`lines.${index}.restockSlotId`)}
                         >
                           <NativeSelectOption value="">Chọn vị trí nhập lại</NativeSelectOption>
-                          {slotOptions.map((slot) => (
-                            <NativeSelectOption key={slot.id} value={slot.id}>
-                              {slot.label}
+                          {(
+                            suggestionsByPickDetail[line.stockIssuePickDetailId]?.suggestions ?? []
+                          ).map((suggestion) => (
+                            <NativeSelectOption key={suggestion.slotId} value={suggestion.slotId}>
+                              {formatSlotSuggestionLabel(suggestion)}
                             </NativeSelectOption>
                           ))}
+                          {slotOptions
+                            .filter(
+                              (slot) =>
+                                !suggestionsByPickDetail[
+                                  line.stockIssuePickDetailId
+                                ]?.suggestions.some((suggestion) => suggestion.slotId === slot.id)
+                            )
+                            .map((slot) => (
+                              <NativeSelectOption key={slot.id} value={slot.id}>
+                                {slot.label}
+                              </NativeSelectOption>
+                            ))}
                         </NativeSelect>
+                        <p className="text-muted-foreground text-xs">
+                          {describeSlotSuggestion(
+                            suggestionsByPickDetail[line.stockIssuePickDetailId],
+                            form.watch(`lines.${index}.restockSlotId`)
+                          )}
+                        </p>
                         <FieldError
                           errors={[form.formState.errors.lines?.[index]?.restockSlotId]}
                         />
