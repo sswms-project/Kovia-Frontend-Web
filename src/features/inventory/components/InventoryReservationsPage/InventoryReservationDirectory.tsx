@@ -78,6 +78,17 @@ function qualityStatusLabel(status: InventoryReservation['qualityStatus']) {
   return 'Đạt chất lượng'
 }
 
+const reservationReferenceLabels: Record<InventoryReservation['referenceType'], string> = {
+  StockIssueRequestLine: 'Phiếu xuất đã phát hành',
+  StockIssuePick: 'Lấy hàng xuất kho',
+  StockTransfer: 'Điều chuyển kho',
+  SupplierReturnLine: 'Trả hàng NCC',
+}
+
+function reservationReferenceLabel(referenceType: InventoryReservation['referenceType']): string {
+  return reservationReferenceLabels[referenceType] ?? 'Chứng từ khác'
+}
+
 export function InventoryReservationDirectory(props: InventoryReservationDirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
@@ -209,11 +220,8 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
                         {qualityStatusLabel(item.qualityStatus)}
                       </ItemDescription>
                       <ItemDescription>
-                        {item.referenceType === 'StockIssueRequestLine'
-                          ? 'Phiếu xuất đã phát hành'
-                          : item.referenceType === 'StockIssuePick'
-                            ? 'Lấy hàng xuất kho'
-                            : 'Điều chuyển kho'}{' '}
+                        {reservationReferenceLabel(item.referenceType)}
+                        {item.referenceType === 'SupplierReturnLine' ? ' ·' : ''}{' '}
                         <span className="font-mono" translate="no">
                           {item.referenceCode || 'Không xác định'}
                         </span>
@@ -267,13 +275,7 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
                         </p>
                       </TableCell>
                       <TableCell>
-                        <p>
-                          {item.referenceType === 'StockIssueRequestLine'
-                            ? 'Phiếu xuất đã phát hành'
-                            : item.referenceType === 'StockIssuePick'
-                              ? 'Lấy hàng xuất kho'
-                              : 'Điều chuyển kho'}
-                        </p>
+                        <p>{reservationReferenceLabel(item.referenceType)}</p>
                         <p className="text-muted-foreground font-mono text-xs" translate="no">
                           {item.referenceCode || 'Không xác định'}
                         </p>

@@ -104,6 +104,7 @@ export const APP_ROUTES = {
   stockIssueRequestPrint: (stockIssueRequestId: string) =>
     `/stock-issue-requests/${stockIssueRequestId}/print`,
   goodsReturnRequests: '/goods-return-requests',
+  supplierReturns: '/supplier-returns',
   stockRecipients: '/stock-recipients',
   stockRecipientImport: '/stock-recipients/import' as Route,
   stockRecipientDetail: (stockRecipientId: string): Route =>

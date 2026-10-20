@@ -23,6 +23,7 @@ import {
   Tags,
   TrendingUp,
   Truck,
+  Undo2,
   Users,
   Warehouse,
 } from 'lucide-react'
@@ -154,6 +155,7 @@ const tenantOperationsSection: NavSection = {
       P.STOCK_ISSUE_REQUESTS_VIEW,
       [APP_ROUTES.goodsReturnRequests]
     ),
+    requiredNavItem(APP_ROUTES.supplierReturns, 'Trả hàng NCC', Undo2, P.SUPPLIER_RETURNS_VIEW),
   ],
 }
 
@@ -299,6 +301,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
           P.STOCK_ISSUE_REQUESTS_VIEW,
           [APP_ROUTES.goodsReturnRequests]
         ),
+        requiredNavItem(APP_ROUTES.supplierReturns, 'Trả hàng NCC', Undo2, P.SUPPLIER_RETURNS_VIEW),
       ],
     },
     tenantReportsSection,

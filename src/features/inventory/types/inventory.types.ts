@@ -96,6 +96,7 @@ export const STOCK_MOVEMENT_TYPES = {
   transferIn: 'TransferIn',
   adjustment: 'Adjustment',
   returnIn: 'ReturnIn',
+  returnOut: 'ReturnOut',
   scrap: 'Scrap',
   opening: 'Opening',
   reclassification: 'Reclassification',
@@ -178,7 +179,7 @@ export interface InventoryReservation {
   lotNumber: string | null
   qualityStatus: QualityStatus
   eligibilityStatus: InventoryEligibilityStatus
-  referenceType: 'StockIssueRequestLine' | 'StockIssuePick' | 'StockTransfer'
+  referenceType: 'StockIssueRequestLine' | 'StockIssuePick' | 'StockTransfer' | 'SupplierReturnLine'
   referenceId: string
   referenceCode: string
   reservedQuantity: number
@@ -277,6 +278,7 @@ export interface DamageCase {
   dispositionAt: string | null
   linkedStockIssueRequestId: string | null
   linkedStockAdjustmentId: string | null
+  linkedSupplierReturnId: string | null
   version: string | null
   isQuantityConfirmed: boolean
   resolvedQuantity: number
@@ -311,7 +313,7 @@ export interface DecideDamageCaseDispositionRequest {
   expectedCaseVersion: string
   quantity?: number
   note?: string
-  stockRecipientId?: string
+  supplierId?: string
 }
 
 export interface AddDamageCaseEvidenceRequest {

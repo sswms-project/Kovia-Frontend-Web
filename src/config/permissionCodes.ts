@@ -48,6 +48,12 @@ export const P = {
   GOODS_RETURN_REQUESTS_VIEW: 'goods-return-requests:view',
   GOODS_RETURN_REQUESTS_APPROVE: 'goods-return-requests:approve',
 
+  // Supplier Returns
+  SUPPLIER_RETURNS_VIEW: 'supplier-returns:view',
+  SUPPLIER_RETURNS_CREATE: 'supplier-returns:create',
+  SUPPLIER_RETURNS_APPROVE: 'supplier-returns:approve',
+  SUPPLIER_RETURNS_DISPATCH: 'supplier-returns:dispatch',
+
   // Inbound Requests
   INBOUND_REQUESTS_VIEW: 'inbound-requests:view',
   INBOUND_REQUESTS_VIEW_DRAFT: 'inbound-requests:view-draft',

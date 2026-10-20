@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import {
-  AI_ACTIONS,
+  isAiDraftWithoutDate,
   AI_DRAFT_STATUSES,
   type AiCard,
   type AiDraftStatus,
@@ -95,7 +95,7 @@ export function AiActionConfirmationCard({
           draftId={draftId}
           lines={editableLines}
           edit={quantityEdit}
-          showDate={card.action !== AI_ACTIONS.createStockIssueRequest}
+          showDate={!isAiDraftWithoutDate(card.action)}
         />
       ) : null}
 

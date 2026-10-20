@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { APP_ROUTES } from '@/routes/app-routes'
+import { notificationCreatedEventSchema } from '../schemas/platform-services.schema'
 import { getNotificationReferenceRoute, notificationActionRoutes } from './platform-services-format'
 
 const id = '11111111-1111-4111-8111-111111111111'
@@ -131,5 +132,26 @@ describe('getNotificationReferenceRoute', () => {
     for (const [action, route] of Object.entries(notificationActionRoutes)) {
       expect(route.to(id), action).toBeTruthy()
     }
+  })
+  it('opens the supplier return a notification is about', () => {
+    expect(
+      getNotificationReferenceRoute({
+        type: 'SupplierReturnUpdate',
+        referenceType: 'SupplierReturnRequest',
+        referenceId: id,
+      })
+    ).toBe(`${APP_ROUTES.supplierReturns}?id=${id}`)
+  })
+
+  it('accepts realtime supplier return events', () => {
+    expect(
+      notificationCreatedEventSchema.safeParse({
+        notificationId: id,
+        type: 'SupplierReturnUpdate',
+        createdAt: '2026-10-19T10:00:00+07:00',
+        referenceType: 'SupplierReturnRequest',
+        referenceId: id,
+      }).success
+    ).toBe(true)
   })
 })

@@ -37,4 +37,13 @@ describe('getNotificationQueryKeys', () => {
       getNotificationQueryKeys({ type: 'CycleCountUpdate', referenceType: null, referenceId: null })
     ).toEqual([['cycle-counts']])
   })
+  it('refreshes the referenced supplier return, its lists and inventory', () => {
+    expect(
+      getNotificationQueryKeys({
+        type: 'SupplierReturnUpdate',
+        referenceType: 'SupplierReturnRequest',
+        referenceId: id,
+      })
+    ).toEqual([['supplier-returns', 'detail', id], ['supplier-returns', 'list'], ['inventory']])
+  })
 })

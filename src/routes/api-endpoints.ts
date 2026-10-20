@@ -490,6 +490,14 @@ export const API_ENDPOINTS = {
     restock: (goodsReturnRequestId: string) =>
       `/goods-return-requests/${goodsReturnRequestId}/restock`,
   },
+  supplierReturns: {
+    list: '/supplier-returns',
+    detail: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}`,
+    approve: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/approve`,
+    reject: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/reject`,
+    cancel: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/cancel`,
+    deliver: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/deliver`,
+  },
   stockRecipients: {
     list: '/stock-recipients',
     create: '/stock-recipients',

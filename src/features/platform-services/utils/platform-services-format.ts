@@ -90,6 +90,7 @@ const notificationTypeQueryRoots: Partial<
   OpeningStockUpdate: [queryKeys.inventory.all],
   DamageCaseUpdate: [queryKeys.inventory.all],
   StockDiscrepancyUpdate: [queryKeys.inventory.all],
+  SupplierReturnUpdate: [queryKeys.supplierReturns.all, queryKeys.inventory.all],
   LowStock: [queryKeys.inventory.all],
   WarehouseUpdate: [queryKeys.warehouses.all],
   TaskAssigned: [
@@ -112,6 +113,7 @@ const notificationReferenceDetailKeys: Record<string, (id: string) => readonly s
   InboundRequest: queryKeys.inboundRequests.detail,
   GoodsReceipt: queryKeys.goodsReceipts.detail,
   Product: queryKeys.products.detail,
+  SupplierReturnRequest: queryKeys.supplierReturns.detail,
 }
 
 /**
@@ -143,6 +145,7 @@ const notificationReferenceRoutes: Record<string, (id: string) => string> = {
   WarehouseTask: () => APP_ROUTES.myTasks,
   StockIssueRequest: (id) => APP_ROUTES.stockIssueRequestDetail(id),
   GoodsReturnRequest: () => APP_ROUTES.goodsReturnRequests,
+  SupplierReturnRequest: (id) => `${APP_ROUTES.supplierReturns}?id=${id}`,
   DamageCase: () => APP_ROUTES.inventoryDamageCases,
   OpeningStockRecord: () => APP_ROUTES.inventoryOpeningStocks,
   StockDiscrepancyReport: () => APP_ROUTES.inventoryDiscrepancies,
