@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import type { ReportingWarehouse } from '../../schemas/warehouse-overview.schema'
 import type { StockAlertKind } from '../../schemas/stock-alert.schema'
 import { StockAlertPanel, stockAlertTitles, type StockAlertPanelState } from './StockAlertPanel'
+import { WarehouseOperationsSkeleton } from './WarehouseOperationsSkeleton'
 
 export const stockAlertKinds = ['below-minimum', 'above-maximum', 'expiring', 'expired'] as const
 interface WarehouseOverviewViewProps {
@@ -204,7 +205,11 @@ export function WarehouseOverviewView({
         ) : null}
       </TabsContent>
       <TabsContent value="activity" className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {canShowData && !noWarehouses ? operations : null}
+        {canShowData && !noWarehouses ? (
+          operations
+        ) : warehouseOptionsLoading && !errorMessage ? (
+          <WarehouseOperationsSkeleton compact={compact} />
+        ) : null}
       </TabsContent>
     </Tabs>
   )

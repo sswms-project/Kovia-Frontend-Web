@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,7 @@ interface InventoryReservationDirectoryProps {
   readonly onPageSizeChange: (pageSize: number) => void
   readonly onResetFilters: () => void
   readonly onRetryFilters: () => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -74,6 +76,17 @@ function qualityStatusLabel(status: InventoryReservation['qualityStatus']) {
   if (status === 'Damaged') return 'Hư hỏng'
   if (status === 'Quarantine') return 'Cách ly'
   return 'Đạt chất lượng'
+}
+
+const reservationReferenceLabels: Record<InventoryReservation['referenceType'], string> = {
+  StockIssueRequestLine: 'Phiếu xuất đã phát hành',
+  StockIssuePick: 'Lấy hàng xuất kho',
+  StockTransfer: 'Điều chuyển kho',
+  SupplierReturnLine: 'Trả hàng NCC',
+}
+
+function reservationReferenceLabel(referenceType: InventoryReservation['referenceType']): string {
+  return reservationReferenceLabels[referenceType] ?? 'Chứng từ khác'
 }
 
 export function InventoryReservationDirectory(props: InventoryReservationDirectoryProps) {
@@ -156,20 +169,23 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
               Đặt lại
             </Button>
           </FieldGroup>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0 justify-self-end"
-            disabled={props.isFetching}
-            aria-label="Làm mới lịch sử giữ hàng"
-            onClick={props.onRetry}
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-            />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {props.exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0 justify-self-end"
+              disabled={props.isFetching}
+              aria-label="Làm mới lịch sử giữ hàng"
+              onClick={props.onRetry}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+              />
+            </Button>
+          </div>
         </div>
 
         {props.isLoading ? (
@@ -204,11 +220,8 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
                         {qualityStatusLabel(item.qualityStatus)}
                       </ItemDescription>
                       <ItemDescription>
-                        {item.referenceType === 'StockIssueRequestLine'
-                          ? 'Phiếu xuất đã phát hành'
-                          : item.referenceType === 'StockIssuePick'
-                            ? 'Lấy hàng xuất kho'
-                            : 'Điều chuyển kho'}{' '}
+                        {reservationReferenceLabel(item.referenceType)}
+                        {item.referenceType === 'SupplierReturnLine' ? ' ·' : ''}{' '}
                         <span className="font-mono" translate="no">
                           {item.referenceCode || 'Không xác định'}
                         </span>
@@ -262,13 +275,7 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
                         </p>
                       </TableCell>
                       <TableCell>
-                        <p>
-                          {item.referenceType === 'StockIssueRequestLine'
-                            ? 'Phiếu xuất đã phát hành'
-                            : item.referenceType === 'StockIssuePick'
-                              ? 'Lấy hàng xuất kho'
-                              : 'Điều chuyển kho'}
-                        </p>
+                        <p>{reservationReferenceLabel(item.referenceType)}</p>
                         <p className="text-muted-foreground font-mono text-xs" translate="no">
                           {item.referenceCode || 'Không xác định'}
                         </p>

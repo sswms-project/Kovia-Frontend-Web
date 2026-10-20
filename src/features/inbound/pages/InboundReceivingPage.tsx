@@ -1,4 +1,7 @@
 'use client'
+
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
 import { getRemainingReceiptQuantity } from '../utils/receipt-units'
 
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -77,14 +80,15 @@ export default function InboundReceivingPage() {
   const [codeSession, setCodeSession] = useState(0)
   const codeSessionKey = `${codeInstanceId}:${codeSession}`
   const debouncedSearchText = useDebouncedValue(searchText, 350)
-  const query = useReceivingTasksQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
     ...(createdFrom ? { createdFrom: toOperationalDateTimeStart(createdFrom) } : {}),
     ...(createdTo ? { createdTo: toOperationalDateTimeEnd(createdTo) } : {}),
     ...(canAssign && assignmentFilter === 'unassigned' ? { unassigned: true } : {}),
-  })
+  }
+  const query = useReceivingTasksQuery(exportFilters)
   const createMutation = useCreateGoodsReceiptMutation()
   const submitMutation = useSubmitGoodsReceiptMutation()
   const importQuery = useInboundDocumentImportQuery(importId)
@@ -340,6 +344,16 @@ export default function InboundReceivingPage() {
   }
 
   const isPending = createMutation.isPending || submitMutation.isPending
+  const listExport = useListExport({
+    dataset: 'receiving',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.GOODS_RECEIPTS_VIEW,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <InboundPageHeader
@@ -353,6 +367,9 @@ export default function InboundReceivingPage() {
         isError={query.isError}
       />
       <ReceivingTaskDirectory
+        exportAction={
+          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        }
         canViewRequest={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_VIEW) ?? false}
         items={query.data?.items ?? []}
         totalCount={query.data?.totalCount ?? 0}

@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReceiveGoodsDialog, ReceivingTaskDirectory } from '../components/ReceivingPage'
 import InboundReceivingPage from './InboundReceivingPage'
 
+vi.mock('@/features/list-export/hooks/use-list-export', () => ({
+  useListExport: () => ({ canExport: false, buttonProps: { isPending: false, onExport: vi.fn() } }),
+}))
+
 const fixtures = vi.hoisted(() => {
   const codeQuery: { data?: string; isFetching: boolean; isError: boolean } = {
     isFetching: true,

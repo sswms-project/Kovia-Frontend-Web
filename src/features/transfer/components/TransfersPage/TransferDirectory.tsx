@@ -57,6 +57,7 @@ interface TransferDirectoryProps {
   readonly onDateToChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onPreview: (transfer: TransferSummary) => void
 }
@@ -89,6 +90,7 @@ export function TransferDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   onPreview,
 }: TransferDirectoryProps) {
   const renderRowActions = (transfer: TransferSummary): ReactNode => (
@@ -151,6 +153,7 @@ export function TransferDirectory({
               onDateFromChange={onDateFromChange}
               onDateToChange={onDateToChange}
             />
+            {exportAction}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

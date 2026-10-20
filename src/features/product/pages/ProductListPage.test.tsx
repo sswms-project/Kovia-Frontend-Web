@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { P } from '@/config/permissionCodes'
 import ProductListPage from './ProductListPage'
 
+vi.mock('@/features/list-export/hooks/use-list-export', () => ({
+  useListExport: () => ({ canExport: false, buttonProps: { isPending: false, onExport: vi.fn() } }),
+}))
+
 const state = vi.hoisted(() => ({
   query: {
     data: { items: [], totalCount: 3, stockStatusCounts: { all: 3, lowStock: 1, outOfStock: 1 } },

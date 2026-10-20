@@ -84,6 +84,10 @@ const ROUTE_PERMISSIONS: readonly RoutePermission[] = [
     allowedRoles: [USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff],
   },
   {
+    pathPrefix: APP_ROUTES.supplierReturns,
+    allowedRoles: [USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff],
+  },
+  {
     pathPrefix: APP_ROUTES.stockRecipients,
     allowedRoles: [USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff],
   },

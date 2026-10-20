@@ -68,6 +68,7 @@ interface WarehouseTaskDirectoryProps {
   readonly headerAction?: ReactNode
   readonly onPageSizeChange: (pageSize: number) => void
   readonly onPageChange: (page: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onAction?: (task: MyWarehouseTask, action: 'Start' | 'Pause' | 'Return') => void
   readonly onOpenRelocation?: (task: MyWarehouseTask) => void
@@ -139,6 +140,7 @@ export function WarehouseTaskDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   onAction,
   onOpenRelocation,
   onEditSchedule,
@@ -248,15 +250,18 @@ export function WarehouseTaskDirectory({
         </div>
         <div className="flex w-full items-start justify-end gap-2 sm:w-auto sm:items-center">
           {headerAction}
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Tải lại"
-            onClick={onRetry}
-          >
-            <RefreshCw className={isFetching ? 'animate-spin' : undefined} aria-hidden="true" />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Tải lại"
+              onClick={onRetry}
+            >
+              <RefreshCw className={isFetching ? 'animate-spin' : undefined} aria-hidden="true" />
+            </Button>
+          </div>
         </div>
       </div>
       {showStats ? (

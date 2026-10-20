@@ -1,8 +1,19 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import Link from 'next/link'
-import { CircleOff, Eye, Pencil, Plus, RotateCcw, Search, Upload, Users } from 'lucide-react'
+import {
+  RefreshCw,
+  CircleOff,
+  Eye,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Upload,
+  Users,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
@@ -48,6 +59,7 @@ interface StockRecipientDirectoryProps {
   readonly onCreate: () => void
   readonly onEdit: (stockRecipient: StockRecipient) => void
   readonly onChangeStatus: (stockRecipient: StockRecipient) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -72,6 +84,7 @@ export function StockRecipientDirectory({
   onEdit,
   onChangeStatus,
   onRetry,
+  exportAction,
 }: StockRecipientDirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
@@ -130,6 +143,17 @@ export function StockRecipientDirectory({
               <NativeSelectOption value="Active">Đang hoạt động</NativeSelectOption>
               <NativeSelectOption value="Inactive">Ngừng hoạt động</NativeSelectOption>
             </NativeSelect>
+            {exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Làm mới danh sách khách hàng"
+              disabled={isFetching}
+              onClick={onRetry}
+            >
+              <RefreshCw aria-hidden="true" />
+            </Button>
           </div>
         </div>
         {isLoading ? (

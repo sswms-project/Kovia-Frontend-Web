@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import InventoryReservationsPage from './InventoryReservationsPage'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('@/features/auth/hooks/use-auth', () => ({
   useMeQuery: () => ({ data: { permissions: [] } }),
@@ -20,7 +21,11 @@ vi.mock('../hooks/use-inventory', () => ({
 }))
 
 it('resets a status-only filter and also clears warehouse and product filters', () => {
-  render(<InventoryReservationsPage />)
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <InventoryReservationsPage />
+    </QueryClientProvider>
+  )
   const reset = screen.getByRole('button', { name: /^Đặt lại$/ })
   expect(reset).toBeDisabled()
   fireEvent.change(screen.getByLabelText('Trạng thái'), { target: { value: 'Released' } })

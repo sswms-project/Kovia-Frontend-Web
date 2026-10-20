@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { BusinessCodeField } from '@/components/forms/BusinessCodeField'
@@ -111,6 +112,7 @@ interface OpeningStockDirectoryProps {
   readonly canCreate: boolean
   readonly canApprove: boolean
   readonly canSelfApprove: boolean
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onPageChange: (page: number) => void
   readonly onFilterWarehouseChange: (value: string) => void
@@ -653,20 +655,25 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
                 />
               </Field>
             </FieldGroup>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="shrink-0"
-              aria-label="Làm mới tồn đầu kỳ"
-              disabled={props.isFetching}
-              onClick={props.onRetry}
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-              />
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {props.exportAction}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                aria-label="Làm mới tồn đầu kỳ"
+                disabled={props.isFetching}
+                onClick={props.onRetry}
+              >
+                <RefreshCw
+                  aria-hidden="true"
+                  className={
+                    props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined
+                  }
+                />
+              </Button>
+            </div>
           </div>
           {props.isLoading ? (
             <OperationalLoadingState rows={8} />

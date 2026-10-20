@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import {
   ArrowRight,
   CalendarRange,
@@ -69,6 +70,7 @@ interface PutawayDirectoryProps {
   readonly onCreatedToChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly currentUserId: string | null
   readonly canAssign: boolean
@@ -98,6 +100,7 @@ export function PutawayDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   currentUserId,
   canAssign,
   assignmentFilter,
@@ -240,6 +243,7 @@ export function PutawayDirectory({
               onChange={(event) => onSearchChange(event.target.value)}
             />
           </InputGroup>
+          {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

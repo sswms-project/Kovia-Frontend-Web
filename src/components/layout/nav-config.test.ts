@@ -295,7 +295,14 @@ describe('application navigation visibility', () => {
       { label: 'Quản trị doanh nghiệp', items: ['Doanh nghiệp', 'Phân quyền', 'Nhân viên'] },
       {
         label: 'Hoạt Động Kho',
-        items: ['Nhập kho', 'Tồn kho', 'Điều chuyển kho', 'Kiểm kê', 'Xuất kho & Trả hàng'],
+        items: [
+          'Nhập kho',
+          'Tồn kho',
+          'Điều chuyển kho',
+          'Kiểm kê',
+          'Xuất kho & Trả hàng',
+          'Trả hàng NCC',
+        ],
       },
       {
         label: 'Báo cáo & phân tích',

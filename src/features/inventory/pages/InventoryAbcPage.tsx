@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useMemo, useState } from 'react'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useRouter } from 'next/navigation'
@@ -64,8 +67,26 @@ export default function InventoryAbcPage() {
   const analysisId = abcQuery.data?.[0]?.analysisId ?? null
   const analysisVersion = abcQuery.data?.[0]?.version ?? null
 
+  const listExport = useListExport({
+    dataset: 'abc',
+    filters: {
+      warehouseId,
+      analysisId,
+      datasetFingerprint: abcQuery.data?.[0]?.datasetFingerprint,
+      version: analysisVersion,
+    },
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.INVENTORY_VIEW,
+    totalCount: abcQuery.data?.length ?? 0,
+    isFetching: abcQuery.isFetching,
+    isError: abcQuery.isError,
+    blocked: !analysisId || !analysisVersion || runMutation.isPending || applyMutation.isPending,
+  })
   return (
     <InventoryAbcDirectory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
       permissions={meQuery.data?.permissions ?? []}
       items={abcQuery.data ?? []}
       page={page}

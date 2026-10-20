@@ -14,6 +14,9 @@ export const P = {
   // Audit Logs
   AUDIT_LOGS_VIEW: 'audit-logs:view',
 
+  // Shared list export (requires the corresponding list's view permission)
+  LISTS_EXPORT: 'lists:export',
+
   // Cycle Counts
   CYCLE_COUNTS_VIEW: 'cycle-counts:view',
   CYCLE_COUNTS_RECORD: 'cycle-counts:record',
@@ -44,6 +47,12 @@ export const P = {
   // Goods Return Requests
   GOODS_RETURN_REQUESTS_VIEW: 'goods-return-requests:view',
   GOODS_RETURN_REQUESTS_APPROVE: 'goods-return-requests:approve',
+
+  // Supplier Returns
+  SUPPLIER_RETURNS_VIEW: 'supplier-returns:view',
+  SUPPLIER_RETURNS_CREATE: 'supplier-returns:create',
+  SUPPLIER_RETURNS_APPROVE: 'supplier-returns:approve',
+  SUPPLIER_RETURNS_DISPATCH: 'supplier-returns:dispatch',
 
   // Inbound Requests
   INBOUND_REQUESTS_VIEW: 'inbound-requests:view',

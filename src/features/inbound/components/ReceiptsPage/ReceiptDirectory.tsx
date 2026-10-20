@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { CalendarRange, Check, Eye, RefreshCw, Search, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
@@ -63,6 +64,7 @@ interface ReceiptDirectoryProps {
   readonly onCreatedToChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onApprove: (item: GoodsReceiptSummary) => void
 }
@@ -88,6 +90,7 @@ export function ReceiptDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   onApprove,
 }: ReceiptDirectoryProps) {
   const router = useRouter()
@@ -177,6 +180,7 @@ export function ReceiptDirectory({
               </Popover>
             )
           })()}
+          {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

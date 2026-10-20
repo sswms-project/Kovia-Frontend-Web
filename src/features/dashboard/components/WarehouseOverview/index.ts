@@ -1,5 +1,10 @@
 export { WarehouseOverviewView } from './WarehouseOverviewView'
 export { WarehouseOperationsView } from './WarehouseOperationsView'
+export {
+  WarehouseDetailsSkeleton,
+  WarehouseMetricsSkeleton,
+  WarehouseOperationsSkeleton,
+} from './WarehouseOperationsSkeleton'
 export { WarehouseActivityChart } from './WarehouseActivityChart'
 export { StockAlertDialog } from './StockAlertDialog'
 export { ExpiryDaysSettings } from './ExpiryDaysSettings'
