@@ -1,5 +1,12 @@
 'use client'
 
+import { useMeQuery } from '@/features/auth/hooks/use-auth'
+
+import { P } from '@/config/permissionCodes'
+
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useMemo, useState } from 'react'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useAuthStore } from '@/stores/auth.store'
@@ -21,6 +28,7 @@ const EMPTY_FILTERS: LocationFilterState = {
 }
 
 export function WarehouseLocationsPage({ warehouseId }: WarehouseLocationsPageProps) {
+  const meQuery = useMeQuery()
   const role = useAuthStore((state) => state.user?.role ?? null)
   const capabilities = getWarehouseCapabilities(role)
   const [searchText, setSearchText] = useState('')
@@ -57,8 +65,21 @@ export function WarehouseLocationsPage({ warehouseId }: WarehouseLocationsPagePr
     setPage(1)
   }
 
+  const listExport = useListExport({
+    dataset: 'locations',
+    filters: { ...query, warehouseId },
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.WAREHOUSES_VIEW,
+    totalCount: locationsQuery.data?.totalCount ?? 0,
+    isFetching: locationsQuery.isFetching,
+    isError: locationsQuery.isError,
+    blocked: searchText.trim() !== debouncedSearchText,
+  })
   return (
     <WarehouseLocationDirectory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
       warehouseId={warehouseId}
       locations={locationsQuery.data?.items ?? []}
       zones={layoutQuery.data ?? []}

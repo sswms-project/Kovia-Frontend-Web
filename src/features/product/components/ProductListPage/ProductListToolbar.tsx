@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { RefreshCw, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ interface ProductListToolbarProps {
   readonly onWarehouseChange: (value: string) => void
   readonly onStatusChange: (value: string) => void
   readonly onTrackingModeChange: (value: string) => void
+  readonly exportAction?: ReactNode
   readonly onRefresh: () => void
 }
 
@@ -41,6 +43,7 @@ export function ProductListToolbar({
   onStatusChange,
   onTrackingModeChange,
   onRefresh,
+  exportAction,
 }: ProductListToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2.5 sm:px-4">
@@ -107,16 +110,19 @@ export function ProductListToolbar({
         <NativeSelectOption value="Active">Đang sử dụng</NativeSelectOption>
         <NativeSelectOption value="Inactive">Ngừng sử dụng</NativeSelectOption>
       </NativeSelect>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        aria-label="Làm mới danh sách"
-        disabled={isFetching}
-        onClick={onRefresh}
-      >
-        <RefreshCw className={isFetching ? 'animate-spin' : undefined} aria-hidden="true" />
-      </Button>
+      <div className="flex shrink-0 items-center gap-2">
+        {exportAction}
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Làm mới danh sách"
+          disabled={isFetching}
+          onClick={onRefresh}
+        >
+          <RefreshCw className={isFetching ? 'animate-spin' : undefined} aria-hidden="true" />
+        </Button>
+      </div>
     </div>
   )
 }

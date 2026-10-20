@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
@@ -37,7 +40,7 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
   const [dateTo, setDateTo] = useState('')
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 250)
-  const recordsQuery = useOpeningStocksQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize: 20,
     ...(recordId ? { id: recordId } : {}),
@@ -46,7 +49,8 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
     ...(status ? { status } : {}),
     ...(dateFrom ? { effectiveDateFrom: dateFrom } : {}),
     ...(dateTo ? { effectiveDateTo: dateTo } : {}),
-  })
+  }
+  const recordsQuery = useOpeningStocksQuery(exportFilters)
   const draft = useOpeningStockDraft()
   const actionMutation = useOpeningStockActionMutation()
   const updateMutation = useUpdateOpeningStockMutation()
@@ -250,8 +254,21 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
   }
 
   const permissions = meQuery.data?.permissions ?? []
+  const listExport = useListExport({
+    dataset: 'opening-stocks',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.INVENTORY_VIEW,
+    totalCount: recordsQuery.data?.totalCount ?? 0,
+    isFetching: recordsQuery.isFetching,
+    isError: recordsQuery.isError,
+    blocked: search !== debouncedSearch,
+  })
   return (
     <OpeningStockDirectory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
       recordId={recordId}
       permissions={permissions}
       isCreateUncertain={draft.uncertain}

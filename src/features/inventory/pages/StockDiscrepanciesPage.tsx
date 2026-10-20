@@ -1,5 +1,12 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+import {
+  toOperationalDateTimeStart,
+  toOperationalDateTimeEnd,
+} from '@/features/inbound-request/utils/inbound-request-format'
+
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
@@ -36,15 +43,16 @@ export default function StockDiscrepanciesPage() {
   const [status, setStatus] = useState<StockDiscrepancyStatus | ''>('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const reportsQuery = useStockDiscrepanciesQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize: 20,
     ...(filterWarehouseId ? { warehouseId: filterWarehouseId } : {}),
     ...(filterProductId ? { productId: filterProductId } : {}),
     ...(status ? { status } : {}),
-    ...(dateFrom ? { dateFrom } : {}),
-    ...(dateTo ? { dateTo: `${dateTo}T23:59:59.999Z` } : {}),
-  })
+    ...(dateFrom ? { dateFrom: toOperationalDateTimeStart(dateFrom) } : {}),
+    ...(dateTo ? { dateTo: toOperationalDateTimeEnd(dateTo) } : {}),
+  }
+  const reportsQuery = useStockDiscrepanciesQuery(exportFilters)
   const uploadMutation = useUploadInventoryEvidenceMutation()
   const createMutation = useCreateStockDiscrepancyMutation()
   const reviewMutation = useReviewStockDiscrepancyMutation()
@@ -200,8 +208,20 @@ export default function StockDiscrepanciesPage() {
     }
   }
   const permissions = meQuery.data?.permissions ?? []
+  const listExport = useListExport({
+    dataset: 'discrepancies',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.INVENTORY_VIEW,
+    totalCount: reportsQuery.data?.totalCount ?? 0,
+    isFetching: reportsQuery.isFetching,
+    isError: reportsQuery.isError,
+  })
   return (
     <StockDiscrepancyDirectory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
       permissions={permissions}
       currentUserId={meQuery.data?.id ?? null}
       items={reportsQuery.data?.items ?? []}

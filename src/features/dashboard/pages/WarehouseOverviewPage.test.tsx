@@ -8,29 +8,32 @@ import WarehouseOverviewPage from './WarehouseOverviewPage'
 import { defaultActivityPeriod } from '../schemas/activity-period.schema'
 
 const warehouseId = '00000000-0000-0000-0000-000000000002'
-const { state, alerts, overview, refresh, update, meRefresh, optionsRefresh } = vi.hoisted(() => ({
-  state: {
-    compact: true,
-    tab: 'alerts',
-    activityFrom: '2026-10-01',
-    activityTo: '2026-10-31',
-    kind: 'below-minimum',
-    warehouseId: '',
-    invalidWarehouse: false,
-    days: 5,
-    expiredTotal: 7,
-    denied: false,
-    deniedKind: '',
-    meError: false,
-    permissions: [] as string[],
-  },
-  alerts: vi.fn(),
-  overview: vi.fn(),
-  refresh: vi.fn(),
-  update: vi.fn(),
-  meRefresh: vi.fn(),
-  optionsRefresh: vi.fn(),
-}))
+const { state, alerts, overview, activity, refresh, update, meRefresh, optionsRefresh } =
+  vi.hoisted(() => ({
+    state: {
+      compact: true,
+      optionsPending: false,
+      tab: 'alerts',
+      activityFrom: '2026-10-01',
+      activityTo: '2026-10-31',
+      kind: 'below-minimum',
+      warehouseId: '',
+      invalidWarehouse: false,
+      days: 5,
+      expiredTotal: 7,
+      denied: false,
+      deniedKind: '',
+      meError: false,
+      permissions: [] as string[],
+    },
+    alerts: vi.fn(),
+    overview: vi.fn(),
+    activity: vi.fn(),
+    refresh: vi.fn(),
+    update: vi.fn(),
+    meRefresh: vi.fn(),
+    optionsRefresh: vi.fn(),
+  }))
 vi.mock('@/features/auth/hooks/use-auth', () => ({
   useMeQuery: () => ({
     data: { permissions: state.permissions },
@@ -57,13 +60,14 @@ vi.mock('../hooks/use-stock-alerts', () => ({ useStockAlertsQuery: alerts }))
 vi.mock('../hooks/use-warehouse-overview', () => ({
   useReportingWarehousesQuery: () => ({
     data: [{ id: warehouseId, name: 'Đà Nẵng' }],
-    isSuccess: true,
-    isPending: false,
+    isSuccess: !state.optionsPending,
+    isPending: state.optionsPending,
     isFetching: false,
     error: null,
     refetch: optionsRefresh,
   }),
   useWarehouseOverviewQuery: overview,
+  useWarehouseActivityQuery: activity,
 }))
 vi.mock('../components/WarehouseOverview/WarehouseActivityChart', () => ({
   WarehouseActivityChart: ({ periodFilter }: { periodFilter?: ReactNode }) => (
@@ -75,6 +79,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   Object.assign(state, {
     compact: true,
+    optionsPending: false,
     tab: 'alerts',
     activityFrom: '2026-10-01',
     activityTo: '2026-10-31',
@@ -133,47 +138,67 @@ beforeEach(() => {
     error: null,
     refetch: vi.fn().mockResolvedValue({ isSuccess: true }),
   })
+  activity.mockReturnValue({
+    data: undefined,
+    isPending: true,
+    isFetching: false,
+    error: null,
+    refetch: vi.fn().mockResolvedValue({ isSuccess: true }),
+  })
 })
 afterEach(cleanup)
 
 describe('warehouse overview orchestration', () => {
+  it('shows only placeholders while resolving warehouses, and hides them on access errors', () => {
+    state.tab = 'activity'
+    state.optionsPending = true
+    const view = render(<WarehouseOverviewPage />)
+    expect(screen.getByRole('status', { name: 'Đang tải chỉ số vận hành' })).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Xem chi tiết/ })).not.toBeInTheDocument()
+    state.meError = true
+    view.rerender(<WarehouseOverviewPage />)
+    expect(
+      screen.queryByRole('status', { name: 'Đang tải chỉ số vận hành' })
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Không xác minh được phiên.')
+  })
+
   it('changes only the activity query range and preserves the current workspace during chart loading', () => {
     state.tab = 'activity'
     state.compact = false
-    overview.mockImplementation((_warehouse, _enabled, _permission, _range, section) => ({
-      data:
-        section === 'current'
-          ? {
-              stockedSkuCount: 13,
-              lowStockCount: 7,
-              pendingInboundRequests: 16,
-              pendingGoodsReceipts: 7,
-              pendingStockIssues: 5,
-              pendingTransfers: 0,
-              pendingCounts: 0,
-              overdueTasks: 4,
-              unassignedTasks: 3,
-              reservedSkuCount: 4,
-              heldSkuCount: 2,
-              activeSlots: 61,
-              occupiedActiveSlots: 20,
-              inactiveSlotsWithStock: 0,
-            }
-          : undefined,
-      isPending: section !== 'current',
-      isFetching: section !== 'current',
+    overview.mockReturnValue({
+      data: {
+        stockedSkuCount: 13,
+        lowStockCount: 7,
+        pendingInboundRequests: 16,
+        pendingGoodsReceipts: 7,
+        pendingStockIssues: 5,
+        pendingTransfers: 0,
+        pendingCounts: 0,
+        overdueTasks: 4,
+        unassignedTasks: 3,
+        reservedSkuCount: 4,
+        heldSkuCount: 2,
+        activeSlots: 61,
+        occupiedActiveSlots: 20,
+        inactiveSlotsWithStock: 0,
+      },
+      isPending: false,
+      isFetching: false,
       isError: false,
       error: null,
       refetch: vi.fn(),
-    }))
+    })
     const view = render(<WarehouseOverviewPage />)
-    const currentRange = overview.mock.calls.find((call) => call[4] === 'current')?.[3]
+    const currentRange = overview.mock.calls.at(-1)?.[3]
     overview.mockClear()
+    activity.mockClear()
     state.activityFrom = '2026-01-01'
     state.activityTo = '2026-12-31'
     view.rerender(<WarehouseOverviewPage />)
-    expect(overview.mock.calls.find((call) => call[4] === 'current')?.[3]).toEqual(currentRange)
-    expect(overview.mock.calls.find((call) => call[4] !== 'current')?.[3]).toEqual({
+    expect(overview.mock.calls.at(-1)?.[3]).toEqual(currentRange)
+    expect(activity.mock.calls.at(-1)?.[3]).toEqual({
       dateFrom: '2026-01-01',
       dateTo: '2026-12-31',
     })
@@ -358,27 +383,31 @@ describe('warehouse overview orchestration', () => {
     expect(screen.queryByText('Không còn quyền kho.')).not.toBeInTheDocument()
   })
 
-  it('rechecks an inactive denied overview while refreshing the alert tab', async () => {
-    const retryOverview = vi.fn()
-    let denied = true
-    overview.mockImplementation(() => ({
-      isPending: false,
-      isFetching: false,
-      isError: denied,
-      error: denied ? { statusCode: 403, message: 'Hoạt động bị từ chối.' } : null,
-      refetch: () => {
-        retryOverview()
-        denied = false
-        return { isSuccess: true }
-      },
-    }))
-    render(<WarehouseOverviewPage />)
-    expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Tải lại tổng quan' }))
-    await waitFor(() => expect(screen.getByText('Hàng QA')).toBeInTheDocument())
-    expect(retryOverview).toHaveBeenCalledTimes(2)
-    expect(meRefresh).toHaveBeenCalledOnce()
-  })
+  it.each(['overview', 'activity'])(
+    'rechecks an inactive denied %s while refreshing the alert tab',
+    async (section) => {
+      const retryOverview = vi.fn()
+      let denied = true
+      const query = section === 'overview' ? overview : activity
+      query.mockImplementation(() => ({
+        isPending: false,
+        isFetching: false,
+        isError: denied,
+        error: denied ? { statusCode: 403, message: 'Hoạt động bị từ chối.' } : null,
+        refetch: () => {
+          retryOverview()
+          denied = false
+          return { isSuccess: true }
+        },
+      }))
+      render(<WarehouseOverviewPage />)
+      expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Tải lại tổng quan' }))
+      await waitFor(() => expect(screen.getByText('Hàng QA')).toBeInTheDocument())
+      expect(retryOverview).toHaveBeenCalledOnce()
+      expect(meRefresh).toHaveBeenCalledOnce()
+    }
+  )
 
   it('keeps cached data hidden when the retry is still forbidden', async () => {
     state.denied = true

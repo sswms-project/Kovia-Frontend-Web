@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useState } from 'react'
 import { Check, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
@@ -46,14 +49,15 @@ export default function GoodsReceiptsPage() {
   const approvalDetailQuery = useGoodsReceiptQuery(approvalTarget?.id ?? '')
   const allowedActionsQuery = useInboundAllowedActionsQuery(approvalTarget?.id ?? '')
   const debouncedSearchText = useDebouncedValue(searchText, 350)
-  const query = useGoodsReceiptsQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
     ...(status ? { status } : {}),
     ...(createdFrom ? { dateFrom: toOperationalDateTimeStart(createdFrom) } : {}),
     ...(createdTo ? { dateTo: toOperationalDateTimeEnd(createdTo) } : {}),
-  })
+  }
+  const query = useGoodsReceiptsQuery(exportFilters)
 
   async function approveReceipt() {
     if (!approvalTarget) return
@@ -87,6 +91,16 @@ export default function GoodsReceiptsPage() {
     }
   }
 
+  const listExport = useListExport({
+    dataset: 'goods-receipts',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.GOODS_RECEIPTS_VIEW,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <>
       <div className="flex h-full min-h-0 flex-col gap-4">
@@ -106,6 +120,9 @@ export default function GoodsReceiptsPage() {
           />
         </div>
         <ReceiptDirectory
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
           items={query.data?.items ?? []}
           totalCount={query.data?.totalCount ?? 0}
           page={page}

@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useId, useState } from 'react'
 import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
 import { useForm } from 'react-hook-form'
@@ -42,12 +45,13 @@ export default function StockRecipientPage() {
   const [statusTarget, setStatusTarget] = useState<StockRecipient | null>(null)
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const meQuery = useMeQuery()
-  const stockRecipientsQuery = useStockRecipientsQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText.trim() ? { searchTerm: debouncedSearchText.trim() } : {}),
     ...(status ? { status } : {}),
-  })
+  }
+  const stockRecipientsQuery = useStockRecipientsQuery(exportFilters)
   const createMutation = useCreateStockRecipientMutation()
   const updateMutation = useUpdateStockRecipientMutation()
   const statusMutation = useChangeStockRecipientStatusMutation()
@@ -114,9 +118,22 @@ export default function StockRecipientPage() {
     }
   }
 
+  const listExport = useListExport({
+    dataset: 'customers',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.STOCK_RECIPIENTS_VIEW,
+    totalCount: stockRecipientsQuery.data?.totalCount ?? 0,
+    isFetching: stockRecipientsQuery.isFetching,
+    isError: stockRecipientsQuery.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <>
       <StockRecipientDirectory
+        exportAction={
+          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        }
         items={stockRecipientsQuery.data?.items ?? []}
         totalCount={stockRecipientsQuery.data?.totalCount ?? 0}
         page={page}

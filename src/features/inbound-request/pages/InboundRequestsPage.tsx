@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
@@ -68,14 +71,15 @@ export default function InboundRequestsPage() {
   const isApproving = approveManyMutation.isPending
   const isWorkflowPending = isSubmitting || isApproving
   const debouncedSearchText = useDebouncedValue(searchText, 350)
-  const query = useInboundRequestsQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
     ...(status ? { status } : {}),
     ...(createdFrom ? { dateFrom: toOperationalDateTimeStart(createdFrom) } : {}),
     ...(createdTo ? { dateTo: toOperationalDateTimeEnd(createdTo) } : {}),
-  })
+  }
+  const query = useInboundRequestsQuery(exportFilters)
   const canCreate = meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_CREATE) ?? false
 
   function confirmDelete() {
@@ -136,6 +140,17 @@ export default function InboundRequestsPage() {
     approveManyMutation.mutate(intent.ids, { onSuccess, onError })
   }
 
+  const listExport = useListExport({
+    dataset: 'inbound-requests',
+    selectedIds,
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.INBOUND_REQUESTS_VIEW,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <>
       <div className="flex h-full min-h-0 flex-col gap-4">
@@ -155,6 +170,9 @@ export default function InboundRequestsPage() {
           }
         />
         <InboundRequestDirectory
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
           items={query.data?.items ?? []}
           totalCount={query.data?.totalCount ?? 0}
           page={page}
@@ -208,6 +226,7 @@ export default function InboundRequestsPage() {
           onPageSizeChange={(value) => {
             setPageSize(value)
             setPage(1)
+            setSelectedIds([])
           }}
           onRetry={() => void query.refetch()}
           onSelectionChange={setSelectedIds}

@@ -1,5 +1,12 @@
 'use client'
 
+import { useMeQuery } from '@/features/auth/hooks/use-auth'
+
+import { P } from '@/config/permissionCodes'
+
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useState } from 'react'
 import { Building2, Plus, RefreshCw, TriangleAlert, Warehouse } from 'lucide-react'
 import { toast } from 'sonner'
@@ -31,6 +38,7 @@ function isApiErrorResponse(error: unknown): error is ApiErrorResponse {
 }
 
 export function WarehousePage() {
+  const meQuery = useMeQuery()
   const role = useAuthStore((state) => state.user?.role ?? null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [warehouseCodeError, setWarehouseCodeError] = useState<string>()
@@ -82,6 +90,16 @@ export function WarehousePage() {
     }
   }
 
+  const listExport = useListExport({
+    dataset: 'warehouses',
+    filters: buildWarehouseQuery(debouncedSearchText, page, pageSize),
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.WAREHOUSES_VIEW,
+    totalCount: warehousesQuery.data?.totalCount ?? 0,
+    isFetching: warehousesQuery.isFetching,
+    isError: warehousesQuery.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-5">
       <header className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -119,6 +137,9 @@ export function WarehousePage() {
         </div>
 
         <WarehouseToolbar
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
           searchText={searchText}
           isFetching={warehousesQuery.isFetching}
           onSearchChange={handleSearchChange}

@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -105,7 +108,7 @@ export default function ProductListPage() {
   const permissions = new Set(meQuery.data?.permissions ?? [])
   const canViewInventory = permissions.has(P.INVENTORY_VIEW)
   const warehousesQuery = useInventoryWarehouseOptionsQuery(canViewInventory)
-  const listQuery = useProductListQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(debouncedSearch ? { searchTerm: debouncedSearch } : {}),
@@ -114,7 +117,8 @@ export default function ProductListPage() {
     ...(status ? { status } : {}),
     ...(trackingMode ? { isLotTracked: trackingMode === 'lot' } : {}),
     ...(canViewInventory && stockStatus ? { stockStatus } : {}),
-  })
+  }
+  const listQuery = useProductListQuery(exportFilters)
 
   const createMutation = useCreateProductMutation()
   const uploadImageMutation = useUploadProductImageMutation()
@@ -237,6 +241,16 @@ export default function ProductListPage() {
     router.push(`${APP_ROUTES.productDetail(product.id)}?edit=1` as any)
   }
 
+  const listExport = useListExport({
+    dataset: 'products',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.PRODUCTS_VIEW,
+    totalCount: listQuery.data?.totalCount ?? 0,
+    isFetching: listQuery.isFetching,
+    isError: listQuery.isError,
+    blocked: searchText.trim() !== debouncedSearch,
+  })
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <header className="flex flex-col gap-3 pb-1 sm:flex-row sm:items-start sm:justify-between">
@@ -304,6 +318,9 @@ export default function ProductListPage() {
         </div>
 
         <ProductListToolbar
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
           searchText={searchText}
           categoryId={categoryId}
           warehouseId={warehouseId}

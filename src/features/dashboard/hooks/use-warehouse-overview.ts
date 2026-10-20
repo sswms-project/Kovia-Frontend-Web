@@ -8,14 +8,13 @@ export function useWarehouseOverviewQuery(
   warehouseId: string | undefined,
   enabled: boolean,
   permissionKey: string,
-  activityRange: ActivityDateRange | undefined,
-  section: 'current' | 'activity' = 'activity'
+  activityRange: ActivityDateRange | undefined
 ) {
   const user = useAuthStore((state) => state.user)
   return useQuery({
     queryKey: [
       'warehouse-overview',
-      section,
+      'current',
       user?.tenantId,
       user?.id,
       permissionKey,
@@ -23,10 +22,37 @@ export function useWarehouseOverviewQuery(
       activityRange?.dateFrom,
       activityRange?.dateTo,
     ],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!activityRange)
         throw new Error('Khoảng thời gian không hợp lệ. Vui lòng chọn lại kỳ hoạt động.')
-      return warehouseOverviewService.getOverview(warehouseId, activityRange)
+      return warehouseOverviewService.getOverview(warehouseId, activityRange, signal)
+    },
+    enabled: enabled && Boolean(user?.tenantId) && Boolean(activityRange),
+    retry: false,
+  })
+}
+
+export function useWarehouseActivityQuery(
+  warehouseId: string | undefined,
+  enabled: boolean,
+  permissionKey: string,
+  activityRange: ActivityDateRange | undefined
+) {
+  const user = useAuthStore((state) => state.user)
+  return useQuery({
+    queryKey: [
+      'warehouse-activity',
+      user?.tenantId,
+      user?.id,
+      permissionKey,
+      warehouseId,
+      activityRange?.dateFrom,
+      activityRange?.dateTo,
+    ],
+    queryFn: ({ signal }) => {
+      if (!activityRange)
+        throw new Error('Khoảng thời gian không hợp lệ. Vui lòng chọn lại kỳ hoạt động.')
+      return warehouseOverviewService.getActivity(warehouseId, activityRange, signal)
     },
     enabled: enabled && Boolean(user?.tenantId) && Boolean(activityRange),
     retry: false,

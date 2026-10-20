@@ -32,10 +32,33 @@ describe('warehouse overview period contract', () => {
     vi.mocked(axiosClient.get).mockResolvedValue({ data: { data: payload } })
     const result = await warehouseOverviewService.getOverview('warehouse-1', range)
     expect(axiosClient.get).toHaveBeenCalledWith(expect.any(String), {
-      params: { warehouseIds: ['warehouse-1'], ...range },
+      params: { warehouseIds: ['warehouse-1'], ...range, includeActivity: false },
       paramsSerializer: { indexes: null },
+      signal: undefined,
     })
     expect(result.activityGranularity).toBe('month')
+  })
+  it('uses the lightweight activity endpoint and forwards cancellation without requesting current metrics', async () => {
+    vi.mocked(axiosClient.get).mockResolvedValue({ data: { data: payload } })
+    const controller = new AbortController()
+    const result = await warehouseOverviewService.getActivity(
+      'warehouse-1',
+      range,
+      controller.signal
+    )
+    expect(axiosClient.get).toHaveBeenCalledExactlyOnceWith('/dashboard/activity', {
+      params: { warehouseIds: ['warehouse-1'], ...range },
+      paramsSerializer: { indexes: null },
+      signal: controller.signal,
+    })
+    expect(result.activityGranularity).toBe('month')
+    expect(result).not.toHaveProperty('stockedSkuCount')
+    vi.mocked(axiosClient.get).mockResolvedValue({
+      data: { data: { ...payload, activityDateTo: '2026-10-19' } },
+    })
+    await expect(warehouseOverviewService.getActivity(undefined, range)).rejects.toThrow(
+      'API chưa trả đúng kỳ'
+    )
   })
   it('refuses a legacy backend response for a different period instead of presenting incorrect totals', async () => {
     vi.mocked(axiosClient.get).mockResolvedValue({

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import {
   CalendarRange,
   PackagePlus,
@@ -69,6 +70,7 @@ interface ReceivingTaskDirectoryProps {
   readonly onPageSizeChange: (pageSize: number) => void
   readonly onReceive: (task: ReceivingTask) => void
   readonly onImportDocument: (task: ReceivingTask) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly currentUserId: string | null
   readonly canAssign: boolean
@@ -108,6 +110,7 @@ export function ReceivingTaskDirectory({
   onReceive,
   onImportDocument,
   onRetry,
+  exportAction,
   currentUserId,
   canAssign,
   assignmentFilter,
@@ -255,6 +258,7 @@ export function ReceivingTaskDirectory({
               onChange={(event) => onSearchChange(event.target.value)}
             />
           </InputGroup>
+          {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
