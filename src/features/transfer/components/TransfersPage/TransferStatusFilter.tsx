@@ -5,6 +5,14 @@ import type { TransferStatusCounts, TransferWorkflowStatus } from '../../types/t
 
 const statusGroups = [
   {
+    value: 'PendingSourceAcceptance',
+    label: 'Chờ kho xuất xác nhận',
+    count: 'pendingSourceAcceptance',
+    description: 'Chưa giữ chỗ tồn kho',
+    icon: FilePen,
+    tone: 'warning',
+  },
+  {
     value: 'Draft',
     label: 'Bản nháp',
     count: 'draft',
@@ -41,6 +49,14 @@ const statusGroups = [
     label: 'Đã hủy',
     count: 'cancelled',
     description: 'Phiếu điều chuyển bị hủy',
+    icon: XCircle,
+    tone: 'danger',
+  },
+  {
+    value: 'Rejected',
+    label: 'Đã từ chối',
+    count: 'rejected',
+    description: 'Kho xuất không chấp nhận',
     icon: XCircle,
     tone: 'danger',
   },
@@ -85,7 +101,7 @@ export function TransferStatusStats({
     <section
       aria-label="Thống kê phiếu điều chuyển theo trạng thái"
       aria-busy={isLoading}
-      className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-3 lg:grid-cols-5 sm:max-lg:[&>:last-child:nth-child(3n+2)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:col-span-2"
+      className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-3 xl:grid-cols-7 max-sm:[&>:last-child:nth-child(odd)]:col-span-2"
     >
       {statusGroups.map((group, index) => (
         <OperationalCountTile

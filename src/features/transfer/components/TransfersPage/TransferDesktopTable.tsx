@@ -73,7 +73,7 @@ export function TransferDesktopTable({
                 />
               </TableCell>
               <TableCell>
-                <TransferNextActionChip code={item.nextActionCode} />
+                <TransferNextActionChip code={item.nextActionCode} transferId={item.id} />
               </TableCell>
               <TableCell>{formatOperationalOptionalTime(item.plannedTransferDate)}</TableCell>
               <TableCell>{formatOperationalOptionalTime(item.requiredBy)}</TableCell>

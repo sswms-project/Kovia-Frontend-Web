@@ -8,24 +8,52 @@ const DISCREPANCY_RESOLUTION_LABELS: Record<string, string> = {
   DamageCase: 'chuyển xử lý hàng hỏng',
 }
 
+const REQUEST_EVENT_LABELS: Readonly<Record<string, string>> = {
+  Submit: 'Gửi yêu cầu tới kho xuất',
+  AcceptRequest: 'Kho xuất chấp nhận và giữ chỗ',
+  RejectRequest: 'Kho xuất từ chối',
+  WithdrawRequest: 'Thu hồi yêu cầu về nháp',
+}
+
 function event(
   action: string,
   createdAt: string | null | undefined,
   actorName = '',
-  reason: string | null = null
+  reason: string | null = null,
+  actorId = ''
 ): LifecycleEvent | null {
   if (!createdAt) return null
-  return { action, fromState: null, toState: null, actorId: '', actorName, reason, createdAt }
+  return { action, fromState: null, toState: null, actorId, actorName, reason, createdAt }
 }
 
 /**
- * Dòng thời gian suy ra từ dữ liệu phiếu. BE chưa có API lịch sử riêng nên chỉ hiện các mốc có thời điểm
- * rõ ràng; người thực hiện chỉ có khi phiếu trả về tên.
+ * Ưu tiên dấu vết quyết định từ BE; các mốc thực hiện còn lại chỉ suy ra khi có thời điểm rõ ràng.
  */
 export function buildTransferHistory(detail: TransferDetail): LifecycleEvent[] {
   const events: Array<LifecycleEvent | null> = [
     event('Tạo phiếu', detail.createdAt, detail.createdByName ?? ''),
-    event('Gửi yêu cầu và giữ chỗ tồn kho', detail.submittedAt, detail.createdByName ?? ''),
+    ...(detail.requestEvents?.length
+      ? detail.requestEvents.map((entry) =>
+          event(
+            REQUEST_EVENT_LABELS[entry.action] ?? entry.action,
+            entry.createdAt,
+            entry.actorName ?? '',
+            entry.reason,
+            entry.actorId
+          )
+        )
+      : [
+          event(
+            detail.status === 'PendingSourceAcceptance' || detail.status === 'Rejected'
+              ? 'Gửi yêu cầu tới kho xuất'
+              : detail.approvedAt
+                ? 'Gửi yêu cầu'
+                : 'Gửi yêu cầu và giữ chỗ tồn kho',
+            detail.submittedAt,
+            detail.createdByName ?? ''
+          ),
+          event('Kho xuất chấp nhận và giữ chỗ', detail.approvedAt),
+        ]),
   ]
   for (const feedback of detail.feedbacks ?? []) {
     events.push(

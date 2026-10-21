@@ -65,7 +65,7 @@ export function useStartTransferReceivingMutation() {
     retry: false,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.startReceiving(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(client),
+    onSuccess: () => invalidateTransferQueries(client, 'none'),
     onError: logTransferError,
   })
 }
@@ -81,7 +81,7 @@ export function useSubmitTransferReceiptMutation() {
     retry: false,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.submitReceipt(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(client),
+    onSuccess: () => invalidateTransferQueries(client, 'none'),
     onError: logTransferError,
   })
 }
@@ -95,9 +95,14 @@ export function usePutAwayTransferShipmentMutation() {
   >({
     mutationKey: TRANSFER_MUTATION_KEY,
     retry: false,
+    // Disabling a query does not abort its in-flight request. Stop old rules/AI before the write.
+    onMutate: ({ transferId }) =>
+      client.cancelQueries({
+        queryKey: queryKeys.transfers.putAwayPlanSuggestions(transferId).slice(0, -1),
+      }),
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.putAwayShipment(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(client),
+    onSuccess: () => invalidateTransferQueries(client, 'none'),
     onError: logTransferError,
   })
 }

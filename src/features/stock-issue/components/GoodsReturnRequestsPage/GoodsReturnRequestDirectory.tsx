@@ -155,33 +155,43 @@ export function GoodsReturnRequestDirectory({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <h1 className="sr-only">Yêu cầu trả hàng</h1>
-      <ReturnsWorkspaceNavigation currentView="goodsReturnRequests" permissions={permissions} />
+      <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <ReturnsWorkspaceNavigation currentView="goodsReturnRequests" permissions={permissions} />
+        </div>
+        {canCreate ? (
+          <Button type="button" size="sm" className="shrink-0 self-end" onClick={onCreate}>
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            Lập phiếu
+          </Button>
+        ) : null}
+      </header>
       <OperationalListPanel
         className="max-md:[&>[data-slot=table-container]]:hidden"
         aria-label="Danh sách phiếu hoàn hàng"
       >
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-3">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-col gap-3 border-b p-3">
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold">Danh sách yêu cầu trả hàng</h2>
-            {canCreate ? (
-              <Button type="button" size="sm" onClick={onCreate}>
-                <Plus data-icon="inline-start" />
-                Lập phiếu
-              </Button>
-            ) : null}
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-5">
-            <InputGroup className="min-w-0 lg:w-64">
+          <div
+            role="search"
+            aria-label="Bộ lọc yêu cầu trả hàng"
+            className="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(14rem,2fr)_repeat(2,minmax(9rem,1fr))_repeat(2,minmax(9.5rem,1fr))]"
+          >
+            <InputGroup className="min-w-0">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
               <InputGroupInput
                 aria-label="Tìm yêu cầu trả hàng"
+                placeholder="Tìm yêu cầu trả hàng…"
                 value={searchText}
                 onChange={(event) => onSearchChange(event.target.value)}
               />
             </InputGroup>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc trạng thái yêu cầu trả hàng"
               value={status}
               onChange={(event) =>
@@ -196,6 +206,7 @@ export function GoodsReturnRequestDirectory({
               ))}
             </NativeSelect>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc kho nhận hàng trả"
               value={warehouseId}
               onChange={(event) => onWarehouseChange(event.target.value)}

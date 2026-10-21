@@ -102,23 +102,31 @@ export function SupplierReturnDirectory({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <h1 className="sr-only">Trả hàng nhà cung cấp</h1>
-      <ReturnsWorkspaceNavigation currentView="supplierReturns" permissions={permissions} />
+      <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <ReturnsWorkspaceNavigation currentView="supplierReturns" permissions={permissions} />
+        </div>
+        {canCreate ? (
+          <Button type="button" size="sm" className="shrink-0 self-end" onClick={onCreate}>
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            Lập phiếu
+          </Button>
+        ) : null}
+      </header>
       <OperationalListPanel
         className="max-md:[&>[data-slot=table-container]]:hidden"
         aria-label="Danh sách phiếu trả hàng nhà cung cấp"
       >
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-3">
-          <div className="flex w-full items-center justify-between gap-2 lg:w-auto">
+        <div className="flex shrink-0 flex-col gap-3 border-b p-3">
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold">Danh sách phiếu trả hàng NCC</h2>
-            {canCreate ? (
-              <Button size="sm" onClick={onCreate}>
-                <Plus data-icon="inline-start" />
-                Lập phiếu
-              </Button>
-            ) : null}
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-6">
-            <InputGroup className="min-w-0 lg:w-56">
+          <div
+            role="search"
+            aria-label="Bộ lọc phiếu trả hàng NCC"
+            className="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(14rem,2fr)_repeat(3,minmax(9rem,1fr))_repeat(2,minmax(9.5rem,1fr))]"
+          >
+            <InputGroup className="min-w-0">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
@@ -130,6 +138,7 @@ export function SupplierReturnDirectory({
               />
             </InputGroup>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc trạng thái phiếu trả hàng NCC"
               value={status}
               onChange={(event) => {
@@ -145,6 +154,7 @@ export function SupplierReturnDirectory({
               ))}
             </NativeSelect>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc kho"
               value={warehouseId}
               onChange={(event) => onWarehouseChange(event.target.value)}
@@ -157,6 +167,7 @@ export function SupplierReturnDirectory({
               ))}
             </NativeSelect>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc nhà cung cấp"
               value={supplierId}
               onChange={(event) => onSupplierChange(event.target.value)}

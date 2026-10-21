@@ -14,9 +14,11 @@ import {
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import { UNREADABLE_SLOT_REASONS } from '@/types/putaway.types'
 import type { TransferPutAwayFormValues } from '../../schemas/transfer-putaway.schema'
+import { parseTransferQuantityInput } from '../../schemas/transfer-receipt.schema'
 import type { TransferPutAwaySheetRow } from '../../types/transfer-receipt.types'
 import type { ReceiptPlanState } from '../../utils/transfer-receive-plan'
 import { ScanInput } from './ScanInput'
+import { CameraScanPanel } from './CameraScanPanel'
 
 interface Props {
   readonly index: number
@@ -25,6 +27,8 @@ interface Props {
   readonly form: UseFormReturn<TransferPutAwayFormValues>
   readonly disabled: boolean
   readonly pendingScan: boolean
+  readonly cameraTarget: 'slot' | 'product' | null
+  readonly onCameraTargetChange: (target: 'slot' | 'product' | null) => void
   readonly planState?: ReceiptPlanState
   readonly planChanged: boolean
   readonly canRemove: boolean
@@ -48,6 +52,8 @@ export function TransferPutAwayEntryCard({
   form,
   disabled,
   pendingScan,
+  cameraTarget,
+  onCameraTargetChange,
   planState,
   planChanged,
   canRemove,
@@ -70,6 +76,19 @@ export function TransferPutAwayEntryCard({
   const manual = entry.slotCodeUnreadable
   const confirmed = Boolean(entry.destinationSlotId && entry.scannedSlotCode && !manual)
   const quantityId = `putaway-quantity-${index}`
+  async function scanSlot(code: string) {
+    if (disabled || pendingScan) return false
+    const quantityInput = document.getElementById(quantityId)
+    // One lookup per explicit scan; restarting a continuous reader would re-read a held bad code.
+    onCameraTargetChange(null)
+    const done = await onScanSlot(index, code)
+    if (done) {
+      window.requestAnimationFrame(() => {
+        if (quantityInput?.isConnected) quantityInput.focus()
+      })
+    }
+    return done
+  }
   return (
     <article
       className="bg-card border"
@@ -95,6 +114,15 @@ export function TransferPutAwayEntryCard({
         </header>
       ) : null}
       <FieldGroup className="gap-3 p-3">
+        {!manual ? (
+          <CameraScanPanel
+            label="Quét mã vị trí cất hàng"
+            open={cameraTarget === 'slot'}
+            disabled={disabled || pendingScan}
+            onOpenChange={(open) => onCameraTargetChange(open ? 'slot' : null)}
+            onCode={scanSlot}
+          />
+        ) : null}
         {planChanged ? (
           <p className="text-warning text-sm" role="status">
             Kế hoạch hoặc số còn lại của dòng này đã đổi. Kiểm tra trước khi xác nhận.
@@ -155,16 +183,15 @@ export function TransferPutAwayEntryCard({
             <FieldLabel htmlFor={quantityId}>Số lượng cất ({row.baseUnitName})</FieldLabel>
             <Input
               id={quantityId}
-              className="h-11 md:h-8 pointer-coarse:h-11"
-              type="number"
-              min={0}
-              max={row.remainingQuantity}
-              step={10 ** -Math.min(2, row.baseQuantityPrecision)}
-              inputMode="decimal"
+              className="h-11 text-base md:h-8 md:text-xs pointer-coarse:h-11"
+              type="text"
+              inputMode={row.baseQuantityPrecision === 0 ? 'numeric' : 'decimal'}
               disabled={disabled}
               aria-invalid={Boolean(errors?.quantity)}
               aria-describedby={errors?.quantity ? `${quantityId}-error` : undefined}
-              {...form.register(`entries.${index}.quantity`, { valueAsNumber: true })}
+              {...form.register(`entries.${index}.quantity`, {
+                setValueAs: parseTransferQuantityInput,
+              })}
             />
             <FieldError id={`${quantityId}-error`}>{errors?.quantity?.message}</FieldError>
           </Field>
@@ -177,13 +204,8 @@ export function TransferPutAwayEntryCard({
             error={errors?.scannedSlotCode?.message ?? errors?.destinationSlotId?.message ?? null}
             disabled={disabled}
             pending={pendingScan}
-            onScan={async (code) => {
-              const done = await onScanSlot(index, code)
-              // Let the camera dialog release its focus trap before moving to quantity.
-              if (done)
-                window.requestAnimationFrame(() => document.getElementById(quantityId)?.focus())
-              return done
-            }}
+            hideCamera
+            onScan={scanSlot}
           />
         ) : null}
         {unreadableOpen || manual ? (
@@ -235,6 +257,7 @@ export function TransferPutAwayEntryCard({
             disabled={disabled}
             className="justify-self-start px-0"
             onClick={() => {
+              onCameraTargetChange(null)
               setUnreadableOpen(true)
               onSearchSlots('')
             }}
@@ -242,17 +265,34 @@ export function TransferPutAwayEntryCard({
             Không quét được mã vị trí?
           </Button>
         )}
-        <Collapsible>
+        <Collapsible
+          onOpenChange={(open) => {
+            if (!open) onCameraTargetChange(null)
+          }}
+        >
           <CollapsibleTrigger asChild>
             <Button variant="outline" type="button" size="sm">
               Quét mã hàng (tùy chọn)
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 motion-reduce:animate-none">
+            <CameraScanPanel
+              label="Quét mã hàng (không bắt buộc)"
+              open={cameraTarget === 'product'}
+              disabled={disabled || pendingScan}
+              onOpenChange={(open) => onCameraTargetChange(open ? 'product' : null)}
+              onCode={(code) => {
+                if (disabled || pendingScan) return false
+                const done = onScanProduct(index, code)
+                if (done) onCameraTargetChange(null)
+                return done
+              }}
+            />
             <ScanInput
               id={`putaway-product-${index}`}
               label="Quét mã hàng (không bắt buộc)"
               disabled={disabled}
+              hideCamera
               confirmedValue={entry.scannedProductCode || undefined}
               error={errors?.scannedProductCode?.message ?? null}
               onScan={(code) => onScanProduct(index, code)}
@@ -293,7 +333,7 @@ export function TransferPutAwayEntryCard({
           </div>
         ) : null}
       </FieldGroup>
-      <footer className="flex flex-wrap gap-2 border-t p-3">
+      <footer className="grid gap-2 border-t p-3 sm:flex sm:flex-wrap">
         <Button type="button" variant="outline" disabled={disabled} onClick={() => onSplit(index)}>
           <Split aria-hidden="true" />
           Chia sang vị trí khác

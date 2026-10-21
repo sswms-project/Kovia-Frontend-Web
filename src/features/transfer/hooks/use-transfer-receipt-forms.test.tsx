@@ -20,7 +20,7 @@ vi.mock('./use-transfer-fulfillment', () => ({
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   mock.submit.mockResolvedValue({})
   mock.putAway.mockResolvedValue({})
   mock.findSlot.mockResolvedValue({ id: RECEIPT_SLOT, path: 'A-01' })
@@ -49,12 +49,14 @@ describe('Nộp phiếu kiểm hàng an toàn', () => {
     const { result } = renderHook(() => useTransferCountForm(receiptFixture(), true))
     await waitFor(() => expect(result.current.fields).toHaveLength(1))
     expect(mock.submit).not.toHaveBeenCalled()
+    expect(result.current.form.getValues('entries.0.goodQuantity')).toBeNaN()
   })
   it('blocks double confirmation even before the pending render', async () => {
     const sheet = receiptFixture()
     const { result } = renderHook(() => useTransferCountForm(sheet, true))
     await waitFor(() => expect(result.current.fields).toHaveLength(1))
     await act(async () => {
+      result.current.form.setValue('entries.0.goodQuantity', 10)
       await Promise.all([result.current.confirm(), result.current.confirm()])
     })
     expect(mock.submit).toHaveBeenCalledTimes(1)
@@ -68,6 +70,7 @@ describe('Nộp phiếu kiểm hàng an toàn', () => {
     const { result } = renderHook(() => useTransferCountForm(sheet, true))
     await waitFor(() => expect(result.current.fields).toHaveLength(1))
     await act(async () => {
+      result.current.form.setValue('entries.0.goodQuantity', 10)
       await result.current.confirm()
     })
     expect(result.current.unknownResult).toBe(true)

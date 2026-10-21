@@ -56,6 +56,12 @@ export default function WarehouseOverviewPage() {
   const location = useOverviewNavigation()
   const { ref, compact } = useOverviewCompactLayout()
   const [pages, setPages] = useState(initialPages)
+  const [pageSizes, setPageSizes] = useState<Record<StockAlertKind, number>>({
+    'below-minimum': 10,
+    'above-maximum': 10,
+    expiring: 10,
+    expired: 10,
+  })
   const [currentOverviewRange] = useState(() => resolveActivityPeriod(defaultActivityPeriod()))
   const activityForm = useForm<ActivityPeriodValues>({
     resolver: zodResolver(activityPeriodSchema),
@@ -95,7 +101,7 @@ export default function WarehouseOverviewPage() {
     warehouseId: location.warehouseId || undefined,
     expiringDays: kind === 'expiring' ? location.expiringDays : undefined,
     pageNumber: compact && kind !== location.kind ? 1 : pages[kind],
-    pageSize: compact && kind !== location.kind ? 1 : 10,
+    pageSize: compact && kind !== location.kind ? 1 : pageSizes[kind],
   })
   const below = useStockAlertsQuery(
     request('below-minimum'),
@@ -250,6 +256,10 @@ export default function WarehouseOverviewPage() {
         expiringDays={location.expiringDays}
         panels={panels}
         onPageChange={(kind, page) => setPages((current) => ({ ...current, [kind]: page }))}
+        onPageSizeChange={(kind, pageSize) => {
+          setPageSizes((current) => ({ ...current, [kind]: pageSize }))
+          setPages((current) => ({ ...current, [kind]: 1 }))
+        }}
         onExpand={(kind, opener) => {
           dialogOpener.current = opener
           setDialog({ kind, scope, page: 1, pageSize: 10, search: '' })

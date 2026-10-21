@@ -319,6 +319,7 @@ export function StockAlertPanel({
           isPending={isFetching}
           onPageChange={onPageChange}
           onPageSizeChange={onPageSizeChange}
+          pageSizeOptions={[10, 20, 50]}
           centerContent={
             <div className="flex flex-wrap justify-center gap-x-1" aria-live="polite">
               <span>Cập nhật: {snapshotFormatter.format(new Date(data.generatedAt))}</span>

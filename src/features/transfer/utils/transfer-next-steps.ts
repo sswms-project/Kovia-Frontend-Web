@@ -49,64 +49,28 @@ export function getTransferNextSteps(
     const hasShipment = (transfer.shipments ?? []).some(
       (shipment) => shipment.status !== 'Cancelled'
     )
-    if (!hasShipment && capabilities.canAdjustAllocation) {
-      steps.push({
-        id: 'check-allocation',
-        title: 'Kiểm tra nơi lấy hàng trước khi tạo đợt',
-        description:
-          'Hệ thống đã tự phân bổ vị trí và lô theo FEFO. Bạn có thể đổi sang nơi khác nếu cần; không bắt buộc.',
-        actionLabel: 'Điều chỉnh phân bổ',
-        action: { type: 'adjustAllocation' },
-      })
-    }
     steps.push({
       id: 'create-shipment',
       title: hasShipment ? 'Còn hàng chưa chia vào đợt xuất' : 'Chưa có đợt xuất',
       description:
-        'Chọn dòng hàng và số lượng cho đợt xuất. Hệ thống tạo sẵn công việc lấy hàng để bạn giao cho nhân viên.',
-      actionLabel: 'Tạo đợt xuất',
+        'Xuất toàn bộ phần còn lại trong một chuyến và chọn người lấy hàng; chia nhiều chuyến khi cần.',
+      actionLabel: 'Chuẩn bị xuất',
       action: { type: 'createShipment' },
     })
-  }
-
-  if (capabilities.canSetPutAwaySlots) {
-    const missing = transfer.items.filter(
-      (item) => item.quantity > item.stoppedQuantity && (item.putAwayPlan ?? []).length === 0
-    ).length
-    if (missing > 0) {
-      steps.push({
-        id: 'set-put-away',
-        title: `${missing} dòng hàng chưa có kế hoạch cất`,
-        description:
-          'Chia số lượng theo vị trí; nhân viên nhận hàng sẽ thấy kế hoạch riêng cho từng lô.',
-        actionLabel: 'Lập kế hoạch cất hàng',
-        action: { type: 'openPutAwayPlan' },
-      })
-    }
   }
 
   for (const shipment of transfer.shipments ?? []) {
     const allowed = shipmentCapabilities[shipment.id]
     if (!allowed) continue
     const label = `Đợt ${shipment.shipmentNumber}`
-    if (allowed.canAssignPick && shipment.pickTaskId) {
-      steps.push(
-        shipment.pickAssigneeId
-          ? {
-              id: `reassign-pick-${shipment.id}`,
-              title: `${label} đã giao cho ${shipment.pickAssigneeName ?? 'nhân viên'} lấy hàng`,
-              description: 'Cần đổi người lấy hàng thì giao lại cho nhân viên khác, kèm lý do.',
-              actionLabel: 'Giao lại việc lấy',
-              action: { type: 'assign', kind: 'pick', shipment },
-            }
-          : {
-              id: `assign-pick-${shipment.id}`,
-              title: `${label} chưa giao người lấy hàng`,
-              description: 'Giao việc cho nhân viên kho xuất để họ lấy và quét hàng.',
-              actionLabel: 'Giao việc lấy hàng',
-              action: { type: 'assign', kind: 'pick', shipment },
-            }
-      )
+    if (allowed.canAssignPick && shipment.pickTaskId && !shipment.pickAssigneeId) {
+      steps.push({
+        id: `assign-pick-${shipment.id}`,
+        title: `${label} chưa giao người lấy hàng`,
+        description: 'Giao việc cho nhân viên kho xuất để họ lấy và quét hàng.',
+        actionLabel: 'Giao việc lấy hàng',
+        action: { type: 'assign', kind: 'pick', shipment },
+      })
     }
     if (allowed.canOpenPick && shipment.pickAssigneeId === viewer.currentUserId) {
       steps.push({
@@ -139,30 +103,21 @@ export function getTransferNextSteps(
       })
     }
     const destinationAssignmentKind = getDestinationAssignmentKind(shipment, allowed)
-    if (destinationAssignmentKind === 'receive') {
-      steps.push(
-        shipment.receiveAssigneeId
-          ? {
-              id: `reassign-receive-${shipment.id}`,
-              title: `${label} · Giao việc tại kho nhập`,
-              description: shipment.putAwayTaskId
-                ? 'Giao cùng người kiểm nhận và cất hàng, hoặc giao riêng khi cần.'
-                : 'Đã giao kiểm nhận. Công việc cất được tạo khi bắt đầu nhận hàng.',
-              actionLabel: 'Giao việc nhận và cất hàng',
-              action: { type: 'assign', kind: 'receive', shipment },
-            }
-          : {
-              id: `assign-receive-${shipment.id}`,
-              title: `${label} · Chưa giao việc tại kho nhập`,
-              description: shipment.putAwayTaskId
-                ? 'Chọn cùng người kiểm nhận và cất hàng; có thể giao riêng khi cần.'
-                : 'Giao người kiểm nhận trước. Công việc cất được tạo khi bắt đầu nhận hàng.',
-              actionLabel: 'Giao việc nhận và cất hàng',
-              action: { type: 'assign', kind: 'receive', shipment },
-            }
-      )
+    if (destinationAssignmentKind === 'receive' && !shipment.receiveAssigneeId) {
+      steps.push({
+        id: `assign-receive-${shipment.id}`,
+        title: `${label} · Chưa giao việc tại kho nhập`,
+        description: shipment.putAwayTaskId
+          ? 'Chọn cùng người kiểm nhận và cất hàng; có thể giao riêng khi cần.'
+          : 'Giao người kiểm nhận trước. Công việc cất được tạo khi bắt đầu nhận hàng.',
+        actionLabel: 'Giao việc nhận và cất hàng',
+        action: { type: 'assign', kind: 'receive', shipment },
+      })
     }
-    if (allowed.canOpenReceive) {
+    if (
+      allowed.canOpenReceive &&
+      (shipment.receiveAssigneeId === viewer.currentUserId || !shipment.receiveAssigneeId)
+    ) {
       steps.push({
         id: `open-receive-${shipment.id}`,
         title: `${label} đang chờ bạn kiểm nhận hàng`,
@@ -174,20 +129,24 @@ export function getTransferNextSteps(
             : { type: 'openReceive', shipmentId: shipment.id },
       })
     }
-    if (destinationAssignmentKind === 'putaway') {
+    if (destinationAssignmentKind === 'putaway' && !shipment.putAwayAssigneeId) {
       steps.push({
         id: `assign-putaway-${shipment.id}`,
-        title: `${label} · ${shipment.putAwayAssigneeName ? 'Đã giao cất cho ' + shipment.putAwayAssigneeName : 'Chưa giao người cất'}`,
+        title: `${label} · Chưa giao người cất`,
         description: 'Giao việc cất riêng hoặc đổi người cùng mức ưu tiên và hạn hoàn thành.',
         actionLabel: 'Giao việc cất hàng',
         action: { type: 'assign', kind: 'putaway', shipment },
       })
     }
-    if (allowed.canOpenPutAway) {
+    if (
+      allowed.canOpenPutAway &&
+      (shipment.putAwayAssigneeId === viewer.currentUserId || !shipment.putAwayAssigneeId)
+    ) {
       steps.push({
         id: `open-putaway-${shipment.id}`,
         title: `${label} còn hàng đã nhận, chưa cất`,
-        description: 'Quét vị trí và cất hàng tốt, hàng hỏng riêng. Tồn kho tăng khi xác nhận cất.',
+        description:
+          'Quét vị trí và cất hàng tốt. Hàng hỏng, thiếu được xử lý riêng; tồn kho tăng khi xác nhận cất.',
         actionLabel: 'Cất hàng',
         action: { type: 'openPutAway', shipmentId: shipment.id },
       })
@@ -204,5 +163,18 @@ export function getTransferNextSteps(
       action: { type: 'resolveDiscrepancy' },
     })
   }
-  return steps
+  // Một việc chính cho mỗi đợt: báo cáo chặn lấy hàng được ưu tiên; giao việc đứng trước thao tác thay nhân viên.
+  const primaryByShipment = new Map<string, TransferNextStep>()
+  for (const step of steps) {
+    const action = step.action
+    const shipmentId =
+      'shipment' in action ? action.shipment.id : 'shipmentId' in action ? action.shipmentId : null
+    if (shipmentId && (!primaryByShipment.has(shipmentId) || action.type === 'resolveEscalation'))
+      primaryByShipment.set(shipmentId, step)
+  }
+  return steps.filter(({ action, id }) => {
+    const shipmentId =
+      'shipment' in action ? action.shipment.id : 'shipmentId' in action ? action.shipmentId : null
+    return !shipmentId || primaryByShipment.get(shipmentId)?.id === id
+  })
 }

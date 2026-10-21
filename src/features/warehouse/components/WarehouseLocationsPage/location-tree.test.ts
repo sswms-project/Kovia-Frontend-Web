@@ -5,6 +5,7 @@ import {
   filterWarehouseLocationTree,
   flattenExpandedLocationTree,
   getExpandableLocationIds,
+  matchesWarehouseLocationTreeNode,
 } from './location-tree'
 
 const zones: ZoneResponse[] = [
@@ -52,6 +53,19 @@ const zones: ZoneResponse[] = [
 ]
 
 describe('warehouse location tree', () => {
+  it('counts only matching locations for export, not ancestors shown as navigation context', () => {
+    const tree = filterWarehouseLocationTree(buildWarehouseLocationTree(zones), 'Gần cửa', '')
+    const rows = flattenExpandedLocationTree(tree, getExpandableLocationIds(tree))
+    expect(rows).toHaveLength(3)
+    expect(
+      rows
+        .filter((node) => matchesWarehouseLocationTreeNode(node, ' GẦN CỬA ', 'Active'))
+        .map((node) => node.id)
+    ).toEqual(['slot-1'])
+    expect(rows.filter((node) => matchesWarehouseLocationTreeNode(node, '', 'Inactive'))).toEqual(
+      []
+    )
+  })
   it('builds the hierarchy and excludes the hidden system slot', () => {
     const tree = buildWarehouseLocationTree(zones)
     expect(tree[0]?.children[0]?.children.map((node) => node.id)).toEqual(['slot-1'])

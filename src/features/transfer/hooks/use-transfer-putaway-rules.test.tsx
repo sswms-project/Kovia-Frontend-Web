@@ -83,7 +83,7 @@ describe('Tự điền theo quy tắc kho', () => {
       { initialProps: { version: 'v1' }, wrapper: setup() }
     )
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mock.get).toHaveBeenCalledWith('transfer', 'shipment', false)
+    expect(mock.get).toHaveBeenCalledWith('transfer', 'shipment', false, expect.any(AbortSignal))
     rerender({ version: 'v2' })
     await waitFor(() => expect(mock.get).toHaveBeenCalledTimes(2))
   })

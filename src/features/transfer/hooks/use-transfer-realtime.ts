@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
+import { getTransferClientId } from '../utils/transfer-client'
 import { useNotificationHub } from '@/features/platform-services/providers/notification-hub-context'
 import {
   TRANSFER_CHANGED_EVENT,
   transferChangedEventSchema,
   type TransferChangedEvent,
 } from '../schemas/transfer-realtime.schema'
-import { TRANSFER_MUTATION_KEY, invalidateTransferQueries } from './use-transfers'
+import { invalidateTransferQueries } from './use-transfers'
 
 interface UseTransferRealtimeOptions {
   /** Phiếu đang xem: tham gia nhóm theo phiếu. */
@@ -28,15 +29,8 @@ export interface TransferRealtimeState {
   readonly dismiss: () => void
 }
 
-/** Sau thao tác ghi của chính trình duyệt này, tín hiệu realtime dội lại không phải thay đổi của người khác. */
-const OWN_WRITE_ECHO_MS = 5000
-
 function describeJoinFailure(scope: string, error: unknown) {
   logger.warn(`[transfers] Không thể tham gia nhóm realtime ${scope}`, error)
-}
-
-function isOwnWriteEcho(write: { inFlight: number; settledAt: number }) {
-  return write.inFlight > 0 || Date.now() - write.settledAt < OWN_WRITE_ECHO_MS
 }
 
 export function useTransferRealtime({
@@ -49,7 +43,6 @@ export function useTransferRealtime({
   const [lastChange, setLastChange] = useState<TransferChangedEvent | null>(null)
   const [hasPendingChange, setHasPendingChange] = useState(false)
   const joinedSessionRef = useRef<number | null>(null)
-  const ownWriteRef = useRef({ inFlight: 0, settledAt: 0 })
   const [seenSession, setSeenSession] = useState(session)
   // Kết nối lại có thể làm lỡ tín hiệu: màn hình đang nhập dở chỉ được báo, không tải đè dữ liệu.
   if (session !== seenSession) {
@@ -65,22 +58,6 @@ export function useTransferRealtime({
 
   const dismiss = useCallback(() => setHasPendingChange(false), [])
 
-  useEffect(
-    () =>
-      queryClient.getMutationCache().subscribe((event) => {
-        const write = ownWriteRef.current
-        if (event.type !== 'updated') return
-        if (event.mutation.options.mutationKey?.[0] !== TRANSFER_MUTATION_KEY[0]) return
-        const { action } = event
-        if (action.type === 'pending') write.inFlight += 1
-        else if (action.type === 'success' || action.type === 'error') {
-          write.inFlight = Math.max(0, write.inFlight - 1)
-          write.settledAt = Date.now()
-        }
-      }),
-    [queryClient]
-  )
-
   useEffect(() => {
     if (!connection) return
     const warehouses = warehouseKey ? warehouseKey.split(',') : []
@@ -94,8 +71,11 @@ export function useTransferRealtime({
       }
       if (transferId && warehouses.length === 0 && result.data.transferId !== transferId) return
       setLastChange(result.data)
+      // Writes own their post-commit read. Events with no origin (older clients/jobs)
+      // remain visible; time windows cannot safely identify another user's change.
+      if (result.data.originClientId && result.data.originClientId === getTransferClientId()) return
       if (autoRefresh) void refresh()
-      else if (!isOwnWriteEcho(ownWriteRef.current)) setHasPendingChange(true)
+      else setHasPendingChange(true)
     }
 
     connection.on(TRANSFER_CHANGED_EVENT, handleChanged)
