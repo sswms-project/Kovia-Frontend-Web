@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## 2026-10-21 — Feature branch to dev PR readiness and flow2 menu repair
+
+- User authorized commit/push and PR targeting dev, retaining manual merge. Scoped implementer self-review, not independent certification. origin/dev9773787 remains an ancestor. Branch diff covers source acceptance, unified execution/mobile scanning, refresh/idempotency guards, inventory/warehouse visibility, pagination, returns toolbars and shared export UX. Existing config/instruction/output changes excluded.
+- Medium finding FIXED with explicit user approval: TransferShipmentActions only exposed putaway history for receiptFlowVersion1, hiding the secondary link for dev's flow2. Accept versions1/2 while preserving task presence and destination/Owner view capabilities; no new component/style/dependency. Extended source/destination/Owner cases reproduce2failures before fix, then8/8pass. Direct caller is TransferShipmentsPanel; symbol absent from GitNexus index, so direct source tracing supplements UNKNOWN graph result. Existing shadcn menu/Link/focus semantics retained.
+- All48 changed FE test files pass in one final sequential run:342passed,0failed (../outputs/dev-sync-20261021/pr-fe-changed-tests.json), including the8menu cases and12compact receipt/handoff cases. ESLint across all changed TS/TSX files passed in bounded batches; initial pnpm all-file invocation hit Windows command-line length, not a lint finding. Focused final menu ESLint passed. Initial broader mixed-module run alongside production build ended with worker memory exhaustion, not a pass; no whole-suite green claim.
+- Existing12inbound test failures were previously reproduced on an isolated origin/dev archive. Default typecheck/build also includes pre-existing temporary-fixture typing; production verification uses KOVIA_ISOLATED_BUILD=true/tsconfig.production.json. Final source production build after menu repair passed: compilation, TypeScript and73static pages completed, exit0.
+- No new Blocker/High found in inspected paths; no live mobile/camera, deployed latency, all-new-flow2 E2E or full-suite certification. Pair with BE PR#254 for contract changes. No deployed DB writes/migration/seed/service restart; existing local runtime is unchanged.
+
 ## 2026-10-21 — Safe origin/dev integration after transfer optimization commit
 
 - Implementer self-verification; READY_FOR_CODEX_REVIEW. User requested commit and safe pull only. Optimization checkpoint033ea34 and pre-merge backup branch retained. Integrated origin/dev9773787 (two incoming commits); no push.

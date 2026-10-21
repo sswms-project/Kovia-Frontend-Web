@@ -8,13 +8,17 @@ import { TransferShipmentActions } from './TransferShipmentActions'
 
 afterEach(cleanup)
 const transfer = buildTransfer()
-it.each(['source', 'destination', 'owner'] as const)(
-  'scopes receiving links for %s',
-  async (scope) => {
+it.each(
+  ([1, 2] as const).flatMap((receiptFlowVersion) =>
+    (['source', 'destination', 'owner'] as const).map((scope) => ({ receiptFlowVersion, scope }))
+  )
+)(
+  'scopes receiving links for $scope with receipt flow $receiptFlowVersion',
+  async ({ receiptFlowVersion, scope }) => {
     const shipment = buildShipment({
       status: 'Receiving',
       dispatchedAt: '2026-10-20T00:00:00Z',
-      receiptFlowVersion: 1,
+      receiptFlowVersion,
       putAwayTaskId: 'put',
     })
     const allowed = getShipmentCapabilities(

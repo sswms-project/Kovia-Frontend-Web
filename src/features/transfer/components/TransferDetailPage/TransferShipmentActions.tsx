@@ -61,7 +61,8 @@ export function TransferShipmentActions({
   const canViewReceipt = Boolean(
     shipment.dispatchedAt || shipment.lines.some((line) => line.dispatchedQuantity > 0)
   )
-  const canViewPutAway = shipment.receiptFlowVersion === 1 && Boolean(shipment.putAwayTaskId)
+  const canViewPutAway =
+    [1, 2].includes(shipment.receiptFlowVersion ?? 0) && Boolean(shipment.putAwayTaskId)
   const hasOtherActions = Boolean(
     (picking && allowed?.canViewPick) ||
     (canViewReceipt && allowed?.canViewReceive) ||
