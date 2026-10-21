@@ -88,8 +88,19 @@ describe('PickEntryDialog camera', () => {
 
   it('pauses the camera when both codes are scanned so the quantity can be entered', async () => {
     renderDialog({ ...INITIAL_PICK_SCAN_STATE, step: 'ready', productCode: 'SKU-1' })
-    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
+    expect(
+      screen.getByText(
+        'Đã quét đủ. Camera tạm dừng để bạn nhập số lượng; bấm Quét lại để quét tiếp.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Bật camera quét/ })).toBeDisabled()
     expect(cameraActive).toBe(false)
-    expect(screen.getByText(/Camera tạm dừng/)).toBeInTheDocument()
+    expect(screen.queryByTestId('camera')).not.toBeInTheDocument()
+  })
+  it('shows a camera frame and a full-width start action before asking for permission', () => {
+    renderDialog(INITIAL_PICK_SCAN_STATE)
+    expect(screen.getByText('Khung quét mã QR / mã vạch')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Bật camera quét/ })).toHaveClass('h-11', 'w-full')
+    expect(screen.queryByTestId('camera')).not.toBeInTheDocument()
   })
 })

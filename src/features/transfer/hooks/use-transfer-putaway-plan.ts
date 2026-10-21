@@ -11,9 +11,9 @@ import { invalidateTransferQueries, TRANSFER_MUTATION_KEY } from './use-transfer
 export function useTransferPutAwayPlanSuggestionsQuery(transferId: string, shipmentId?: string) {
   return useQuery({
     queryKey: queryKeys.transfers.putAwayPlanSuggestions(transferId, shipmentId),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       transferService
-        .getPutAwayPlanSuggestions(transferId, shipmentId)
+        .getPutAwayPlanSuggestions(transferId, shipmentId, true, signal)
         .then((response) => response.data),
     enabled: false,
     retry: false,
@@ -51,6 +51,10 @@ export function useSetTransferPutAwayPlanMutation() {
   return useMutation({
     mutationKey: TRANSFER_MUTATION_KEY,
     retry: false,
+    onMutate: ({ transferId }) =>
+      queryClient.cancelQueries({
+        queryKey: queryKeys.transfers.putAwayPlanSuggestions(transferId).slice(0, -1),
+      }),
     mutationFn: ({
       transferId,
       request,

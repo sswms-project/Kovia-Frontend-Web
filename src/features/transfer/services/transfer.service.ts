@@ -5,6 +5,8 @@ import type { ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
 import type {
   TransferDestinationLoadQuery,
+  TransferRequestDecision,
+  WithdrawTransferRequest,
   TransferDestinationLoad,
   AdjustTransferAllocationRequest,
   TransferAllocationOption,
@@ -59,6 +61,18 @@ import type {
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
 
 export const transferService = {
+  decideRequest: (id: string, request: TransferRequestDecision) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.decision(id), request, transferWriteConfig())
+      .then(unwrap),
+  withdrawRequest: (id: string, request: WithdrawTransferRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.withdraw(id), request, transferWriteConfig())
+      .then(unwrap),
   getDestinationLoad: (query: TransferDestinationLoadQuery, signal?: AbortSignal) =>
     axiosClient
       .get<

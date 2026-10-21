@@ -367,7 +367,9 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
   const unavailable = isReady && !canCreate
   const notEditable =
     Boolean(detail) &&
-    (detail?.isLegacyWorkflow || (detail?.status !== 'Draft' && detail?.status !== 'InProgress'))
+    (detail?.isLegacyWorkflow ||
+      Boolean(detail?.approvedAt) ||
+      (detail?.status !== 'Draft' && detail?.status !== 'InProgress'))
 
   const totalBaseQuantity = lines.reduce((sum, line) => {
     const info = unitsByProductId[line.productId]
@@ -449,7 +451,7 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
       ) : notEditable ? (
         <OperationalEmptyState
           title="Phiếu này không còn sửa được"
-          description="Chỉ sửa được nháp hoặc phiếu đang thực hiện thuộc quy trình mới."
+          description="Yêu cầu đang chờ phải được thu hồi về nháp trước khi sửa. Yêu cầu đã được chấp nhận không thể thay đổi nội dung."
         />
       ) : (
         <TransferForm
@@ -544,8 +546,8 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
               </div>
             </dl>
             <p>
-              Hệ thống kiểm tồn khả dụng và <strong>giữ chỗ ngay</strong> ở kho xuất. Nếu thiếu tồn,
-              toàn bộ yêu cầu bị chặn và bản nháp được giữ lại.
+              Yêu cầu sẽ gửi tới kho xuất để xác nhận, <strong>chưa giữ chỗ tồn kho</strong>. Hệ
+              thống kiểm tra lại tồn và giữ chỗ khi kho xuất chấp nhận.
             </p>
           </div>
         }

@@ -28,6 +28,7 @@ const putAway = {
   blocked: false,
   isPending: false,
   isFindingSlot: false,
+  reloadRequired: false,
   notice: null,
   unknownResult: false,
   changedLines: new Set(),
@@ -127,11 +128,51 @@ beforeEach(() => {
   mock.sheetFetching = false
   mock.missingSheet = false
   mock.canPlan = false
+  putAway.reloadRequired = false
+  putAway.unknownResult = false
+  transfer.status = 'InProgress'
   mock.form.formState.isDirty = false
   mock.ai.mockResolvedValue({ data: suggestions, isError: false })
 })
 afterEach(cleanup)
 describe('Trang cất hàng — tự điền và AI theo yêu cầu', () => {
+  it('still allows valid putaway suggestions while another discrepancy awaits resolution', () => {
+    transfer.status = 'AwaitingResolution'
+    render(
+      <TransferPutAwayPage
+        transferId={transfer.id}
+        shipmentId={sheet.receipt.shipmentId}
+        initialTab="execution"
+      />
+    )
+    expect(mock.rules.mock.lastCall?.[3]).toBe(true)
+  })
+  it('does not request or apply suggestions between a committed write and fresh snapshots', () => {
+    putAway.reloadRequired = true
+    const page = render(
+      <TransferPutAwayPage
+        transferId={transfer.id}
+        shipmentId={sheet.receipt.shipmentId}
+        initialTab="execution"
+      />
+    )
+    expect(mock.rules.mock.lastCall?.[3]).toBe(false)
+    expect(mock.apply).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Gợi ý AI' }))
+    expect(mock.ai).not.toHaveBeenCalled()
+    putAway.reloadRequired = false
+    transfer.status = 'Completed'
+    page.rerender(
+      <TransferPutAwayPage
+        transferId={transfer.id}
+        shipmentId={sheet.receipt.shipmentId}
+        initialTab="execution"
+      />
+    )
+    expect(mock.rules.mock.lastCall?.[3]).toBe(false)
+    expect(mock.apply).not.toHaveBeenCalled()
+  })
+
   it('waits for the complete sheet and stops rules during either snapshot refresh', () => {
     mock.canPlan = true
     mock.missingSheet = true

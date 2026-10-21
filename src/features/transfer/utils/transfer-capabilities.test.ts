@@ -18,6 +18,41 @@ function viewer(permissions: string[], overrides: Partial<TransferViewer> = {}):
 }
 
 describe('getTransferCapabilities', () => {
+  it('separates source decisions from requester withdrawal and prevents edits after acceptance', () => {
+    const pending = buildTransfer({ status: 'PendingSourceAcceptance' })
+    const permissions = [P.TRANSFERS_CREATE, P.TRANSFERS_DISPATCH]
+    const source = getTransferCapabilities(
+      viewer(permissions, { currentUserId: MANAGER_ID, warehouseIds: [pending.sourceWarehouseId] }),
+      pending
+    )
+    const destination = getTransferCapabilities(
+      viewer(permissions, { warehouseIds: [pending.destinationWarehouseId] }),
+      pending
+    )
+    expect(source).toMatchObject({
+      canDecideRequest: true,
+      canWithdrawRequest: false,
+      canCreateShipment: false,
+      canEdit: false,
+    })
+    expect(destination).toMatchObject({
+      canDecideRequest: false,
+      canWithdrawRequest: true,
+      canEdit: false,
+    })
+    expect(
+      getTransferCapabilities(
+        viewer([P.TRANSFERS_VIEW], { warehouseIds: [pending.sourceWarehouseId] }),
+        pending
+      ).canDecideRequest
+    ).toBe(false)
+    expect(
+      getTransferCapabilities(
+        viewer(permissions),
+        buildTransfer({ approvedAt: '2026-10-20T10:00:00Z' })
+      ).canEdit
+    ).toBe(false)
+  })
   it('grants nothing without a transfer or on a legacy transfer', () => {
     const everything = viewer(Object.values(P), { isTenantOwner: true })
     expect(getTransferCapabilities(everything, null).closingAction).toBeNull()

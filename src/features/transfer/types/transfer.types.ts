@@ -1,5 +1,7 @@
 export const TRANSFER_WORKFLOW_STATUSES = [
   'Draft',
+  'PendingSourceAcceptance',
+  'Rejected',
   'InProgress',
   'AwaitingResolution',
   'Completed',
@@ -11,7 +13,6 @@ export const TRANSFER_LEGACY_STATUSES = [
   'Approved',
   'InTransit',
   'ReceivedWithVariance',
-  'Rejected',
 ] as const
 
 export type TransferWorkflowStatus = (typeof TRANSFER_WORKFLOW_STATUSES)[number]
@@ -173,6 +174,8 @@ export interface TransferStatusCounts {
   awaitingResolution: number
   completed: number
   cancelled: number
+  pendingSourceAcceptance?: number
+  rejected?: number
 }
 
 export interface TransferRequesterOption {
@@ -348,6 +351,13 @@ export interface TransferFeedback {
 }
 
 export interface TransferDetail {
+  requestEvents?: Array<{
+    action: string
+    actorId: string
+    actorName: string | null
+    createdAt: string
+    reason: string | null
+  }> | null
   plannedTransferDate?: string | null
   id: string
   transferCode: string
@@ -467,6 +477,18 @@ export interface SubmitTransferRequest {
   expectedVersion: string | null
 }
 
+export interface TransferRequestDecision {
+  accept: boolean
+  reason: string | null
+  expectedVersion: string
+  commandId: string
+}
+
+export interface WithdrawTransferRequest {
+  expectedVersion: string
+  commandId: string
+}
+
 export interface CancelTransferRequest {
   reason: string
   expectedVersion: string | null
@@ -484,6 +506,7 @@ export interface ReplyTransferFeedbackRequest {
 }
 
 export interface CreateTransferShipmentRequest {
+  acceptRequest?: boolean
   lines: Array<{ itemId: string; quantity: number | null }>
   staffId?: string | null
   expectedVersion?: string | null

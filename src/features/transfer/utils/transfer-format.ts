@@ -15,6 +15,7 @@ import type {
 
 export const TRANSFER_STATUS_LABELS: Record<TransferStatus, string> = {
   Draft: 'Nháp',
+  PendingSourceAcceptance: 'Chờ kho xuất xác nhận',
   InProgress: 'Đang thực hiện',
   AwaitingResolution: 'Chờ xử lý chênh lệch',
   Completed: 'Hoàn tất',
@@ -23,11 +24,12 @@ export const TRANSFER_STATUS_LABELS: Record<TransferStatus, string> = {
   Approved: 'Đã duyệt (quy trình cũ)',
   InTransit: 'Đang vận chuyển (quy trình cũ)',
   ReceivedWithVariance: 'Nhận có chênh lệch (quy trình cũ)',
-  Rejected: 'Bị từ chối (quy trình cũ)',
+  Rejected: 'Đã từ chối',
 }
 
 export const TRANSFER_STATUS_DESCRIPTIONS: Record<TransferStatus, string> = {
   Draft: 'Chưa giữ chỗ tồn kho, chỉ người tạo nhìn thấy.',
+  PendingSourceAcceptance: 'Đã gửi yêu cầu; chờ kho xuất xác nhận, chưa giữ chỗ tồn kho.',
   InProgress: 'Đã giữ chỗ tồn kho; đang chia đợt, lấy, xuất hoặc nhận hàng.',
   AwaitingResolution: 'Hàng đã xuất và nhận xong, còn chênh lệch chờ kho nhận xử lý.',
   Completed: 'Mọi dòng hàng đã khớp, phiếu hoàn tất tự động.',
@@ -36,7 +38,7 @@ export const TRANSFER_STATUS_DESCRIPTIONS: Record<TransferStatus, string> = {
   Approved: 'Phiếu thuộc quy trình cũ, chỉ xem.',
   InTransit: 'Phiếu thuộc quy trình cũ, chỉ xem.',
   ReceivedWithVariance: 'Phiếu thuộc quy trình cũ, chỉ xem.',
-  Rejected: 'Phiếu thuộc quy trình cũ, chỉ xem.',
+  Rejected: 'Kho xuất đã từ chối yêu cầu; không giữ chỗ tồn kho.',
 }
 
 export const DISPATCH_PROGRESS_LABELS: Record<TransferDispatchProgress, string> = {

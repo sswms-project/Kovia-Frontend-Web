@@ -1,5 +1,4 @@
-import { Camera, CameraOff } from 'lucide-react'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,10 +12,7 @@ import { Input } from '@/components/ui/input'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import type { TransferPickAlternative, TransferPickSheetLine } from '../../types/transfer.types'
 import type { PickScanState } from '../../utils/transfer-scan'
-import { isCameraScanSupported } from '../../utils/camera-scan'
-import { playScanFeedback } from '../../utils/scan-feedback'
-import { useScanPreferences } from '../../utils/scan-preferences'
-import { InlineCameraScanner } from './InlineCameraScanner'
+import { CameraScanPanel } from './CameraScanPanel'
 import { ScanInput, type ScanResult } from './ScanInput'
 import { ScanPreferencesBar } from './ScanPreferencesBar'
 import { formatTransferLocation } from '../../utils/transfer-location'
@@ -40,8 +36,6 @@ interface PickEntryDialogProps {
   readonly onConfirm: () => void
   readonly onOpenChange: (open: boolean) => void
 }
-
-const subscribeNothing = () => () => undefined
 
 /** Quét từng đơn vị: cho phép quét lại cùng mã sau khoảng ngắn để đếm từng thùng giống nhau. */
 const EACH_UNIT_REPEAT_GUARD_MS = 600
@@ -82,8 +76,6 @@ export function PickEntryWorkspace({
   const isReady = scan.step === 'ready'
   const offered = scan.offeredAlternative
   const quantityRef = useRef<HTMLInputElement>(null)
-  const [preferences] = useScanPreferences()
-  const canUseCamera = useSyncExternalStore(subscribeNothing, isCameraScanSupported, () => false)
   const [cameraOn, setCameraOn] = useState(false)
   const [quantityText, setQuantityText] = useState(String(quantity))
   const [previousQuantity, setPreviousQuantity] = useState(quantity)
@@ -92,27 +84,6 @@ export function PickEntryWorkspace({
     const parsed = parseTransferQuantityInput(quantityText)
     if (!Object.is(parsed, quantity))
       setQuantityText(Number.isFinite(quantity) ? String(quantity) : '')
-  }
-  // Camera chạy xuyên bước 1 (vị trí) và bước 2 (mã hàng); xong thì tự dừng để nhập số lượng.
-  // Quét từng đơn vị vẫn cần quét tiếp nên camera ở lại cho tới khi người dùng tắt hoặc đóng hộp thoại.
-  const cameraActive =
-    cameraOn && Boolean(line) && !isPending && !uncertain && (!isReady || eachUnit)
-  const latest = useRef({
-    step: scan.step,
-    onScanSlot,
-    onScanProduct,
-    feedback: preferences.feedback,
-  })
-  useEffect(() => {
-    latest.current = { step: scan.step, onScanSlot, onScanProduct, feedback: preferences.feedback }
-  })
-  function handleCameraCode(code: string) {
-    const { step, onScanSlot: scanSlot, onScanProduct: scanProduct, feedback } = latest.current
-    const result = step === 'slot' ? scanSlot(code) : scanProduct(code)
-    if (!feedback || result === undefined) return
-    void Promise.resolve(result).then((ok) => {
-      if (typeof ok === 'boolean') playScanFeedback(ok ? 'success' : 'error')
-    })
   }
   // Quét xong mã hàng thì con trỏ nhảy sang số lượng để nhân viên chỉ cần Enter xác nhận.
   useEffect(() => {
@@ -141,33 +112,21 @@ export function PickEntryWorkspace({
               nhập lượt lấy mới.
             </p>
           ) : null}
+          <CameraScanPanel
+            label={scan.step === 'slot' ? 'Quét vị trí lấy hàng' : 'Quét hàng hóa cần lấy'}
+            open={cameraOn}
+            disabled={isPending || uncertain}
+            pausedMessage={
+              isReady && !eachUnit
+                ? 'Đã quét đủ. Camera tạm dừng để bạn nhập số lượng; bấm Quét lại để quét tiếp.'
+                : undefined
+            }
+            onOpenChange={setCameraOn}
+            onCode={scan.step === 'slot' ? onScanSlot : onScanProduct}
+            repeatGuardMs={eachUnit ? EACH_UNIT_REPEAT_GUARD_MS : undefined}
+          />
           <fieldset disabled={isPending || uncertain} className="grid min-w-0 gap-4">
             <ScanPreferencesBar showEachUnit />
-            {canUseCamera ? (
-              <div className="grid gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11"
-                  disabled={isPending}
-                  aria-pressed={cameraOn}
-                  onClick={() => setCameraOn((current) => !current)}
-                >
-                  {cameraOn ? <CameraOff aria-hidden="true" /> : <Camera aria-hidden="true" />}
-                  {cameraOn ? 'Tắt camera quét' : 'Bật camera quét'}
-                </Button>
-                <InlineCameraScanner
-                  active={cameraActive}
-                  onCode={handleCameraCode}
-                  repeatGuardMs={eachUnit ? EACH_UNIT_REPEAT_GUARD_MS : undefined}
-                />
-                {cameraOn && isReady && !eachUnit ? (
-                  <p className="text-muted-foreground text-xs" role="status">
-                    Đã quét đủ. Camera tạm dừng để bạn nhập số lượng; bấm Quét lại để quét tiếp.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
             <ScanInput
               id="pick-scan-slot"
               label="1. Quét mã vị trí"
@@ -243,7 +202,7 @@ export function PickEntryWorkspace({
             </Field>
           </fieldset>
 
-          <footer className="flex flex-wrap justify-end gap-2">
+          <footer className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
             <Button
               type="button"
               variant="outline"

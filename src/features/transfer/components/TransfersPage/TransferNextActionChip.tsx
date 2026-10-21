@@ -4,6 +4,8 @@ import { APP_ROUTES } from '@/routes/app-routes'
 
 const labels: Readonly<Record<string, string>> = {
   Submit: 'Chờ gửi yêu cầu',
+  ConfirmRequest: 'Chờ kho xuất xác nhận',
+  Rejected: 'Xem lý do từ chối',
   CreateShipment: 'Chuẩn bị xuất',
   Pick: 'Chờ lấy hàng',
   Dispatch: 'Chờ xác nhận xuất',

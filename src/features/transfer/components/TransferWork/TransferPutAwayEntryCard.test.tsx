@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TransferPutAwayFormValues } from '../../schemas/transfer-putaway.schema'
 import type { TransferPutAwaySheetRow } from '../../types/transfer-receipt.types'
@@ -45,6 +46,7 @@ const onScanSlot = vi.fn()
 const onScanProduct = vi.fn()
 
 function TestCard({ disabled = false, pendingScan = false }) {
+  const [cameraTarget, setCameraTarget] = useState<'slot' | 'product' | null>(null)
   const form = useForm<TransferPutAwayFormValues>({
     defaultValues: {
       entries: [
@@ -73,6 +75,8 @@ function TestCard({ disabled = false, pendingScan = false }) {
       form={form}
       disabled={disabled}
       pendingScan={pendingScan}
+      cameraTarget={cameraTarget}
+      onCameraTargetChange={setCameraTarget}
       planChanged={false}
       canRemove={false}
       slotOptions={[]}
@@ -103,16 +107,16 @@ describe('TransferPutAwayEntryCard camera scanning', () => {
     const user = userEvent.setup()
     render(<TestCard />)
     await user.click(
-      screen.getByRole('button', { name: 'Quét bằng camera: Quét mã vị trí cất hàng' })
+      screen.getByRole('button', { name: 'Bật camera quét: Quét mã vị trí cất hàng' })
     )
-    expect(screen.getByRole('dialog')).toHaveAccessibleName('Quét mã vị trí cất hàng')
+    expect(screen.getByLabelText('Hình ảnh từ camera')).toBeInTheDocument()
     await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
 
     await act(async () => startCameraScan.mock.calls[0]?.[1]('A07'))
 
     expect(onScanSlot).toHaveBeenCalledExactlyOnceWith(0, 'A07')
     expect(onScanProduct).not.toHaveBeenCalled()
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Hình ảnh từ camera')).not.toBeInTheDocument()
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'Số lượng cất (Cái)' })).toHaveFocus()
     )
@@ -124,7 +128,7 @@ describe('TransferPutAwayEntryCard camera scanning', () => {
     render(<TestCard />)
     await user.click(screen.getByRole('button', { name: 'Quét mã hàng (tùy chọn)' }))
     await user.click(
-      screen.getByRole('button', { name: 'Quét bằng camera: Quét mã hàng (không bắt buộc)' })
+      screen.getByRole('button', { name: 'Bật camera quét: Quét mã hàng (không bắt buộc)' })
     )
     await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
 
@@ -137,7 +141,7 @@ describe('TransferPutAwayEntryCard camera scanning', () => {
   it('does not open the slot camera while resolving a scan', async () => {
     const user = userEvent.setup()
     render(<TestCard pendingScan />)
-    const camera = screen.getByRole('button', { name: 'Quét bằng camera: Quét mã vị trí cất hàng' })
+    const camera = screen.getByRole('button', { name: 'Bật camera quét: Quét mã vị trí cất hàng' })
     expect(camera).toBeDisabled()
     await user.click(camera)
     expect(startCameraScan).not.toHaveBeenCalled()
@@ -147,7 +151,7 @@ describe('TransferPutAwayEntryCard camera scanning', () => {
     const user = userEvent.setup()
     render(<TestCard disabled />)
     await user.click(screen.getByRole('button', { name: 'Quét mã hàng (tùy chọn)' }))
-    for (const camera of screen.getAllByRole('button', { name: /Quét bằng camera:/ })) {
+    for (const camera of screen.getAllByRole('button', { name: /Bật camera quét:/ })) {
       expect(camera).toBeDisabled()
       await user.click(camera)
     }
@@ -157,7 +161,11 @@ describe('TransferPutAwayEntryCard camera scanning', () => {
   it('keeps manual entry available when camera access is unsupported', () => {
     isCameraScanSupported.mockReturnValue(false)
     render(<TestCard />)
-    expect(screen.queryByRole('button', { name: /Quét bằng camera:/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Bật camera quét:/ })).toBeDisabled()
+    expect(screen.getByText('Khung quét mã QR / mã vạch')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Trạng thái camera' })).toHaveTextContent(
+      /HTTPS|không hỗ trợ/
+    )
     expect(screen.getByRole('textbox', { name: 'Quét mã vị trí cất hàng' })).toBeEnabled()
   })
 
@@ -166,11 +174,12 @@ describe('TransferPutAwayEntryCard camera scanning', () => {
     onScanSlot.mockResolvedValue(false)
     render(<TestCard />)
     await user.click(
-      screen.getByRole('button', { name: 'Quét bằng camera: Quét mã vị trí cất hàng' })
+      screen.getByRole('button', { name: 'Bật camera quét: Quét mã vị trí cất hàng' })
     )
     await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
     await act(async () => startCameraScan.mock.calls[0]?.[1]('WRONG-SLOT'))
     expect(onScanSlot).toHaveBeenCalledExactlyOnceWith(0, 'WRONG-SLOT')
+    expect(screen.queryByLabelText('Hình ảnh từ camera')).not.toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Số lượng cất (Cái)' })).not.toHaveFocus()
   })
 })

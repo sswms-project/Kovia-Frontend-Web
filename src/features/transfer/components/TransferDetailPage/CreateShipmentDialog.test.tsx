@@ -13,9 +13,13 @@ const onSubmit = vi.fn()
 function Fixture({
   uncertain = false,
   canAssign = true,
+  precision = 0,
+  isLoadingStaff = false,
 }: {
   uncertain?: boolean
   canAssign?: boolean
+  precision?: number
+  isLoadingStaff?: boolean
 }) {
   const form = useForm<CreateShipmentFormValues>({
     resolver: zodResolver(createShipmentSchema),
@@ -29,6 +33,7 @@ function Fixture({
           selected: true,
           maximum: 10,
           quantity: 10,
+          precision,
         },
       ],
     },
@@ -40,6 +45,7 @@ function Fixture({
       isPending={false}
       uncertain={uncertain}
       canAssign={canAssign}
+      isLoadingStaff={isLoadingStaff}
       currentUserId={staffId}
       staff={[
         {
@@ -62,10 +68,15 @@ afterEach(() => {
 })
 
 describe('Shipment preparation dialog', () => {
+  it('distinguishes staff loading from choosing to assign later', () => {
+    render(<Fixture isLoadingStaff />)
+    expect(screen.getByLabelText('Người lấy hàng')).toBeDisabled()
+    expect(screen.getByRole('option', { name: 'Đang tải người lấy hàng…' })).toBeInTheDocument()
+  })
   it('defaults to one full shipment and combines staff choice into its confirmation', async () => {
     render(<Fixture />)
-    expect(screen.getByRole('spinbutton')).toBeDisabled()
-    expect(screen.getByRole('spinbutton')).toHaveValue(10)
+    expect(screen.getByRole('textbox', { name: /Số lượng đưa vào đợt/ })).toBeDisabled()
+    expect(screen.getByRole('textbox', { name: /Số lượng đưa vào đợt/ })).toHaveValue('10')
     expect(screen.getByRole('checkbox', { name: 'Chia hàng thành nhiều chuyến' })).not.toBeChecked()
     fireEvent.change(screen.getByLabelText('Người lấy hàng'), { target: { value: staffId } })
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận chuẩn bị xuất' }))
@@ -79,15 +90,43 @@ describe('Shipment preparation dialog', () => {
     render(<Fixture />)
     const split = screen.getByRole('checkbox', { name: 'Chia hàng thành nhiều chuyến' })
     fireEvent.click(split)
-    expect(screen.getByRole('spinbutton')).toBeEnabled()
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '3' } })
+    expect(screen.getByRole('textbox', { name: /Số lượng đưa vào đợt/ })).toBeEnabled()
+    fireEvent.change(screen.getByRole('textbox', { name: /Số lượng đưa vào đợt/ }), {
+      target: { value: '3' },
+    })
     fireEvent.click(split)
-    expect(screen.getByRole('spinbutton')).toHaveValue(10)
-    expect(screen.getByRole('spinbutton')).toBeDisabled()
+    expect(screen.getByRole('textbox', { name: /Số lượng đưa vào đợt/ })).toHaveValue('10')
+    expect(screen.getByRole('textbox', { name: /Số lượng đưa vào đợt/ })).toBeDisabled()
   })
   it('does not offer assignment when permission is missing', () => {
     render(<Fixture canAssign={false} />)
     expect(screen.queryByLabelText('Người lấy hàng')).not.toBeInTheDocument()
+  })
+  it('uses a wheel-safe text quantity and blocks fractional integer-unit splits inline', () => {
+    render(<Fixture />)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chia hàng thành nhiều chuyến' }))
+    const input = screen.getByRole('textbox', { name: /Số lượng đưa vào đợt/ })
+    expect(input).toHaveAttribute('inputmode', 'numeric')
+    fireEvent.wheel(input, { deltaY: -100 })
+    expect(input).toHaveValue('10')
+    fireEvent.change(input, { target: { value: '0.5' } })
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(
+      screen.getByText('Đơn vị này chỉ nhận số nguyên, không được nhập số lẻ.')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Xác nhận chuẩn bị xuất' })).toBeDisabled()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+  it('allows localized decimal quantities only for the unit precision', async () => {
+    render(<Fixture precision={1} />)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Chia hàng thành nhiều chuyến' }))
+    const input = screen.getByRole('textbox', { name: /Số lượng đưa vào đợt/ })
+    fireEvent.change(input, { target: { value: '1,25' } })
+    expect(screen.getByRole('button', { name: 'Xác nhận chuẩn bị xuất' })).toBeDisabled()
+    fireEvent.change(input, { target: { value: '1,5' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận chuẩn bị xuất' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0]![0].lines[0].quantity).toBe(1.5)
   })
   it('freezes editable fields but keeps the exact-command replay available after an uncertain response', () => {
     render(<Fixture uncertain />)

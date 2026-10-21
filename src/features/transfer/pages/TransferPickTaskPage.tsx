@@ -122,7 +122,7 @@ export default function TransferPickTaskPage({
             description="Quản lý có thể đã giảm hoặc hủy đợt này."
           />
         ) : (
-          <div className="flex h-full min-h-0 flex-col gap-3 pb-3">
+          <div className="flex flex-col gap-3 pb-3 lg:h-full lg:min-h-0">
             {isPicking && !hasPickPermission ? (
               <MissingPermissionNotice action="lấy hàng điều chuyển" />
             ) : isPicking && !canAct ? (
@@ -140,7 +140,7 @@ export default function TransferPickTaskPage({
                 Đợt này không còn ở trạng thái lấy hàng nên chỉ xem được.
               </p>
             ) : null}
-            <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(20rem,1fr)]">
+            <div className="flex flex-col gap-3 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(20rem,1fr)]">
               <TransferPickLinesTable
                 lines={lines}
                 selectedId={actions.entry.line?.lineId}
@@ -159,7 +159,7 @@ export default function TransferPickTaskPage({
               {canAct ? (
                 <div
                   data-scrollbar="slim"
-                  className="order-first min-h-0 lg:order-last lg:overflow-y-auto"
+                  className="order-first min-w-0 shrink-0 lg:order-last lg:min-h-0 lg:overflow-y-auto"
                 >
                   <PickEntryWorkspace
                     line={actions.entry.line}

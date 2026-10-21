@@ -23,7 +23,11 @@ import type {
   TransferReceiveSheet,
 } from '../types/transfer.types'
 import type { ReceivableSlot } from '../utils/transfer-receive'
-import { TRANSFER_MUTATION_KEY, invalidateTransferQueries } from './use-transfers'
+import {
+  TRANSFER_MUTATION_KEY,
+  invalidateTransferQueries,
+  refreshTransferAfterWrite,
+} from './use-transfers'
 
 interface ShipmentScope {
   transferId: string
@@ -95,7 +99,7 @@ export function useCreateTransferShipmentMutation() {
   >({
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, request }) => transferService.createShipment(transferId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    onSuccess: (_response, { transferId }) => refreshTransferAfterWrite(queryClient, transferId),
     onError: (error) => logTransferError(error),
   })
 }
@@ -205,7 +209,8 @@ export function useCompleteTransferPickingMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.completePicking(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    onSuccess: (_response, { transferId, shipmentId }) =>
+      refreshTransferAfterWrite(queryClient, transferId, shipmentId),
     onError: (error) => logTransferError(error),
   })
 }
@@ -263,7 +268,7 @@ export function useDispatchTransferShipmentMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.dispatchShipment(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    onSuccess: (_response, { transferId }) => refreshTransferAfterWrite(queryClient, transferId),
     onError: (error) => logTransferError(error),
   })
 }

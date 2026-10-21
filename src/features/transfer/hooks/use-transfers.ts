@@ -41,6 +41,26 @@ export function invalidateTransferQueries(
   ])
 }
 
+/** Refresh only the current document/list and required sheet; other lookups stay stale until needed. */
+export async function refreshTransferAfterWrite(
+  queryClient: QueryClient,
+  transferId: string,
+  shipmentId?: string
+) {
+  await invalidateTransferQueries(queryClient, 'none')
+  await queryClient.refetchQueries({
+    type: 'active',
+    predicate: ({ queryKey }) =>
+      queryKey[0] === 'transfers' &&
+      (queryKey[1] === 'list' ||
+        (queryKey[1] === 'detail' && queryKey[2] === transferId) ||
+        (Boolean(shipmentId) &&
+          queryKey[1] === 'pick-sheet' &&
+          queryKey[2] === transferId &&
+          queryKey[3] === shipmentId)),
+  })
+}
+
 export function useTransfersQuery(params: TransferListQuery, enabled = true) {
   return useQuery<TransferListResponse, ApiErrorResponse>({
     queryKey: queryKeys.transfers.list(params),

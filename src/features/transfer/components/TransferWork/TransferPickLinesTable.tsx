@@ -123,7 +123,11 @@ export function TransferPickLinesTable({
                     ) : null}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatQuantity(line.pickedQuantity)} / {formatQuantity(line.plannedQuantity)}
+                    {formatQuantity(
+                      line.pickedQuantity +
+                        line.picks.reduce((sum, pick) => sum + pick.dispatchedQuantity, 0)
+                    )}{' '}
+                    / {formatQuantity(line.plannedQuantity)}
                     <p className="text-muted-foreground text-xs">{line.baseUnitName}</p>
                   </TableCell>
                   <TableCell>

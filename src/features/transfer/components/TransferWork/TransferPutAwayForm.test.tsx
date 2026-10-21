@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildTransferPutAwayEntries,
   transferPutAwayPlanStates,
@@ -14,6 +14,13 @@ import {
   type TransferPutAwayFormValues,
 } from '../../schemas/transfer-putaway.schema'
 import { TransferPutAwayForm } from './TransferPutAwayForm'
+
+const { startCameraScan, stop } = vi.hoisted(() => ({ startCameraScan: vi.fn(), stop: vi.fn() }))
+vi.mock('../../utils/camera-scan', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../utils/camera-scan')>()),
+  startCameraScan,
+  isCameraScanSupported: () => true,
+}))
 
 vi.mock('./ScanInput', () => ({
   ScanInput: ({ id, error }: { id: string; error?: string }) => (
@@ -33,6 +40,10 @@ vi.mock('@/features/inbound-request/components/InboundRequestFormPage/LookupComb
     selectedOption?: { label: string }
   }) => <button aria-label={ariaLabel}>{selectedOption?.label ?? 'Chọn vị trí'}</button>,
 }))
+beforeEach(() => {
+  vi.clearAllMocks()
+  startCameraScan.mockResolvedValue({ stop })
+})
 afterEach(cleanup)
 function TestForm() {
   const sheet = putAwayFixture()
@@ -64,6 +75,25 @@ function TestForm() {
   )
 }
 describe('Cất hàng theo hàng hóa/lô', () => {
+  it('allows only one allocation camera at a time and stops it when the group collapses', async () => {
+    const user = userEvent.setup()
+    render(<TestForm />)
+    const cameras = screen.getAllByRole('button', { name: /Bật camera quét:/ })
+    expect(cameras).toHaveLength(2)
+    await user.click(cameras[0]!)
+    await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole('button', { name: /Bật camera quét:/ }))
+    await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(2))
+    expect(screen.getAllByLabelText('Hình ảnh từ camera')).toHaveLength(1)
+    expect(stop).toHaveBeenCalledTimes(1)
+    const toggle = screen.getByRole('button', { name: 'Mở/thu gọn phân bổ SKU-01' })
+    await user.click(toggle)
+    expect(screen.queryByLabelText('Hình ảnh từ camera')).not.toBeInTheDocument()
+    expect(stop).toHaveBeenCalledTimes(2)
+    await user.click(toggle)
+    expect(screen.getAllByRole('button', { name: /Bật camera quét:/ })).toHaveLength(2)
+    expect(startCameraScan).toHaveBeenCalledTimes(2)
+  })
   it('expands only invalid collapsed groups, exposes errors and focuses the scan without losing edits', async () => {
     const user = userEvent.setup()
     render(<ValidationTestForm />)

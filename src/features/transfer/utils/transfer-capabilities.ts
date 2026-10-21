@@ -25,6 +25,8 @@ export interface TransferWarehouses {
 export type TransferClosingAction = 'cancel' | 'stop' | null
 
 export interface TransferCapabilities {
+  readonly canDecideRequest: boolean
+  readonly canWithdrawRequest: boolean
   readonly canEditDraft: boolean
   readonly canEdit: boolean
   readonly canGiveFeedback: boolean
@@ -70,6 +72,8 @@ export function getDestinationAssignmentKind(
 }
 
 const NONE: TransferCapabilities = {
+  canDecideRequest: false,
+  canWithdrawRequest: false,
   canEditDraft: false,
   canEdit: false,
   canGiveFeedback: false,
@@ -145,8 +149,17 @@ export function getTransferCapabilities(
     closingAction = 'stop'
 
   return {
+    canDecideRequest:
+      transfer.status === 'PendingSourceAcceptance' &&
+      has(viewer, P.TRANSFERS_DISPATCH) &&
+      manages(viewer, transfer.sourceWarehouseId),
+    canWithdrawRequest:
+      transfer.status === 'PendingSourceAcceptance' &&
+      canCreate &&
+      isCreator &&
+      manages(viewer, transfer.destinationWarehouseId),
     canEditDraft: canCreate && isOwnDraft,
-    canEdit: canCreate && mayChange && isInProgress,
+    canEdit: canCreate && mayChange && isInProgress && !transfer.approvedAt,
     canGiveFeedback:
       isOpen &&
       ((has(viewer, P.TRANSFERS_DISPATCH) && manages(viewer, transfer.sourceWarehouseId)) ||

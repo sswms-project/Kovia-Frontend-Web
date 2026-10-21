@@ -1,7 +1,6 @@
 import { ChevronDown, PackageCheck, PackageSearch, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import {
@@ -209,69 +208,66 @@ export function TransferShipmentsPanel({
                     </Button>
                   </CollapsibleTrigger>
                 ) : null}
-                <CollapsibleContent>
-                  <OperationalListPanel
-                    aria-label={`Hàng hóa đợt ${shipment.shipmentNumber}`}
-                    className="flex-none border-x-0"
-                  >
-                    <Table className={mode === 'pick' ? 'min-w-[860px]' : 'min-w-[960px]'}>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Mã hàng</TableHead>
-                          <TableHead>Tên hàng</TableHead>
-                          <TableHead>ĐVT</TableHead>
-                          <TableHead>ĐVQĐ</TableHead>
-                          <TableHead className="text-right">Kế hoạch</TableHead>
-                          <TableHead className="text-right">Đã lấy</TableHead>
-                          <TableHead className="text-right">Đã xuất</TableHead>
-                          {mode !== 'pick' ? (
-                            <TableHead className="text-right">SL thực nhận</TableHead>
-                          ) : null}
-                          <TableHead>Tình trạng</TableHead>
-                          {mode === 'receive' ? <TableHead>Kế hoạch cất hàng</TableHead> : null}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {shipment.lines.map((line) => {
-                          return (
-                            <TableRow key={line.id}>
-                              <TableCell className="font-mono">{line.sku}</TableCell>
-                              <TableCell className="whitespace-normal">
-                                {line.productName}
-                              </TableCell>
-                              <TableCell>{unitsByItem[line.itemId]?.unit ?? '—'}</TableCell>
-                              <TableCell>{unitsByItem[line.itemId]?.conversion ?? '—'}</TableCell>
+                <CollapsibleContent
+                  role="region"
+                  aria-label={`Hàng hóa đợt ${shipment.shipmentNumber}`}
+                  className="min-w-0"
+                >
+                  <Table className={mode === 'pick' ? 'min-w-[860px]' : 'min-w-[960px]'}>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Mã hàng</TableHead>
+                        <TableHead>Tên hàng</TableHead>
+                        <TableHead>ĐVT</TableHead>
+                        <TableHead>ĐVQĐ</TableHead>
+                        <TableHead className="text-right">Kế hoạch</TableHead>
+                        <TableHead className="text-right">Đã lấy</TableHead>
+                        <TableHead className="text-right">Đã xuất</TableHead>
+                        {mode !== 'pick' ? (
+                          <TableHead className="text-right">SL thực nhận</TableHead>
+                        ) : null}
+                        <TableHead>Tình trạng</TableHead>
+                        {mode === 'receive' ? <TableHead>Kế hoạch cất hàng</TableHead> : null}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="[&>tr:last-child]:border-b-0">
+                      {shipment.lines.map((line) => {
+                        return (
+                          <TableRow key={line.id}>
+                            <TableCell className="font-mono">{line.sku}</TableCell>
+                            <TableCell className="whitespace-normal">{line.productName}</TableCell>
+                            <TableCell>{unitsByItem[line.itemId]?.unit ?? '—'}</TableCell>
+                            <TableCell>{unitsByItem[line.itemId]?.conversion ?? '—'}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatQuantity(line.plannedQuantity)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatQuantity(line.pickedQuantity + line.dispatchedQuantity)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatQuantity(line.dispatchedQuantity)}
+                            </TableCell>
+                            {mode !== 'pick' ? (
                               <TableCell className="text-right tabular-nums">
-                                {formatQuantity(line.plannedQuantity)}
+                                {formatQuantity(line.receivedPhysicalQuantity ?? 0)}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {formatQuantity(line.pickedQuantity + line.dispatchedQuantity)}
+                            ) : null}
+                            <TableCell>
+                              {SHIPMENT_LINE_STATUS_LABELS[line.status]}
+                              {line.pendingReturnQuantity > 0
+                                ? ` · cần trả ${formatQuantity(line.pendingReturnQuantity)}`
+                                : ''}
+                            </TableCell>
+                            {mode === 'receive' ? (
+                              <TableCell className="max-w-72 break-words whitespace-normal">
+                                {planLabels[line.itemId] || 'Chưa có kế hoạch'}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {formatQuantity(line.dispatchedQuantity)}
-                              </TableCell>
-                              {mode !== 'pick' ? (
-                                <TableCell className="text-right tabular-nums">
-                                  {formatQuantity(line.receivedPhysicalQuantity ?? 0)}
-                                </TableCell>
-                              ) : null}
-                              <TableCell>
-                                {SHIPMENT_LINE_STATUS_LABELS[line.status]}
-                                {line.pendingReturnQuantity > 0
-                                  ? ` · cần trả ${formatQuantity(line.pendingReturnQuantity)}`
-                                  : ''}
-                              </TableCell>
-                              {mode === 'receive' ? (
-                                <TableCell className="max-w-72 break-words whitespace-normal">
-                                  {planLabels[line.itemId] || 'Chưa có kế hoạch'}
-                                </TableCell>
-                              ) : null}
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  </OperationalListPanel>
+                            ) : null}
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
                 </CollapsibleContent>
               </Collapsible>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">

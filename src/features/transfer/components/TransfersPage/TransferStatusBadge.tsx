@@ -28,6 +28,7 @@ const STATUS_PRESENTATION: Record<
   { variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof CircleDot }
 > = {
   Draft: { variant: 'outline', icon: FilePen },
+  PendingSourceAcceptance: { variant: 'outline', icon: CircleDashed },
   InProgress: { variant: 'secondary', icon: Truck },
   AwaitingResolution: { variant: 'outline', icon: TriangleAlert },
   Completed: { variant: 'default', icon: CircleCheck },

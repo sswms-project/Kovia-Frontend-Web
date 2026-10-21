@@ -19,7 +19,11 @@ import {
 } from '../schemas/transfer-assignment.schema'
 import { describeTransferError, logTransferError } from '../utils/transfer-errors'
 import { useTransferAssignableStaffQuery } from './use-transfer-receipt'
-import { invalidateTransferQueries, TRANSFER_MUTATION_KEY } from './use-transfers'
+import {
+  invalidateTransferQueries,
+  refreshTransferAfterWrite,
+  TRANSFER_MUTATION_KEY,
+} from './use-transfers'
 
 const TASK_TYPES = {
   pick: 'TransferPick',
@@ -269,7 +273,7 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
     } catch (error) {
       toast.error(describeTransferError(error, 'Không tải được công việc để giao.').message)
     } finally {
-      if (pending.done.size > 0) await invalidateTransferQueries(client)
+      if (pending.done.size > 0) await refreshTransferAfterWrite(client, transfer.id)
       lock.current = false
       setWorking(false)
     }

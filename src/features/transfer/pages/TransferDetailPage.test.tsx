@@ -32,6 +32,9 @@ vi.mock('../hooks/use-transfer-request-actions', () => ({
     cancelShipment: {},
   }),
 }))
+vi.mock('../hooks/use-transfer-request-decision', () => ({
+  useTransferRequestDecision: () => ({ kind: null, form: {}, uncertain: false, isPending: false }),
+}))
 vi.mock('../hooks/use-transfer-resolution-actions', () => ({
   useTransferResolutionActions: () => ({
     departure: {},
@@ -69,6 +72,7 @@ vi.mock('../components/TransferDetailPage', async () => {
     ResolveDiscrepancyDialog: () => null,
     ResolveEscalationDialog: () => null,
     TransferOverview: () => null,
+    TransferRequestDecisionPanel: () => null,
     TransferNextSteps: () => null,
   }
 })

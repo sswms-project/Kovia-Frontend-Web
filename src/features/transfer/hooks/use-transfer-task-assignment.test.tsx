@@ -19,6 +19,7 @@ vi.mock('../services/transfer.service', () => ({ transferService: { getTransfer:
 vi.mock('./use-transfers', () => ({
   TRANSFER_MUTATION_KEY: ['transfers', 'write'],
   invalidateTransferQueries: mock.invalidate,
+  refreshTransferAfterWrite: mock.invalidate,
 }))
 vi.mock('./use-transfer-receipt', () => ({
   useTransferAssignableStaffQuery: (_warehouse: string, type: string) => ({

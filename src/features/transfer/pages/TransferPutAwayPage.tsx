@@ -138,15 +138,22 @@ export default function TransferPutAwayPage({
   const reloadLock = useRef(false)
   const [reloading, setReloading] = useState(false)
   const busy = editor.isPending || putAway.isPending || putAway.isFindingSlot || reloading
+  const snapshotBlocked = Boolean(
+    editor.reloadRequired || putAway.reloadRequired || putAway.unknownResult
+  )
   const sourceVersion = `${transferId}|${shipmentId ?? ''}|${transfer?.version}|${sheet?.receipt.version}|${sheet?.planVersion}`
+  const transferOpen =
+    transfer?.status === 'InProgress' || transfer?.status === 'AwaitingResolution'
   const rulesReady = Boolean(
     isReady &&
     canSee &&
     (canPlan || canPutAway) &&
     transfer &&
+    transferOpen &&
     !detail.isError &&
     !detail.isFetching &&
     !busy &&
+    !snapshotBlocked &&
     (!shipmentId ||
       (sheet &&
         !query.isError &&
@@ -164,7 +171,7 @@ export default function TransferPutAwayPage({
   const visibleSuggestions =
     suggestionVersion === sourceVersion && !hideSuggestions ? suggestions.data : undefined
   function applySuggestion(only?: { itemId: string; slotId: string }) {
-    if (!visibleSuggestions || busy || putAway.unknownResult) return
+    if (!visibleSuggestions || busy || snapshotBlocked) return
     const target: 'plan' | 'execution' = tab === 'plan' ? 'plan' : 'execution'
     if (target === 'plan' ? !canPlan : putAway.blocked) return
     const request = { target, data: visibleSuggestions, only, version: sourceVersion }
@@ -178,7 +185,9 @@ export default function TransferPutAwayPage({
     if (
       !(tab === 'plan' ? canPlan : canPutAway && !putAway.blocked) ||
       suggestionLock.current ||
-      busy
+      busy ||
+      snapshotBlocked ||
+      !transferOpen
     )
       return
     suggestionLock.current = true
@@ -382,7 +391,7 @@ export default function TransferPutAwayPage({
                   </AlertDescription>
                   <Button
                     variant="outline"
-                    disabled={busy || rules.isFetching}
+                    disabled={!rulesReady || rules.isFetching}
                     onClick={() => void rules.refetch()}
                   >
                     Thử lại gợi ý theo quy tắc kho

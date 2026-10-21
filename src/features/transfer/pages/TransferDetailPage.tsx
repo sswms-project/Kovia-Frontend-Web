@@ -44,6 +44,7 @@ import {
   TransferFeedbackPanel,
   TransferNextSteps,
   TransferOverview,
+  TransferRequestDecisionPanel,
   TransferShipmentsPanel,
 } from '../components/TransferDetailPage'
 import {
@@ -55,6 +56,7 @@ import { TransferStatusBadge } from '../components/TransfersPage'
 import { useTransferAllocationActions } from '../hooks/use-transfer-allocation-actions'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferRequestActions } from '../hooks/use-transfer-request-actions'
+import { useTransferRequestDecision } from '../hooks/use-transfer-request-decision'
 import { useTransferResolutionActions } from '../hooks/use-transfer-resolution-actions'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
 import { useTransferQuery } from '../hooks/use-transfers'
@@ -96,6 +98,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   useTransferRealtime({ transferId })
 
   const requestActions = useTransferRequestActions(transfer)
+  const requestDecision = useTransferRequestDecision(transfer)
   const canAssignPreparation =
     viewer.permissions.includes(P.WAREHOUSE_TASKS_ASSIGN) &&
     viewer.permissions.includes(P.TRANSFERS_DISPATCH)
@@ -280,6 +283,27 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
             </Alert>
           ) : null}
           <TransferOverview transfer={transfer} />
+          <TransferRequestDecisionPanel
+            transfer={transfer}
+            canDecide={capabilities.canDecideRequest}
+            canWithdraw={capabilities.canWithdrawRequest}
+            disabled={
+              requestDecision.isPending ||
+              requestActions.shipment.isPending ||
+              !transfer.version ||
+              requestActions.shipment.isOpen ||
+              detailQuery.isFetching
+            }
+            uncertain={requestDecision.uncertain || requestActions.shipment.uncertain}
+            onAcceptAndPrepare={requestActions.shipment.open}
+            onAccept={() => requestDecision.open('accept')}
+            onReject={() => requestDecision.open('reject')}
+            onWithdraw={() => requestDecision.open('withdraw')}
+            onVerify={() => {
+              if (requestDecision.uncertain) void requestDecision.verify()
+              else requestActions.shipment.open()
+            }}
+          />
           <Tabs
             value={tab}
             onValueChange={(value) => {
@@ -469,6 +493,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onSubmit={(values) => void requestActions.reply.submit(values)}
       />
       <CreateShipmentDialog
+        acceptingRequest={transfer?.status === 'PendingSourceAcceptance'}
         open={requestActions.shipment.isOpen}
         form={requestActions.shipment.form}
         isPending={requestActions.shipment.isPending}
@@ -579,12 +604,53 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onSubmit={(values) => void resolutionActions.discrepancy.submit(values)}
       />
       <TransferUnsavedChanges
-        dirty={resolutionActions.discrepancy.unknownResult || requestActions.shipment.uncertain}
+        dirty={
+          resolutionActions.discrepancy.unknownResult ||
+          requestActions.shipment.uncertain ||
+          requestDecision.uncertain
+        }
         busy={
           resolutionActions.discrepancy.isPending ||
           receiving.isPending ||
-          requestActions.shipment.isPending
+          requestActions.shipment.isPending ||
+          requestDecision.isPending
         }
+      />
+      <TransferReasonDialog
+        open={requestDecision.kind === 'reject' && !requestDecision.uncertain}
+        title="Từ chối yêu cầu điều chuyển?"
+        description="Nhập lý do để kho nhận biết và điều chỉnh. Thao tác không giữ chỗ hoặc thay đổi tồn kho."
+        confirmLabel="Từ chối yêu cầu"
+        pendingLabel="Đang xử lý…"
+        form={requestDecision.form}
+        isPending={requestDecision.isPending}
+        onOpenChange={(open) => {
+          if (!open) requestDecision.close()
+        }}
+        onSubmit={(values) => void requestDecision.submit(values.reason)}
+      />
+      <TransferConfirmDialog
+        open={
+          (requestDecision.kind === 'accept' || requestDecision.kind === 'withdraw') &&
+          !requestDecision.uncertain
+        }
+        title={
+          requestDecision.kind === 'withdraw'
+            ? 'Thu hồi yêu cầu về nháp?'
+            : 'Chấp nhận yêu cầu điều chuyển?'
+        }
+        description={
+          requestDecision.kind === 'withdraw'
+            ? 'Yêu cầu sẽ không còn chờ kho xuất xác nhận. Bạn có thể sửa nội dung và gửi lại.'
+            : 'Hệ thống kiểm tra lại tồn và giữ chỗ toàn bộ hàng yêu cầu. Bạn có thể chuẩn bị xuất sau.'
+        }
+        confirmLabel={requestDecision.kind === 'withdraw' ? 'Thu hồi yêu cầu' : 'Chấp nhận'}
+        pendingLabel="Đang xử lý…"
+        isPending={requestDecision.isPending}
+        onOpenChange={(open) => {
+          if (!open) requestDecision.close()
+        }}
+        onConfirm={() => void requestDecision.submit()}
       />
     </div>
   )

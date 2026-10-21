@@ -3,6 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
 import {
   createShipmentSchema,
   transferFeedbackReplySchema,
@@ -49,6 +50,8 @@ export function useTransferRequestActions(transfer: TransferDetail | undefined) 
   const [isShipmentOpen, setIsShipmentOpen] = useState(false)
   const shipmentIntent = useRef<CreateTransferShipmentRequest | null>(null)
   const shipmentVersion = useRef<string | null>(null)
+  const shipmentTransferId = useRef<string | null>(null)
+  const acceptingRequest = useRef(false)
   const shipmentLock = useRef(false)
   const [shipmentUncertain, setShipmentUncertain] = useState(false)
   const [cancellingShipment, setCancellingShipment] = useState<TransferShipment | null>(null)
@@ -162,11 +165,16 @@ export function useTransferRequestActions(transfer: TransferDetail | undefined) 
       isPending: createShipmentMutation.isPending,
       uncertain: shipmentUncertain,
       open: () => {
-        if (shipmentIntent.current) {
+        if (shipmentLock.current) return
+        if (shipmentIntent.current && shipmentTransferId.current === transferId) {
           setIsShipmentOpen(true)
           return
         }
+        shipmentIntent.current = null
+        setShipmentUncertain(false)
+        shipmentTransferId.current = transferId
         shipmentVersion.current = transfer?.version ?? null
+        acceptingRequest.current = transfer?.status === 'PendingSourceAcceptance'
         shipmentForm.reset({
           staffId: '',
           lines: visibleTransferItems(transfer?.items ?? [])
@@ -175,6 +183,7 @@ export function useTransferRequestActions(transfer: TransferDetail | undefined) 
               itemId: item.id,
               label: `${item.sku} · ${item.productName}`,
               unitName: item.baseUnitName ?? '',
+              precision: Math.min(2, Math.max(0, item.baseQuantityPrecision ?? 2)),
               selected: true,
               maximum: item.unbatchedQuantity,
               quantity: item.unbatchedQuantity,
@@ -185,10 +194,16 @@ export function useTransferRequestActions(transfer: TransferDetail | undefined) 
       onOpenChange: setIsShipmentOpen,
       submit: async (values: CreateShipmentFormValues) => {
         if (shipmentLock.current) return
+        if (!transferId || shipmentTransferId.current !== transferId) {
+          setIsShipmentOpen(false)
+          toast.error('Phiếu đang xem đã thay đổi. Vui lòng mở lại thao tác.')
+          return
+        }
         shipmentLock.current = true
         const request = shipmentIntent.current ?? {
           commandId: newCommandId(),
           expectedVersion: shipmentVersion.current,
+          ...(acceptingRequest.current ? { acceptRequest: true } : {}),
           staffId: values.staffId || null,
           lines: values.lines
             .filter((line) => line.selected)
@@ -200,9 +215,11 @@ export function useTransferRequestActions(transfer: TransferDetail | undefined) 
             try {
               await createShipmentMutation.mutateAsync({ transferId, request })
             } catch (error) {
-              const uncertain = describeTransferError(error, '').kind === 'unknown-result'
+              const kind = describeTransferError(error, '').kind
+              const uncertain = kind === 'unknown-result'
               setShipmentUncertain(uncertain)
               if (!uncertain) shipmentIntent.current = null
+              if (kind === 'conflict') setIsShipmentOpen(false)
               throw error
             }
           },

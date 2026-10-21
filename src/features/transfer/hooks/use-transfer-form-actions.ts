@@ -156,7 +156,7 @@ export function useTransferFormActions({
       })
       form.reset(values)
       setIsConfirmOpen(false)
-      toast.success('Đã tạo yêu cầu điều chuyển và giữ chỗ tồn kho.')
+      toast.success('Đã gửi yêu cầu tới kho xuất. Tồn kho chưa được giữ chỗ.')
       router.push(APP_ROUTES.transferDetail(draftId))
     } catch (error) {
       setIsConfirmOpen(false)

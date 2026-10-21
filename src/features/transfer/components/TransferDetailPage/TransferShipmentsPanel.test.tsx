@@ -47,7 +47,7 @@ const viewer = {
 }
 
 describe('TransferShipmentsPanel destination assignment', () => {
-  it('opens shipment goods in the shared panel while retaining one primary action', () => {
+  it('opens the shared table without a nested bordered panel and retains one primary action', () => {
     render(
       <TransferShipmentsPanel
         transferId="transfer"
@@ -73,10 +73,19 @@ describe('TransferShipmentsPanel destination assignment', () => {
       />
     )
     expect(screen.getAllByRole('link', { name: 'Tiếp tục kiểm hàng' })).toHaveLength(1)
-    expect(screen.getByRole('region', { name: 'Hàng hóa đợt 1' })).toHaveAttribute(
-      'data-slot',
-      'operational-list-panel'
+    const goodsRegion = screen.getByRole('region', { name: 'Hàng hóa đợt 1' })
+    expect(within(goodsRegion).getByRole('table')).toHaveAttribute('data-slot', 'table')
+    expect(goodsRegion).not.toHaveAttribute('data-slot', 'operational-list-panel')
+    expect(goodsRegion.querySelector('[data-slot="operational-list-panel"]')).toBeNull()
+    for (const className of ['border', 'border-b', 'rounded-xl']) {
+      expect(goodsRegion).not.toHaveClass(className)
+    }
+    expect(goodsRegion.querySelector('[data-slot="table-body"]')).toHaveClass(
+      '[&>tr:last-child]:border-b-0'
     )
+    const taskSummary = screen.getByText('Kho xuất · Lấy hàng:').parentElement!
+    expect(goodsRegion).not.toContainElement(taskSummary)
+    expect(taskSummary.parentElement?.parentElement).toHaveClass('border-t')
     expect(screen.getByRole('cell', { name: 'Hàng kiểm thử' })).toBeInTheDocument()
     const goods = screen.getByRole('button', { name: 'Hàng hóa đợt 1 · 1 dòng' })
     expect(goods).toHaveAttribute('aria-expanded', 'true')

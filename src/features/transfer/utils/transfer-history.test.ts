@@ -3,6 +3,36 @@ import { buildTransferHistory } from './transfer-history'
 import { buildShipment, buildTransfer } from './transfer-test-fixtures'
 
 describe('buildTransferHistory', () => {
+  it('uses persisted decision events with actors and reasons rather than inventing a stock reservation at submission', () => {
+    const result = buildTransferHistory(
+      buildTransfer({
+        status: 'Rejected',
+        requestEvents: [
+          {
+            action: 'Submit',
+            actorId: 'requester',
+            actorName: 'Kho nhận',
+            createdAt: '2026-10-20T01:00:00Z',
+            reason: null,
+          },
+          {
+            action: 'RejectRequest',
+            actorId: 'source',
+            actorName: 'Kho xuất',
+            createdAt: '2026-10-20T02:00:00Z',
+            reason: 'Kho cần hàng',
+          },
+        ],
+      })
+    )
+    expect(result.find((entry) => entry.action === 'Kho xuất từ chối')).toMatchObject({
+      actorId: 'source',
+      actorName: 'Kho xuất',
+      reason: 'Kho cần hàng',
+    })
+    expect(result.filter((entry) => entry.action.includes('Gửi'))).toHaveLength(1)
+    expect(result.some((entry) => entry.action.includes('giữ chỗ'))).toBe(false)
+  })
   it('lists the milestones that have a timestamp in chronological order', () => {
     const history = buildTransferHistory(
       buildTransfer({

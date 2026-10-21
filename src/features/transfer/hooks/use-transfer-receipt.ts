@@ -95,6 +95,11 @@ export function usePutAwayTransferShipmentMutation() {
   >({
     mutationKey: TRANSFER_MUTATION_KEY,
     retry: false,
+    // Disabling a query does not abort its in-flight request. Stop old rules/AI before the write.
+    onMutate: ({ transferId }) =>
+      client.cancelQueries({
+        queryKey: queryKeys.transfers.putAwayPlanSuggestions(transferId).slice(0, -1),
+      }),
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.putAwayShipment(transferId, shipmentId, request),
     onSuccess: () => invalidateTransferQueries(client, 'none'),

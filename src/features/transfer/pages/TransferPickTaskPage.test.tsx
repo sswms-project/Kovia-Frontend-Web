@@ -95,6 +95,29 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('Pick workspace authorization', () => {
+  it('stacks scanner and goods at natural mobile height, keeping completion outside the scroller', () => {
+    const { container } = render(
+      <TransferPickTaskPage transferId={transfer.id} shipmentId={shipment.id} />
+    )
+    const scannerPane = screen.getByTestId('scan-workspace').parentElement!
+    expect(scannerPane).toHaveClass('order-first', 'min-w-0', 'shrink-0')
+    expect(scannerPane).toHaveClass('lg:order-last', 'lg:min-h-0', 'lg:overflow-y-auto')
+    expect(scannerPane).not.toHaveClass('min-h-0', 'overflow-y-auto')
+    const panes = scannerPane.parentElement!
+    expect(panes).toHaveClass('flex', 'flex-col', 'lg:grid', 'lg:flex-1', 'lg:min-h-0')
+    expect(panes).not.toHaveClass('grid', 'flex-1', 'min-h-0')
+    const content = panes.parentElement!
+    expect(content).toHaveClass('lg:h-full', 'lg:min-h-0')
+    expect(content).not.toHaveClass('h-full', 'min-h-0')
+    const scroller = container.querySelector('[data-slot="transfer-scroll"]')!
+    expect(scroller).toHaveClass('overflow-y-auto')
+    expect(scroller).toContainElement(scannerPane)
+    expect(scroller).toContainElement(screen.getByTestId('can-act'))
+    const complete = screen.getByRole('button', { name: 'Hoàn tất lấy hàng' })
+    expect(scroller).not.toContainElement(complete)
+    expect(complete.closest('footer')).toHaveClass('shrink-0')
+    expect(complete).toBeDisabled()
+  })
   it('enables only the assigned source worker and becomes read-only after reassignment', () => {
     const view = render(<TransferPickTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
     expect(screen.getByTestId('scan-workspace')).toBeInTheDocument()

@@ -2,6 +2,7 @@
 
 import { useTheme } from 'next-themes'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -12,6 +13,12 @@ import {
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = 'system' } = useTheme()
+  const isMobile = useIsMobile()
+  const mobileOffset = props.mobileOffset ?? {
+    top: 'calc(env(safe-area-inset-top, 0px) + 4.5rem)',
+    left: 'max(env(safe-area-inset-left, 0px), 16px)',
+    right: 'max(env(safe-area-inset-right, 0px), 16px)',
+  }
 
   return (
     <Sonner
@@ -38,6 +45,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
         },
       }}
       {...props}
+      position={isMobile ? 'top-center' : (props.position ?? 'bottom-right')}
+      // Sonner's mobile breakpoint is narrower than the app's 768px workspace breakpoint.
+      offset={isMobile ? mobileOffset : props.offset}
+      mobileOffset={mobileOffset}
     />
   )
 }
