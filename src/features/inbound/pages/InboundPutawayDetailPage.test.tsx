@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ComponentProps } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ComponentProps, ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PutawayForm } from '../components/PutawayDetailPage'
 import type { PutAwayHeldSlot, PutawayRequest } from '../types/inbound.types'
@@ -98,6 +99,11 @@ vi.mock('../hooks/use-inbound', () => ({
   usePutawayMutation: () => ({ mutateAsync: fixtures.mutate, isPending: false }),
   useCancelPutawayTaskMutation: () => ({ isPending: false }),
   useReconcilePutawayCancellationMutation: () => ({ isPending: false }),
+  useIsolateReceiptDamageMutation: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    reset: vi.fn(),
+  }),
 }))
 vi.mock('../components/PutawayDetailPage', () => ({
   CancelPutawayDialog: () => null,
@@ -121,6 +127,17 @@ beforeEach(() => {
   fixtures.refetch.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
+
+function renderPutawayPage() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  })
+  return render(<InboundPutawayDetailPage receiptId="receipt" />, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+}
 
 function scanSlot() {
   act(() => renderedForm.form.setValue('lines.0.confirmedSlotCode', 'A01', { shouldDirty: true }))
@@ -149,7 +166,7 @@ describe('put-away command retry safety', () => {
       fixtures.receipt.version = 'v2'
       fixtures.receipt.items[0]!.remainingPutAwayQuantity = 0
     })
-    const view = render(<InboundPutawayDetailPage receiptId="receipt" />)
+    const view = renderPutawayPage()
     prepareAllocation()
     await user.click(screen.getByRole('button', { name: 'Submit' }))
     await waitFor(() => expect(renderedForm.hasUncertainSubmission).toBe(true))
@@ -179,7 +196,7 @@ describe('put-away command retry safety', () => {
           complete = resolve
         })
     )
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
     act(() => {
       renderedForm.onSubmit()
@@ -197,7 +214,7 @@ describe('put-away command retry safety', () => {
       fixtures.mutate
         .mockRejectedValueOnce({ statusCode, message: 'Rejected' })
         .mockResolvedValueOnce(undefined)
-      render(<InboundPutawayDetailPage receiptId="receipt" />)
+      renderPutawayPage()
       prepareAllocation()
       await user.click(screen.getByRole('button', { name: 'Submit' }))
       await waitFor(() => expect(fixtures.refetch).toHaveBeenCalled())
@@ -217,7 +234,7 @@ describe('put-away command retry safety', () => {
     fixtures.mutate
       .mockRejectedValueOnce(new Error('timeout'))
       .mockRejectedValue({ statusCode: 409, message: 'Version changed' })
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
     for (let attempt = 1; attempt <= 3; attempt++) {
       await user.click(screen.getByRole('button', { name: 'Submit' }))
@@ -236,7 +253,7 @@ describe('put-away against the manager plan', () => {
     const user = userEvent.setup()
     fixtures.receipt.items[0]!.putAwayPlan = [{ slotId: otherSlotId, quantity: 240 }]
     fixtures.upload.mockResolvedValue({ data: { id: 'evidence-1', fileName: 'ke-day.png' } })
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
     scanSlot()
     act(() => renderedForm.form.setValue('overrideReason', '  Kệ trong kế hoạch đã đầy '))
@@ -258,7 +275,7 @@ describe('put-away against the manager plan', () => {
   it('does not submit a deviating put-away without a reason', async () => {
     const user = userEvent.setup()
     fixtures.receipt.items[0]!.putAwayPlan = [{ slotId: otherSlotId, quantity: 240 }]
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
 
     await user.click(screen.getByRole('button', { name: 'Submit' }))
@@ -269,7 +286,7 @@ describe('put-away against the manager plan', () => {
   it('does not require or send a reason when the put-away follows the plan', async () => {
     const user = userEvent.setup()
     fixtures.receipt.items[0]!.putAwayPlan = [{ slotId: fixtures.slotId, quantity: 240 }]
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
     expect(renderedForm.planDeviation.requiresReason).toBe(false)
     // Vị trí do quản lý giao: chưa quét mã thì chưa ghi nhận cất hàng.
@@ -294,7 +311,7 @@ describe('put-away when the assigned slot cannot be scanned', () => {
   it('asks for a reason instead of the scan and sends it for the manager to review', async () => {
     const user = userEvent.setup()
     fixtures.receipt.items[0]!.putAwayPlan = [{ slotId: fixtures.slotId, quantity: 240 }]
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
 
     act(() => renderedForm.scan!.onSkip())
@@ -316,7 +333,7 @@ describe('put-away when the assigned slot cannot be scanned', () => {
   })
 
   it('does not ask for scans when no location was assigned', () => {
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
 
     expect(renderedForm.scan).toBeUndefined()
@@ -338,7 +355,7 @@ describe('put-away into slots kept for incoming stock', () => {
   it('asks for a reason when the slot is fully kept and accepts a reason group alone', async () => {
     const user = userEvent.setup()
     fixtures.heldSlots.push(heldSlot(null))
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
     expect(renderedForm.planDeviation.requiresReason).toBe(true)
     expect(renderedForm.heldWarnings?.get(0)).toContain('WINE')
@@ -364,7 +381,7 @@ describe('put-away into slots kept for incoming stock', () => {
       message: 'Vị trí A01 đang chừa cho WINE dự kiến về 10/10.',
       errors: { code: ['PUTAWAY_HELD_SLOT_REASON_REQUIRED'] },
     })
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
     expect(renderedForm.planDeviation.requiresReason).toBe(false)
 
@@ -376,7 +393,7 @@ describe('put-away into slots kept for incoming stock', () => {
 
   it('sends the slot code the staff scanned to confirm the location', async () => {
     const user = userEvent.setup()
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
     act(() => renderedForm.form.setValue('lines.0.confirmedSlotCode', 'A01'))
 
@@ -397,7 +414,7 @@ describe('a manager fixing the put-away locations for the assigned staff', () =>
 
   it('saves the chosen slots as the plan instead of recording a put-away', async () => {
     asManager()
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
     expect(renderedForm.planning?.assigneeName).toBe('Trần Văn An')
 
@@ -423,7 +440,7 @@ describe('a manager fixing the put-away locations for the assigned staff', () =>
     asManager()
     fixtures.receipt.putAwayAssignedTo = null
     fixtures.receipt.putAwayAssignedToName = null
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     prepareAllocation()
 
     await act(async () => renderedForm.planning!.onSavePlan())
@@ -436,19 +453,19 @@ describe('a manager fixing the put-away locations for the assigned staff', () =>
 
   it('does not save an empty plan and leaves the assigned staff in put-away mode', async () => {
     asManager()
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     await act(async () => renderedForm.planning!.onSavePlan())
     expect(fixtures.savePlan).not.toHaveBeenCalled()
     cleanup()
 
     fixtures.currentUserId.value = 'staff-user'
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
     expect(renderedForm.planning).toBeUndefined()
   })
 
   it('still lets someone who can only assign tasks hand the work to a staff member', () => {
     fixtures.currentUserId.value = 'manager-user'
-    render(<InboundPutawayDetailPage receiptId="receipt" />)
+    renderPutawayPage()
 
     expect(renderedForm.planning).toMatchObject({ canAssign: true, canSavePlan: false })
     act(() => renderedForm.planning!.onAssign())
