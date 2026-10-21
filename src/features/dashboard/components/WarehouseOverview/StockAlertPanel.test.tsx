@@ -92,8 +92,8 @@ describe('shared stock alert panel', () => {
     expect(screen.queryByText('Cần bổ sung')).not.toBeInTheDocument()
   })
   it.each([false, true])(
-    'places update and UTC evaluation metadata in the centered pagination slot (expanded=%s)',
-    (expanded) => {
+    'shows only the Vietnam update timestamp without UTC evaluation details (expanded=%s)',
+    async (expanded) => {
       const expiry = stockExpiryAlertsSchema.parse({
         ...data,
         kind: 'expired',
@@ -109,11 +109,25 @@ describe('shared stock alert panel', () => {
       const panel = container.querySelector('[data-slot="operational-list-panel"]')
       const header = panel?.firstElementChild
       const footer = panel?.querySelector(':scope > footer')
-      expect(header).not.toHaveTextContent('Cập nhật:')
-      expect(footer).toContainElement(screen.getByText(/^Cập nhật:/))
-      expect(footer).toContainElement(screen.getByText(/Đánh giá 18\/10\/2026 \(UTC\)/))
-      expect(screen.getByText(/^Cập nhật:/).parentElement?.parentElement).toHaveClass('text-center')
-      expect(container.querySelectorAll('[aria-live="polite"]')).toHaveLength(1)
+      expect(header).not.toHaveTextContent('Cập nhật lúc')
+      if (expanded) {
+        expect(footer).toContainElement(screen.getByText(/^Cập nhật lúc/))
+        expect(footer).toHaveClass('min-h-12')
+      } else {
+        expect(footer).toHaveClass('min-h-10')
+        expect(screen.queryByText(/^Cập nhật lúc/)).not.toBeInTheDocument()
+        const trigger = screen.getByRole('button', { name: 'Thông tin cập nhật cảnh báo' })
+        await userEvent.click(trigger)
+        expect(screen.getByRole('dialog')).toContainElement(screen.getByText(/^Cập nhật lúc/))
+      }
+      expect(screen.getByText(/^Cập nhật lúc/)).toHaveTextContent('19:00')
+      expect(screen.getByText(/^Cập nhật lúc/)).toHaveTextContent('17/10/2026')
+      expect(screen.queryByText(/Đánh giá|UTC/)).not.toBeInTheDocument()
+      if (!expanded) {
+        const trigger = screen.getByRole('button', { name: 'Thông tin cập nhật cảnh báo' })
+        await userEvent.keyboard('{Escape}')
+        expect(trigger).toHaveFocus()
+      }
     }
   )
   it('uses the shared list panel and direct pagination footer with a real scoped inventory link', () => {

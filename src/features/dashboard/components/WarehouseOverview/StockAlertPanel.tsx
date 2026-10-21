@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Info, RefreshCw } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -52,6 +53,7 @@ const snapshotFormatter = new Intl.DateTimeFormat('vi-VN', {
   minute: '2-digit',
   day: '2-digit',
   month: '2-digit',
+  year: 'numeric',
 })
 
 export function StockAlertPanel({
@@ -83,8 +85,13 @@ export function StockAlertPanel({
   const hasAlerts = !isLoading && Boolean(data && data.totalCount > 0)
   const urgent = kind === 'expired' || kind === 'below-minimum'
   const attentionClass = urgent ? 'text-destructive' : 'text-warning'
+  const snapshotMetadata = data ? (
+    <div className="flex flex-wrap justify-center gap-x-1" aria-live="polite">
+      <span>Cập nhật lúc {snapshotFormatter.format(new Date(data.generatedAt))}</span>
+    </div>
+  ) : null
   return (
-    <OperationalListPanel aria-label={title}>
+    <OperationalListPanel aria-label={title} data-alert-kind={kind}>
       <div
         className={cn(
           'flex shrink-0 flex-col gap-2 border-b p-3 [@media(max-height:500px)]:p-2',
@@ -313,6 +320,7 @@ export function StockAlertPanel({
       </Table>
       {data ? (
         <OperationalPagination
+          density={expanded ? 'default' : 'compact'}
           page={data.pageNumber}
           pageSize={data.pageSize}
           totalCount={data.totalCount}
@@ -321,15 +329,31 @@ export function StockAlertPanel({
           onPageSizeChange={onPageSizeChange}
           pageSizeOptions={[10, 20, 50]}
           centerContent={
-            <div className="flex flex-wrap justify-center gap-x-1" aria-live="polite">
-              <span>Cập nhật: {snapshotFormatter.format(new Date(data.generatedAt))}</span>
-              {'evaluationDate' in data ? (
-                <span title="Ngày UTC tương thích rule lô/tồn hiện tại; Dự báo & bổ sung dùng ngày Việt Nam.">
-                  · Đánh giá {dateFormatter.format(new Date(`${data.evaluationDate}T00:00:00Z`))}{' '}
-                  (UTC)
-                </span>
-              ) : null}
-            </div>
+            expanded ? (
+              snapshotMetadata
+            ) : (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Thông tin cập nhật cảnh báo"
+                    title="Thông tin cập nhật cảnh báo"
+                  >
+                    <Info aria-hidden="true" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  side="top"
+                  sideOffset={4}
+                  aria-label="Thông tin cập nhật cảnh báo"
+                >
+                  {snapshotMetadata}
+                </PopoverContent>
+              </Popover>
+            )
           }
         />
       ) : (
