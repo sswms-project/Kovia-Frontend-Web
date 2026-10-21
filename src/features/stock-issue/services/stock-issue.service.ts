@@ -23,6 +23,8 @@ import type {
   StockIssueRequestSummary,
   UpdateStockIssueRequestRequest,
   CreateGoodsReturnRequestRequest,
+  GoodsReturnLineSuggestion,
+  GoodsReturnSuggestionLineRequest,
   RejectGoodsReturnRequestRequest,
   GoodsReturnRequestListQuery,
   GoodsReturnRequestListResponse,
@@ -205,6 +207,16 @@ export const stockIssueService = {
       >(API_ENDPOINTS.stockIssueRequests.goodsReturnRequests(stockIssueRequestId), request)
       .then((response) => response.data),
 
+  suggestGoodsReturnSlots: (
+    stockIssueRequestId: string,
+    items: readonly GoodsReturnSuggestionLineRequest[]
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<GoodsReturnLineSuggestion[]>
+      >(API_ENDPOINTS.stockIssueRequests.goodsReturnSuggestions(stockIssueRequestId), { items })
+      .then((response) => response.data),
+
   getGoodsReturnRequests: (params: GoodsReturnRequestListQuery) =>
     axiosClient
       .get<
@@ -219,9 +231,11 @@ export const stockIssueService = {
       >(API_ENDPOINTS.goodsReturnRequests.detail(goodsReturnRequestId))
       .then((response) => response.data),
 
-  approveGoodsReturnRequest: (goodsReturnRequestId: string) =>
+  approveGoodsReturnRequest: (goodsReturnRequestId: string, selfApprovalAcknowledged = false) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.goodsReturnRequests.approve(goodsReturnRequestId))
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.goodsReturnRequests.approve(goodsReturnRequestId), { selfApprovalAcknowledged })
       .then((response) => response.data),
 
   rejectGoodsReturnRequest: (

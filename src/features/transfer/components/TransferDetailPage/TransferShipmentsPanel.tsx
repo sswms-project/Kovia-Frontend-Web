@@ -23,6 +23,8 @@ import {
 } from '../../utils/transfer-capabilities'
 import { SHIPMENT_LINE_STATUS_LABELS, TASK_EXECUTION_LABELS } from '../../utils/transfer-format'
 import { ShipmentStatusBadge } from '../TransfersPage'
+import { TransferShipmentActions } from './TransferShipmentActions'
+import type { TransferNextStep, TransferNextStepAction } from '../../utils/transfer-next-steps'
 
 export type TransferTaskKind = 'pick' | 'receive' | 'putaway'
 
@@ -39,7 +41,9 @@ interface TransferShipmentsPanelProps {
   readonly isStartingReceive?: boolean
   /** ĐVT chính và quy đổi của từng dòng hàng theo mã dòng phiếu; số lượng trong bảng tính theo ĐVT chính. */
   readonly unitsByItem: Readonly<Record<string, { unit: string; conversion: string | null }>>
-  readonly mode?: 'pick' | 'receive' | 'putaway'
+  readonly mode?: 'pick' | 'receive' | 'putaway' | 'execution'
+  readonly nextSteps?: readonly TransferNextStep[]
+  readonly onNextAction?: (action: TransferNextStepAction) => void
   readonly planLabels?: Readonly<Record<string, string>>
   readonly onOpenPlan?: () => void
   readonly currentUserId?: string | null
@@ -116,7 +120,9 @@ export function TransferShipmentsPanel({
   onAssignTask,
   onResolveEscalation,
   unitsByItem,
-  mode = 'pick',
+  mode: workspaceMode = 'pick',
+  nextSteps = [],
+  onNextAction,
   planLabels = {},
   onOpenPlan,
   currentUserId,
@@ -137,7 +143,7 @@ export function TransferShipmentsPanel({
   }
   return (
     <>
-      {mode === 'receive' && onOpenPlan ? (
+      {workspaceMode === 'receive' && onOpenPlan ? (
         <div className="border-b p-3">
           <Button type="button" variant="outline" onClick={onOpenPlan}>
             Kế hoạch cất hàng
@@ -146,6 +152,16 @@ export function TransferShipmentsPanel({
       ) : null}
       <ul className="divide-border flex flex-col divide-y">
         {shipments.map((shipment) => {
+          const mode =
+            workspaceMode === 'execution'
+              ? shipment.status === 'Picking' ||
+                shipment.status === 'ReadyToDispatch' ||
+                shipment.status === 'Cancelled'
+                ? 'pick'
+                : shipment.status === 'AwaitingPutAway'
+                  ? 'putaway'
+                  : 'receive'
+              : workspaceMode
           const allowed = capabilities[shipment.id]
           const destinationAssignmentKind = getDestinationAssignmentKind(shipment, allowed)
           return (
@@ -166,64 +182,94 @@ export function TransferShipmentsPanel({
                     · Nhận {formatOperationalDateTime(shipment.receivedAt)}
                   </span>
                 ) : null}
+                {workspaceMode === 'execution' && onNextAction ? (
+                  <div className="ml-auto">
+                    <TransferShipmentActions
+                      transferId={transferId}
+                      shipment={shipment}
+                      allowed={allowed}
+                      steps={nextSteps}
+                      onAction={onNextAction}
+                      onAssign={onAssignTask}
+                      onCancel={onCancelShipment}
+                      onReopen={onReopenPicking}
+                      onOpenPlan={onOpenPlan}
+                      isStartingReceive={isStartingReceive}
+                    />
+                  </div>
+                ) : null}
               </div>
-              <div>
-                <Table className={mode === 'pick' ? 'min-w-[860px]' : 'min-w-[960px]'}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Mã hàng</TableHead>
-                      <TableHead>Tên hàng</TableHead>
-                      <TableHead>ĐVT</TableHead>
-                      <TableHead>ĐVQĐ</TableHead>
-                      <TableHead className="text-right">Kế hoạch</TableHead>
-                      <TableHead className="text-right">Đã lấy</TableHead>
-                      <TableHead className="text-right">Đã xuất</TableHead>
-                      {mode !== 'pick' ? (
-                        <TableHead className="text-right">SL thực nhận</TableHead>
-                      ) : null}
-                      <TableHead>Tình trạng</TableHead>
-                      {mode === 'receive' ? <TableHead>Kế hoạch cất hàng</TableHead> : null}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {shipment.lines.map((line) => {
-                      return (
-                        <TableRow key={line.id}>
-                          <TableCell className="font-mono">{line.sku}</TableCell>
-                          <TableCell className="whitespace-normal">{line.productName}</TableCell>
-                          <TableCell>{unitsByItem[line.itemId]?.unit ?? '—'}</TableCell>
-                          <TableCell>{unitsByItem[line.itemId]?.conversion ?? '—'}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatQuantity(line.plannedQuantity)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatQuantity(line.pickedQuantity + line.dispatchedQuantity)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatQuantity(line.dispatchedQuantity)}
-                          </TableCell>
-                          {mode !== 'pick' ? (
+              <Collapsible defaultOpen>
+                {workspaceMode === 'execution' ? (
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="m-2">
+                      Hàng hóa đợt {shipment.shipmentNumber} · {shipment.lines.length} dòng
+                      <ChevronDown aria-hidden="true" />
+                    </Button>
+                  </CollapsibleTrigger>
+                ) : null}
+                <CollapsibleContent
+                  role="region"
+                  aria-label={`Hàng hóa đợt ${shipment.shipmentNumber}`}
+                  className="min-w-0"
+                >
+                  <Table className={mode === 'pick' ? 'min-w-[860px]' : 'min-w-[960px]'}>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Mã hàng</TableHead>
+                        <TableHead>Tên hàng</TableHead>
+                        <TableHead>ĐVT</TableHead>
+                        <TableHead>ĐVQĐ</TableHead>
+                        <TableHead className="text-right">Kế hoạch</TableHead>
+                        <TableHead className="text-right">Đã lấy</TableHead>
+                        <TableHead className="text-right">Đã xuất</TableHead>
+                        {mode !== 'pick' ? (
+                          <TableHead className="text-right">SL thực nhận</TableHead>
+                        ) : null}
+                        <TableHead>Tình trạng</TableHead>
+                        {mode === 'receive' ? <TableHead>Kế hoạch cất hàng</TableHead> : null}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="[&>tr:last-child]:border-b-0">
+                      {shipment.lines.map((line) => {
+                        return (
+                          <TableRow key={line.id}>
+                            <TableCell className="font-mono">{line.sku}</TableCell>
+                            <TableCell className="whitespace-normal">{line.productName}</TableCell>
+                            <TableCell>{unitsByItem[line.itemId]?.unit ?? '—'}</TableCell>
+                            <TableCell>{unitsByItem[line.itemId]?.conversion ?? '—'}</TableCell>
                             <TableCell className="text-right tabular-nums">
-                              {formatQuantity(line.receivedPhysicalQuantity ?? 0)}
+                              {formatQuantity(line.plannedQuantity)}
                             </TableCell>
-                          ) : null}
-                          <TableCell>
-                            {SHIPMENT_LINE_STATUS_LABELS[line.status]}
-                            {line.pendingReturnQuantity > 0
-                              ? ` · cần trả ${formatQuantity(line.pendingReturnQuantity)}`
-                              : ''}
-                          </TableCell>
-                          {mode === 'receive' ? (
-                            <TableCell className="max-w-72 break-words whitespace-normal">
-                              {planLabels[line.itemId] || 'Chưa có kế hoạch'}
+                            <TableCell className="text-right tabular-nums">
+                              {formatQuantity(line.pickedQuantity + line.dispatchedQuantity)}
                             </TableCell>
-                          ) : null}
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                            <TableCell className="text-right tabular-nums">
+                              {formatQuantity(line.dispatchedQuantity)}
+                            </TableCell>
+                            {mode !== 'pick' ? (
+                              <TableCell className="text-right tabular-nums">
+                                {formatQuantity(line.receivedPhysicalQuantity ?? 0)}
+                              </TableCell>
+                            ) : null}
+                            <TableCell>
+                              {SHIPMENT_LINE_STATUS_LABELS[line.status]}
+                              {line.pendingReturnQuantity > 0
+                                ? ` · cần trả ${formatQuantity(line.pendingReturnQuantity)}`
+                                : ''}
+                            </TableCell>
+                            {mode === 'receive' ? (
+                              <TableCell className="max-w-72 break-words whitespace-normal">
+                                {planLabels[line.itemId] || 'Chưa có kế hoạch'}
+                              </TableCell>
+                            ) : null}
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </CollapsibleContent>
+              </Collapsible>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
                 <div className="flex flex-col gap-0.5">
                   {mode === 'putaway' ? (
@@ -242,109 +288,113 @@ export function TransferShipmentsPanel({
                   )}
                   <DestinationTaskSummary shipment={shipment} />
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {mode !== 'pick' && destinationAssignmentKind ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onAssignTask(shipment, destinationAssignmentKind)}
-                    >
-                      <UserPlus aria-hidden="true" />
-                      {destinationAssignmentKind === 'receive'
-                        ? 'Giao việc nhận và cất hàng'
-                        : 'Giao việc cất hàng'}
-                    </Button>
-                  ) : null}
-                  {mode === 'putaway' ? (
-                    <Button
-                      asChild
-                      variant={allowed?.canOpenPutAway ? 'default' : 'outline'}
-                      size="sm"
-                    >
-                      <Link href={APP_ROUTES.transferPutAwayTask(transferId, shipment.id)}>
-                        {allowed?.canOpenPutAway ? 'Cất hàng' : 'Xem cất hàng'}
-                      </Link>
-                    </Button>
-                  ) : null}
-                  {mode === 'pick' && allowed?.canResolveEscalation ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onResolveEscalation(shipment)}
-                    >
-                      Xử lý báo cáo lấy hàng
-                    </Button>
-                  ) : null}
-                  {mode === 'pick' && allowed?.canAssignPick && shipment.pickTaskId ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onAssignTask(shipment, 'pick')}
-                    >
-                      <UserPlus aria-hidden="true" />
-                      {shipment.pickAssigneeId ? 'Giao lại việc lấy' : 'Giao việc lấy hàng'}
-                    </Button>
-                  ) : null}
-                  {mode === 'pick' &&
-                  allowed?.canOpenPick &&
-                  shipment.pickAssigneeId === currentUserId ? (
-                    <Button asChild size="sm">
-                      <Link href={APP_ROUTES.transferPickTask(transferId, shipment.id)}>
-                        <PackageSearch aria-hidden="true" />
-                        Lấy hàng
-                      </Link>
-                    </Button>
-                  ) : null}
-                  {mode === 'receive' &&
-                  allowed?.canOpenReceive &&
-                  shipment.status === 'InTransit' &&
-                  onStartReceiving ? (
-                    <Button
-                      size="sm"
-                      disabled={isStartingReceive}
-                      onClick={() => onStartReceiving(shipment)}
-                    >
-                      <PackageCheck aria-hidden="true" />
-                      {isStartingReceive ? 'Đang bắt đầu…' : 'Kiểm nhận hàng'}
-                    </Button>
-                  ) : null}
-                  {mode === 'receive' && shipment.status !== 'InTransit' ? (
-                    <Button asChild size="sm">
-                      <Link href={APP_ROUTES.transferReceiveTask(transferId, shipment.id)}>
+                {workspaceMode !== 'execution' ? (
+                  <div className="flex flex-wrap gap-2">
+                    {mode !== 'pick' && destinationAssignmentKind ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onAssignTask(shipment, destinationAssignmentKind)}
+                      >
+                        <UserPlus aria-hidden="true" />
+                        {destinationAssignmentKind === 'receive'
+                          ? 'Giao việc nhận và cất hàng'
+                          : 'Giao việc cất hàng'}
+                      </Button>
+                    ) : null}
+                    {mode === 'putaway' && allowed?.canViewPutAway ? (
+                      <Button
+                        asChild
+                        variant={allowed?.canOpenPutAway ? 'default' : 'outline'}
+                        size="sm"
+                      >
+                        <Link href={APP_ROUTES.transferPutAwayTask(transferId, shipment.id)}>
+                          {allowed?.canOpenPutAway ? 'Cất hàng' : 'Xem cất hàng'}
+                        </Link>
+                      </Button>
+                    ) : null}
+                    {mode === 'pick' && allowed?.canResolveEscalation ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onResolveEscalation(shipment)}
+                      >
+                        Xử lý báo cáo lấy hàng
+                      </Button>
+                    ) : null}
+                    {mode === 'pick' && allowed?.canAssignPick && shipment.pickTaskId ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onAssignTask(shipment, 'pick')}
+                      >
+                        <UserPlus aria-hidden="true" />
+                        {shipment.pickAssigneeId ? 'Giao lại việc lấy' : 'Giao việc lấy hàng'}
+                      </Button>
+                    ) : null}
+                    {mode === 'pick' &&
+                    allowed?.canOpenPick &&
+                    shipment.pickAssigneeId === currentUserId ? (
+                      <Button asChild size="sm">
+                        <Link href={APP_ROUTES.transferPickTask(transferId, shipment.id)}>
+                          <PackageSearch aria-hidden="true" />
+                          Lấy hàng
+                        </Link>
+                      </Button>
+                    ) : null}
+                    {mode === 'receive' &&
+                    allowed?.canOpenReceive &&
+                    shipment.status === 'InTransit' &&
+                    onStartReceiving ? (
+                      <Button
+                        size="sm"
+                        disabled={isStartingReceive}
+                        onClick={() => onStartReceiving(shipment)}
+                      >
                         <PackageCheck aria-hidden="true" />
-                        {allowed?.canOpenReceive ? 'Tiếp tục kiểm hàng' : 'Xem phiếu nhập'}
-                      </Link>
-                    </Button>
-                  ) : null}
-                  {mode === 'pick' && allowed?.canConfirmDeparture ? (
-                    <Button type="button" size="sm" onClick={() => onConfirmDeparture(shipment)}>
-                      <PackageCheck aria-hidden="true" />
-                      Xác nhận đã xuất kho
-                    </Button>
-                  ) : null}
-                  {mode === 'pick' && allowed?.canReopenPicking ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onReopenPicking(shipment)}
-                    >
-                      Mở lại lấy hàng
-                    </Button>
-                  ) : null}
-                  {mode === 'pick' && allowed?.canCancel ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => onCancelShipment(shipment)}
-                    >
-                      Hủy đợt
-                    </Button>
-                  ) : null}
-                </div>
+                        {isStartingReceive ? 'Đang bắt đầu…' : 'Kiểm nhận hàng'}
+                      </Button>
+                    ) : null}
+                    {mode === 'receive' &&
+                    allowed?.canViewReceive &&
+                    shipment.status !== 'InTransit' ? (
+                      <Button asChild size="sm">
+                        <Link href={APP_ROUTES.transferReceiveTask(transferId, shipment.id)}>
+                          <PackageCheck aria-hidden="true" />
+                          {allowed?.canOpenReceive ? 'Tiếp tục kiểm hàng' : 'Xem phiếu nhập'}
+                        </Link>
+                      </Button>
+                    ) : null}
+                    {mode === 'pick' && allowed?.canConfirmDeparture ? (
+                      <Button type="button" size="sm" onClick={() => onConfirmDeparture(shipment)}>
+                        <PackageCheck aria-hidden="true" />
+                        Xác nhận đã xuất kho
+                      </Button>
+                    ) : null}
+                    {mode === 'pick' && allowed?.canReopenPicking ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onReopenPicking(shipment)}
+                      >
+                        Mở lại lấy hàng
+                      </Button>
+                    ) : null}
+                    {mode === 'pick' && allowed?.canCancel ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onCancelShipment(shipment)}
+                      >
+                        Hủy đợt
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               {shipment.cancellationReason ? (
                 <p className="text-muted-foreground border-t px-3 py-2 text-xs">

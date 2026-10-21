@@ -69,6 +69,14 @@ function LineLocations({
                 <span className="text-muted-foreground">
                   ({location.zoneCode} / {location.rackCode})
                 </span>
+                {location.directFromReceiving && (
+                  <span className="text-primary block font-medium">
+                    Đi thẳng từ khu nhận đến khu xuất
+                  </span>
+                )}
+                {location.allocationReason && (
+                  <span className="text-muted-foreground block">{location.allocationReason}</span>
+                )}
                 {location.lotNumber ? (
                   <>
                     {' '}

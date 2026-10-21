@@ -1,4 +1,5 @@
 import { formatTransferLocation, transferLocationScanCodes } from './transfer-location'
+import { hasTransferQuantityPrecision } from '../schemas/transfer-receipt.schema'
 import type {
   TransferPickAlternative,
   TransferPickSheetLine,
@@ -127,9 +128,17 @@ export function hasAtMostTwoDecimals(value: number): boolean {
 }
 
 /** Trả về thông báo lỗi tiếng Việt hoặc null nếu số lượng hợp lệ. */
-export function validatePickQuantity(quantity: number, maximum: number): string | null {
+export function validatePickQuantity(
+  quantity: number,
+  maximum: number,
+  precision = 2
+): string | null {
   if (!Number.isFinite(quantity) || quantity <= 0) return 'Số lượng phải lớn hơn 0.'
   if (!hasAtMostTwoDecimals(quantity)) return 'Số lượng chỉ có tối đa 2 chữ số thập phân.'
+  if (!hasTransferQuantityPrecision(quantity, precision))
+    return precision === 0
+      ? 'Đơn vị này chỉ nhận số nguyên, không được nhập số lẻ.'
+      : `Đơn vị này chỉ nhận tối đa ${precision} chữ số thập phân.`
   if (quantity > maximum) return `Không được lấy vượt quá số lượng cần lấy (${maximum}).`
   return null
 }

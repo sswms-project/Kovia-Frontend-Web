@@ -83,11 +83,11 @@ export default function GoodsReceiptsPage() {
         expectedVersion: approvalDetailQuery.data.version,
         selfApprovalAcknowledged: allowedActionsQuery.data.selfApprovalRequired,
       })
-      toast.success(`Đã xác nhận hàng đến cho phiếu ${approvalTarget.receiptCode}.`)
+      toast.success(`Đã duyệt kết quả kiểm hàng của phiếu ${approvalTarget.receiptCode}.`)
       setApprovalTarget(null)
     } catch (error) {
       logger.error(error)
-      toast.error(getApiErrorMessage(error, 'Không thể xác nhận hàng đến.'))
+      toast.error(getApiErrorMessage(error, 'Không thể duyệt kết quả kiểm hàng.'))
     }
   }
 
@@ -167,7 +167,7 @@ export default function GoodsReceiptsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận hàng đã đến kho?</AlertDialogTitle>
+            <AlertDialogTitle>Phê duyệt kết quả kiểm hàng?</AlertDialogTitle>
             <AlertDialogDescription>
               {approvalTarget
                 ? allowedActionsQuery.data?.selfApprovalRequired
@@ -192,7 +192,7 @@ export default function GoodsReceiptsPage() {
               }}
             >
               <Check aria-hidden="true" />
-              {approveMutation.isPending ? 'Đang xác nhận…' : 'Xác nhận hàng đến'}
+              {approveMutation.isPending ? 'Đang phê duyệt…' : 'Duyệt kiểm hàng'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

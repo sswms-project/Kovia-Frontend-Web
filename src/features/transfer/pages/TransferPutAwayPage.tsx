@@ -84,7 +84,7 @@ export default function TransferPutAwayPage({
   const canPutAway = Boolean(
     shipment &&
     getShipmentCapabilities(viewer, shipment, transfer).canOpenPutAway &&
-    sheet?.receipt.receiptFlowVersion === 1
+    [1, 2].includes(sheet?.receipt.receiptFlowVersion ?? 0)
   )
   const [tab, setTab] = useState(initialTab)
   const [applyPlanOpen, setApplyPlanOpen] = useState(false)
@@ -135,31 +135,43 @@ export default function TransferPutAwayPage({
   )
   const capacitySlots = useMemo(() => getPutawaySlotOptions(layout.data ?? []), [layout.data])
   const suggestions = useTransferPutAwayPlanSuggestionsQuery(transferId, shipmentId)
-  const sourceVersion = `${transferId}|${shipmentId ?? ''}|${transfer?.version}|${sheet?.receipt.version}|${sheet?.planVersion}`
-  const rules = useTransferPutAwayRulesQuery(
-    transferId,
-    shipmentId,
-    sourceVersion,
-    Boolean(
-      isReady &&
-      canSee &&
-      (canPlan || canPutAway) &&
-      transfer &&
-      (!shipmentId ||
-        shipment?.status === 'AwaitingPutAway' ||
-        shipment?.status === 'Receiving' ||
-        shipment?.status === 'InTransit')
-    )
+  const reloadLock = useRef(false)
+  const [reloading, setReloading] = useState(false)
+  const busy = editor.isPending || putAway.isPending || putAway.isFindingSlot || reloading
+  const snapshotBlocked = Boolean(
+    editor.reloadRequired || putAway.reloadRequired || putAway.unknownResult
   )
+  const sourceVersion = `${transferId}|${shipmentId ?? ''}|${transfer?.version}|${sheet?.receipt.version}|${sheet?.planVersion}`
+  const transferOpen =
+    transfer?.status === 'InProgress' || transfer?.status === 'AwaitingResolution'
+  const rulesReady = Boolean(
+    isReady &&
+    canSee &&
+    (canPlan || canPutAway) &&
+    transfer &&
+    transferOpen &&
+    !detail.isError &&
+    !detail.isFetching &&
+    !busy &&
+    !snapshotBlocked &&
+    (!shipmentId ||
+      (sheet &&
+        !query.isError &&
+        !query.isFetching &&
+        (shipment?.status === 'AwaitingPutAway' ||
+          shipment?.status === 'Receiving' ||
+          shipment?.status === 'InTransit')))
+  )
+  const rules = useTransferPutAwayRulesQuery(transferId, shipmentId, sourceVersion, rulesReady)
   useEffect(() => {
-    if (!rules.data || rules.isFetching) return
+    if (!rulesReady || !rules.data || rules.isFetching) return
     editor.seedSuggestions(rules.data)
     if (sheet && mapIndex === null) putAway.applySuggestions(rules.data, sheet, true)
-  }, [rules.data, rules.isFetching, editor, putAway, sheet, mapIndex])
+  }, [rulesReady, rules.data, rules.isFetching, editor, putAway, sheet, mapIndex])
   const visibleSuggestions =
     suggestionVersion === sourceVersion && !hideSuggestions ? suggestions.data : undefined
   function applySuggestion(only?: { itemId: string; slotId: string }) {
-    if (!visibleSuggestions || busy || putAway.unknownResult) return
+    if (!visibleSuggestions || busy || snapshotBlocked) return
     const target: 'plan' | 'execution' = tab === 'plan' ? 'plan' : 'execution'
     if (target === 'plan' ? !canPlan : putAway.blocked) return
     const request = { target, data: visibleSuggestions, only, version: sourceVersion }
@@ -173,7 +185,9 @@ export default function TransferPutAwayPage({
     if (
       !(tab === 'plan' ? canPlan : canPutAway && !putAway.blocked) ||
       suggestionLock.current ||
-      busy
+      busy ||
+      snapshotBlocked ||
+      !transferOpen
     )
       return
     suggestionLock.current = true
@@ -187,9 +201,6 @@ export default function TransferPutAwayPage({
       suggestionLock.current = false
     }
   }
-  const reloadLock = useRef(false)
-  const [reloading, setReloading] = useState(false)
-  const busy = editor.isPending || putAway.isPending || putAway.isFindingSlot || reloading
   const entries = putAway.form.watch('entries')
   const planStates = sheet ? transferPutAwayPlanStates(sheet, entries) : []
   async function reload(source: 'reload' | 'saved' = 'reload') {
@@ -209,8 +220,7 @@ export default function TransferPutAwayPage({
       setReloading(false)
     }
   }
-  const isInitialRulesLoading = rules.isFetching && !rules.data && !rules.error
-  if (!isReady || detail.isLoading || (shipmentId && query.isLoading) || isInitialRulesLoading)
+  if (!isReady || detail.isLoading || (shipmentId && query.isLoading))
     return <OperationalLoadingState rows={4} />
   if (!transfer || detail.isError || (shipmentId && (!shipment || query.isError || !sheet)))
     return (
@@ -295,6 +305,7 @@ export default function TransferPutAwayPage({
       >
         <div
           data-slot="operational-list-body"
+          data-scrollbar="slim"
           className={cn('flex flex-col', tab === 'plan' ? 'gap-5 px-0' : 'gap-3 p-3')}
         >
           {rules.data &&
@@ -347,9 +358,11 @@ export default function TransferPutAwayPage({
               <Alert>
                 <AlertDescription>
                   Đã nhận, chưa cất:{' '}
-                  <strong className="tabular-nums">{formatQuantity(remaining)}</strong>. Chỉ bước
-                  này mới tăng tồn kho nhận. Chỉ cất hàng tốt thực nhận; hàng hỏng xử lý ở hồ sơ
-                  chênh lệch.
+                  <strong className="tabular-nums">{formatQuantity(remaining)}</strong>.{' '}
+                  {sheet.receipt.receiptFlowVersion === 2
+                    ? 'Thực nhận đã được ghi tồn. Cất chỉ chuyển vị trí và mở khả dụng cho hàng đạt, không nhận tồn thêm.'
+                    : 'Theo luồng cũ, bước cất ghi tăng tồn kho nhận.'}{' '}
+                  Chỉ cất hàng tốt; hàng hỏng giữ Hold/cách biệt.
                 </AlertDescription>
               </Alert>
               {canPutAway && remaining > 0 ? (
@@ -380,7 +393,7 @@ export default function TransferPutAwayPage({
                   </AlertDescription>
                   <Button
                     variant="outline"
-                    disabled={busy || rules.isFetching}
+                    disabled={!rulesReady || rules.isFetching}
                     onClick={() => void rules.refetch()}
                   >
                     Thử lại gợi ý theo quy tắc kho

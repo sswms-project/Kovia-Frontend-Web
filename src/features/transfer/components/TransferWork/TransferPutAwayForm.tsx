@@ -13,7 +13,14 @@ import { TransferPutAwayEntryCard } from './TransferPutAwayEntryCard'
 
 interface Props extends Omit<
   ComponentProps<typeof TransferPutAwayEntryCard>,
-  'index' | 'row' | 'canRemove' | 'planState' | 'planChanged' | 'hideHeader'
+  | 'index'
+  | 'row'
+  | 'canRemove'
+  | 'planState'
+  | 'planChanged'
+  | 'hideHeader'
+  | 'cameraTarget'
+  | 'onCameraTargetChange'
 > {
   readonly fields: readonly { id: string }[]
   readonly rows: readonly TransferPutAwaySheetRow[]
@@ -35,6 +42,7 @@ export function TransferPutAwayForm({
   const errors = entryProps.form.formState.errors.entries
   const rootRef = useRef<HTMLDivElement>(null)
   const [collapse, setCollapse] = useState({ attempt: 0, keys: new Set<string>() })
+  const [camera, setCamera] = useState<{ entryId: string; target: 'slot' | 'product' } | null>(null)
   const groups = rows
     .filter((row) => row.qualityStatus === 'Good' && row.remainingQuantity > 0)
     .map((row) => {
@@ -103,14 +111,16 @@ export function TransferPutAwayForm({
           <Collapsible
             key={key}
             open={!collapse.keys.has(key)}
-            onOpenChange={(open) =>
+            onOpenChange={(open) => {
+              if (!open && indices.some((index) => fields[index]?.id === camera?.entryId))
+                setCamera(null)
               setCollapse((current) => {
                 const keys = new Set(current.keys)
                 if (open) keys.delete(key)
                 else keys.add(key)
                 return { ...current, keys }
               })
-            }
+            }}
             className="bg-card border"
           >
             <header className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
@@ -144,20 +154,31 @@ export function TransferPutAwayForm({
             </header>
             <CollapsibleContent className="motion-reduce:animate-none">
               <div className="flex flex-col gap-2 p-2">
-                {indices.map((index) =>
-                  fields[index] ? (
+                {indices.map((index) => {
+                  const entryId = fields[index]?.id
+                  return entryId ? (
                     <TransferPutAwayEntryCard
                       {...entryProps}
-                      key={fields[index].id}
+                      key={entryId}
                       index={index}
                       row={row}
                       hideHeader
                       planState={planStates[index]}
                       planChanged={changedLines.has(row.lineId)}
                       canRemove={indices.length > 1}
+                      cameraTarget={camera?.entryId === entryId ? camera.target : null}
+                      onCameraTargetChange={(target) =>
+                        setCamera((current) =>
+                          target
+                            ? { entryId, target }
+                            : current?.entryId === entryId
+                              ? null
+                              : current
+                        )
+                      }
                     />
                   ) : null
-                )}
+                })}
               </div>
             </CollapsibleContent>
           </Collapsible>

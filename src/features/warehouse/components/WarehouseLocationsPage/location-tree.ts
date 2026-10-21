@@ -65,38 +65,46 @@ export function getExpandableLocationIds(nodes: readonly WarehouseLocationTreeNo
   return ids
 }
 
+export function matchesWarehouseLocationTreeNode(
+  node: WarehouseLocationTreeNode,
+  searchText: string,
+  lifecycleStatus: '' | 'Active' | 'Inactive'
+) {
+  const term = searchText.trim().toLocaleLowerCase('vi')
+  const values =
+    node.kind === 'zone'
+      ? [node.zone.zoneCode, node.zone.zoneName, node.zone.description]
+      : node.kind === 'rack'
+        ? [node.rack.rackCode, node.rack.rackName, node.rack.description]
+        : [node.slot.slotCode, node.slot.slotName, node.slot.description]
+  const status =
+    node.kind === 'zone'
+      ? node.zone.status
+      : node.kind === 'rack'
+        ? node.rack.status
+        : node.slot.isActive
+          ? 'Active'
+          : 'Inactive'
+  return (
+    (!lifecycleStatus || status === lifecycleStatus) &&
+    (!term || values.some((value) => value?.toLocaleLowerCase('vi').includes(term)))
+  )
+}
+
 export function filterWarehouseLocationTree(
   nodes: readonly WarehouseLocationTreeNode[],
   searchText: string,
   lifecycleStatus: '' | 'Active' | 'Inactive'
 ) {
-  const term = searchText.trim().toLocaleLowerCase('vi')
-  const matches = (node: WarehouseLocationTreeNode) => {
-    const values =
-      node.kind === 'zone'
-        ? [node.zone.zoneCode, node.zone.zoneName, node.zone.description]
-        : node.kind === 'rack'
-          ? [node.rack.rackCode, node.rack.rackName, node.rack.description]
-          : [node.slot.slotCode, node.slot.slotName, node.slot.description]
-    const status =
-      node.kind === 'zone'
-        ? node.zone.status
-        : node.kind === 'rack'
-          ? node.rack.status
-          : node.slot.isActive
-            ? 'Active'
-            : 'Inactive'
-    return (
-      (!lifecycleStatus || status === lifecycleStatus) &&
-      (!term || values.some((value) => value?.toLocaleLowerCase('vi').includes(term)))
-    )
-  }
-
   const filterNode = (node: WarehouseLocationTreeNode): WarehouseLocationTreeNode | null => {
     const children = node.children
       .map(filterNode)
       .filter((child): child is WarehouseLocationTreeNode => child !== null)
-    if (!matches(node) && children.length === 0) return null
+    if (
+      !matchesWarehouseLocationTreeNode(node, searchText, lifecycleStatus) &&
+      children.length === 0
+    )
+      return null
     return { ...node, children } as WarehouseLocationTreeNode
   }
 

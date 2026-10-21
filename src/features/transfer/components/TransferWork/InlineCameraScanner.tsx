@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import {
   CAMERA_FAILURE_MESSAGES,
   startCameraScan,
@@ -24,6 +27,8 @@ export function InlineCameraScanner({ active, onCode, repeatGuardMs }: InlineCam
   const videoRef = useRef<HTMLVideoElement>(null)
   const onCodeRef = useRef(onCode)
   const [failure, setFailure] = useState<CameraScanFailure | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const [playing, setPlaying] = useState(false)
 
   useEffect(() => {
     onCodeRef.current = onCode
@@ -36,33 +41,72 @@ export function InlineCameraScanner({ active, onCode, repeatGuardMs }: InlineCam
     let cancelled = false
     let handle: { stop: () => void } | undefined
     queueMicrotask(() => {
-      if (!cancelled) setFailure(null)
-    })
-    void startCameraScan(video, (code) => onCodeRef.current(code), setFailure, {
-      continuous: true,
-      repeatGuardMs,
-    }).then((started) => {
-      if (cancelled) started.stop()
-      else handle = started
+      if (cancelled) return
+      setFailure(null)
+      setPlaying(false)
+      void startCameraScan(
+        video,
+        (code) => {
+          if (!cancelled) onCodeRef.current(code)
+        },
+        (error) => {
+          if (!cancelled) setFailure(error)
+        },
+        {
+          continuous: true,
+          repeatGuardMs,
+        }
+      ).then((started) => {
+        if (cancelled) started.stop()
+        else handle = started
+      })
     })
     return () => {
       cancelled = true
       handle?.stop()
     }
-  }, [active, repeatGuardMs])
+  }, [active, repeatGuardMs, attempt])
 
   if (!active) return null
-  return failure ? (
-    <p role="alert" className="text-destructive text-sm">
-      {CAMERA_FAILURE_MESSAGES[failure]}
-    </p>
-  ) : (
-    <video
-      ref={videoRef}
-      className="bg-muted h-40 w-full border object-cover"
-      playsInline
-      muted
-      aria-label="Hình ảnh từ camera"
-    />
+  return (
+    <div className="bg-muted relative aspect-video min-h-40 w-full border">
+      <video
+        ref={videoRef}
+        className="absolute inset-0 size-full object-cover"
+        hidden={Boolean(failure)}
+        playsInline
+        muted
+        onPlaying={() => setPlaying(true)}
+        aria-label="Hình ảnh từ camera"
+      />
+      {failure ? (
+        <div className="relative flex min-h-40 flex-col justify-center gap-3 p-3">
+          <Alert variant="destructive">
+            <AlertDescription>{CAMERA_FAILURE_MESSAGES[failure]}</AlertDescription>
+          </Alert>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full"
+            onClick={() => setAttempt((value) => value + 1)}
+          >
+            Thử lại camera
+          </Button>
+        </div>
+      ) : !playing ? (
+        <div
+          className="bg-muted absolute inset-0 flex items-center justify-center gap-2 p-3 text-sm"
+          role="status"
+        >
+          <Spinner aria-hidden="true" className="motion-reduce:animate-none" />
+          Đang mở camera… Hãy cấp quyền nếu được hỏi.
+        </div>
+      ) : (
+        <div
+          aria-hidden="true"
+          className="border-primary-container pointer-events-none absolute inset-6 border-2"
+        />
+      )}
+    </div>
   )
 }

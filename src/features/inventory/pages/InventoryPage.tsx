@@ -39,6 +39,7 @@ export default function InventoryPage({
   const [warehouseId, setWarehouseId] = useState(initialWarehouseId ?? '')
   const [productId, setProductId] = useState(initialProductId ?? '')
   const [slotId, setSlotId] = useState('')
+  const [showDepleted, setShowDepleted] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [damagedStock, setDamagedStock] = useState<InventoryStock | null>(null)
@@ -59,11 +60,11 @@ export default function InventoryPage({
   const inventoryParams = useMemo(
     () =>
       buildInventoryQuery(
-        { searchTerm: debouncedSearchText, warehouseId, productId, slotId },
+        { searchTerm: debouncedSearchText, warehouseId, productId, slotId, showDepleted },
         page,
         pageSize
       ),
-    [debouncedSearchText, page, pageSize, productId, slotId, warehouseId]
+    [debouncedSearchText, page, pageSize, productId, slotId, warehouseId, showDepleted]
   )
   const inventoryQuery = useInventoryQuery(inventoryParams)
   const canExport = Boolean(
@@ -208,6 +209,7 @@ export default function InventoryPage({
         warehouseId={warehouseId}
         productId={productId}
         slotId={slotId}
+        showDepleted={showDepleted}
         warehouseOptions={warehouseOptions}
         productOptions={productOptions}
         slotOptions={slotOptions}
@@ -219,7 +221,10 @@ export default function InventoryPage({
         areSlotsLoading={slotsQuery.isLoading}
         areFiltersError={warehousesQuery.isError || productsQuery.isError || slotsQuery.isError}
         activeFilterCount={
-          Number(Boolean(warehouseId)) + Number(Boolean(productId)) + Number(Boolean(slotId))
+          Number(Boolean(warehouseId)) +
+          Number(Boolean(productId)) +
+          Number(Boolean(slotId)) +
+          Number(showDepleted)
         }
         canReportDamaged={meQuery.data?.permissions.includes(P.INVENTORY_REPORT_DAMAGED) ?? false}
         onSearchChange={(value) => updateFilter(setSearchText, value)}
@@ -229,10 +234,15 @@ export default function InventoryPage({
         }}
         onProductChange={(value) => updateFilter(setProductId, value)}
         onSlotChange={(value) => updateFilter(setSlotId, value)}
+        onShowDepletedChange={(value) => {
+          setShowDepleted(value)
+          setPage(1)
+        }}
         onResetFilters={() => {
           setWarehouseId('')
           setProductId('')
           setSlotId('')
+          setShowDepleted(false)
           setPage(1)
         }}
         onRetryFilters={() => {

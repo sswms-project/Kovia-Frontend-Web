@@ -1,8 +1,9 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { toast } from 'sonner'
 import {
   createShipmentSchema,
   transferFeedbackReplySchema,
@@ -13,7 +14,14 @@ import {
   type TransferFeedbackReplyFormValues,
   type TransferReasonFormValues,
 } from '../schemas/transfer-actions.schema'
-import type { TransferDetail, TransferFeedback, TransferShipment } from '../types/transfer.types'
+import type {
+  CreateTransferShipmentRequest,
+  TransferDetail,
+  TransferFeedback,
+  TransferShipment,
+} from '../types/transfer.types'
+import { newCommandId } from '../utils/transfer-command-id'
+import { describeTransferError } from '../utils/transfer-errors'
 import type { TransferClosingAction } from '../utils/transfer-capabilities'
 import { visibleTransferItems } from '../utils/transfer-form'
 import {
@@ -40,6 +48,12 @@ export function useTransferRequestActions(transfer: TransferDetail | undefined) 
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
   const [replyingTo, setReplyingTo] = useState<TransferFeedback | null>(null)
   const [isShipmentOpen, setIsShipmentOpen] = useState(false)
+  const shipmentIntent = useRef<CreateTransferShipmentRequest | null>(null)
+  const shipmentVersion = useRef<string | null>(null)
+  const shipmentTransferId = useRef<string | null>(null)
+  const acceptingRequest = useRef(false)
+  const shipmentLock = useRef(false)
+  const [shipmentUncertain, setShipmentUncertain] = useState(false)
   const [cancellingShipment, setCancellingShipment] = useState<TransferShipment | null>(null)
 
   const closeForm = useForm<TransferReasonFormValues>({
@@ -149,14 +163,27 @@ export function useTransferRequestActions(transfer: TransferDetail | undefined) 
       isOpen: isShipmentOpen,
       form: shipmentForm,
       isPending: createShipmentMutation.isPending,
+      uncertain: shipmentUncertain,
       open: () => {
+        if (shipmentLock.current) return
+        if (shipmentIntent.current && shipmentTransferId.current === transferId) {
+          setIsShipmentOpen(true)
+          return
+        }
+        shipmentIntent.current = null
+        setShipmentUncertain(false)
+        shipmentTransferId.current = transferId
+        shipmentVersion.current = transfer?.version ?? null
+        acceptingRequest.current = transfer?.status === 'PendingSourceAcceptance'
         shipmentForm.reset({
+          staffId: '',
           lines: visibleTransferItems(transfer?.items ?? [])
             .filter((item) => item.unbatchedQuantity > 0)
             .map((item) => ({
               itemId: item.id,
               label: `${item.sku} · ${item.productName}`,
               unitName: item.baseUnitName ?? '',
+              precision: Math.min(2, Math.max(0, item.baseQuantityPrecision ?? 2)),
               selected: true,
               maximum: item.unbatchedQuantity,
               quantity: item.unbatchedQuantity,
@@ -166,20 +193,47 @@ export function useTransferRequestActions(transfer: TransferDetail | undefined) 
       },
       onOpenChange: setIsShipmentOpen,
       submit: async (values: CreateShipmentFormValues) => {
+        if (shipmentLock.current) return
+        if (!transferId || shipmentTransferId.current !== transferId) {
+          setIsShipmentOpen(false)
+          toast.error('Phiếu đang xem đã thay đổi. Vui lòng mở lại thao tác.')
+          return
+        }
+        shipmentLock.current = true
+        const request = shipmentIntent.current ?? {
+          commandId: newCommandId(),
+          expectedVersion: shipmentVersion.current,
+          ...(acceptingRequest.current ? { acceptRequest: true } : {}),
+          staffId: values.staffId || null,
+          lines: values.lines
+            .filter((line) => line.selected)
+            .map((line) => ({ itemId: line.itemId, quantity: line.quantity })),
+        }
+        shipmentIntent.current = request
         const done = await run(
-          () =>
-            createShipmentMutation.mutateAsync({
-              transferId,
-              request: {
-                lines: values.lines
-                  .filter((line) => line.selected)
-                  .map((line) => ({ itemId: line.itemId, quantity: line.quantity })),
-              },
-            }),
-          'Đã tạo đợt xuất và công việc lấy hàng.',
-          'Không thể tạo đợt xuất.'
+          async () => {
+            try {
+              await createShipmentMutation.mutateAsync({ transferId, request })
+            } catch (error) {
+              const kind = describeTransferError(error, '').kind
+              const uncertain = kind === 'unknown-result'
+              setShipmentUncertain(uncertain)
+              if (!uncertain) shipmentIntent.current = null
+              if (kind === 'conflict') setIsShipmentOpen(false)
+              throw error
+            }
+          },
+          request.staffId
+            ? 'Đã chuẩn bị xuất và giao việc lấy hàng.'
+            : 'Đã chuẩn bị xuất; công việc đang chờ phân công.',
+          'Không thể chuẩn bị xuất.'
         )
-        if (done) setIsShipmentOpen(false)
+        shipmentLock.current = false
+        if (done) {
+          shipmentIntent.current = null
+          setShipmentUncertain(false)
+          setIsShipmentOpen(false)
+        }
       },
     },
     cancelShipment: {

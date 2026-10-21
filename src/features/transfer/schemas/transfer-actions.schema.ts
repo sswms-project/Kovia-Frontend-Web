@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 import { TRANSFER_FEEDBACK_REASONS } from '../types/transfer.types'
-import { hasAtMostTwoDecimals } from '../utils/transfer-scan'
+import { hasTransferQuantityPrecision } from './transfer-receipt.schema'
 
 export const transferReasonSchema = z.object({
   reason: z
@@ -37,10 +37,28 @@ export const shipmentLineDraftSchema = z.object({
   selected: z.boolean(),
   maximum: z.number().min(0),
   quantity: z.number('Số lượng phải là số.'),
+  precision: z.number().int().min(0).max(2).optional(),
 })
 
+export function validateShipmentQuantity(
+  quantity: number,
+  maximum: number,
+  precision = 2
+): string | null {
+  if (!Number.isFinite(quantity) || quantity <= 0) return 'Số lượng phải lớn hơn 0.'
+  if (quantity > maximum) return `Không vượt quá phần chưa vào đợt (${maximum}).`
+  if (!hasTransferQuantityPrecision(quantity, precision))
+    return precision === 0
+      ? 'Đơn vị này chỉ nhận số nguyên, không được nhập số lẻ.'
+      : `Số lượng chỉ có tối đa ${precision} chữ số thập phân.`
+  return null
+}
+
 export const createShipmentSchema = z
-  .object({ lines: z.array(shipmentLineDraftSchema) })
+  .object({
+    lines: z.array(shipmentLineDraftSchema),
+    staffId: z.union([z.literal(''), dotNetGuidSchema('Người lấy hàng không hợp lệ.')]).optional(),
+  })
   .superRefine((values, context) => {
     const selected = values.lines.filter((line) => line.selected)
     if (selected.length === 0) {
@@ -52,23 +70,12 @@ export const createShipmentSchema = z
     }
     values.lines.forEach((line, index) => {
       if (!line.selected) return
-      if (!(line.quantity > 0)) {
+      const message = validateShipmentQuantity(line.quantity, line.maximum, line.precision)
+      if (message) {
         context.addIssue({
           code: 'custom',
           path: ['lines', index, 'quantity'],
-          message: 'Số lượng phải lớn hơn 0.',
-        })
-      } else if (line.quantity > line.maximum) {
-        context.addIssue({
-          code: 'custom',
-          path: ['lines', index, 'quantity'],
-          message: `Không vượt quá phần chưa vào đợt (${line.maximum}).`,
-        })
-      } else if (!hasAtMostTwoDecimals(line.quantity)) {
-        context.addIssue({
-          code: 'custom',
-          path: ['lines', index, 'quantity'],
-          message: 'Số lượng chỉ có tối đa 2 chữ số thập phân.',
+          message,
         })
       }
     })

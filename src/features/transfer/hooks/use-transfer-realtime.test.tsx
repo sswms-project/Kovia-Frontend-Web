@@ -7,6 +7,7 @@ import { NotificationHubContext } from '@/features/platform-services/providers/n
 import { queryKeys } from '@/lib/query-keys'
 import { useTransferRealtime } from './use-transfer-realtime'
 import { TRANSFER_MUTATION_KEY } from './use-transfers'
+import { getTransferClientId } from '../utils/transfer-client'
 
 type Handler = (payload: unknown) => void
 
@@ -123,8 +124,10 @@ describe('useTransferRealtime', () => {
         .build(client, { mutationKey: TRANSFER_MUTATION_KEY, mutationFn: async () => 'ok' })
         .execute(undefined)
     )
-    act(() => fake.emit(event))
+    act(() => fake.emit({ ...event, originClientId: getTransferClientId() }))
     expect(hook.result.current.hasPendingChange).toBe(false)
+    act(() => fake.emit({ ...event, originClientId: 'another-tab' }))
+    expect(hook.result.current.hasPendingChange).toBe(true)
   })
 
   it('does not hide a change from someone else because an unrelated mutation just ran', async () => {
@@ -142,6 +145,68 @@ describe('useTransferRealtime', () => {
     act(() => fake.emit(event))
     expect(hook.result.current.hasPendingChange).toBe(true)
   })
+
+  it('does not hide a concurrent change while a local write is still pending or fails', async () => {
+    const fake = createFakeConnection()
+    const { client, wrapper } = setup(fake.connection)
+    renderHook(() => useTransferRealtime({ transferId: 't1' }), { wrapper })
+    let reject: ((error: Error) => void) | undefined
+    const mutation = client.getMutationCache().build(client, {
+      mutationKey: TRANSFER_MUTATION_KEY,
+      retry: false,
+      mutationFn: () =>
+        new Promise((_, fail) => {
+          reject = fail
+        }),
+    })
+    let write: Promise<unknown> = Promise.resolve()
+    await act(async () => {
+      write = mutation.execute(undefined).catch(() => undefined)
+      await Promise.resolve()
+    })
+    act(() => fake.emit(event))
+    expect(client.getQueryState(queryKeys.transfers.detail('t1'))?.isInvalidated).toBe(true)
+    await act(async () => {
+      reject?.(new Error('Rejected'))
+      await write
+    })
+    expect(client.getQueryState(queryKeys.transfers.detail('t1'))?.isInvalidated).toBe(true)
+  })
+
+  it.each([{ mutationKey: ['transfer-slot-lookup'] }, { mutationKey: TRANSFER_MUTATION_KEY }])(
+    'keeps foreign signals before and after a successful %j',
+    async ({ mutationKey }) => {
+      const fake = createFakeConnection()
+      const { client, wrapper } = setup(fake.connection)
+      const hook = renderHook(() => useTransferRealtime({ transferId: 't1', autoRefresh: false }), {
+        wrapper,
+      })
+      let finish!: () => void
+      const mutation = client.getMutationCache().build(client, {
+        mutationKey,
+        mutationFn: () =>
+          new Promise<void>((resolve) => {
+            finish = resolve
+          }),
+      })
+      let request!: Promise<unknown>
+      await act(async () => {
+        request = mutation.execute(undefined)
+        await Promise.resolve()
+      })
+      act(() => fake.emit(event))
+      expect(hook.result.current.hasPendingChange).toBe(true)
+      await act(async () => {
+        finish()
+        await request
+      })
+      expect(hook.result.current.hasPendingChange).toBe(true)
+      act(() => hook.result.current.dismiss())
+      act(() => fake.emit(event))
+      expect(hook.result.current.hasPendingChange).toBe(true)
+      expect(client.getQueryState(queryKeys.transfers.detail('t1'))?.isInvalidated).toBe(false)
+    }
+  )
 
   it('clears the pending flag after an explicit reload', async () => {
     const fake = createFakeConnection()

@@ -17,29 +17,19 @@ import type { StockIssueWorkflow } from '../../hooks/use-stock-issue-workflow'
 import { formatStockIssueUnitQuantity } from '../../utils/stock-issue-format'
 import {
   CancelStockIssueRequestDialog,
-  CreateGoodsReturnRequestDialog,
   RecordStockPickingDialog,
   ReportPickIssueDialog,
 } from '../StockIssueRequestsPage'
 
 /** Mọi hộp thoại của luồng xuất kho; trạng thái và thao tác nằm trong `useStockIssueWorkflow`. */
 export function StockIssueWorkflowDialogs({ workflow }: { readonly workflow: StockIssueWorkflow }) {
-  const { picking, goodsReturn, release, authorize, dispatch, cancel, report } = workflow
-  const allowableByPickDetail = Object.fromEntries(
-    (goodsReturn.order?.items ?? []).flatMap((item) =>
-      item.pickDetails.map((detail) => [detail.id, Math.max(0, detail.returnableQuantity)])
-    )
-  )
+  const { picking, release, authorize, dispatch, cancel, report } = workflow
 
   return (
     <>
       <RecordStockPickingDialog key={`pick-${picking.order?.id ?? 'none'}`} {...picking} />
       <ReportPickIssueDialog key={`report-${report.order?.id ?? 'none'}`} {...report} />
       <CancelStockIssueRequestDialog key={`cancel-${cancel.order?.id ?? 'none'}`} {...cancel} />
-      <CreateGoodsReturnRequestDialog
-        {...goodsReturn}
-        allowableByPickDetail={allowableByPickDetail}
-      />
 
       <AlertDialog
         open={Boolean(release.order)}

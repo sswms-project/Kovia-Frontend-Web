@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -6,14 +6,10 @@ import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useStaffListQuery } from '@/features/staff/hooks/use-staff'
 import { STAFF_DIRECTORY_KINDS } from '@/features/staff/types/staff.types'
-import { useWarehouseLocationsQuery } from '@/features/warehouse/hooks/use-warehouse'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import {
-  createGoodsReturnRequestSchema,
   recordStockPickingSchema,
-  type CreateGoodsReturnRequestFormValues,
   type RecordStockPickingFormValues,
 } from '../schemas/stock-issue.schema'
 import type {
@@ -22,12 +18,13 @@ import type {
   StockIssueRowActionHandlers,
 } from '../types/stock-issue.types'
 import { buildStockPickingLines } from '../utils/stock-issue-picking'
+import { crossDockService } from '../services/cross-dock.service'
+import type { RecordStockPickingRequest } from '../types/stock-issue.types'
 import {
   useAssignStockIssuePickerMutation,
   useAuthorizeStockDispatchMutation,
   useCancelStockIssueRequestMutation,
   useConfirmStockDispatchMutation,
-  useCreateGoodsReturnRequestMutation,
   useRecordStockPickingMutation,
   useReleaseStockIssueRequestMutation,
   useRemovePickDetailMutation,
@@ -42,21 +39,20 @@ function notifyError(error: unknown, fallback: string) {
 }
 
 /**
- * Luồng thao tác trên một phiếu xuất (giao việc, lấy hàng, cho phép xuất, xác nhận rời kho, trả hàng,
- * huỷ) dùng chung cho trang danh sách và trang chi tiết. `contextWarehouseId` là kho của phiếu đang
+ * Luồng thao tác trên một phiếu xuất (giao việc, lấy hàng, cho phép xuất, xác nhận rời kho, huỷ)
+ * dùng chung cho trang danh sách và trang chi tiết. `contextWarehouseId` là kho của phiếu đang
  * xem để tải sẵn danh sách người lấy hàng khi chưa mở hộp thoại giao việc.
  */
 export function useStockIssueWorkflow(contextWarehouseId?: string) {
   const [pickingOrder, setPickingOrder] = useState<StockIssueRequestSummary | null>(null)
-  const [returningOrder, setReturningOrder] = useState<StockIssueRequestSummary | null>(null)
   const [dispatchingOrder, setDispatchingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [authorizingOrder, setAuthorizingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [releasingOrder, setReleasingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [reportingOrder, setReportingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [cancellingOrder, setCancellingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [releaseStaffId, setReleaseStaffId] = useState('')
-  const [returnSlotSearch, setReturnSlotSearch] = useState('')
-  const debouncedReturnSlotSearch = useDebouncedValue(returnSlotSearch, 350)
+  const preparingPick = useRef(false)
+  const pickCommand = useRef<{ body: string; commandId: string } | null>(null)
 
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions
@@ -69,18 +65,9 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
       canAuthorizeDispatch: granted.includes(P.STOCK_ISSUE_REQUESTS_AUTHORIZE_DISPATCH),
       canDispatch: granted.includes(P.STOCK_ISSUE_REQUESTS_DISPATCH),
       canCancel: granted.includes(P.STOCK_ISSUE_REQUESTS_CANCEL),
-      canReturn: granted.includes(P.STOCK_ISSUE_REQUESTS_RETURN),
     }
   }, [permissions])
 
-  const returnSlotsQuery = useWarehouseLocationsQuery(returningOrder?.warehouseId ?? '', {
-    top: 200,
-    skip: 0,
-    needTotalCount: true,
-    type: 'Slot',
-    lifecycleStatus: 'Active',
-    ...(debouncedReturnSlotSearch.trim() ? { searchText: debouncedReturnSlotSearch.trim() } : {}),
-  })
   const pickerWarehouseId = releasingOrder?.warehouseId ?? contextWarehouseId
   const canLoadPickers = capabilities.canAssignPicker && Boolean(pickerWarehouseId)
   const staffQuery = useStaffListQuery(
@@ -106,7 +93,6 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   }, [managerQuery.data?.items, pickerWarehouseId, staffQuery.data?.items])
 
   const recordPickingMutation = useRecordStockPickingMutation()
-  const createReturnMutation = useCreateGoodsReturnRequestMutation()
   const confirmDispatchMutation = useConfirmStockDispatchMutation()
   const authorizeDispatchMutation = useAuthorizeStockDispatchMutation()
   const removePickDetailMutation = useRemovePickDetailMutation()
@@ -119,10 +105,6 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
     resolver: zodResolver(recordStockPickingSchema),
     defaultValues: { lines: [] },
   })
-  const returnForm = useForm<CreateGoodsReturnRequestFormValues>({
-    resolver: zodResolver(createGoodsReturnRequestSchema),
-    defaultValues: { reason: '', lines: [] },
-  })
 
   function closePicking() {
     setPickingOrder(null)
@@ -130,83 +112,83 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   }
 
   // Vị trí cần lấy đã nằm sẵn trong phiếu nên nhân viên không cần quyền xem tồn kho.
-  function openPicking(order: StockIssueRequestSummary) {
-    pickingForm.reset({ lines: buildStockPickingLines(order) })
-    setPickingOrder(order)
+  async function openPicking(order: StockIssueRequestSummary) {
+    if (preparingPick.current || !capabilities.canPick || meQuery.isError || !order.version) return
+    preparingPick.current = true
+    try {
+      const lines = buildStockPickingLines(order)
+      const destinations = await Promise.all(
+        [...new Set(lines.map((line) => line.inventoryStockId).filter(Boolean))].map((stockId) =>
+          crossDockService.destination(order.id, stockId)
+        )
+      )
+      if (
+        destinations.some(
+          (target) =>
+            target.stockIssueRequestId !== order.id ||
+            target.warehouseId !== order.warehouseId ||
+            target.version !== order.version
+        )
+      )
+        throw new Error('Phiếu đã thay đổi. Tải lại trước khi lấy hàng.')
+      pickingForm.reset({
+        lines: lines.map((line) => {
+          const destination = destinations.find(
+            (target) => target.inventoryStockId === line.inventoryStockId
+          )
+          return {
+            ...line,
+            destinationStagingSlotId: destination?.slotId,
+            stagingSlotCode: destination?.slotCode,
+            stagingPath: destination?.path,
+            scannedStagingSlotCode: '',
+          }
+        }),
+      })
+      pickCommand.current = null
+      setPickingOrder(order)
+    } catch (error) {
+      notifyError(error, 'Không tải được khu chờ xuất hợp lệ. Chưa ghi nhận lấy hàng.')
+    } finally {
+      preparingPick.current = false
+    }
   }
 
   async function submitPicking(values: RecordStockPickingFormValues) {
-    if (!pickingOrder) return
+    if (
+      !pickingOrder?.version ||
+      !capabilities.canPick ||
+      meQuery.isError ||
+      meQuery.isFetching ||
+      recordPickingMutation.isPending
+    )
+      return
     try {
+      const request: RecordStockPickingRequest = {
+        expectedVersion: pickingOrder.version,
+        items: values.lines
+          .filter((line) => line.pickedQuantity > 0)
+          .map((line) => ({
+            stockIssueRequestItemId: line.stockIssueRequestItemId,
+            inventoryStockId: line.inventoryStockId,
+            pickedQuantity: line.pickedQuantity * line.unitFactor,
+            scannedBarcode: line.scannedBarcode?.trim() || null,
+            scannedSlotCode: line.scannedSlotCode?.trim() || null,
+            destinationStagingSlotId: line.destinationStagingSlotId,
+            scannedStagingSlotCode: line.scannedStagingSlotCode?.trim() || null,
+          })),
+      }
+      const body = JSON.stringify(request)
+      if (pickCommand.current?.body !== body)
+        pickCommand.current = { body, commandId: crypto.randomUUID() }
       await recordPickingMutation.mutateAsync({
         stockIssueRequestId: pickingOrder.id,
-        request: {
-          items: values.lines
-            .filter((line) => line.pickedQuantity > 0)
-            .map((line) => ({
-              stockIssueRequestItemId: line.stockIssueRequestItemId,
-              inventoryStockId: line.inventoryStockId,
-              // Nhân viên nhập theo kiện; backend nhận số lượng theo đơn vị cơ sở.
-              pickedQuantity: line.pickedQuantity * line.unitFactor,
-              scannedBarcode: line.scannedBarcode?.trim() || null,
-              scannedSlotCode: line.scannedSlotCode?.trim() || null,
-            })),
-        },
+        request: { ...request, commandId: pickCommand.current.commandId },
       })
       toast.success('Đã ghi nhận lấy hàng và chuyển hàng ra khu chờ xuất.')
       closePicking()
     } catch (error) {
       notifyError(error, 'Không thể ghi nhận lấy hàng. Vui lòng thử lại.')
-    }
-  }
-
-  function openReturn(order: StockIssueRequestSummary) {
-    setReturningOrder(order)
-    setReturnSlotSearch('')
-    returnForm.reset({
-      reason: '',
-      lines: order.items.flatMap((item) =>
-        item.pickDetails
-          .filter((detail) => detail.issuedAt && detail.returnableQuantity > 0)
-          .map((detail) => ({
-            stockIssuePickDetailId: detail.id,
-            productName: item.productName,
-            lotNumber: detail.lotNumber,
-            returnableQuantity: detail.returnableQuantity,
-            quantity: 0,
-            condition: 'Good' as const,
-            restockSlotId: '',
-          }))
-      ),
-    })
-  }
-
-  function closeReturn() {
-    setReturningOrder(null)
-    setReturnSlotSearch('')
-  }
-
-  async function submitReturn(values: CreateGoodsReturnRequestFormValues) {
-    if (!returningOrder) return
-    try {
-      await createReturnMutation.mutateAsync({
-        stockIssueRequestId: returningOrder.id,
-        request: {
-          reason: values.reason,
-          items: values.lines
-            .filter((line) => line.quantity > 0)
-            .map((line) => ({
-              stockIssuePickDetailId: line.stockIssuePickDetailId,
-              quantity: line.quantity,
-              condition: line.condition,
-              restockSlotId: line.condition === 'Scrap' ? null : line.restockSlotId,
-            })),
-        },
-      })
-      toast.success('Đã tạo yêu cầu trả hàng.')
-      closeReturn()
-    } catch (error) {
-      notifyError(error, 'Không thể tạo yêu cầu trả hàng.')
     }
   }
 
@@ -320,11 +302,12 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
 
   const handlers: StockIssueRowActionHandlers = {
     onReleaseForPicking: openRelease,
-    onRecordStockPicking: openPicking,
+    onRecordStockPicking: (order) => {
+      void openPicking(order)
+    },
     onReportPickIssue: setReportingOrder,
     onAuthorizeDispatch: setAuthorizingOrder,
     onConfirmDispatch: setDispatchingOrder,
-    onCreateGoodsReturnRequest: openReturn,
     onCancel: setCancellingOrder,
   }
 
@@ -344,21 +327,6 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
         if (!open) closePicking()
       },
       onSubmit: submitPicking,
-    },
-    goodsReturn: {
-      order: returningOrder,
-      form: returnForm,
-      isPending: createReturnMutation.isPending,
-      slotOptions: (returnSlotsQuery.data?.items ?? []).map((slot) => ({
-        id: slot.id,
-        label: slot.code,
-      })),
-      slotSearch: returnSlotSearch,
-      onSlotSearchChange: setReturnSlotSearch,
-      onOpenChange: (open: boolean) => {
-        if (!open) closeReturn()
-      },
-      onSubmit: submitReturn,
     },
     release: {
       order: releasingOrder,

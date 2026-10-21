@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { P } from '@/config/permissionCodes'
-import { defaultTransferDetailTab, parseTransferDetailTab } from './transfer-detail-tabs'
+import { parseTransferDetailTab } from './transfer-detail-tabs'
 import { getShipmentCapabilities, getTransferCapabilities } from './transfer-capabilities'
 import { getTransferNextSteps } from './transfer-next-steps'
 import { buildShipment, buildTransfer } from './transfer-test-fixtures'
 
 describe('Tab kiểm hàng và cất hàng', () => {
   it('recognizes the new tab and retains old aliases', () => {
-    expect(parseTransferDetailTab('putaway')).toBe('putaway')
-    expect(parseTransferDetailTab('receive')).toBe('receive')
-    expect(parseTransferDetailTab('shipments')).toBeNull()
-    expect(parseTransferDetailTab('feedback')).toBe('discrepancies')
+    expect(parseTransferDetailTab('putaway')).toBe('execution')
+    expect(parseTransferDetailTab('receive')).toBe('execution')
+    expect(parseTransferDetailTab('shipments')).toBe('execution')
+    expect(parseTransferDetailTab('feedback')).toBe('execution')
   })
   it('chooses the putaway tab when stock has been counted but not stored', () => {
     const shipment = buildShipment({
@@ -34,8 +34,6 @@ describe('Tab kiểm hàng và cất hàng', () => {
       getTransferCapabilities(viewer, transfer),
       { [shipment.id]: caps }
     )
-    expect(defaultTransferDetailTab(steps)).toBe('putaway')
-    expect(parseTransferDetailTab('shipments') ?? defaultTransferDetailTab(steps)).toBe('putaway')
     expect(steps.some((step) => step.action.type === 'openPutAway')).toBe(true)
   })
   it('does not let a source-only viewer open or assign destination putaway', () => {

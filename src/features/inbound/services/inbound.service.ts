@@ -1,4 +1,6 @@
 import { axiosClient } from '@/lib/axios'
+import type { ReceivingLocation, UpdateReceiptInput } from '../types/receipt-commands.types'
+import type { LegacyReceiptStockRequest } from '../schemas/legacy-receipt-stock.schema'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse } from '@/types/api'
 import type { InventoryEvidence } from '@/features/inventory/types/inventory.types'
@@ -29,6 +31,51 @@ import type {
 } from '../types/inbound.types'
 
 export const inboundService = {
+  isolateDamage: (
+    receiptId: string,
+    request: {
+      goodsReceiptItemId: string
+      destinationSlotId: string
+      quantity: number
+      confirmedSlotCode: string
+      physicallySeparated: boolean
+      expectedVersion: string
+      commandId: string
+    }
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(`${API_ENDPOINTS.goodsReceipts.list}/${receiptId}/isolate-damage`, request)
+      .then((response) => response.data),
+  uploadReceivingEvidence: (warehouseId: string, file: File) => {
+    const data = new FormData()
+    data.append('warehouseId', warehouseId)
+    data.append('file', file)
+    return axiosClient
+      .post<
+        ApiResponse<InventoryEvidence>
+      >(`${API_ENDPOINTS.goodsReceipts.list}/receiving-evidence`, data, { headers: { 'Content-Type': undefined } })
+      .then((response) => response.data)
+  },
+  receivingLocations: (
+    warehouseId: string,
+    searchTerm: string,
+    pageNumber: number,
+    signal?: AbortSignal,
+    forDamageIsolation = false
+  ) =>
+    axiosClient
+      .get<
+        ApiResponse<{ items: ReceivingLocation[]; totalCount: number }>
+      >(API_ENDPOINTS.goodsReceipts.receivingLocations, { params: { warehouseId, searchTerm, pageNumber, ...(forDamageIsolation ? { forDamageIsolation: true } : {}) }, signal })
+      .then((response) => response.data),
+  reconcileArrivalStock: (receiptId: string, request: LegacyReceiptStockRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.goodsReceipts.reconcileArrivalStock(receiptId), request)
+      .then((response) => response.data),
   getNextReceiptCode: () =>
     axiosClient
       .get<ApiResponse<string>>(API_ENDPOINTS.goodsReceipts.nextCode)
@@ -85,7 +132,7 @@ export const inboundService = {
     axiosClient
       .post<ApiResponse<string>>(API_ENDPOINTS.goodsReceipts.create, request)
       .then((response) => response.data),
-  updateReceipt: (receiptId: string, request: Omit<SaveGoodsReceiptRequest, 'inboundRequestId'>) =>
+  updateReceipt: (receiptId: string, request: UpdateReceiptInput & { commandId: string }) =>
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.goodsReceipts.update(receiptId), request)
       .then((response) => response.data),
@@ -97,9 +144,12 @@ export const inboundService = {
     axiosClient
       .post<ApiResponse<unknown>>(API_ENDPOINTS.goodsReceipts.approve(receiptId), request)
       .then((response) => response.data),
-  rejectReceipt: (receiptId: string, reason: string) =>
+  rejectReceipt: (
+    receiptId: string,
+    request: { reason: string; expectedVersion: string; commandId: string }
+  ) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.goodsReceipts.reject(receiptId), { reason })
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.goodsReceipts.reject(receiptId), request)
       .then((response) => response.data),
   putaway: (receiptId: string, request: PutawayRequest) =>
     axiosClient

@@ -48,6 +48,7 @@ function renderDirectory(
         warehouseId=""
         productId=""
         slotId=""
+        showDepleted={false}
         warehouseOptions={[]}
         productOptions={[]}
         slotOptions={[]}
@@ -63,6 +64,7 @@ function renderDirectory(
         onWarehouseChange={vi.fn()}
         onProductChange={vi.fn()}
         onSlotChange={vi.fn()}
+        onShowDepletedChange={vi.fn()}
         onResetFilters={vi.fn()}
         onRetryFilters={vi.fn()}
         onPageChange={vi.fn()}
@@ -76,6 +78,14 @@ function renderDirectory(
 }
 
 describe('InventoryDirectory', () => {
+  it('offers an accessible, controlled option to include depleted stock', () => {
+    const onShowDepletedChange = vi.fn()
+    renderDirectory(stock, undefined, { onShowDepletedChange })
+    const control = screen.getByRole('checkbox', { name: 'Hiện hàng đã hết tồn' })
+    expect(control).not.toBeChecked()
+    fireEvent.click(screen.getByText('Hiện hàng đã hết tồn'))
+    expect(onShowDepletedChange).toHaveBeenCalledWith(true)
+  })
   it('shows inline filters without a sheet and only locks locations while they load', () => {
     const onWarehouseChange = vi.fn()
     const onProductChange = vi.fn()
@@ -139,6 +149,8 @@ describe('InventoryDirectory', () => {
     )
     expect(screen.getByRole('columnheader', { name: 'Kho / Vị trí' })).toBeInTheDocument()
     expect(screen.getByTitle('Khu vực Z-01 / Kệ R-01')).toBeInTheDocument()
+    expect(screen.getByTitle('Khu vực Z-01 / Kệ R-01')).toHaveClass('whitespace-normal')
+    expect(screen.getByTitle('Khu vực Z-01 / Kệ R-01')).not.toHaveClass('truncate')
     expect(screen.getByTitle('Khu vực Z-01 / Kệ R-02')).toBeInTheDocument()
     expect(screen.getAllByText(stock.productName)).toHaveLength(4)
     expect(screen.queryByText('__SYSTEM_DEFAULT__')).not.toBeInTheDocument()

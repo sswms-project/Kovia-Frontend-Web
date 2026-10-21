@@ -23,7 +23,11 @@ import type {
   TransferReceiveSheet,
 } from '../types/transfer.types'
 import type { ReceivableSlot } from '../utils/transfer-receive'
-import { TRANSFER_MUTATION_KEY, invalidateTransferQueries } from './use-transfers'
+import {
+  TRANSFER_MUTATION_KEY,
+  invalidateTransferQueries,
+  refreshTransferAfterWrite,
+} from './use-transfers'
 
 interface ShipmentScope {
   transferId: string
@@ -72,14 +76,14 @@ export function useTransferReceiveSheetQuery(transferId: string | null, shipment
   })
 }
 
-/** Tra vị trí cất hàng theo mã quét; coi như một lệnh gọi theo yêu cầu, không phải dữ liệu cần cache. */
+/** Tra vị trí theo mã quét là đọc, không phải lệnh ghi điều chuyển. */
 export function useFindReceivableSlotMutation() {
   return useMutation<
     ReceivableSlot | null,
     ApiErrorResponse,
     { warehouseId: string; scannedCode: string }
   >({
-    mutationKey: TRANSFER_MUTATION_KEY,
+    mutationKey: ['transfer-slot-lookup'],
     mutationFn: ({ warehouseId, scannedCode }) =>
       transferService.findReceivableSlot(warehouseId, scannedCode),
     onError: (error) => logTransferError(error),
@@ -95,7 +99,7 @@ export function useCreateTransferShipmentMutation() {
   >({
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, request }) => transferService.createShipment(transferId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    onSuccess: (_response, { transferId }) => refreshTransferAfterWrite(queryClient, transferId),
     onError: (error) => logTransferError(error),
   })
 }
@@ -125,7 +129,8 @@ export function useRecordTransferPickMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.recordPick(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    // The scanner owns the mandatory fresh-sheet read before advancing to another line.
+    onSuccess: () => invalidateTransferQueries(queryClient, 'none'),
     onError: (error) => logTransferError(error),
   })
 }
@@ -204,7 +209,8 @@ export function useCompleteTransferPickingMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.completePicking(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    onSuccess: (_response, { transferId, shipmentId }) =>
+      refreshTransferAfterWrite(queryClient, transferId, shipmentId),
     onError: (error) => logTransferError(error),
   })
 }
@@ -262,7 +268,7 @@ export function useDispatchTransferShipmentMutation() {
     mutationKey: TRANSFER_MUTATION_KEY,
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.dispatchShipment(transferId, shipmentId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    onSuccess: (_response, { transferId }) => refreshTransferAfterWrite(queryClient, transferId),
     onError: (error) => logTransferError(error),
   })
 }

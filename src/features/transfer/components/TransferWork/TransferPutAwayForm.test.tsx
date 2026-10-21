@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildTransferPutAwayEntries,
   transferPutAwayPlanStates,
@@ -14,6 +14,13 @@ import {
   type TransferPutAwayFormValues,
 } from '../../schemas/transfer-putaway.schema'
 import { TransferPutAwayForm } from './TransferPutAwayForm'
+
+const { startCameraScan, stop } = vi.hoisted(() => ({ startCameraScan: vi.fn(), stop: vi.fn() }))
+vi.mock('../../utils/camera-scan', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../utils/camera-scan')>()),
+  startCameraScan,
+  isCameraScanSupported: () => true,
+}))
 
 vi.mock('./ScanInput', () => ({
   ScanInput: ({ id, error }: { id: string; error?: string }) => (
@@ -33,6 +40,10 @@ vi.mock('@/features/inbound-request/components/InboundRequestFormPage/LookupComb
     selectedOption?: { label: string }
   }) => <button aria-label={ariaLabel}>{selectedOption?.label ?? 'Chọn vị trí'}</button>,
 }))
+beforeEach(() => {
+  vi.clearAllMocks()
+  startCameraScan.mockResolvedValue({ stop })
+})
 afterEach(cleanup)
 function TestForm() {
   const sheet = putAwayFixture()
@@ -64,10 +75,29 @@ function TestForm() {
   )
 }
 describe('Cất hàng theo hàng hóa/lô', () => {
+  it('allows only one allocation camera at a time and stops it when the group collapses', async () => {
+    const user = userEvent.setup()
+    render(<TestForm />)
+    const cameras = screen.getAllByRole('button', { name: /Bật camera quét:/ })
+    expect(cameras).toHaveLength(2)
+    await user.click(cameras[0]!)
+    await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole('button', { name: /Bật camera quét:/ }))
+    await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(2))
+    expect(screen.getAllByLabelText('Hình ảnh từ camera')).toHaveLength(1)
+    expect(stop).toHaveBeenCalledTimes(1)
+    const toggle = screen.getByRole('button', { name: 'Mở/thu gọn phân bổ SKU-01' })
+    await user.click(toggle)
+    expect(screen.queryByLabelText('Hình ảnh từ camera')).not.toBeInTheDocument()
+    expect(stop).toHaveBeenCalledTimes(2)
+    await user.click(toggle)
+    expect(screen.getAllByRole('button', { name: /Bật camera quét:/ })).toHaveLength(2)
+    expect(startCameraScan).toHaveBeenCalledTimes(2)
+  })
   it('expands only invalid collapsed groups, exposes errors and focuses the scan without losing edits', async () => {
     const user = userEvent.setup()
     render(<ValidationTestForm />)
-    const quantity = screen.getAllByRole('spinbutton')[0]!
+    const quantity = screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]!
     await user.clear(quantity)
     await user.type(quantity, '3')
     const invalidToggle = screen.getByRole('button', { name: 'Mở/thu gọn phân bổ SKU-01' })
@@ -81,24 +111,24 @@ describe('Cất hàng theo hàng hóa/lô', () => {
       'Hãy quét hoặc nhập mã vị trí để xác nhận.'
     )
     await waitFor(() => expect(document.getElementById('putaway-slot-0')).toHaveFocus())
-    expect(screen.getAllByRole('spinbutton')[0]).toHaveValue(3)
+    expect(screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]).toHaveValue('3')
     expect(screen.queryByText('Đã mở xác nhận')).not.toBeInTheDocument()
     await user.click(invalidToggle)
     await user.click(screen.getByRole('button', { name: 'Xác nhận cất hàng' }))
     await waitFor(() => expect(invalidToggle).toHaveAttribute('aria-expanded', 'true'))
-    expect(screen.getAllByRole('spinbutton')[0]).toHaveValue(3)
+    expect(screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]).toHaveValue('3')
   })
   it('groups prefilled allocations under one product and excludes damaged stock', () => {
     render(<TestForm />)
     expect(screen.getAllByRole('heading', { name: 'SKU-01 · Hàng QA' })).toHaveLength(1)
     expect(screen.getByText(/Thực nhận tốt 8/)).toBeInTheDocument()
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(2)
+    expect(screen.getAllByRole('textbox', { name: /Số lượng cất/ })).toHaveLength(2)
     expect(screen.queryByText('Hàng hỏng')).not.toBeInTheDocument()
   })
   it('preserves quantity edits after keyboard collapse and expand', async () => {
     const user = userEvent.setup()
     render(<TestForm />)
-    const quantity = screen.getAllByRole('spinbutton')[0]!
+    const quantity = screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]!
     await user.clear(quantity)
     await user.type(quantity, '3')
     const toggle = screen.getByRole('button', { name: 'Mở/thu gọn phân bổ SKU-01' })
@@ -106,7 +136,7 @@ describe('Cất hàng theo hàng hóa/lô', () => {
     await user.keyboard('{Enter}')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await user.keyboard('{Enter}')
-    expect(screen.getAllByRole('spinbutton')[0]).toHaveValue(3)
+    expect(screen.getAllByRole('textbox', { name: /Số lượng cất/ })[0]).toHaveValue('3')
   })
 })
 

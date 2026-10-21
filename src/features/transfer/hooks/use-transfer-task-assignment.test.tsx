@@ -9,16 +9,20 @@ import { RECEIPT_LINE, RECEIPT_SLOT } from '../utils/transfer-receipt-test-fixtu
 const mock = vi.hoisted(() => ({
   assign: vi.fn(),
   read: vi.fn(),
+  snapshot: vi.fn(),
   invalidate: vi.fn(),
   putEligible: true,
 }))
 vi.mock('@/features/warehouse-task/services/warehouse-task.service', () => ({
   warehouseTaskService: { assign: mock.assign },
 }))
-vi.mock('../services/transfer.service', () => ({ transferService: { getTransfer: mock.read } }))
+vi.mock('../services/transfer.service', () => ({
+  transferService: { getTransfer: mock.read, getAssignmentSnapshot: mock.snapshot },
+}))
 vi.mock('./use-transfers', () => ({
   TRANSFER_MUTATION_KEY: ['transfers', 'write'],
   invalidateTransferQueries: mock.invalidate,
+  refreshTransferAfterWrite: mock.invalidate,
 }))
 vi.mock('./use-transfer-receipt', () => ({
   useTransferAssignableStaffQuery: (_warehouse: string, type: string) => ({
@@ -72,6 +76,26 @@ beforeEach(() => {
   vi.clearAllMocks()
   mock.putEligible = true
   mock.read.mockResolvedValue({ data: transfer })
+  mock.snapshot.mockResolvedValue({
+    data: [
+      {
+        id: 'receive-task',
+        taskType: 'TransferReceive',
+        version: 'AQ==',
+        assignee: null,
+        priority: 'Normal',
+        due: null,
+      },
+      {
+        id: 'putaway-task',
+        taskType: 'TransferPutAway',
+        version: 'AQ==',
+        assignee: null,
+        priority: 'Normal',
+        due: null,
+      },
+    ],
+  })
   mock.assign.mockResolvedValue({})
   mock.invalidate.mockResolvedValue(undefined)
 })
@@ -93,6 +117,12 @@ describe('Giao hai việc độc lập', () => {
     })
     await waitFor(() => expect(result.current.target).toBeNull())
     expect(mock.assign.mock.calls.map((call) => call[0])).toEqual(['receive-task', 'putaway-task'])
+    expect(mock.snapshot).toHaveBeenCalledExactlyOnceWith(
+      transfer.id,
+      shipment.id,
+      transfer.destinationWarehouseId
+    )
+    expect(mock.read).not.toHaveBeenCalled()
   })
 
   it('can assign only put-away through the same dialog without changing the receiving worker', async () => {
@@ -162,10 +192,17 @@ describe('Giao hai việc độc lập', () => {
     expect(mock.assign).toHaveBeenCalledTimes(2)
   })
   it('does not silently overwrite a changed assignment', async () => {
-    mock.read.mockResolvedValue({
-      data: buildTransfer({
-        shipments: [{ ...shipment, receiveTaskVersion: 'Ag==', receiveAssigneeId: RECEIPT_SLOT }],
-      }),
+    mock.snapshot.mockResolvedValue({
+      data: [
+        {
+          id: 'receive-task',
+          taskType: 'TransferReceive',
+          version: 'Ag==',
+          assignee: RECEIPT_SLOT,
+          priority: 'Normal',
+          due: null,
+        },
+      ],
     })
     const { result } = await openBoth()
     await act(async () => {
@@ -174,6 +211,20 @@ describe('Giao hai việc độc lập', () => {
     })
     await waitFor(() => expect(result.current.needsVerify).toBe(true))
     expect(mock.assign).not.toHaveBeenCalled()
+  })
+  it('does not assign or replay a write when the scoped snapshot cannot be loaded', async () => {
+    mock.snapshot.mockRejectedValue({
+      statusCode: 403,
+      message: 'Không được giao việc tại kho này.',
+    })
+    const { result } = await openBoth()
+    await act(async () => {
+      result.current.onSubmit()
+    })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+    expect(mock.snapshot).toHaveBeenCalledTimes(1)
+    expect(mock.assign).not.toHaveBeenCalled()
+    expect(mock.read).not.toHaveBeenCalled()
   })
   it('requires explicit verification after an unknown response and never retries the successful first task', async () => {
     mock.assign

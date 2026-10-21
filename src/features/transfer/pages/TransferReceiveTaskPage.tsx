@@ -1,7 +1,14 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { PackageCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
@@ -14,7 +21,11 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
-import { TransferReceiptCountCards, TransferWorkHeader } from '../components/TransferWork'
+import {
+  TransferReceiptCountCards,
+  TransferWorkHeader,
+  TransferReceivingDisposition,
+} from '../components/TransferWork'
 import {
   TransferChangedBanner,
   TransferConfirmDialog,
@@ -27,7 +38,11 @@ import {
 import { useTransferCountForm } from '../hooks/use-transfer-count-form'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
-import { useTransferQuery } from '../hooks/use-transfers'
+import { useTransferQuery, useTransferPutAwaySlotsQuery } from '../hooks/use-transfers'
+import {
+  transferReceivingLocationSchema,
+  type TransferReceivingLocationValues,
+} from '../schemas/transfer-receipt.schema'
 import { getShipmentCapabilities } from '../utils/transfer-capabilities'
 import { newCommandId } from '../utils/transfer-command-id'
 import { describeTransferError } from '../utils/transfer-errors'
@@ -40,17 +55,31 @@ interface Props {
 }
 
 export default function TransferReceiveTaskPage({ transferId, shipmentId }: Props) {
+  const router = useRouter()
   const { viewer, isReady } = useTransferViewer()
-  const detail = useTransferQuery(transferId)
   const query = useTransferReceiptSheetQuery(transferId, shipmentId)
   const sheet = query.data
+  // Older BE versions have no compact context; retain the existing read path for them.
+  const detail = useTransferQuery(sheet && !sheet.execution ? transferId : null)
   const transfer = detail.data
-  const shipment = transfer?.shipments?.find((shipment) => shipment.id === shipmentId)
-  const caps = shipment ? getShipmentCapabilities(viewer, shipment, transfer) : undefined
+  const context = sheet?.execution
+  const warehouses = context ?? transfer
+  const shipment =
+    sheet && context
+      ? {
+          status: sheet.status,
+          lines: [],
+          receiveAssigneeId: context.receiveAssigneeId,
+          putAwayAssigneeId: context.putAwayAssigneeId,
+          putAwayAssigneeName: context.putAwayAssigneeName,
+          receiptFlowVersion: sheet.receiptFlowVersion,
+        }
+      : transfer?.shipments?.find((shipment) => shipment.id === shipmentId)
+  const caps = shipment ? getShipmentCapabilities(viewer, shipment, warehouses) : undefined
   const mayReceive = Boolean(caps?.canOpenReceive)
   const count = useTransferCountForm(
     sheet,
-    mayReceive && sheet?.status === 'Receiving' && sheet.receiptFlowVersion === 1
+    mayReceive && sheet?.status === 'Receiving' && [1, 2].includes(sheet.receiptFlowVersion)
   )
   const realtime = useTransferRealtime({ transferId, autoRefresh: false })
   const start = useStartTransferReceivingMutation()
@@ -62,7 +91,18 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
   const [notice, setNotice] = useState<string | null>(null)
   const [isReloading, setIsReloading] = useState(false)
   const reloadLock = useRef(false)
-  const entries = count.form.watch('entries')
+  const [slotSearch, setSlotSearch] = useState('')
+  const debouncedSlotSearch = useDebouncedValue(slotSearch, 300)
+  const locations = useTransferPutAwaySlotsQuery(
+    { warehouseId: warehouses?.destinationWarehouseId ?? '', search: debouncedSlotSearch, top: 30 },
+    mayReceive && !!warehouses && (sheet?.status === 'InTransit' || sheet?.status === 'Receiving')
+  )
+  const receivingForm = useForm<TransferReceivingLocationValues>({
+    resolver: zodResolver(transferReceivingLocationSchema),
+    defaultValues: { receivingSlotId: '', scannedSlotCode: '' },
+  })
+  const entries = useWatch({ control: count.form.control, name: 'entries' })
+  const keepAtReceiving = useWatch({ control: count.form.control, name: 'keepAtReceiving' })
   const totals = entries.reduce(
     (sum, entry) => ({
       good: sum.good + (entry.goodQuantity || 0),
@@ -72,20 +112,47 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
     { good: 0, damaged: 0, missing: 0 }
   )
 
-  async function reload() {
+  async function reload(continueToPutAway = false) {
     if (reloadLock.current || startLock.current || count.isPending) return
     reloadLock.current = true
     setIsReloading(true)
     try {
-      const [fresh] = await Promise.all([query.refetch(), detail.refetch()])
+      const [fresh, freshDetail] = await Promise.all([
+        query.refetch(),
+        context ? Promise.resolve(null) : detail.refetch(),
+      ])
       if (fresh.data && !fresh.isError) {
         count.acceptFresh(fresh.data)
+        const nextContext = fresh.data.execution
+        const nextShipment = nextContext
+          ? {
+              status: fresh.data.status,
+              lines: [],
+              putAwayAssigneeId: nextContext.putAwayAssigneeId,
+            }
+          : freshDetail?.data?.shipments?.find((row) => row.id === shipmentId)
+        if (
+          continueToPutAway &&
+          fresh.data.status === 'AwaitingPutAway' &&
+          !freshDetail?.isError &&
+          nextShipment?.putAwayAssigneeId === viewer.currentUserId &&
+          getShipmentCapabilities(viewer, nextShipment, nextContext ?? freshDetail?.data)
+            .canOpenPutAway
+        ) {
+          router.push(APP_ROUTES.transferPutAwayTask(transferId, shipmentId))
+        }
         realtime.dismiss()
         if (fresh.data.status !== 'InTransit') {
           startIntent.current = null
           setStartUncertain(false)
           setNotice(null)
         }
+      } else {
+        setNotice(
+          continueToPutAway
+            ? 'Phiếu đã được ghi nhận nhưng chưa tải được dữ liệu mới. Hãy tải lại, không nộp thêm lần nữa.'
+            : 'Chưa tải được dữ liệu mới. Hãy thử tải lại.'
+        )
       }
     } finally {
       reloadLock.current = false
@@ -102,10 +169,19 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
       (!startUncertain && sheet.status !== 'InTransit')
     )
       return
+    if (
+      !startUncertain &&
+      (!(await receivingForm.trigger()) ||
+        locations.isError ||
+        locations.isFetching ||
+        !locations.data?.some((slot) => slot.id === receivingForm.getValues('receivingSlotId')))
+    )
+      return
     startLock.current = true
     const request = startIntent.current ?? {
       expectedVersion: sheet.version,
       commandId: newCommandId(),
+      ...receivingForm.getValues(),
     }
     startIntent.current = request
     let done = false
@@ -132,8 +208,9 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
     if (done) await reload()
   }
 
-  if (!isReady || query.isLoading || detail.isLoading) return <OperationalLoadingState rows={4} />
-  if (query.isError || detail.isError || !sheet || !transfer || !shipment)
+  if (!isReady || query.isLoading || (!context && detail.isLoading))
+    return <OperationalLoadingState rows={4} />
+  if (query.isError || (!context && detail.isError) || !sheet || !warehouses || !shipment)
     return (
       <OperationalErrorState
         title="Không thể tải phiếu nhập điều chuyển"
@@ -155,15 +232,26 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         transferCode={sheet.transferCode}
         shipmentNumber={sheet.shipmentNumber}
         shipmentStatus={sheet.status}
-        route={'Nhận tại ' + transfer.destinationWarehouseName}
+        route={'Nhận tại ' + warehouses.destinationWarehouseName}
       />
       <Alert>
         <AlertTitle>Kiểm hàng trước khi cất</AlertTitle>
         <AlertDescription>
-          Tốt, hỏng và thiếu phải khớp số đã xuất. Nộp phiếu không ghi tồn kho và không cần duyệt;
-          hàng thực nhận sẽ được cất ở bước riêng.
+          Tốt, hỏng và thiếu phải khớp số đã xuất.{' '}
+          {sheet.receiptFlowVersion === 1
+            ? 'Đợt theo luồng cũ: nộp kiểm đếm chưa ghi tồn, cất là bước nhận tồn.'
+            : 'Luồng mới ghi thực nhận đúng một lần tại vị trí nhận. Hàng đạt có thể giữ tại khu nhận hoặc tiếp tục cất; hàng hỏng phải đặt riêng và bị Hold.'}
         </AlertDescription>
       </Alert>
+      {sheet.status === 'AwaitingPutAway' ? (
+        <Alert role="status">
+          <AlertDescription>
+            {shipment.putAwayAssigneeId
+              ? `Việc cất hàng được giao cho ${shipment.putAwayAssigneeName || 'nhân viên kho nhập'}.`
+              : 'Đã kiểm nhận. Công việc cất hàng đang chờ quản lý kho nhập phân công.'}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {realtime.hasPendingChange ? (
         <TransferChangedBanner onReload={() => void reload()} onDismiss={realtime.dismiss} />
       ) : null}
@@ -180,7 +268,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
                 disabled={busy}
                 onClick={() =>
                   void count.retryUnknown().then((done) => {
-                    if (done) void reload()
+                    if (done) void reload(true)
                   })
                 }
               >
@@ -191,11 +279,86 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         </Alert>
       ) : null}
       {sheet.status === 'InTransit' && mayReceive ? (
-        <Button disabled={busy || isStartResolved} onClick={() => void startReceiving()}>
-          {start.isPending ? <Spinner /> : <PackageCheck />}
-          {startUncertain ? 'Kiểm tra lại thao tác nhận hàng' : 'Nhận hàng'}
-        </Button>
+        <div className="grid shrink-0 gap-3 border p-3 sm:grid-cols-2">
+          <Field className="sm:col-span-2">
+            <FieldLabel htmlFor="transfer-slot-search">Tìm mã/vị trí nhận</FieldLabel>
+            <Input
+              id="transfer-slot-search"
+              value={slotSearch}
+              onChange={(event) => setSlotSearch(event.target.value)}
+              disabled={busy || startUncertain}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="transfer-receiving-location">Vị trí thực tế nhận hàng</FieldLabel>
+            <NativeSelect
+              id="transfer-receiving-location"
+              {...receivingForm.register('receivingSlotId')}
+              disabled={busy || startUncertain || locations.isFetching || locations.isError}
+            >
+              <NativeSelectOption value="">Chọn vị trí nhận</NativeSelectOption>
+              {!locations.isPlaceholderData &&
+                locations.data?.map((slot) => (
+                  <NativeSelectOption key={slot.id} value={slot.id}>
+                    {slot.path}
+                  </NativeSelectOption>
+                ))}
+            </NativeSelect>
+            <FieldError>{receivingForm.formState.errors.receivingSlotId?.message}</FieldError>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="transfer-receiving-code">Quét/nhập mã vị trí nhận</FieldLabel>
+            <Input
+              id="transfer-receiving-code"
+              maxLength={200}
+              {...receivingForm.register('scannedSlotCode')}
+              disabled={busy || startUncertain}
+            />
+            <FieldError>{receivingForm.formState.errors.scannedSlotCode?.message}</FieldError>
+          </Field>
+          {locations.isError && <p role="alert">Chưa tải được vị trí nhận. Vui lòng tải lại.</p>}
+          <Button disabled={busy || isStartResolved} onClick={() => void startReceiving()}>
+            {start.isPending ? <Spinner /> : <PackageCheck />}
+            {startUncertain ? 'Kiểm tra lại thao tác nhận hàng' : 'Nhận hàng'}
+          </Button>
+        </div>
       ) : null}
+      {sheet.status === 'Receiving' && sheet.receiptFlowVersion === 2 && (
+        <>
+          <Field className="shrink-0">
+            <FieldLabel htmlFor="transfer-damage-search">
+              Tìm vị trí cách biệt hàng hỏng nếu có
+            </FieldLabel>
+            <Input
+              id="transfer-damage-search"
+              value={slotSearch}
+              onChange={(event) => setSlotSearch(event.target.value)}
+              disabled={busy || count.unknownResult}
+            />
+          </Field>
+          <TransferReceivingDisposition
+            form={count.form}
+            slots={locations.isError || locations.isPlaceholderData ? [] : (locations.data ?? [])}
+            receivingSlotId={sheet.receivingSlotId}
+            disabled={
+              !mayReceive ||
+              busy ||
+              count.unknownResult ||
+              locations.isFetching ||
+              locations.isError
+            }
+          />
+        </>
+      )}
+      {sheet.keptAtReceiving && (
+        <Alert>
+          <AlertTitle>Hàng đạt giữ tại khu nhận</AlertTitle>
+          <AlertDescription>
+            Đã mở khả dụng theo FEFO tại vị trí nhận. Không ghi giả đã cất và không tăng tồn khi lấy
+            nội bộ.
+          </AlertDescription>
+        </Alert>
+      )}
       {sheet.status === 'Receiving' && !mayReceive ? (
         <Alert>
           <AlertDescription>
@@ -220,7 +383,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
               {count.isPending ? <Spinner /> : null}Nộp phiếu nhập
             </Button>
           ) : null}
-          {sheet.status === 'AwaitingPutAway' ? (
+          {sheet.status === 'AwaitingPutAway' && caps?.canOpenPutAway ? (
             <Button asChild>
               <Link href={APP_ROUTES.transferPutAwayTask(transferId, shipmentId)}>
                 Mở trang cất hàng
@@ -238,7 +401,11 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
           <p>
             Tốt {formatQuantity(totals.good)}, hỏng {formatQuantity(totals.damaged)}, thiếu{' '}
             {formatQuantity(totals.missing)}. Chênh lệch được báo quản lý nhưng không chặn cất hàng.
-            Tồn kho chưa thay đổi ở bước này.
+            {sheet.receiptFlowVersion === 2
+              ? keepAtReceiving
+                ? 'Thực nhận được ghi vào tồn một lần. Hàng đạt khả dụng tại khu nhận; hàng hỏng Hold ở vị trí riêng đã xác nhận.'
+                : 'Thực nhận được ghi vào tồn một lần; hàng đạt chờ cất, hàng hỏng Hold ở vị trí riêng.'
+              : 'Tồn kho chưa thay đổi ở bước này theo luồng cũ.'}
           </p>
         }
         confirmLabel="Nộp phiếu nhập"
@@ -246,7 +413,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         isPending={count.isPending}
         onConfirm={() =>
           void count.confirm().then((done) => {
-            if (done) void reload()
+            if (done) void reload(true)
           })
         }
       />

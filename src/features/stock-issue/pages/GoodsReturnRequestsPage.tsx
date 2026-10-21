@@ -14,11 +14,15 @@ import {
   useWarehousesQuery,
 } from '@/features/warehouse/hooks/use-warehouse'
 import {
+  CreateGoodsReturnRequestDialog,
   RejectGoodsReturnRequestDialog,
+  SelectStockIssueForReturnDialog,
+  SelfApproveGoodsReturnDialog,
   RestockReturnDialog,
   GoodsReturnRequestDetailSheet,
   GoodsReturnRequestDirectory,
 } from '../components/GoodsReturnRequestsPage'
+import { useCreateGoodsReturn } from '../hooks/use-create-goods-return'
 import {
   useApproveGoodsReturnRequestMutation,
   useRejectGoodsReturnRequestMutation,
@@ -39,6 +43,7 @@ import type {
 
 export default function GoodsReturnRequestsPage() {
   const meQuery = useMeQuery()
+  const createReturn = useCreateGoodsReturn()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchText, setSearchText] = useState('')
@@ -48,6 +53,7 @@ export default function GoodsReturnRequestsPage() {
   const [dateTo, setDateTo] = useState('')
   const [inspectedItem, setInspectedItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [rejectingItem, setRejectingItem] = useState<GoodsReturnRequestSummary | null>(null)
+  const [selfApprovingItem, setSelfApprovingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [restockingItem, setRestockingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const goodsReturnRequestsQuery = useGoodsReturnRequestsQuery({
@@ -104,12 +110,19 @@ export default function GoodsReturnRequestsPage() {
     })
   }, [restockDetailQuery.data, restockForm, restockWarehouseQuery.data?.quarantineSlotId])
 
-  async function approve(item: GoodsReturnRequestSummary) {
+  async function approve(item: GoodsReturnRequestSummary, selfApprovalAcknowledged = false) {
+    // Phiếu do chính mình lập phải được xác nhận rõ trước khi tự duyệt.
+    if (item.createdBy === meQuery.data?.id && !selfApprovalAcknowledged) {
+      setSelfApprovingItem(item)
+      return
+    }
     try {
-      await approveMutation.mutateAsync(item.id)
-      toast.success('Đã duyệt yêu cầu trả hàng.')
-    } catch {
-      toast.error('Không thể duyệt yêu cầu trả hàng.')
+      await approveMutation.mutateAsync({ goodsReturnRequestId: item.id, selfApprovalAcknowledged })
+      toast.success('Đã duyệt yêu cầu trả hàng. Kho sẽ được báo để nhập lại kho.')
+      setSelfApprovingItem(null)
+    } catch (error) {
+      logger.error(formatApiError(error))
+      toast.error(getApiErrorMessage(error, 'Không thể duyệt yêu cầu trả hàng.'))
     }
   }
   async function reject(values: RejectGoodsReturnRequestFormValues) {
@@ -201,8 +214,11 @@ export default function GoodsReturnRequestsPage() {
         onApprove={(item) => void approve(item)}
         onReject={setRejectingItem}
         onRestock={setRestockingItem}
+        onCreate={createReturn.openPicker}
         onRetry={() => void goodsReturnRequestsQuery.refetch()}
       />
+      <SelectStockIssueForReturnDialog {...createReturn.picker} />
+      <CreateGoodsReturnRequestDialog {...createReturn.dialog} />
       <GoodsReturnRequestDetailSheet
         item={returnDetailQuery.data ?? null}
         isLoading={returnDetailQuery.isLoading}
@@ -210,6 +226,14 @@ export default function GoodsReturnRequestsPage() {
         onRetry={() => void returnDetailQuery.refetch()}
         onOpenChange={(open) => {
           if (!open) setInspectedItem(null)
+        }}
+      />
+      <SelfApproveGoodsReturnDialog
+        item={selfApprovingItem}
+        isPending={approveMutation.isPending}
+        onClose={() => setSelfApprovingItem(null)}
+        onConfirm={() => {
+          if (selfApprovingItem) void approve(selfApprovingItem, true)
         }}
       />
       <RejectGoodsReturnRequestDialog

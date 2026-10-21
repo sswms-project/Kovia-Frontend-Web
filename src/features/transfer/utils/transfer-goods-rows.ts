@@ -56,7 +56,8 @@ export function transferGoodsRows(detail: TransferDetail | undefined | null): Tr
       conversionUnit: hasConversion ? (item.unitName ?? null) : null,
       requested: item.quantity,
       batched: item.batchedQuantity,
-      picked: item.pickedQuantity,
+      // Backend picked is the outstanding picked stock; shipped stock still counts as picked progress.
+      picked: item.pickedQuantity + item.dispatchedQuantity,
       dispatched: item.dispatchedQuantity,
       receivedGood: item.receivedQuantity,
       receivedPhysical: item.receivedQuantity + item.damagedQuantity,
