@@ -140,6 +140,7 @@ export const P = {
   STOCK_ISSUE_REQUESTS_RETURN: 'stock-issue-requests:return',
   STOCK_ISSUE_REQUESTS_CANCEL: 'stock-issue-requests:cancel',
   STOCK_ISSUE_REQUESTS_ASSIGN_PICKER: 'stock-issue-requests:assign-picker',
+  STOCK_ISSUE_REQUESTS_SELF_APPROVE: 'stock-issue-requests:self-approve',
 
   // Stock Recipients
   STOCK_RECIPIENTS_VIEW: 'stock-recipients:view',

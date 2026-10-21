@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, MapPin, ScanBarcode } from 'lucide-react'
-import type { UseFormReturn } from 'react-hook-form'
+import { useWatch, type UseFormReturn } from 'react-hook-form'
 import { OperationalEmptyState } from '@/components/operations/OperationalState'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,7 +41,7 @@ export function RecordStockPickingDialog({
   onOpenChange,
   onSubmit,
 }: RecordStockPickingDialogProps) {
-  const lines = form.watch('lines')
+  const lines = useWatch({ control: form.control, name: 'lines' })
   const linesError = form.formState.errors.lines
   const [scanCode, setScanCode] = useState('')
   const [currentSlotCode, setCurrentSlotCode] = useState<string | null>(null)
@@ -223,6 +223,45 @@ export function RecordStockPickingDialog({
                           ) : null}
                         </p>
                         <p className="truncate text-sm">{line.productName}</p>
+                        {line.directFromReceiving && (
+                          <p className="text-primary text-xs font-medium">
+                            Đi thẳng từ khu nhận đến khu xuất
+                          </p>
+                        )}
+                        {line.allocationReason && (
+                          <p className="text-muted-foreground text-xs">{line.allocationReason}</p>
+                        )}
+                        <p className="mt-1 text-sm font-medium">
+                          Đưa tới: {line.stagingPath || 'Chưa xác định khu xuất'}
+                        </p>
+                        <Field className="mt-2">
+                          <FieldLabel htmlFor={`pick-source-${index}`}>Mã vị trí nguồn</FieldLabel>
+                          <Input
+                            id={`pick-source-${index}`}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.preventDefault()
+                            }}
+                            disabled={isPending}
+                            maxLength={200}
+                            {...form.register(`lines.${index}.scannedSlotCode`)}
+                          />
+                          <FieldError>{lineError?.scannedSlotCode?.message}</FieldError>
+                        </Field>
+                        <Field className="mt-2">
+                          <FieldLabel htmlFor={`pick-staging-${index}`}>
+                            Quét/nhập mã khu chờ xuất đích
+                          </FieldLabel>
+                          <Input
+                            id={`pick-staging-${index}`}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') event.preventDefault()
+                            }}
+                            disabled={isPending}
+                            maxLength={200}
+                            {...form.register(`lines.${index}.scannedStagingSlotCode`)}
+                          />
+                          <FieldError>{lineError?.scannedStagingSlotCode?.message}</FieldError>
+                        </Field>
                         <p className="text-muted-foreground text-xs">
                           <span className="font-mono" translate="no">
                             {line.barcode ?? line.sku}

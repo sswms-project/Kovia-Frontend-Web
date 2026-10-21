@@ -1,0 +1,1 @@
+export { LegacyReceiptStockDialog } from './LegacyReceiptStockDialog'

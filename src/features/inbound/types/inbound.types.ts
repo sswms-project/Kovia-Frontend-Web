@@ -22,6 +22,8 @@ export type GoodsReceiptAction =
   | 'PutAway'
   | 'AssignPutAway'
   | 'PlanPutAway'
+  | 'ReconcileArrivalStock'
+  | 'IsolateDamage'
 
 export type WarehouseTaskExecutionStatus = 'Queued' | 'InProgress' | 'Paused' | 'Completed'
 export type WarehouseTaskPriority = 'Normal' | 'Urgent'
@@ -80,6 +82,7 @@ export interface ReceivingTaskLine {
 }
 
 export interface ReceivingTask {
+  version: string
   warehouseCode?: string | null
   supplierCode?: string | null
   sourceName?: string | null
@@ -137,6 +140,11 @@ export interface GoodsReceiptSummary {
 }
 
 export interface GoodsReceiptItem {
+  keptAtReceivingQuantity?: number
+  rejectedQuantity?: number
+  deliveredQuantity?: number
+  isolatedDamagedQuantity?: number
+  remainingDamageIsolationQuantity?: number
   id: string
   inboundRequestItemId: string | null
   productId: string
@@ -253,6 +261,7 @@ export interface GoodsReceiptDetail extends Omit<
   | 'putAwayQuantity'
   | 'putAwayExecutionStatus'
 > {
+  keptAtReceiving?: boolean
   supplierCode?: string | null
   supplierName?: string | null
   sourceName?: string | null
@@ -267,6 +276,12 @@ export interface GoodsReceiptDetail extends Omit<
   rejectionReason: string | null
   arrivalConfirmedBy: string | null
   arrivalConfirmedAt: string | null
+  receivingSlotId: string | null
+  arrivalStockPostedAt: string | null
+  sourceRequestVersion: string | null
+  receivingFlowVersion?: number
+  refusedGoodsHandedBack?: boolean
+  refusalEvidence?: InventoryEvidence[]
   putAwayTaskExecutionStatus: 'Queued' | 'InProgress' | 'Paused' | 'Completed' | 'Cancelled'
   putAwayTaskCancelledAt: string | null
   putAwayTaskCancellationReason: string | null
@@ -284,6 +299,7 @@ export interface ReceiptLineRequest {
   inboundRequestItemId: string
   receivedQty: number
   damagedQty: number
+  rejectedQty?: number
   exceptionReason: string | null
   lotNumber: string | null
   manufacturedDate: string | null
@@ -292,6 +308,8 @@ export interface ReceiptLineRequest {
 
 export interface SaveGoodsReceiptRequest {
   inboundRequestId: string
+  expectedInboundVersion: string
+  commandId: string
   receiptCode?: string
   lines: ReceiptLineRequest[]
 }
@@ -366,9 +384,13 @@ export interface PutAwaySuggestionsResponse {
 }
 
 export interface ConfirmPhysicalArrivalRequest {
+  keepAtReceiving?: boolean
   expectedVersion: string
   commandId: string
   selfApprovalAcknowledged?: boolean
+  receivingSlotId?: string | null
+  refusedGoodsHandedBack?: boolean
+  refusalEvidenceIds?: string[]
 }
 
 export interface CancelPutawayTaskRequest {

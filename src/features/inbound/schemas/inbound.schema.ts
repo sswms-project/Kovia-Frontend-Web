@@ -5,7 +5,8 @@ export const receiptLineSchema = z
   .object({
     inboundRequestItemId: dotNetGuidSchema('Dòng yêu cầu nhập kho không hợp lệ.'),
     enteredUnitId: dotNetGuidSchema('Đơn vị nhận hàng không hợp lệ.').optional(),
-    receivedQty: z.number().positive('Số lượng nhận phải lớn hơn 0.'),
+    receivedQty: z.number().min(0, 'Số lượng chấp nhận không được âm.'),
+    rejectedQty: z.number().min(0, 'Số lượng từ chối không được âm.').optional(),
     damagedQty: z.number().min(0, 'Số lượng hỏng không được âm.'),
     exceptionReason: z.string().max(500, 'Ghi chú không được vượt quá 500 ký tự.'),
     isLotTracked: z.boolean(),
@@ -14,6 +15,13 @@ export const receiptLineSchema = z
     expiryDate: z.string(),
   })
   .superRefine((line, context) => {
+    if (line.receivedQty === 0 && (line.rejectedQty ?? 0) === 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['receivedQty'],
+        message: 'Nhập lượng chấp nhận hoặc từ chối lớn hơn 0.',
+      })
+    }
     if (line.damagedQty > line.receivedQty) {
       context.addIssue({
         code: 'custom',
@@ -21,7 +29,10 @@ export const receiptLineSchema = z
         message: 'Số lượng hỏng không được lớn hơn số lượng nhận.',
       })
     }
-    if (line.damagedQty > 0 && line.exceptionReason.trim().length === 0) {
+    if (
+      (line.damagedQty > 0 || (line.rejectedQty ?? 0) > 0) &&
+      line.exceptionReason.trim().length === 0
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['exceptionReason'],

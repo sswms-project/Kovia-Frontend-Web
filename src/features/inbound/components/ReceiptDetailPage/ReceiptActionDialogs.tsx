@@ -22,7 +22,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Textarea } from '@/components/ui/textarea'
 
 interface ReceiptActionDialogsProps {
-  readonly confirmationAction: 'Submit' | 'Approve' | null
+  readonly confirmationAction: 'Submit' | 'Approve' | 'ApproveKeep' | null
   readonly isRejectOpen: boolean
   readonly isPending: boolean
   readonly selfApprovalRequired: boolean
@@ -73,16 +73,20 @@ export function ReceiptActionDialogs({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmationAction === 'Approve'
-                ? 'Xác nhận hàng đã đến kho?'
-                : 'Gửi phiếu nhận hàng để duyệt?'}
+              {confirmationAction === 'ApproveKeep'
+                ? 'Duyệt và giữ hàng đạt tại vị trí nhận?'
+                : confirmationAction === 'Approve'
+                  ? 'Phê duyệt kết quả kiểm hàng?'
+                  : 'Xác nhận thực nhận và gửi kiểm hàng?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmationAction === 'Approve'
-                ? selfApprovalRequired
-                  ? 'Bạn là người ghi nhận phiếu này. Khi xác nhận, hệ thống sẽ lưu hành động tự phê duyệt trước khi cất hàng.'
-                  : 'Số lượng nhận sẽ được ghi nhận vào yêu cầu nhập kho và chuyển sang chờ cất hàng.'
-                : 'Phiếu sẽ được khóa chỉnh sửa trong lúc chờ quản lý duyệt.'}
+              {confirmationAction === 'ApproveKeep'
+                ? `Hàng đạt trở nên khả dụng tại vị trí nhận, không tăng tồn lần nữa. Có thể lấy theo FEFO mà không cần cất kệ. Công việc cất tùy chọn được hủy có lý do; không ghi giả đã cất.${selfApprovalRequired ? ' Bạn xác nhận tự duyệt phiên bản do mình lập/gửi; hệ thống sẽ lưu audit.' : ''}`
+                : confirmationAction === 'Approve'
+                  ? selfApprovalRequired
+                    ? 'Bạn là người ghi nhận phiếu này. Khi xác nhận, hệ thống sẽ lưu hành động tự phê duyệt trước khi cất hàng.'
+                    : 'Phê duyệt cập nhật phân loại hàng và mở nhiệm vụ cất hàng. Tổng tồn đã nhận không tăng thêm.'
+                  : 'Lần xác nhận thực nhận đầu tiên ghi hàng vào tồn chờ kiểm tại vị trí đã chọn. Gửi lại kết quả kiểm hàng chỉ cập nhật phiên bản, không nhận hàng thêm.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

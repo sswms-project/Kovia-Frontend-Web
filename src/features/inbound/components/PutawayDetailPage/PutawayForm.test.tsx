@@ -12,6 +12,9 @@ const itemId = '10000000-0000-4000-8000-000000000002'
 const slotId = '10000000-0000-4000-8000-000000000001'
 const otherSlotId = '10000000-0000-4000-8000-000000000009'
 const receipt: GoodsReceiptDetail = {
+  receivingSlotId: null,
+  arrivalStockPostedAt: null,
+  sourceRequestVersion: null,
   id: 'receipt',
   receiptCode: 'GR-QA',
   inboundRequestId: 'request',

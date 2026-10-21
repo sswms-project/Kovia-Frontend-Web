@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useForm } from 'react-hook-form'
 import { P } from '@/config/permissionCodes'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { receiptFixture } from '../utils/transfer-receipt-test-fixtures'
 import { buildShipment, buildTransfer } from '../utils/transfer-test-fixtures'
 import type { TransferDetail } from '../types/transfer.types'
 import type { TransferReceiptSheet } from '../types/transfer-receipt.types'
+import type { TransferCountFormValues } from '../schemas/transfer-receipt.schema'
 import TransferReceiveTaskPage from './TransferReceiveTaskPage'
 
 const mock = vi.hoisted(() => ({
@@ -19,6 +21,8 @@ const mock = vi.hoisted(() => ({
   receiptError: false,
   detailReads: vi.fn(),
   detailRefetch: vi.fn(),
+  slotReads: vi.fn(),
+  receiptFlowVersion: 1,
 }))
 const receipt = receiptFixture()
 const shipment = buildShipment({
@@ -55,15 +59,23 @@ vi.mock('../hooks/use-transfers', () => ({
   useTransferQuery: (id: string | null) => {
     mock.detailReads(id)
     return {
-      data: transfer,
+      data: id ? transfer : undefined,
       refetch: mock.detailRefetch,
     }
+  },
+  useTransferPutAwaySlotsQuery: (params: unknown, enabled: boolean) => {
+    mock.slotReads(params, enabled)
+    return { data: [], isLoading: false }
   },
 }))
 vi.mock('../hooks/use-transfer-receipt', () => ({
   useStartTransferReceivingMutation: () => ({ isPending: false }),
   useTransferReceiptSheetQuery: () => ({
-    data: { ...receipt, execution: mock.compact ? execution : undefined },
+    data: {
+      ...receipt,
+      receiptFlowVersion: mock.receiptFlowVersion,
+      execution: mock.compact ? execution : undefined,
+    },
     refetch: async () => ({ data: mock.freshReceipt, isError: mock.receiptError }),
   }),
 }))
@@ -71,17 +83,28 @@ vi.mock('../hooks/use-transfer-realtime', () => ({
   useTransferRealtime: () => ({ dismiss: vi.fn() }),
 }))
 vi.mock('../hooks/use-transfer-count-form', () => ({
-  useTransferCountForm: () => ({
-    form: { watch: () => [], formState: { isDirty: false } },
-    confirmOpen: true,
-    confirm: mock.confirm,
-    acceptFresh: mock.accept,
-    isPending: false,
-  }),
+  useTransferCountForm: function useTransferCountForm() {
+    const form = useForm<TransferCountFormValues>({
+      defaultValues: {
+        entries: [],
+        keepAtReceiving: false,
+        damagedSlotId: '',
+        scannedDamagedSlotCode: '',
+      },
+    })
+    return {
+      form,
+      confirmOpen: true,
+      confirm: mock.confirm,
+      acceptFresh: mock.accept,
+      isPending: false,
+    }
+  },
 }))
 vi.mock('../components/TransferWork', () => ({
   TransferWorkHeader: () => null,
   TransferReceiptCountCards: () => null,
+  TransferReceivingDisposition: () => null,
 }))
 vi.mock('../components/TransferShared', () => ({
   TransferChangedBanner: () => null,
@@ -101,6 +124,7 @@ beforeEach(() => {
   mock.failedRefresh = false
   mock.compact = false
   mock.receiptError = false
+  mock.receiptFlowVersion = 1
   mock.detailRefetch.mockImplementation(async () => ({
     data: mock.freshDetail,
     isError: mock.failedRefresh,
@@ -109,6 +133,29 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('Receiving hands off to putaway', () => {
+  it('loads receiving locations from compact warehouse context for flow 2', () => {
+    mock.compact = true
+    mock.receiptFlowVersion = 2
+    render(<TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
+    expect(mock.slotReads).toHaveBeenCalledWith(
+      expect.objectContaining({ warehouseId: execution.destinationWarehouseId }),
+      true
+    )
+    expect(mock.detailReads.mock.calls.every(([id]) => id === null)).toBe(true)
+  })
+  it('does not open putaway when fresh flow 2 receipt keeps stock at receiving', async () => {
+    mock.compact = true
+    mock.receiptFlowVersion = 2
+    mock.freshReceipt = {
+      ...receiptFixture({ status: 'Received', receiptFlowVersion: 2 }),
+      execution,
+      keptAtReceiving: true,
+    }
+    render(<TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
+    fireEvent.click(screen.getByText('Xác nhận kiểm hàng'))
+    await waitFor(() => expect(mock.accept).toHaveBeenCalled())
+    expect(mock.push).not.toHaveBeenCalled()
+  })
   it('uses fresh compact receipt context without fetching full detail before navigation', async () => {
     mock.compact = true
     mock.freshReceipt = { ...receiptFixture({ status: 'AwaitingPutAway' }), execution }

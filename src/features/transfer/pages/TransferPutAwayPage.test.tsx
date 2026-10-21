@@ -208,7 +208,7 @@ describe('Trang cất hàng — tự điền và AI theo yêu cầu', () => {
       />
     )
     expect(screen.queryByLabelText('Đang tải dữ liệu')).not.toBeInTheDocument()
-    expect(screen.getByText(/Chỉ cất hàng tốt thực nhận/)).toBeInTheDocument()
+    expect(screen.getByText(/Chỉ cất hàng tốt; hàng hỏng giữ Hold\/cách biệt/)).toBeInTheDocument()
   })
 
   it('auto fills without requiring row creation, calling AI or sending a write', async () => {
@@ -222,7 +222,7 @@ describe('Trang cất hàng — tự điền và AI theo yêu cầu', () => {
     await waitFor(() => expect(mock.apply).toHaveBeenCalledWith(suggestions, sheet, true))
     expect(mock.seed).toHaveBeenCalledWith(suggestions)
     expect(mock.ai).not.toHaveBeenCalled()
-    expect(screen.getByText(/Chỉ cất hàng tốt thực nhận/)).toBeInTheDocument()
+    expect(screen.getByText(/Chỉ cất hàng tốt; hàng hỏng giữ Hold\/cách biệt/)).toBeInTheDocument()
   })
   it('runs AI only on request and asks before replacing an edited allocation', async () => {
     mock.form.formState.isDirty = true

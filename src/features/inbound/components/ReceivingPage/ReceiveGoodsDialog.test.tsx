@@ -7,6 +7,7 @@ import type { ReceivingTask } from '../../types/inbound.types'
 import { ReceiveGoodsDialog } from './ReceiveGoodsDialog'
 
 const task: ReceivingTask = {
+  version: 'AQ==',
   inboundRequestId: 'request',
   inboundRequestCode: 'IR000001',
   warehouseId: 'warehouse',

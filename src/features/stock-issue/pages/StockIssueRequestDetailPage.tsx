@@ -8,6 +8,7 @@ import { StockIssueRequestDetail } from '../components/StockIssueRequestDetailPa
 import { StockIssueWorkflowDialogs } from '../components/StockIssueWorkflow'
 import { useStockIssueRequestQuery } from '../hooks/use-stock-issue-requests'
 import { useStockIssueWorkflow } from '../hooks/use-stock-issue-workflow'
+import { CrossDockSection } from '../components/CrossDockPanel'
 
 export default function StockIssueRequestDetailPage({
   stockIssueRequestId,
@@ -42,6 +43,7 @@ export default function StockIssueRequestDetailPage({
         }
       />
       <StockIssueWorkflowDialogs workflow={workflow} />
+      <CrossDockSection key={`${order.id}:${order.version}`} order={order} />
     </>
   )
 }

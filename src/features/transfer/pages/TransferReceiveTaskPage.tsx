@@ -1,6 +1,12 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { PackageCheck } from 'lucide-react'
@@ -15,7 +21,11 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
-import { TransferReceiptCountCards, TransferWorkHeader } from '../components/TransferWork'
+import {
+  TransferReceiptCountCards,
+  TransferWorkHeader,
+  TransferReceivingDisposition,
+} from '../components/TransferWork'
 import {
   TransferChangedBanner,
   TransferConfirmDialog,
@@ -28,7 +38,11 @@ import {
 import { useTransferCountForm } from '../hooks/use-transfer-count-form'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
-import { useTransferQuery } from '../hooks/use-transfers'
+import { useTransferQuery, useTransferPutAwaySlotsQuery } from '../hooks/use-transfers'
+import {
+  transferReceivingLocationSchema,
+  type TransferReceivingLocationValues,
+} from '../schemas/transfer-receipt.schema'
 import { getShipmentCapabilities } from '../utils/transfer-capabilities'
 import { newCommandId } from '../utils/transfer-command-id'
 import { describeTransferError } from '../utils/transfer-errors'
@@ -65,7 +79,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
   const mayReceive = Boolean(caps?.canOpenReceive)
   const count = useTransferCountForm(
     sheet,
-    mayReceive && sheet?.status === 'Receiving' && sheet.receiptFlowVersion === 1
+    mayReceive && sheet?.status === 'Receiving' && [1, 2].includes(sheet.receiptFlowVersion)
   )
   const realtime = useTransferRealtime({ transferId, autoRefresh: false })
   const start = useStartTransferReceivingMutation()
@@ -77,7 +91,18 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
   const [notice, setNotice] = useState<string | null>(null)
   const [isReloading, setIsReloading] = useState(false)
   const reloadLock = useRef(false)
-  const entries = count.form.watch('entries')
+  const [slotSearch, setSlotSearch] = useState('')
+  const debouncedSlotSearch = useDebouncedValue(slotSearch, 300)
+  const locations = useTransferPutAwaySlotsQuery(
+    { warehouseId: warehouses?.destinationWarehouseId ?? '', search: debouncedSlotSearch, top: 30 },
+    mayReceive && !!warehouses && (sheet?.status === 'InTransit' || sheet?.status === 'Receiving')
+  )
+  const receivingForm = useForm<TransferReceivingLocationValues>({
+    resolver: zodResolver(transferReceivingLocationSchema),
+    defaultValues: { receivingSlotId: '', scannedSlotCode: '' },
+  })
+  const entries = useWatch({ control: count.form.control, name: 'entries' })
+  const keepAtReceiving = useWatch({ control: count.form.control, name: 'keepAtReceiving' })
   const totals = entries.reduce(
     (sum, entry) => ({
       good: sum.good + (entry.goodQuantity || 0),
@@ -144,10 +169,19 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
       (!startUncertain && sheet.status !== 'InTransit')
     )
       return
+    if (
+      !startUncertain &&
+      (!(await receivingForm.trigger()) ||
+        locations.isError ||
+        locations.isFetching ||
+        !locations.data?.some((slot) => slot.id === receivingForm.getValues('receivingSlotId')))
+    )
+      return
     startLock.current = true
     const request = startIntent.current ?? {
       expectedVersion: sheet.version,
       commandId: newCommandId(),
+      ...receivingForm.getValues(),
     }
     startIntent.current = request
     let done = false
@@ -203,8 +237,10 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
       <Alert>
         <AlertTitle>Kiểm hàng trước khi cất</AlertTitle>
         <AlertDescription>
-          Tốt, hỏng và thiếu phải khớp số đã xuất. Nộp phiếu không ghi tồn kho và không cần duyệt;
-          chỉ hàng tốt được cất ở bước riêng. Hàng hỏng, thiếu được xử lý theo chênh lệch.
+          Tốt, hỏng và thiếu phải khớp số đã xuất.{' '}
+          {sheet.receiptFlowVersion === 1
+            ? 'Đợt theo luồng cũ: nộp kiểm đếm chưa ghi tồn, cất là bước nhận tồn.'
+            : 'Luồng mới ghi thực nhận đúng một lần tại vị trí nhận. Hàng đạt có thể giữ tại khu nhận hoặc tiếp tục cất; hàng hỏng phải đặt riêng và bị Hold.'}
         </AlertDescription>
       </Alert>
       {sheet.status === 'AwaitingPutAway' ? (
@@ -243,11 +279,86 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         </Alert>
       ) : null}
       {sheet.status === 'InTransit' && mayReceive ? (
-        <Button disabled={busy || isStartResolved} onClick={() => void startReceiving()}>
-          {start.isPending ? <Spinner /> : <PackageCheck />}
-          {startUncertain ? 'Kiểm tra lại thao tác nhận hàng' : 'Nhận hàng'}
-        </Button>
+        <div className="grid shrink-0 gap-3 border p-3 sm:grid-cols-2">
+          <Field className="sm:col-span-2">
+            <FieldLabel htmlFor="transfer-slot-search">Tìm mã/vị trí nhận</FieldLabel>
+            <Input
+              id="transfer-slot-search"
+              value={slotSearch}
+              onChange={(event) => setSlotSearch(event.target.value)}
+              disabled={busy || startUncertain}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="transfer-receiving-location">Vị trí thực tế nhận hàng</FieldLabel>
+            <NativeSelect
+              id="transfer-receiving-location"
+              {...receivingForm.register('receivingSlotId')}
+              disabled={busy || startUncertain || locations.isFetching || locations.isError}
+            >
+              <NativeSelectOption value="">Chọn vị trí nhận</NativeSelectOption>
+              {!locations.isPlaceholderData &&
+                locations.data?.map((slot) => (
+                  <NativeSelectOption key={slot.id} value={slot.id}>
+                    {slot.path}
+                  </NativeSelectOption>
+                ))}
+            </NativeSelect>
+            <FieldError>{receivingForm.formState.errors.receivingSlotId?.message}</FieldError>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="transfer-receiving-code">Quét/nhập mã vị trí nhận</FieldLabel>
+            <Input
+              id="transfer-receiving-code"
+              maxLength={200}
+              {...receivingForm.register('scannedSlotCode')}
+              disabled={busy || startUncertain}
+            />
+            <FieldError>{receivingForm.formState.errors.scannedSlotCode?.message}</FieldError>
+          </Field>
+          {locations.isError && <p role="alert">Chưa tải được vị trí nhận. Vui lòng tải lại.</p>}
+          <Button disabled={busy || isStartResolved} onClick={() => void startReceiving()}>
+            {start.isPending ? <Spinner /> : <PackageCheck />}
+            {startUncertain ? 'Kiểm tra lại thao tác nhận hàng' : 'Nhận hàng'}
+          </Button>
+        </div>
       ) : null}
+      {sheet.status === 'Receiving' && sheet.receiptFlowVersion === 2 && (
+        <>
+          <Field className="shrink-0">
+            <FieldLabel htmlFor="transfer-damage-search">
+              Tìm vị trí cách biệt hàng hỏng nếu có
+            </FieldLabel>
+            <Input
+              id="transfer-damage-search"
+              value={slotSearch}
+              onChange={(event) => setSlotSearch(event.target.value)}
+              disabled={busy || count.unknownResult}
+            />
+          </Field>
+          <TransferReceivingDisposition
+            form={count.form}
+            slots={locations.isError || locations.isPlaceholderData ? [] : (locations.data ?? [])}
+            receivingSlotId={sheet.receivingSlotId}
+            disabled={
+              !mayReceive ||
+              busy ||
+              count.unknownResult ||
+              locations.isFetching ||
+              locations.isError
+            }
+          />
+        </>
+      )}
+      {sheet.keptAtReceiving && (
+        <Alert>
+          <AlertTitle>Hàng đạt giữ tại khu nhận</AlertTitle>
+          <AlertDescription>
+            Đã mở khả dụng theo FEFO tại vị trí nhận. Không ghi giả đã cất và không tăng tồn khi lấy
+            nội bộ.
+          </AlertDescription>
+        </Alert>
+      )}
       {sheet.status === 'Receiving' && !mayReceive ? (
         <Alert>
           <AlertDescription>
@@ -290,7 +401,11 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
           <p>
             Tốt {formatQuantity(totals.good)}, hỏng {formatQuantity(totals.damaged)}, thiếu{' '}
             {formatQuantity(totals.missing)}. Chênh lệch được báo quản lý nhưng không chặn cất hàng.
-            Tồn kho chưa thay đổi ở bước này.
+            {sheet.receiptFlowVersion === 2
+              ? keepAtReceiving
+                ? 'Thực nhận được ghi vào tồn một lần. Hàng đạt khả dụng tại khu nhận; hàng hỏng Hold ở vị trí riêng đã xác nhận.'
+                : 'Thực nhận được ghi vào tồn một lần; hàng đạt chờ cất, hàng hỏng Hold ở vị trí riêng.'
+              : 'Tồn kho chưa thay đổi ở bước này theo luồng cũ.'}
           </p>
         }
         confirmLabel="Nộp phiếu nhập"
