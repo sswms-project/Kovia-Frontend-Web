@@ -15,6 +15,10 @@ const mock = vi.hoisted(() => ({
   freshDetail: undefined as TransferDetail | undefined,
   freshReceipt: undefined as TransferReceiptSheet | undefined,
   failedRefresh: false,
+  compact: false,
+  receiptError: false,
+  detailReads: vi.fn(),
+  detailRefetch: vi.fn(),
 }))
 const receipt = receiptFixture()
 const shipment = buildShipment({
@@ -27,6 +31,14 @@ const shipment = buildShipment({
   putAwayAssigneeId: 'worker',
 })
 const transfer = buildTransfer({ id: receipt.transferId, shipments: [shipment] })
+const execution = {
+  sourceWarehouseId: transfer.sourceWarehouseId,
+  destinationWarehouseId: transfer.destinationWarehouseId,
+  destinationWarehouseName: transfer.destinationWarehouseName,
+  receiveAssigneeId: 'worker',
+  putAwayAssigneeId: 'worker',
+  putAwayAssigneeName: 'Nhân viên',
+}
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mock.push }) }))
 vi.mock('../hooks/use-transfer-viewer', () => ({
   useTransferViewer: () => ({
@@ -40,16 +52,19 @@ vi.mock('../hooks/use-transfer-viewer', () => ({
   }),
 }))
 vi.mock('../hooks/use-transfers', () => ({
-  useTransferQuery: () => ({
-    data: transfer,
-    refetch: async () => ({ data: mock.freshDetail, isError: mock.failedRefresh }),
-  }),
+  useTransferQuery: (id: string | null) => {
+    mock.detailReads(id)
+    return {
+      data: transfer,
+      refetch: mock.detailRefetch,
+    }
+  },
 }))
 vi.mock('../hooks/use-transfer-receipt', () => ({
   useStartTransferReceivingMutation: () => ({ isPending: false }),
   useTransferReceiptSheetQuery: () => ({
-    data: receipt,
-    refetch: async () => ({ data: mock.freshReceipt, isError: false }),
+    data: { ...receipt, execution: mock.compact ? execution : undefined },
+    refetch: async () => ({ data: mock.freshReceipt, isError: mock.receiptError }),
   }),
 }))
 vi.mock('../hooks/use-transfer-realtime', () => ({
@@ -84,10 +99,46 @@ beforeEach(() => {
     receiptSubmittedAt: '2026-10-20T00:00:00Z',
   })
   mock.failedRefresh = false
+  mock.compact = false
+  mock.receiptError = false
+  mock.detailRefetch.mockImplementation(async () => ({
+    data: mock.freshDetail,
+    isError: mock.failedRefresh,
+  }))
 })
 afterEach(cleanup)
 
 describe('Receiving hands off to putaway', () => {
+  it('uses fresh compact receipt context without fetching full detail before navigation', async () => {
+    mock.compact = true
+    mock.freshReceipt = { ...receiptFixture({ status: 'AwaitingPutAway' }), execution }
+    render(<TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
+    fireEvent.click(screen.getByText('Xác nhận kiểm hàng'))
+    await waitFor(() => expect(mock.push).toHaveBeenCalled())
+    expect(mock.detailRefetch).not.toHaveBeenCalled()
+    expect(mock.detailReads.mock.calls.every(([id]) => id === null)).toBe(true)
+  })
+  it.each(['reassigned', 'wrong-warehouse', 'read-error', 'missing-context'])(
+    'does not hand off using old compact context: %s',
+    async (scenario) => {
+      mock.compact = true
+      mock.freshReceipt = {
+        ...receiptFixture({ status: 'AwaitingPutAway' }),
+        execution: { ...execution },
+      }
+      if (scenario === 'reassigned') mock.freshReceipt.execution!.putAwayAssigneeId = 'other'
+      if (scenario === 'wrong-warehouse')
+        mock.freshReceipt.execution!.destinationWarehouseId = 'other'
+      if (scenario === 'read-error') mock.receiptError = true
+      if (scenario === 'missing-context') mock.freshReceipt.execution = undefined
+      render(<TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
+      fireEvent.click(screen.getByText('Xác nhận kiểm hàng'))
+      await waitFor(() => expect(mock.confirm).toHaveBeenCalled())
+      if (mock.receiptError) await screen.findByText(/Phiếu đã được ghi nhận/)
+      else await waitFor(() => expect(mock.accept).toHaveBeenCalled())
+      expect(mock.push).not.toHaveBeenCalled()
+    }
+  )
   it('opens putaway only after confirmed receipt, fresh state, same assigned actor and permission', async () => {
     render(<TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
     expect(mock.push).not.toHaveBeenCalled()

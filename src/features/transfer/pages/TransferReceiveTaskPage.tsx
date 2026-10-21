@@ -43,12 +43,25 @@ interface Props {
 export default function TransferReceiveTaskPage({ transferId, shipmentId }: Props) {
   const router = useRouter()
   const { viewer, isReady } = useTransferViewer()
-  const detail = useTransferQuery(transferId)
   const query = useTransferReceiptSheetQuery(transferId, shipmentId)
   const sheet = query.data
+  // Older BE versions have no compact context; retain the existing read path for them.
+  const detail = useTransferQuery(sheet && !sheet.execution ? transferId : null)
   const transfer = detail.data
-  const shipment = transfer?.shipments?.find((shipment) => shipment.id === shipmentId)
-  const caps = shipment ? getShipmentCapabilities(viewer, shipment, transfer) : undefined
+  const context = sheet?.execution
+  const warehouses = context ?? transfer
+  const shipment =
+    sheet && context
+      ? {
+          status: sheet.status,
+          lines: [],
+          receiveAssigneeId: context.receiveAssigneeId,
+          putAwayAssigneeId: context.putAwayAssigneeId,
+          putAwayAssigneeName: context.putAwayAssigneeName,
+          receiptFlowVersion: sheet.receiptFlowVersion,
+        }
+      : transfer?.shipments?.find((shipment) => shipment.id === shipmentId)
+  const caps = shipment ? getShipmentCapabilities(viewer, shipment, warehouses) : undefined
   const mayReceive = Boolean(caps?.canOpenReceive)
   const count = useTransferCountForm(
     sheet,
@@ -79,16 +92,27 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
     reloadLock.current = true
     setIsReloading(true)
     try {
-      const [fresh, freshDetail] = await Promise.all([query.refetch(), detail.refetch()])
+      const [fresh, freshDetail] = await Promise.all([
+        query.refetch(),
+        context ? Promise.resolve(null) : detail.refetch(),
+      ])
       if (fresh.data && !fresh.isError) {
         count.acceptFresh(fresh.data)
-        const nextShipment = freshDetail.data?.shipments?.find((row) => row.id === shipmentId)
+        const nextContext = fresh.data.execution
+        const nextShipment = nextContext
+          ? {
+              status: fresh.data.status,
+              lines: [],
+              putAwayAssigneeId: nextContext.putAwayAssigneeId,
+            }
+          : freshDetail?.data?.shipments?.find((row) => row.id === shipmentId)
         if (
           continueToPutAway &&
           fresh.data.status === 'AwaitingPutAway' &&
-          !freshDetail.isError &&
+          !freshDetail?.isError &&
           nextShipment?.putAwayAssigneeId === viewer.currentUserId &&
-          getShipmentCapabilities(viewer, nextShipment, freshDetail.data).canOpenPutAway
+          getShipmentCapabilities(viewer, nextShipment, nextContext ?? freshDetail?.data)
+            .canOpenPutAway
         ) {
           router.push(APP_ROUTES.transferPutAwayTask(transferId, shipmentId))
         }
@@ -98,6 +122,12 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
           setStartUncertain(false)
           setNotice(null)
         }
+      } else {
+        setNotice(
+          continueToPutAway
+            ? 'Phiếu đã được ghi nhận nhưng chưa tải được dữ liệu mới. Hãy tải lại, không nộp thêm lần nữa.'
+            : 'Chưa tải được dữ liệu mới. Hãy thử tải lại.'
+        )
       }
     } finally {
       reloadLock.current = false
@@ -144,8 +174,9 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
     if (done) await reload()
   }
 
-  if (!isReady || query.isLoading || detail.isLoading) return <OperationalLoadingState rows={4} />
-  if (query.isError || detail.isError || !sheet || !transfer || !shipment)
+  if (!isReady || query.isLoading || (!context && detail.isLoading))
+    return <OperationalLoadingState rows={4} />
+  if (query.isError || (!context && detail.isError) || !sheet || !warehouses || !shipment)
     return (
       <OperationalErrorState
         title="Không thể tải phiếu nhập điều chuyển"
@@ -167,7 +198,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         transferCode={sheet.transferCode}
         shipmentNumber={sheet.shipmentNumber}
         shipmentStatus={sheet.status}
-        route={'Nhận tại ' + transfer.destinationWarehouseName}
+        route={'Nhận tại ' + warehouses.destinationWarehouseName}
       />
       <Alert>
         <AlertTitle>Kiểm hàng trước khi cất</AlertTitle>

@@ -37,6 +37,14 @@ export interface TransferReceiptSheetLine {
 }
 
 export interface TransferReceiptSheet {
+  execution?: {
+    sourceWarehouseId: string
+    destinationWarehouseId: string
+    destinationWarehouseName: string
+    receiveAssigneeId: string | null
+    putAwayAssigneeId: string | null
+    putAwayAssigneeName: string | null
+  } | null
   transferId: string
   shipmentId: string
   transferCode: string

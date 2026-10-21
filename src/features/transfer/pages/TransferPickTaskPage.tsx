@@ -12,6 +12,7 @@ import { P } from '@/config/permissionCodes'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import {
   PickEntryWorkspace,
+  PickLineCard,
   PickEscalateDialog,
   TransferPickLinesTable,
   PickSwitchDialog,
@@ -141,26 +142,29 @@ export default function TransferPickTaskPage({
               </p>
             ) : null}
             <div className="flex flex-col gap-3 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(20rem,1fr)]">
-              <TransferPickLinesTable
-                lines={lines}
-                selectedId={actions.entry.line?.lineId}
-                canAct={canAct}
-                busy={
-                  actions.entry.isPending ||
-                  actions.entry.uncertain ||
-                  actions.entry.needsRefresh ||
-                  realtime.hasPendingChange
-                }
-                onPick={actions.entry.open}
-                onSwitch={(target) => actions.switch.open(target)}
-                onEscalate={actions.escalate.open}
-                onReturn={actions.returnPick.open}
-              />
               {canAct ? (
                 <div
                   data-scrollbar="slim"
-                  className="order-first min-w-0 shrink-0 lg:order-last lg:min-h-0 lg:overflow-y-auto"
+                  className="min-w-0 shrink-0 lg:order-last lg:min-h-0 lg:overflow-y-auto"
                 >
+                  {actions.entry.line ? (
+                    <div className="mb-3 lg:hidden" aria-label="Hàng và vị trí đang lấy">
+                      <PickLineCard
+                        line={actions.entry.line}
+                        canAct={
+                          canAct &&
+                          !actions.entry.isPending &&
+                          !actions.entry.uncertain &&
+                          !actions.entry.needsRefresh &&
+                          !realtime.hasPendingChange
+                        }
+                        onPick={actions.entry.open}
+                        onSwitch={actions.switch.open}
+                        onEscalate={actions.escalate.open}
+                        onReturn={actions.returnPick.open}
+                      />
+                    </div>
+                  ) : null}
                   <PickEntryWorkspace
                     line={actions.entry.line}
                     scan={actions.entry.scan}
@@ -179,6 +183,21 @@ export default function TransferPickTaskPage({
                   />
                 </div>
               ) : null}
+              <TransferPickLinesTable
+                lines={lines}
+                selectedId={actions.entry.line?.lineId}
+                canAct={canAct}
+                busy={
+                  actions.entry.isPending ||
+                  actions.entry.uncertain ||
+                  actions.entry.needsRefresh ||
+                  realtime.hasPendingChange
+                }
+                onPick={actions.entry.open}
+                onSwitch={(target) => actions.switch.open(target)}
+                onEscalate={actions.escalate.open}
+                onReturn={actions.returnPick.open}
+              />
             </div>
           </div>
         )}

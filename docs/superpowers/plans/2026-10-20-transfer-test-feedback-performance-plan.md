@@ -410,3 +410,48 @@ Hash toàn bộ DTO tuần tự hóa khớp giữa hai bản cho ba phép so sá
 Không có số POST mới nên không đặt con số tăng tốc hay tuyên bố xác nhận đã tối ưu xong. Các thời gian put-away sheet khoảng3152ms và full detail3099ms ở mục trước là benchmark đọc lịch sử, không phải đo lại lượt này hay SLA. Local3000/7070 vẫn tắt; không migration/seed/ghi dữ liệu kiểm thử.
 
 Kiểm tra lại trên bản đã commit: FE3file/13test đạt; BE Release có sẵn96test đạt/4race SQL Server bỏ qua (fixture InMemory, `--no-build --no-restore`). Đây là kiểm tra hồi quy chức năng, không đo tốc độ ghi lên DB deploy. Báo cáo này được commit tài liệu riêng sau commit triển khai.
+
+## 15. Đo HTTP fixture và tối ưu lượt SQL xác nhận — 21/10/2026
+
+Triển khai BE sau yêu cầu đo/tối ưu; chưa commit/push. FE không đổi source. Probe và raw JSON nằm tại workspace `../outputs/transfer-confirmation-probe-20261021`, README ghi cách chạy, mọi giới hạn và bốn DB fixture được giữ nguyên.
+
+### Phạm vi phép đo
+
+- SQL Server thật trên `(localdb)\MSSQLLocalDB`, catalog sinh riêng tiền tố `KoviaTransferPerfQA_`; xác minh effective provider/server/catalog trước schema/fixture write. Không đọc cấu hình triển khai, không kết nối/ghi db71143, migration/seed deploy hay bật API background jobs. Không xóa/reset DB nào.
+- HTTP bridge tạm trên127.0.0.1:port ngẫu nhiên, gọi handler/UnitOfWork/repository/ledger thật. **Không phải endpoint/controller production**: quyền/kho, audit, recipient/notification, low-stock và realtime dùng doubles của fixture. Read requests cũng đi qua POST bridge, không phải route GET thật. Không đo trình duyệt/render hay tổng thời gian spinner.
+- Fixture một sản phẩm/một đợt,1 hoặc5placement cùng ô đích, dùng rowversion SQL thật; kiểm cuối mỗi kịch bản tồn đích bằng lượng yêu cầu và đợt Received. Chỉ fixture local tắt FK do thiếu identity/catalog parents; CHECK/unique/rowversion vẫn có. Không tuyên bố đã test đầy đủ FK/RBAC hoặc race.
+- Baseline đóng băng trước sửa, sau đó build current riêng. Mỗi nhóm1warmup bỏ khỏi thống kê+5mẫu warm. Lượt current đầu bị trùng build nên không dùng kết luận thời gian; dữ liệu đó vẫn giữ. Lượt clean trước/sau chạy tuần tự sau build/test.
+
+### Kết quả và cách hiểu
+
+| Lệnh              | SELECT trước → sau | HTTP median1placement trước → sau | HTTP median5placement trước → sau |
+| ----------------- | ------------------ | --------------------------------- | --------------------------------- |
+| Xác nhận lấy hàng | 11 → 10            | 12.21 → 11.96ms                   | 11.18 → 14.73ms                   |
+| Hoàn tất lấy hàng | 9 → 8              | 11.69 → 12.77ms                   | 10.00 → 15.28ms                   |
+| Xác nhận cất hàng | 22 → 19            | 24.93 → 19.14ms                   | 22.47 → 31.08ms                   |
+
+Thời gian local còn nhiễu, kể cả đường đọc không đổi cũng dao động. **Chỉ khẳng định giảm lượt SQL; không khẳng định mọi lệnh nhanh hơn hay đã giải quyết5–6giây trên DB deploy.** Các con số không gồm full auth/notifications/low-stock/remote RTT; không suy ra SLA/P95 hay phần trăm tăng tốc production.5placement cùng ô vốn đã không tăng SELECT trước sửa; chưa có bằng chứng cần viết lại ledger hoặc thêm cache/outbox.
+
+### Thay đổi và kiểm tra
+
+1. Gộp Slot+Rack ở xác nhận lấy; giữ tenant/scan checks.
+2. Hoàn tất lấy dùng task tracked đã được kiểm tra; tách phần CompleteTask không I/O dùng chung với đường CompleteTaskAsync cũ.
+3. Receipt actor chỉ đọc1task tracked, vẫn kiểm Receive/Assign/current assignee/state và Manage kho nhận khi làm thay. Trả task để bước cất không đọc lại khi hoàn tất. Nếu Manage bị từ chối, mọi thay đổi tracked trong request thất bại không được lưu.
+4. Cất hàng gộp Product+Unit, giữ tenant/precision rõ ràng. Không đổi ledger/lock/reservation/idempotency/expectedVersion, thông báo hay thời điểm commit.
+5. Release build và349test nhóm transfer/task/storage-capacity/ledger đạt;5test SQL race/lock opt-in bỏ qua. Thêm7test về query budget task/đúng người/đúng kho/state và timestamp hoàn tất. Không chạy lại toàn suite hoặc FE/browser/device QA do FE source không thay đổi.
+
+Tiếp theo khi người dùng test luồng app thật: ghép HTTP status/elapsed/TraceId → handler → phase cất → các GET reload. Đặc biệt hoàn tất lấy vẫn chờ fresh detail/pick sheet trên FE; không bỏ khóa snapshot mới để làm spinner ngắn giả tạo. Chưa đo POST thật trên deploy thì không kết luận đó là mạng, ledger hay publish. Local3000/7070 vẫn tắt sau lượt này.
+
+## 16. Nghiệm thu race/lock SQL Server thật — 21/10/2026
+
+Sau khi người dùng đồng ý chạy an toàn trên LocalDB:
+
+- Chạy5test opt-in thật. Lượt đầu lỗi ở chuẩn bị fixture: guard test khóa chưa nhận LocalDB và helper tạo phiếu dùng phiên bản giả InMemory. Đã sửa **2file test**, không đổi thêm source nghiệp vụ: guard vẫn chỉ nhận localhost/LocalDB + Windows authentication + catalog QA; tạo/duyệt phiếu SQL dùng rowversion thật. Thêm đối chiếu effective server/catalog trước khi tạo schema fixture.
+- Sau sửa: **5/5race/lock đạt,0bỏ qua**. Chạy lại toàn nhóm transfer/task/storage-capacity/ledger với opt-in bật: **354đạt,0lỗi,0bỏ qua**. Kịch bản gồm hai đợt cùng nhận, hai lần cất cùng phiên bản, kế hoạch cạnh tranh nhận/cất và khóa transaction theo tenant; kiểm rollback phần ghi kèm, tồn không bị ghi trùng, chỉ một bên thắng, khóa được nhả cả khi lưu lỗi.
+- Tất cả SQL fixture nằm ở `(localdb)\\MSSQLLocalDB`, catalog QA riêng, không dùng connection deploy. Không reset/xóa DB. Do fixture thiếu danh mục/identity parent nên chỉ tắt FK trong DB QA; CHECK/unique/rowversion/SQL locking giữ nguyên. Không suy ra đã nghiệm thu mọi FK hoặc mọi race production.
+- Release build đạt; cảnh báo xUnit2000 SupplierReturn cũ còn nguyên. Raw TRX của cả lượt lỗi ban đầu và hai lượt đạt nằm trong workspace `../outputs/transfer-race-verification-20261021`. Không migration/seed hoặc QA ghi dữ liệu vào db71143.
+- BE bản hiện tại đã mở7070, FE3000 trỏ về7070 để người dùng test app thật. Preflight cấu hình riêng xác minh SqlServer / db71143.public.databaseasp.net / db71143, ApplyMigrationsOnStartup=false; startup log xác nhận migration/seed disabled. Đây là runtime ứng dụng bình thường, không phải fixture QA deploy. Không tự gọi login/POST nghiệp vụ hay tạo phiếu test. Chưa commit trước khi người dùng test thực tế; không push/PR.
+
+## 17. Kế hoạch sau log test thực tế21/10
+
+Xem [kế hoạch tối ưu HTTP thực tế và mobile](2026-10-21-transfer-live-performance-mobile-plan.md). Tài liệu mới tổng hợp feedback bố cục vị trí trước scanner và các mốc dispatch7.66s, submit receipt5.52s, put-away9.81s cùng GET reload. Đây là kế hoạch chưa triển khai, không dùng số đo LocalDB để thay thế baseline thực tế.

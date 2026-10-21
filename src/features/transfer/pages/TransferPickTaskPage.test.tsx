@@ -10,6 +10,7 @@ const mock = vi.hoisted(() => ({
   viewer: undefined as TransferViewer | undefined,
   assignee: 'worker',
   failedDetail: false,
+  selected: false,
 }))
 const shipment = buildShipment({ pickAssigneeId: 'worker' })
 const transfer = buildTransfer({ shipments: [shipment] })
@@ -59,7 +60,7 @@ vi.mock('../hooks/use-transfer-fulfillment', () => ({
 vi.mock('../hooks/use-transfer-realtime', () => ({ useTransferRealtime: () => ({}) }))
 vi.mock('../hooks/use-transfer-pick-actions', () => ({
   useTransferPickActions: () => ({
-    entry: {},
+    entry: { line: mock.selected ? sheet.lines[0] : null },
     switch: {},
     escalate: {},
     returnPick: {},
@@ -69,6 +70,7 @@ vi.mock('../hooks/use-transfer-pick-actions', () => ({
 vi.mock('../components/TransferWork', () => ({
   TransferWorkHeader: () => null,
   PickEntryWorkspace: () => <div data-testid="scan-workspace" />,
+  PickLineCard: () => <div data-testid="selected-location">Vị trí đang lấy</div>,
   TransferPickLinesTable: ({ canAct }: { canAct: boolean }) => (
     <div data-testid="can-act">{String(canAct)}</div>
   ),
@@ -91,6 +93,7 @@ beforeEach(() => {
   }
   mock.assignee = 'worker'
   mock.failedDetail = false
+  mock.selected = false
 })
 afterEach(cleanup)
 
@@ -100,7 +103,7 @@ describe('Pick workspace authorization', () => {
       <TransferPickTaskPage transferId={transfer.id} shipmentId={shipment.id} />
     )
     const scannerPane = screen.getByTestId('scan-workspace').parentElement!
-    expect(scannerPane).toHaveClass('order-first', 'min-w-0', 'shrink-0')
+    expect(scannerPane).toHaveClass('min-w-0', 'shrink-0')
     expect(scannerPane).toHaveClass('lg:order-last', 'lg:min-h-0', 'lg:overflow-y-auto')
     expect(scannerPane).not.toHaveClass('min-h-0', 'overflow-y-auto')
     const panes = scannerPane.parentElement!
@@ -117,6 +120,19 @@ describe('Pick workspace authorization', () => {
     expect(scroller).not.toContainElement(complete)
     expect(complete.closest('footer')).toHaveClass('shrink-0')
     expect(complete).toBeDisabled()
+  })
+  it('places the selected goods/location before the scanner without moving the desktop panes', () => {
+    mock.selected = true
+    render(<TransferPickTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
+    const location = screen.getByTestId('selected-location')
+    const scanner = screen.getByTestId('scan-workspace')
+    expect(location.compareDocumentPosition(scanner) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(location.parentElement).toHaveClass('lg:hidden')
+    expect(scanner.parentElement).toHaveClass('lg:order-last')
+    expect(
+      scanner.compareDocumentPosition(screen.getByTestId('can-act')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).not.toBe(0)
   })
   it('enables only the assigned source worker and becomes read-only after reassignment', () => {
     const view = render(<TransferPickTaskPage transferId={transfer.id} shipmentId={shipment.id} />)

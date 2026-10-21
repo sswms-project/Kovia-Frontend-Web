@@ -22,6 +22,7 @@ import {
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import type { TransferPickSheetLine } from '../../types/transfer.types'
 import { formatTransferLocation } from '../../utils/transfer-location'
+import { cn } from '@/lib/utils'
 import { SHIPMENT_LINE_STATUS_LABELS } from '../../utils/transfer-format'
 
 interface Props {
@@ -45,14 +46,19 @@ export function TransferPickLinesTable({
   onEscalate,
   onReturn,
 }: Props) {
+  const mobileLines =
+    canAct && selectedId ? lines.filter((line) => line.lineId !== selectedId) : lines
   return (
-    <OperationalListPanel aria-label="Hàng cần lấy">
+    <OperationalListPanel
+      aria-label="Hàng cần lấy"
+      className={cn('lg:order-first', mobileLines.length === 0 && 'max-lg:hidden')}
+    >
       <div
         data-slot="operational-list-body"
         data-scrollbar="slim"
         className="grid gap-3 p-3 lg:hidden"
       >
-        {lines.map((line) => (
+        {mobileLines.map((line) => (
           <PickLineCard
             key={line.lineId}
             line={line}

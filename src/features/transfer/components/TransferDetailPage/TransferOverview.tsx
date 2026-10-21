@@ -1,4 +1,6 @@
-import { Info } from 'lucide-react'
+import { ChevronDown, Info } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   formatOperationalDateTime,
@@ -74,41 +76,48 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
           </AlertDescription>
         </Alert>
       ) : null}
-      <div className="pt-3">
+      <Collapsible key={transfer.id} defaultOpen className="pt-3">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h2 id="transfer-overview-title" className="text-sm font-semibold">
-            Thông tin phiếu
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="group min-h-11 gap-2 px-0 sm:min-h-8">
+                Thông tin phiếu
+                <ChevronDown aria-hidden="true" className="group-data-[state=open]:rotate-180" />
+              </Button>
+            </CollapsibleTrigger>
           </h2>
           <TransferStatusBadge status={transfer.status} />
           <span className="text-muted-foreground text-xs">
             {TRANSFER_STATUS_DESCRIPTIONS[transfer.status]}
           </span>
         </div>
-        <div className="grid gap-4 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:gap-0">
-          <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:pr-6 xl:grid-cols-3">
-            {items.map((item) => (
-              <div key={item.label} className="min-w-0">
-                <dt className="text-muted-foreground text-xs">{item.label}</dt>
-                <dd className="break-words">{item.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <section
-            className="border-t pt-3 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6"
-            aria-label="Tiến độ (ĐVT chính)"
-          >
-            <h3 className="text-muted-foreground mb-2 text-xs">Tiến độ (ĐVT chính)</h3>
-            <dl className="grid gap-y-2">
-              {progress.map((item) => (
-                <div key={item.label} className="flex items-baseline justify-between gap-4">
+        <CollapsibleContent>
+          <div className="grid gap-4 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:gap-0">
+            <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:pr-6 xl:grid-cols-3">
+              {items.map((item) => (
+                <div key={item.label} className="min-w-0">
                   <dt className="text-muted-foreground text-xs">{item.label}</dt>
-                  <dd className="font-medium tabular-nums">{item.value}</dd>
+                  <dd className="break-words">{item.value}</dd>
                 </div>
               ))}
             </dl>
-          </section>
-        </div>
-      </div>
+            <section
+              className="border-t pt-3 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6"
+              aria-label="Tiến độ (ĐVT chính)"
+            >
+              <h3 className="text-muted-foreground mb-2 text-xs">Tiến độ (ĐVT chính)</h3>
+              <dl className="grid gap-y-2">
+                {progress.map((item) => (
+                  <div key={item.label} className="flex items-baseline justify-between gap-4">
+                    <dt className="text-muted-foreground text-xs">{item.label}</dt>
+                    <dd className="font-medium tabular-nums">{item.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </section>
   )
 }
