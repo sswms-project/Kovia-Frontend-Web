@@ -13,6 +13,13 @@ beforeEach(() => {
 })
 
 describe('Transfer request correlation', () => {
+  it('uses the scoped compact assignment read without loading the complete document', async () => {
+    await transferService.getAssignmentSnapshot('transfer', 'shipment', 'warehouse')
+    expect(axiosClient.get).toHaveBeenCalledExactlyOnceWith(
+      '/transfers/transfer/shipments/shipment/assignment-snapshot',
+      { params: { warehouseId: 'warehouse' } }
+    )
+  })
   it('attaches the same per-tab origin to writes, including repeated commands', async () => {
     const request = {
       commandId: 'command',

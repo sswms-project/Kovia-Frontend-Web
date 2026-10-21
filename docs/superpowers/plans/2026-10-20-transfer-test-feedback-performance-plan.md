@@ -359,3 +359,32 @@ Giảm 5 SELECT (25%), median reader giảm khoảng 24.4%. Số items/shipments
 3. Pick/receipt/putaway sheet và rules suggestions chưa được viết lại thành read model nhỏ; ledger và pending-aware availability vẫn giữ phần đọc theo entry/scope. Chỉ tối ưu tiếp theo trace/SQL count, không bỏ guard để đạt con số.
 4. Production SQL timing/count theo từng HTTP request chưa được thêm thành interceptor dùng chung; hiện có HTTP/handler correlation và probe SELECT-only. Không coi logging mới là full tracing mọi câu SQL.
 5. QA giao diện/keyboard/camera trên điện thoại thật và viewport 320–767px; DOM tests không thay thế kiểm tra pixel/hardware.
+
+## 13. Tối ưu tiếp sau review — 21/10/2026
+
+Đã xử lý PERF-01–04 theo hướng thay đổi nhỏ, giữ nguyên các chốt quyền, phiên bản, kết quả chưa rõ và nghiệp vụ tồn kho:
+
+- Giao việc: thêm bản đọc gọn theo phiếu/đợt/kho quản lý cho bước kiểm tra trước khi ghi, thay một lần GET toàn bộ phiếu. Vẫn đọc chi tiết mới sau khi ghi và khi đối chiếu kết quả chưa rõ. BE cần triển khai trước FE do có endpoint đọc mới; không cần migration cho endpoint này.
+- Dropdown nhân viên: tính tải bằng settings + 4 projection chỉ lấy trường cần dùng. Không cache quyền, không chạy nhiều lệnh cùng DbContext; giữ công thức xếp hạng và số việc hiện có.
+- Công việc kho: lọc loại việc ngay ở truy vấn gốc, bỏ các nhánh/dòng phụ không dùng, tính lookup nhận hàng một lần. Giữ nguyên phân trang/tổng/thống kê sau khi sắp xếp chung; full SQL paging liên nhóm chưa triển khai.
+- Phiếu lấy hàng: không nạp aggregate có tracking của toàn phiếu; gộp các tham chiếu metadata, vẫn tính phần đã lấy ở các đợt khác để không gợi ý vượt giữ chỗ. Test xác nhận tám lượt repository và không có thực thể bị tracking.
+
+### Kết quả đo chỉ đọc
+
+So sánh assemblies đóng băng ngày20/10 với bản mới, cùng một phiếu/đợt và nhóm ứng viên hiện có (1 người), mỗi bản 1 warmup + 5 mẫu warm. Provider/server/database được in và kiểm tra: SqlServer / db71143.public.databaseasp.net / db71143. Bộ chặn từ chối lệnh không phải SELECT và mọi SaveChanges; không mở host/background job, migration/seed hoặc gọi API ghi.
+
+| Đường đọc                         | SELECT trước → sau | Trung vị trước → sau |
+| --------------------------------- | ------------------ | -------------------- |
+| Phiếu lấy hàng                    | 14 → 8             | 2885 → 1715 ms       |
+| Tính tải nhân viên                | 8 → 5              | 1657 → 1067 ms       |
+| Công việc lọc TransferPick        | 17 → 9             | 3515 → 1926 ms       |
+| Bản đọc gọn trước giao việc (mới) | 1                  | 214 ms               |
+
+Hash toàn bộ DTO tuần tự hóa khớp giữa hai bản cho ba phép so sánh trên bộ dữ liệu này. Đây là thời gian handler đọc trực tiếp, **không phải** tổng HTTP/xác thực/trình duyệt hay tốc độ các lệnh POST/PUT. Nguồn phép đo ở `../outputs/transfer-ops-read-probe-20261021` trong workspace.
+
+### An toàn schema và kiểm thử
+
+- Bản thử eager include đầu tiên lộ việc DB deploy chưa có cột SnapshotCapturedAt/SnapshotMovementCount thuộc migration đang chờ AddCycleCountExecutionSnapshots. Không chạy migration/repair. Đã thay bằng projection đúng trường tính tải và đo thành công lại trên cùng DB. Không suy ra mọi luồng kiểm kê khác đã tương thích schema.
+- FE: 78 files / 503 tests, lint phạm vi sửa, TypeScript production và build production 73 trang đạt.
+- BE: nhóm liên quan 379 đạt / 4 race SQL Server bỏ qua. Toàn bộ 1931 đạt / 2 lỗi fixture cũ đã tái hiện trên baseline / 5 bỏ qua; không tuyên bố toàn bộ suite xanh.
+- Chưa kiểm thử trình duyệt/thiết bị hoặc thời gian lệnh ghi thật. Chưa commit/push, không restart local, không migration/seed hay QA ghi DB deploy. Cảnh báo Pkcs kế thừa ở probe và xUnit2000 SupplierReturn không nằm trong bản tối ưu này.

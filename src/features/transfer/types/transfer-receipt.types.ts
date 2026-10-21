@@ -3,6 +3,15 @@ import type { TransferShipmentStatus } from './transfer.types'
 export type TransferTaskKind = 'pick' | 'receive' | 'putaway'
 export type TransferTaskType = 'TransferPick' | 'TransferReceive' | 'TransferPutAway'
 
+export interface TransferAssignmentTask {
+  readonly id: string
+  readonly taskType: TransferTaskType
+  readonly version: string | null
+  readonly assignee: string | null
+  readonly priority: 'Normal' | 'Urgent'
+  readonly due: string | null
+}
+
 export interface TransferReceiptLot {
   lotId: string | null
   lotNumber: string | null

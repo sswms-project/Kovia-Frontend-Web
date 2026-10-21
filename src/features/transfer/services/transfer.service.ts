@@ -50,6 +50,7 @@ import type {
 import type { ReceivableSlot } from '../utils/transfer-receive'
 import type { AssignableWarehouseStaff } from '@/features/inbound/types/inbound.types'
 import type {
+  TransferAssignmentTask,
   TransferTaskType,
   TransferReceiptSheet,
   TransferPutAwaySheet,
@@ -61,6 +62,12 @@ import type {
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
 
 export const transferService = {
+  getAssignmentSnapshot: (transferId: string, shipmentId: string, warehouseId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferAssignmentTask[]>
+      >(API_ENDPOINTS.transfers.assignmentSnapshot(transferId, shipmentId), { params: { warehouseId } })
+      .then(unwrap),
   decideRequest: (id: string, request: TransferRequestDecision) =>
     axiosClient
       .post<

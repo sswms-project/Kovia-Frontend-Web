@@ -175,7 +175,15 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
     }
   }
   async function submit(values: AssignWarehouseTaskFormValues) {
-    if (!transfer || !selected || lock.current || needsVerify || staff.isError || putStaff.isError)
+    if (
+      !transfer ||
+      !selected ||
+      !warehouseId ||
+      lock.current ||
+      needsVerify ||
+      staff.isError ||
+      putStaff.isError
+    )
       return
     const eligible = (staff.data ?? []).filter(
       (person) => !alsoPutAway || (putStaff.data ?? []).some((other) => other.id === person.id)
@@ -207,15 +215,15 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
     }
     attempt.current = pending
     try {
-      const fresh = (await transferService.getTransfer(transfer.id)).data
-      const current = fresh.shipments?.find((row) => row.id === selected.shipmentId)
-      if (!current) throw new Error('Đợt xuất không còn tồn tại.')
+      const current = (
+        await transferService.getAssignmentSnapshot(transfer.id, selected.shipmentId, warehouseId)
+      ).data
       for (const kind of pending.kinds) {
         if (pending.done.has(kind)) continue
         // The two tasks have independent row versions. The API checks each expected
         // version/assignee atomically, including changes made after this snapshot.
-        const next = transferAssignmentTask(current, kind)
-        if (!next.id || !next.version) throw new Error('Công việc chưa có phiên bản để giao.')
+        const next = current.find((task) => task.taskType === TASK_TYPES[kind])
+        if (!next?.id || !next.version) throw new Error('Công việc chưa có phiên bản để giao.')
         if (next.version !== pending.versions[kind]) {
           setResults((old) => ({
             ...old,

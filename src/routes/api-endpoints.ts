@@ -374,6 +374,8 @@ export const API_ENDPOINTS = {
     invoiceData: (paymentId: string) => `/payments/${paymentId}/invoice-data`,
   },
   transfers: {
+    assignmentSnapshot: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/assignment-snapshot`,
     decision: (id: string) => `/transfers/${id}/decision`,
     withdraw: (id: string) => `/transfers/${id}/withdraw`,
     destinationLoad: '/transfers/destination-load',
