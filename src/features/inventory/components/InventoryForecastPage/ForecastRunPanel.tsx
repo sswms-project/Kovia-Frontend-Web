@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, RefreshCw, TrendingUp, PackagePlus } from 'lucide-react'
-import { P } from '@/config/permissionCodes'
+import { ArrowLeft, RefreshCw, PackagePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { Button } from '@/components/ui/button'
@@ -12,6 +11,10 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Spinner } from '@/components/ui/spinner'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { operationalToday } from '@/lib/operational-date-time'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -19,7 +22,11 @@ import {
 } from '@/components/operations/OperationalState'
 import type { ForecastWorkspace } from '../../hooks/use-forecast-workspace'
 import type { InventoryFilterOption } from '../../types/inventory.types'
-import { forecastRunStatusLabel } from '../../utils/forecast-overview'
+import {
+  forecastEvaluationStartDate,
+  forecastRunStatusLabel,
+  hasEndedForecastDays,
+} from '../../utils/forecast-overview'
 import { formatInventoryDateOnly } from '../../utils/inventory-format'
 import { ForecastOverviewView } from './ForecastOverviewView'
 import { ForecastDemandView } from './ForecastDemandView'
@@ -40,7 +47,7 @@ interface ForecastRunPanelProps {
   readonly canReview: boolean
   readonly canViewInbound: boolean
   readonly canCreateTransfer: boolean
-  readonly permissions: readonly string[]
+  readonly canViewReports: boolean
 }
 
 export function ForecastRunPanel({
@@ -53,54 +60,44 @@ export function ForecastRunPanel({
   canReview,
   canViewInbound,
   canCreateTransfer,
-  permissions,
+  canViewReports,
 }: ForecastRunPanelProps) {
   const [tab, setTab] = useState('overview')
   const run = workspace.runQuery.data
   const diagnostics = run?.details?.products ?? []
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <header className="flex shrink-0 items-start justify-between gap-3 border-b pb-3">
-        <div className="flex items-center gap-3">
-          <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-xl">
-            <TrendingUp aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-primary text-xs font-medium">
-              Báo cáo & phân tích · Kế hoạch tồn kho
-            </p>
-            <h1 className="text-xl font-semibold">Dự báo & bổ sung hàng</h1>
-            <p className="text-muted-foreground text-xs">
-              Tính nhu cầu → lập nháp → Manager kiểm tra → gửi yêu cầu nhập.
-            </p>
-          </div>
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {/* One line, like the report pages: the table below gets the rest of the height. */}
+      <header className="flex shrink-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          {canViewReports ? (
+            <Link
+              href={APP_ROUTES.reports}
+              aria-label="Quay lại Báo cáo & phân tích"
+              className="text-primary hover:bg-primary/10 focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <ArrowLeft className="size-5" aria-hidden="true" />
+            </Link>
+          ) : null}
+          <h1 className="min-w-0 truncate text-xl font-semibold">Dự báo & bổ sung hàng</h1>
         </div>
         <Button
           variant="outline"
-          size="sm"
+          size="icon"
+          aria-label="Cập nhật căn cứ"
+          title="Cập nhật căn cứ"
           disabled={!workspace.runId || workspace.runQuery.isFetching}
           onClick={() => void workspace.runQuery.refetch()}
         >
           <RefreshCw className="size-4" aria-hidden="true" />
-          Cập nhật căn cứ
         </Button>
       </header>
-      {permissions.includes(P.REPORTS_VIEW) ? (
-        <nav aria-label="Điều hướng báo cáo" className="shrink-0">
-          <Link
-            href={APP_ROUTES.reports}
-            className="text-muted-foreground hover:text-primary focus-visible:ring-ring inline-flex items-center gap-2 rounded-sm text-sm focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            Báo cáo & phân tích
-          </Link>
-        </nav>
-      ) : null}
+      {/* Field is w-full: the flexible fields use a zero basis so they share one row from sm up. */}
       <form
         onSubmit={workspace.createAndRun}
-        className="bg-card grid shrink-0 gap-3 rounded-xl border p-3 md:grid-cols-[minmax(12rem,1fr)_8rem_8rem_auto]"
+        className="bg-card flex shrink-0 flex-wrap items-end gap-3 rounded-xl border p-3"
       >
-        <Field>
+        <Field className="min-w-56 flex-1 basis-full sm:basis-0">
           <FieldLabel htmlFor="forecast-warehouse">Kho</FieldLabel>
           <NativeSelect
             id="forecast-warehouse"
@@ -121,7 +118,7 @@ export function ForecastRunPanel({
             </p>
           ) : null}
         </Field>
-        <Field>
+        <Field className="w-28">
           <FieldLabel htmlFor="forecast-history">Lịch sử (ngày)</FieldLabel>
           <Input
             id="forecast-history"
@@ -137,7 +134,7 @@ export function ForecastRunPanel({
             </p>
           ) : null}
         </Field>
-        <Field>
+        <Field className="w-28">
           <FieldLabel htmlFor="forecast-horizon">Kỳ phủ (ngày)</FieldLabel>
           <Input
             id="forecast-horizon"
@@ -153,26 +150,9 @@ export function ForecastRunPanel({
             </p>
           ) : null}
         </Field>
-        {canRun ? (
-          <Button
-            className="self-end transition-transform active:scale-[0.98] motion-reduce:transform-none"
-            type="submit"
-            disabled={!workspace.warehouseId || workspace.isCreating}
-          >
-            <PackagePlus className="size-4" aria-hidden="true" />
-            {workspace.isCreating ? 'Đang tính & lập nháp…' : 'Tính & lập nháp'}
-          </Button>
-        ) : null}
-      </form>
-      {warehousesError ? (
-        <OperationalErrorState title="Không tải được kho" onRetry={retryWarehouses} />
-      ) : null}
-      {workspace.warehouseId ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Field className="min-w-64 flex-1">
-            <FieldLabel className="sr-only" htmlFor="forecast-run">
-              Phiên đã lưu
-            </FieldLabel>
+        {workspace.warehouseId ? (
+          <Field className="min-w-64 flex-1 basis-full sm:basis-0">
+            <FieldLabel htmlFor="forecast-run">Phiên đã lưu</FieldLabel>
             <NativeSelect
               id="forecast-run"
               value={workspace.runId}
@@ -191,22 +171,62 @@ export function ForecastRunPanel({
               ))}
             </NativeSelect>
           </Field>
-          {workspace.runsQuery.isError ? (
-            <Button variant="outline" onClick={() => void workspace.runsQuery.refetch()}>
-              Tải lại lịch sử phiên
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {canRun ? (
+            <Button
+              className="transition-transform active:scale-[0.98] motion-reduce:transform-none"
+              type="submit"
+              disabled={!workspace.warehouseId || workspace.isCreating}
+            >
+              <PackagePlus className="size-4" aria-hidden="true" />
+              {workspace.isCreating ? 'Đang tính & lập nháp…' : 'Tính & lập nháp'}
             </Button>
           ) : null}
           {run?.status === 'Completed' && canRun ? (
+            hasEndedForecastDays(run.forecastStartDate, operationalToday()) ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={workspace.isEvaluating || workspace.isCreating}
+                onClick={() => void workspace.evaluate()}
+              >
+                {workspace.isEvaluating ? 'Đang đối chiếu…' : 'Đối chiếu thực tế'}
+              </Button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* A disabled button gets no pointer or focus events, so the wrapper shows the hint. */}
+                  <span
+                    tabIndex={0}
+                    aria-label="Đối chiếu thực tế (chưa khả dụng)"
+                    className="focus-visible:ring-ring inline-flex rounded-md focus-visible:ring-2 focus-visible:outline-none"
+                  >
+                    <Button type="button" variant="outline" disabled tabIndex={-1}>
+                      Đối chiếu thực tế
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Chưa có ngày nào kết thúc. Đối chiếu được từ{' '}
+                  {formatInventoryDateOnly(forecastEvaluationStartDate(run.forecastStartDate))}.
+                </TooltipContent>
+              </Tooltip>
+            )
+          ) : null}
+          {workspace.warehouseId && workspace.runsQuery.isError ? (
             <Button
+              type="button"
               variant="outline"
-              size="sm"
-              disabled={workspace.isEvaluating}
-              onClick={() => void workspace.evaluate()}
+              onClick={() => void workspace.runsQuery.refetch()}
             >
-              {workspace.isEvaluating ? 'Đang đối chiếu…' : 'Đối chiếu thực tế'}
+              Tải lại lịch sử phiên
             </Button>
           ) : null}
         </div>
+      </form>
+      {warehousesError ? (
+        <OperationalErrorState title="Không tải được kho" onRetry={retryWarehouses} />
       ) : null}
       {workspace.runId && workspace.runQuery.isLoading ? (
         <OperationalLoadingState rows={5} />
@@ -220,6 +240,20 @@ export function ForecastRunPanel({
           title="Chọn kho và phiên dự báo"
           description="Tính kế hoạch mới hoặc mở phiên đã lưu để kiểm tra các đề xuất và nháp nhập kho."
         />
+      ) : run.status === 'Pending' || run.status === 'Running' ? (
+        // The run is calculated in the background; its results do not exist until it completes.
+        <Empty className="min-h-64 flex-1 border-0" aria-live="polite">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Spinner aria-label="Đang tính dự báo" />
+            </EmptyMedia>
+            <EmptyTitle>Đang tính dự báo & lập nháp…</EmptyTitle>
+            <EmptyDescription>
+              Hệ thống đang chọn mô hình và dự báo cho từng mặt hàng của {run.warehouseName}. Kết
+              quả hiện ra khi phiên hoàn tất; bạn có thể rời trang trong lúc chờ.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           <div

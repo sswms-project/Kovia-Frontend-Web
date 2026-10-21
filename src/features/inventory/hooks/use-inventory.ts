@@ -323,16 +323,42 @@ export function useInventoryForecastQuery(params: InventoryForecastQuery, enable
   })
 }
 
+const FORECAST_RUN_POLL_MS = 1_500
+
+function isForecastRunActive(run: ForecastRun | undefined) {
+  return run?.status === 'Pending' || run?.status === 'Running'
+}
+
+function fetchForecastRun(id: string) {
+  return inventoryService.getForecastRun(id).then((response) => response.data)
+}
+
 export function useForecastRunQuery(id: string) {
   return useQuery<ForecastRun, ApiErrorResponse>({
     queryKey: queryKeys.inventory.forecastRun(id),
-    queryFn: () => inventoryService.getForecastRun(id).then((response) => response.data),
+    queryFn: () => fetchForecastRun(id),
     enabled: Boolean(id),
     refetchInterval: (query) =>
-      query.state.data?.status === 'Pending' || query.state.data?.status === 'Running'
-        ? 1_500
-        : false,
+      isForecastRunActive(query.state.data) ? FORECAST_RUN_POLL_MS : false,
   })
+}
+
+/** Resolves with the run once it is Completed or Failed. The calculation runs in the background after
+ *  execute returns; the backend reports a run stuck Running as Failed, so this always ends. */
+export function useWaitForForecastRun() {
+  const queryClient = useQueryClient()
+  return async (id: string) => {
+    for (;;) {
+      // Same key as useForecastRunQuery, so its own polling and this share one request.
+      const run = await queryClient.fetchQuery({
+        queryKey: queryKeys.inventory.forecastRun(id),
+        queryFn: () => fetchForecastRun(id),
+        staleTime: 0,
+      })
+      if (!isForecastRunActive(run)) return run
+      await new Promise((resolve) => setTimeout(resolve, FORECAST_RUN_POLL_MS))
+    }
+  }
 }
 
 export function useCreateForecastRunMutation() {

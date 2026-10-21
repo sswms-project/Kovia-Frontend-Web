@@ -36,7 +36,7 @@ export default function InventoryForecastPage() {
         permissions.includes(P.INBOUND_REQUESTS_VIEW_DRAFT)
       }
       canCreateTransfer={permissions.includes(P.TRANSFERS_CREATE)}
-      permissions={permissions}
+      canViewReports={permissions.includes(P.REPORTS_VIEW)}
     />
   )
 }

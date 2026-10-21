@@ -9,8 +9,10 @@ import {
   countForecastRisks,
   filterForecastOverview,
   forecastModelLabel,
+  forecastEvaluationStartDate,
   forecastOverviewCsv,
   forecastRunStatusLabel,
+  hasEndedForecastDays,
 } from './forecast-overview'
 
 function product(overrides: Partial<DemandForecastDiagnostics>): DemandForecastDiagnostics {
@@ -191,6 +193,7 @@ describe('forecast labels', () => {
   it('names the models in Vietnamese and keeps unknown ones readable', () => {
     expect(forecastModelLabel('holt-winters-weekly')).toBe('Holt-Winters theo tuần')
     expect(forecastModelLabel('croston-sba')).toBe('Croston (bán ngắt quãng)')
+    expect(forecastModelLabel('lightgbm-global')).toBe('LightGBM (học máy)')
     expect(forecastModelLabel('LinearRegression / posted Issue / Asia/Ho_Chi_Minh')).toBe(
       'Hồi quy tuyến tính'
     )
@@ -220,5 +223,19 @@ describe('forecast overview export', () => {
     expect(line).toBe(
       'SKU-1,"Bút ""bi"", xanh",cái,Trung bình theo thứ,140,10,25,2,2026-10-14,12.5,Sắp hết'
     )
+  })
+})
+
+describe('forecast accuracy availability', () => {
+  it('has no ended day on the day the forecast starts', () => {
+    expect(hasEndedForecastDays('2026-10-21', '2026-10-21')).toBe(false)
+    expect(hasEndedForecastDays('2026-10-22', '2026-10-21')).toBe(false)
+    expect(hasEndedForecastDays('2026-10-21', '2026-10-22')).toBe(true)
+  })
+
+  it('can be compared from the day after the forecast starts, across month and year ends', () => {
+    expect(forecastEvaluationStartDate('2026-10-21')).toBe('2026-10-22')
+    expect(forecastEvaluationStartDate('2026-10-31')).toBe('2026-11-01')
+    expect(forecastEvaluationStartDate('2026-12-31')).toBe('2027-01-01')
   })
 })
