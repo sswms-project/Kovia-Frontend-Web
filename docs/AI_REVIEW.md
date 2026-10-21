@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## 2026-10-21 — Committed optimizations: picking/put-away confirmation review
+
+- Reviewer: Codex, self-review of FE `11169cb` and BE `9577715b`, not independent approval. State `APPROVED_FINAL` for this bounded review only: no confirmed Blocker/High regression found; not a claim that write latency is optimized or the whole suite is green. Source unchanged; no push or service restart.
+- Medium CONFIRM-01 (OPEN): `useCompleteTransferPickingMutation` awaits `refreshTransferAfterWrite` in onSuccess. Completion pending/success feedback therefore includes the POST plus all active matching detail/list/pick-sheet reads. The picking page has detail and pick sheet active; these reads run concurrently, not serially. Separate committed-success feedback from refresh state in a future fix, retaining fresh-version/unknown-result barriers and blocking further writes until safe. Do not remove required refreshes just to shorten the spinner.
+- Line picking already marks related queries stale without broad eager reload and owns one fresh pick-sheet read before the next action. Put-away already acknowledges the write separately and reloads detail + sheet concurrently; fresh-sheet/write-block guards remain. The latest pick-sheet benchmark (14→8 SELECTs, warm median2885→1715ms) measures a read handler, not the RecordTransferPick/CompleteTransferPicking/PutAwayTransferShipment POSTs.
+- BE still reads task twice in put-away actor validation, posts ledger entries sequentially without invoking the ledger's available PreloadAsync, and awaits notification/realtime publishing after commit. Per-request ledger metadata caches already exist; capacity/mixed-product checks still require correct pending-aware validation. These are measured-follow-up candidates, not proof of the dominant delay or permission to bypass checks/background the work without durable delivery.
+- Focused FE regression rerun: 3 files / 13 tests passed (pick actions, refresh ownership and put-away page). No browser/device/HTTP timing or deployed writes. See the shared performance plan section14 for the exact flow and measurement-first next steps. Existing full-suite limitations remain as recorded below; unrelated rules/config/output changes excluded from commits.
+
 ## 2026-10-21 — Transfer performance follow-up implementation
 
 - Assigned implementer: Codex. State `READY_FOR_CODEX_REVIEW`; implementation/self-verification, not independent approval. Implements the prior PERF-01–04 findings in a bounded way, without changing command authorization, concurrency, ledger posting or database schema. No commit/push/PR requested for this turn.

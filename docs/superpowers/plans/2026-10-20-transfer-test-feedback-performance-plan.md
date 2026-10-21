@@ -388,3 +388,25 @@ Hash toàn bộ DTO tuần tự hóa khớp giữa hai bản cho ba phép so sá
 - FE: 78 files / 503 tests, lint phạm vi sửa, TypeScript production và build production 73 trang đạt.
 - BE: nhóm liên quan 379 đạt / 4 race SQL Server bỏ qua. Toàn bộ 1931 đạt / 2 lỗi fixture cũ đã tái hiện trên baseline / 5 bỏ qua; không tuyên bố toàn bộ suite xanh.
 - Chưa kiểm thử trình duyệt/thiết bị hoặc thời gian lệnh ghi thật. Chưa commit/push, không restart local, không migration/seed hay QA ghi DB deploy. Cảnh báo Pkcs kế thừa ở probe và xUnit2000 SupplierReturn không nằm trong bản tối ưu này.
+
+## 14. Review bước xác nhận lấy/cất hàng sau commit — 21/10/2026
+
+Đã commit phần triển khai ở mục13: FE `11169cb`, BE `9577715b`; chưa push. Lượt này chỉ review, không sửa thêm source hay gọi API ghi. Kết luận: đã tối ưu một phần đường đọc/tải lại, **chưa chứng minh API xác nhận ghi dữ liệu phản hồi nhanh**.
+
+| Thao tác              | Đường xử lý hiện tại                                                                 | Còn gây chờ/cần đo                                                                                                                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Xác nhận lấy một dòng | POST RecordTransferPick → một GET pick-sheet mới trước dòng tiếp theo                | POST vẫn có chuỗi đọc/kiểm tra tồn, vị trí, sản phẩm, giữ chỗ và realtime sau commit. GET đã giảm14→8 SELECT, median2885→1715ms trên mẫu đọc trước đó, không phải POST.                                                                 |
+| Hoàn tất lấy hàng     | POST CompleteTransferPicking → refresh các detail/list/pick-sheet đang active        | onSuccess được await nên nút/toast chờ cả POST và GET chậm nhất; GET chạy đồng thời, không cộng các thời gian GET lại. Notification staging/context và publish còn trong critical path BE.                                              |
+| Xác nhận cất hàng     | POST PutAwayTransferShipment → báo thành công → tải detail + putaway sheet đồng thời | Có guard chặn ghi tiếp khi snapshot chưa mới. BE đọc task hai lần; ledger theo từng placement; low-stock theo scope; notifications/realtime được await. Ledger đã có metadata cache theo request, không coi mọi đọc là N+1 chưa tối ưu. |
+
+### Thứ tự tối ưu tiếp đề xuất
+
+1. Đo thao tác thật: ghép HTTP elapsed/status/TraceId với handler và phase cất hàng (`authorization-and-load`, `validation-and-plan`, `stock-ledger`, `tasks-and-notifications`, `low-stock`, `commit`, `publish`), rồi ghép GET reload. Báo riêng thời gian POST thành công và thời gian giao diện sẵn sàng thao tác tiếp. Không tự POST để benchmark DB deploy; không suy từ slow-handler log sang toàn bộ HTTP/browser.
+2. Tách trạng thái “đã ghi nhận” và “đang cập nhật” ở hoàn tất lấy hàng; vẫn giữ khóa thao tác và đối chiếu phiên bản/kết quả chưa rõ tới khi snapshot mới an toàn. Không báo lỗi ghi nếu chỉ reload lỗi và không tự gửi lại POST.
+3. Tái sử dụng task tracked đã kiểm tra ở bước cất hàng; giữ đầy đủ quyền Receive/Assign, Manage đúng kho, người được giao và task trạng thái hợp lệ.
+4. Dựa trên phase/query-count, tái sử dụng PreloadAsync của ledger cho các placement nếu phù hợp, batch metadata/stock đúng scope. Giữ capacity transaction/lock, pending-aware balances, lot/quality/mixed-product validation và một commit; không chạy song song cùng DbContext.
+5. Đo notification context/recipient/publish riêng trước khi đổi. Ưu tiên gộp đọc cần thiết; không fire-and-forget thông báo/realtime, không bỏ nghiệp vụ low-stock hay thêm queue/outbox tùy tiện trong lượt review.
+
+Không có số POST mới nên không đặt con số tăng tốc hay tuyên bố xác nhận đã tối ưu xong. Các thời gian put-away sheet khoảng3152ms và full detail3099ms ở mục trước là benchmark đọc lịch sử, không phải đo lại lượt này hay SLA. Local3000/7070 vẫn tắt; không migration/seed/ghi dữ liệu kiểm thử.
+
+Kiểm tra lại trên bản đã commit: FE3file/13test đạt; BE Release có sẵn96test đạt/4race SQL Server bỏ qua (fixture InMemory, `--no-build --no-restore`). Đây là kiểm tra hồi quy chức năng, không đo tốc độ ghi lên DB deploy. Báo cáo này được commit tài liệu riêng sau commit triển khai.
