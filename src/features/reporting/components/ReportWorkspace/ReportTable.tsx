@@ -52,7 +52,7 @@ export function ReportTable({
   return (
     <OperationalListPanel aria-label="Kết quả báo cáo kho" aria-busy={isFetching}>
       <Table className="text-sm">
-        <TableHeader>
+        <TableHeader className="sticky top-0 z-20 [&_th]:top-auto!">
           <TableRow>
             {columns.map((column) => {
               const group = isBalance
@@ -64,7 +64,7 @@ export function ReportTable({
                     key={group.label}
                     scope="colgroup"
                     colSpan={columns.filter((c) => group.keys.includes(c.key)).length}
-                    className="bg-muted sticky top-0 z-20 h-8 border-x text-center font-semibold"
+                    className="bg-muted relative! h-8 border-x text-center font-semibold"
                   >
                     {group.label}
                   </TableHead>
@@ -76,9 +76,9 @@ export function ReportTable({
                   aria-label={column.label}
                   rowSpan={isBalance ? 2 : 1}
                   className={cn(
-                    'bg-muted sticky top-0 z-20 whitespace-nowrap',
-                    column.dataType === 'number' && 'text-right',
-                    column.key === productKey && 'left-0 z-30 min-w-56'
+                    'bg-muted relative! whitespace-nowrap',
+                    column.dataType === 'number' && 'text-center',
+                    column.key === productKey && 'sticky! left-0 z-30 min-w-56'
                   )}
                 >
                   <ReportColumnHeading
@@ -98,7 +98,7 @@ export function ReportTable({
                     key={column.key}
                     scope="col"
                     aria-label={column.label}
-                    className="bg-card sticky top-8 z-20 h-8 border-l text-right"
+                    className="bg-card relative! h-10 border-l text-center"
                   >
                     <ReportColumnHeading
                       label={column.label}
