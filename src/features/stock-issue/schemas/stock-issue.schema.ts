@@ -11,6 +11,10 @@ export const stockIssueRequestLineSchema = z.object({
 
 export const createStockIssueRequestSchema = z
   .object({
+    stockIssueRequestCode: z
+      .string()
+      .trim()
+      .max(100, 'Mã yêu cầu xuất kho không được vượt quá 100 ký tự.'),
     stockRecipientId: dotNetGuidSchema('Vui lòng chọn đơn vị nhận hàng.'),
     warehouseId: dotNetGuidSchema('Vui lòng chọn kho xuất hàng.'),
     purpose: z.string().trim().max(500, 'Diễn giải không được vượt quá 500 ký tự.'),

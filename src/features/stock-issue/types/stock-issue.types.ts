@@ -203,6 +203,7 @@ export interface StockIssueProductOptionQuery {
 }
 
 export interface CreateStockIssueRequestRequest {
+  stockIssueRequestCode?: string | null
   stockRecipientId: string
   warehouseId: string
   items: CreateStockIssueRequestItemRequest[]
@@ -212,7 +213,10 @@ export interface CreateStockIssueRequestRequest {
   note?: string | null
 }
 
-export interface UpdateStockIssueRequestRequest extends CreateStockIssueRequestRequest {
+export interface UpdateStockIssueRequestRequest extends Omit<
+  CreateStockIssueRequestRequest,
+  'stockIssueRequestCode'
+> {
   stockIssueRequestId: string
   expectedVersion: string
 }

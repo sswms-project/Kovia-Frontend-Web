@@ -1,5 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { recordStockPickingSchema } from './stock-issue.schema'
+import { createStockIssueRequestSchema, recordStockPickingSchema } from './stock-issue.schema'
+
+describe('outbound request code validation', () => {
+  const values = {
+    stockRecipientId: '10000000-0000-4000-8000-000000000001',
+    warehouseId: '10000000-0000-4000-8000-000000000002',
+    purpose: '',
+    referenceCode: '',
+    issueDate: '',
+    note: '',
+    lines: [
+      { productId: '10000000-0000-4000-8000-000000000003', quantity: 1, unitId: '', note: '' },
+    ],
+  }
+  it.each(['', '  MY-CODE  ', 'X'.repeat(100)])(
+    'accepts blank or editable codes within the server limit',
+    (code) => {
+      const result = createStockIssueRequestSchema.parse({ ...values, stockIssueRequestCode: code })
+      expect(result.stockIssueRequestCode).toBe(code.trim())
+    }
+  )
+  it('rejects a code beyond the server limit', () => {
+    const result = createStockIssueRequestSchema.safeParse({
+      ...values,
+      stockIssueRequestCode: 'X'.repeat(101),
+    })
+    expect(result.error?.issues[0]?.path).toEqual(['stockIssueRequestCode'])
+  })
+})
 
 function line(overrides: Record<string, unknown>) {
   return {
@@ -13,6 +41,9 @@ function line(overrides: Record<string, unknown>) {
     availableQuantity: 40,
     pickedQuantity: 40,
     scannedBarcode: '',
+    destinationStagingSlotId: 'staging-slot',
+    scannedStagingSlotCode: 'STAGING-01',
+    scannedSlotCode: 'SOURCE-01',
     unitName: 'Cái',
     unitFactor: 1,
     ...overrides,

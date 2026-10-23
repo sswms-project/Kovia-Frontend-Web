@@ -41,7 +41,7 @@ function StockIssueRequestTableHeader() {
   return (
     <TableHeader>
       <TableRow>
-        <TableHead className="bg-card w-56">Mã phiếu</TableHead>
+        <TableHead className="bg-card w-56">Mã yêu cầu</TableHead>
         <TableHead className="bg-card">Đơn vị nhận · Kho xuất</TableHead>
         <TableHead className="bg-card w-48">Trạng thái</TableHead>
         <TableHead className="bg-card w-48">Tiến độ lấy hàng (kiện)</TableHead>

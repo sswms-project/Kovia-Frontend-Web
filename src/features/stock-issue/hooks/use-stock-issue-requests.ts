@@ -40,6 +40,16 @@ interface RecordStockPickingVariables {
   request: RecordStockPickingRequest
 }
 
+export function useNextStockIssueRequestCodeQuery(enabled: boolean, sessionKey: string) {
+  return useQuery<string, ApiErrorResponse>({
+    queryKey: [...queryKeys.stockIssueRequests.nextCode, sessionKey],
+    queryFn: () => stockIssueService.getNextCode().then((response) => response.data),
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+  })
+}
+
 interface CreateGoodsReturnRequestVariables {
   stockIssueRequestId: string
   request: CreateGoodsReturnRequestRequest

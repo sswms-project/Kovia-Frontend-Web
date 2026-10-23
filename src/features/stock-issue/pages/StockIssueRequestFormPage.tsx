@@ -41,6 +41,7 @@ import {
 } from '../components/StockIssueRequestFormPage'
 import {
   useCreateStockIssueRequestMutation,
+  useNextStockIssueRequestCodeQuery,
   useStockIssueProductOptionsQuery,
   useStockIssueRequestQuery,
   useStockIssueSavedProductOptions,
@@ -77,6 +78,8 @@ export default function StockIssueRequestFormPage({
   const codeInstanceId = useId()
   const [codeSession, setCodeSession] = useState(0)
   const codeSessionKey = `${codeInstanceId}:${codeSession}`
+  const [requestCodeSession, setRequestCodeSession] = useState(0)
+  const requestCodeSessionKey = `${codeInstanceId}:request:${requestCodeSession}`
   const hydratedRequestId = useRef<string | null>(null)
   const editingVersion = useRef('')
   const [warehouseSearchText, setWarehouseSearchText] = useState('')
@@ -99,6 +102,7 @@ export default function StockIssueRequestFormPage({
   const form = useForm<CreateStockIssueRequestFormValues>({
     resolver: zodResolver(createStockIssueRequestSchema),
     defaultValues: {
+      stockIssueRequestCode: '',
       stockRecipientId: '',
       warehouseId: '',
       purpose: '',
@@ -168,10 +172,24 @@ export default function StockIssueRequestFormPage({
   })
   Object.assign(productsById, pickedProducts)
   const nextRecipientCode = useNextStockRecipientCodeQuery(isQuickRecipientOpen, codeSessionKey)
+  const nextRequestCode = useNextStockIssueRequestCodeQuery(!isEditing, requestCodeSessionKey)
   const createMutation = useCreateStockIssueRequestMutation()
   const updateMutation = useUpdateStockIssueRequestMutation()
   const createRecipientMutation = useCreateStockRecipientMutation()
   const isPending = createMutation.isPending || updateMutation.isPending
+
+  const requestCodeSuggestion = useCodeSuggestion({
+    active: !isEditing,
+    sessionKey: requestCodeSessionKey,
+    suggestedCode: nextRequestCode.data,
+    isFetching: nextRequestCode.isFetching,
+    isError: nextRequestCode.isError,
+    getCurrentCode: () => form.getValues('stockIssueRequestCode'),
+    applyCode: (code) =>
+      form.setValue('stockIssueRequestCode', code, {
+        shouldValidate: form.formState.isSubmitted,
+      }),
+  })
 
   const codeSuggestion = useCodeSuggestion({
     active: isQuickRecipientOpen,
@@ -190,6 +208,7 @@ export default function StockIssueRequestFormPage({
     const detail = detailQuery.data
     if (!detail || hydratedRequestId.current === detail.id) return
     form.reset({
+      stockIssueRequestCode: detail.stockIssueRequestCode,
       stockRecipientId: detail.stockRecipientId,
       warehouseId: detail.warehouseId,
       purpose: detail.purpose ?? '',
@@ -309,7 +328,10 @@ export default function StockIssueRequestFormPage({
         return
       }
 
-      const created = await createMutation.mutateAsync(request)
+      const created = await createMutation.mutateAsync({
+        ...request,
+        stockIssueRequestCode: values.stockIssueRequestCode || null,
+      })
       const failedUploads = await uploadAttachments(created.data)
       if (failedUploads.length > 0)
         toast.warning(
@@ -320,11 +342,14 @@ export default function StockIssueRequestFormPage({
       if (addAnother) {
         form.reset({
           ...values,
+          stockIssueRequestCode: '',
           purpose: '',
           referenceCode: '',
           note: '',
           lines: [{ ...EMPTY_LINE }],
         })
+        requestCodeSuggestion.resetSession()
+        setRequestCodeSession((current) => current + 1)
         return
       }
       form.reset(values)
@@ -470,6 +495,16 @@ export default function StockIssueRequestFormPage({
         isRecipientSearchLoading={recipientsQuery.isFetching}
         isProductSearchLoading={productsQuery.isFetching}
         isPending={isPending}
+        codeSuggestionStatus={
+          isEditing
+            ? undefined
+            : nextRequestCode.isFetching
+              ? 'loading'
+              : nextRequestCode.isError
+                ? 'error'
+                : 'ready'
+        }
+        onCodeChange={requestCodeSuggestion.markEdited}
         onWarehouseSearchChange={setWarehouseSearchText}
         onRecipientSearchChange={setRecipientSearchText}
         onProductSearchChange={handleProductSearchChange}

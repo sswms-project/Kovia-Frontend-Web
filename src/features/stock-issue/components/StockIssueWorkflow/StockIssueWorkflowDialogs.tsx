@@ -1,6 +1,6 @@
 'use client'
 
-import { Send, ShieldCheck, Truck } from 'lucide-react'
+import { ShieldCheck, Truck } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +12,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
 import type { StockIssueWorkflow } from '../../hooks/use-stock-issue-workflow'
 import { formatStockIssueUnitQuantity } from '../../utils/stock-issue-format'
 import {
@@ -31,51 +31,40 @@ export function StockIssueWorkflowDialogs({ workflow }: { readonly workflow: Sto
       <ReportPickIssueDialog key={`report-${report.order?.id ?? 'none'}`} {...report} />
       <CancelStockIssueRequestDialog key={`cancel-${cancel.order?.id ?? 'none'}`} {...cancel} />
 
-      <AlertDialog
-        open={Boolean(release.order)}
+      <AssignWarehouseTaskDialog
+        title="Giao việc lấy hàng"
+        target={
+          release.order
+            ? {
+                kind: 'StockIssuePick',
+                id: release.order.id,
+                referenceCode: release.order.stockIssueRequestCode,
+                warehouseId: release.order.warehouseId,
+                warehouseName: release.order.warehouseName,
+                currentAssigneeId: release.order.assignedStaffId,
+                currentAssigneeName: release.order.assignedStaffName,
+                currentPriority: 'Normal',
+                currentDueAt: null,
+              }
+            : null
+        }
+        form={release.form}
+        staff={workflow.pickerOptions}
+        isLoadingStaff={release.isLoadingStaff}
+        isErrorStaff={release.isErrorStaff}
+        isFetchingStaff={release.isFetchingStaff}
+        onRetryStaff={release.onRetryStaff}
+        isPending={release.isPending}
         onOpenChange={(open) => {
           if (!open && !release.isPending) release.onClose()
         }}
+        onSubmit={release.onConfirm}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogMedia>
-              <Send aria-hidden="true" />
-            </AlertDialogMedia>
-            <AlertDialogTitle>Giao việc lấy hàng?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Chọn nhân viên kho phụ trách. Hệ thống sẽ giữ tồn đủ điều kiện cho phiếu trước khi
-              nhân viên lấy hàng; sau bước này phiếu không còn chỉnh sửa được.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <NativeSelect
-            aria-label="Giao cho nhân viên lấy hàng"
-            className="w-full"
-            value={release.staffId}
-            disabled={release.isPending}
-            onChange={(event) => release.onStaffChange(event.target.value)}
-          >
-            <NativeSelectOption value="">Chọn nhân viên lấy hàng…</NativeSelectOption>
-            {workflow.pickerOptions.map((option) => (
-              <NativeSelectOption key={option.id} value={option.id}>
-                {option.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={release.isPending}>Hủy</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={release.isPending || !release.staffId}
-              onClick={(event) => {
-                event.preventDefault()
-                release.onConfirm()
-              }}
-            >
-              {release.isPending ? 'Đang xử lý…' : 'Giao việc'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <p className="text-muted-foreground text-sm">
+          Sau khi giao việc, hệ thống giữ tồn đủ điều kiện cho yêu cầu. Nhân viên thực hiện lấy
+          hàng; yêu cầu không còn chỉnh sửa được sau bước này.
+        </p>
+      </AssignWarehouseTaskDialog>
 
       <AlertDialog
         open={Boolean(authorize.order)}

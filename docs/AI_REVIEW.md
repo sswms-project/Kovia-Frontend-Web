@@ -1754,3 +1754,59 @@ State: READY_FOR_CODEX_REVIEW. Role: assigned implementer; self-verification, no
 - GitNexus provider impact LOW: PrivateLayout direct caller, seven indexed private layout flows. Shared notification behavior tested alongside inbound/transfer regressions.
 - Verification: 113 files / 803 tests passed across inbound/platform-services/transfer; platform-services alone 10 files / 47 tests. Production-config TypeScript, scoped ESLint, Prettier and diff whitespace checks passed. No production FE build or real logged-in two-browser E2E performed in this follow-up.
 - Ponytail/React Best Practices kept the fix in the existing shared provider and BE notification transaction, with no alternate notification mechanism. Manager manual acceptance: refresh once to load the new FE, keep the page open, confirm staff putaway and verify bell/list update without another reload; test partial/completed and duplicate retry.
+
+## 2026-10-23 — Outbound list action alignment
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer self-verification.
+
+- User requested Excel import/create buttons on the right. The visually hidden heading leaves only one flex item, so justify-between placed the actions left. Header now uses justify-end; the existing action group wraps and remains right-aligned at narrow widths. No permission, navigation, button API or business behavior changes.
+- GitNexus page impact LOW, no indexed upstream callers. Scoped Prettier/ESLint and diff whitespace checks passed. Existing semantic links, labels, focus and permission gate retained; native flex layout only (Ponytail/React/shadcn guidance). No real-browser visual verification, BE restart, database action, commit or push in this change.
+
+## 2026-10-23 — Outbound request code field and naming
+
+State: READY_FOR_CODEX_REVIEW. Role: assigned implementer, self-verification.
+
+- List column now says Ma yeu cau (Vietnamese accents in UI). Create form uses existing BusinessCodeField/useCodeSuggestion, new feature query/service/central endpoint and session key. Suggested XK code is editable; blank lets BE assign it. Maximum100 matches create validator. Save-and-add resets code/interactions and changes the query session; suggestions do not replace a manually edited/cleared field. Edit displays saved code read-only and sends no code to update API. No separate stock-issue document introduced.
+- GitNexus affected form/page/table header/schema/service/constants LOW; two direct header consumers (table/skeleton). No shared component/hook implementation changed. Ponytail/React/shadcn guidance kept existing primitives, accessible field wiring and responsive grid. No new dependency or design system changes.
+- Verification: stock-issue/shared code suggestion/BusinessCodeField 10 files / 48 tests passed; includes manual/blank/late suggestions/save-and-add/edit-preserved/no-update-field and max100. Production-config TypeScript, changed-file ESLint, Prettier and diff checks passed. Existing picking-schema tests lacked valid source/staging scan fixture values; updated test data only, left production guards intact. No production FE build, live form save, camera or browser visual test claimed. Source remains uncommitted; local instructions/outputs preserved.
+
+## 2026-10-23 — Outbound form scroll and bottom spacing
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer self-verification.
+
+- User reported bottom actions touching the viewport and a non-shared scrollbar. Form root now participates in the existing bounded PageTransition flex layout (min-h-0/flex-1); its header remains shrink-0 and its form owns overflow-y-auto. Reuses existing data-scrollbar=slim CSS rather than changing private layout/global CSS; adds pb-6 beneath actions and pr-1 beside the rail. No fixed heights, JS measurement, API or business behavior changes. Ponytail/React guidance kept the existing layout and shared scrollbar pattern.
+- GitNexus form impact LOW with one direct page consumer. Scoped ESLint/Prettier and whitespace checks passed. Source-level UX check retains semantic form/controls and native keyboard scrolling; actual browser/zoom/mobile visual acceptance remains pending. No BE restart, database action, commit or push.
+
+## 2026-10-23 — Correct clipped outbound form cards
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer self-verification.
+
+- Previous scoped scroll change introduced a layout regression: direct Card flex items have overflow-hidden, so their automatic minimum height permits shrinking inside the bounded form. Content was clipped instead of extending the scroll range. Add the local form rule [&>*]:shrink-0, preserving natural height of all direct cards/actions, existing slim scrollbar and24px bottom padding. Shared Card/global layout/API untouched. GitNexus LOW, one direct form-page consumer. Ponytail/React guidance kept a single native CSS rule.
+- Scoped Prettier/ESLint passed. Playwright real Next page with isolated synthetic auth and intercepted API responses verified desktop1520x860 and mobile390x844: all three cards flex-shrink0, no card clipping or inter-card overlap; mobile form scrollHeight1564/clientHeight703, padding-bottom24px. Inspected both bottom screenshots. UI fixture only, no business API/login/data writes and no real credentials. Expected mock SignalR connection warnings do not establish real realtime behavior. Harness/screenshots in output/playwright/outbound-layout-\*; closed only the new outbound-layout browser session. This corrects the prior source-only verification gap; no200% browser zoom/full workflow acceptance claim.
+
+## 2026-10-23 — Shared outbound picking assignment popup
+
+State: READY_FOR_CODEX_REVIEW. Role: assigned implementer, self-verification.
+
+- User requested inbound-style picking assignment and clarification of cross-docking. StockIssueWorkflowDialogs now composes the existing AssignWarehouseTaskDialog (also used by transfers), not a cloned popup. New StockIssuePick kind shows reference/warehouse and radio staff selection, loading/error/retry/empty/pending states; hides priority/deadline/reason because the current release API does not support these fields. Sparse staff-directory data does not fabricate task counts/workload recommendations. Existing inbound/transfer scheduling, reassignment and unassign behavior retained; shared submit also blocks staff-load errors.
+- useStockIssueWorkflow keeps the existing active/warehouse-filtered staff and manager queries, uses the common assignment form schema and sends only the existing release fields (order/version/command/staff). Worker validation prevents blank/out-of-warehouse submission; API rejection keeps dialog and choice. No backend, permission, cross-dock flag, reservation policy or API contract changed. Existing outbound form bottom padding is12px per user's subsequent request, superseding the24px measurement above.
+- GitNexus shared popup HIGH (five direct consumers across inbound/transfer) disclosed before edits; workflow/dialog LOW with list/detail consumers. StaffOption LOW; describeOpenTasks unresolved in index, local callers manually inspected. Ponytail/React/shadcn guidance reused existing primitives and behavior; no new UI framework or dependency. Checked semantic dialog title/description, labeled radios, loading/errors, keyboard interaction and slim scroll at source level.
+- Verification: inbound/transfer/stock-issue113files/799tests passed, production-config TypeScript, changed-file ESLint and Prettier passed. New7tests cover popup fields/workloads, worker required/selection, error state, warehouse filtering, exact release payload and API rejection preservation; existing shared popup8tests still pass. No real-browser popup screenshot or deployed business operation performed in this follow-up. No BE restart/migration/seed/DB action/commit/push.
+- Cross-docking explanation checked against StockIssueAllocationPlanner and TransferInventoryRules: same concrete receiving slot may supply direct outbound goods, but supplier receipts must be KeptAtReceiving and Completed; source stock must be Good/Available and have direct receiving evidence. FEFO precedes the receiving-location tie-breaker. Merely selecting a zone named waiting-for-putaway does not enable direct outbound flow; inspection-hold stock remains ineligible. Explanation only, no cross-dock implementation change.
+
+## 2026-10-23 — Cross-dock stale-warning diagnosis and detail bottom padding
+
+State: READY_FOR_CODEX_REVIEW for spacing only. Role: implementer for explicitly requested12px spacing, read-only diagnosis for warning.
+
+- StockIssueRequestDetailPage fragment replaced with a min-w-0/shrink-0/pb-3 wrapper, adding12px content-bottom padding without another scroll container or card shrink. GitNexus LOW, no indexed upstream callers. Ponytail/React guidance kept the local wrapper and existing layout. Scoped Prettier/ESLint passed; browser visual acceptance of this detail-page spacing pending.
+- CrossDockPanel raises the warning when plan, demand or summary query isError; one failed parse can trigger it even with HTTP200. Latest observed BE session85836 at15:09:53–15:09:56 Asia/Saigon: demand200/1324.456ms, summary200/2378.124ms, pickers200/3546.107ms, plan200/4673.498ms (HTTP elapsed, not handler). No live response payload or sensitive log saved, no agent business API request.
+- Concrete contract mismatch found by source inspection: GetCrossDockDemandQueryHandler returns null when no demand exists; API OmitNullApiResponseData omits the data field for null; crossDockService.demand parses undefined through nullable() rather than normalizing the documented absent-data state. This can misclassify a successful no-demand read as an error. Live query-error/body correlation not captured, so not asserted as the only cause of the pictured warning. Recommended follow-up: normalize absent demand to null with explicit service tests while retaining rejection of malformed nonempty responses and real HTTP errors. Warning/validation behavior deliberately not changed under this explanation-only request.
+
+## 2026-10-23 — Normalize absent cross-dock demand
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer, self-verification.
+
+- User authorized the fix. crossDockService.demand now normalizes only null/undefined data to null before schema parsing, matching the backend's omitted-null serialization. Malformed non-null data and rejected HTTP requests still fail; no warning suppression, authorization guard change or automation activation.
+- Regression test reproduced the missing-data failure before the fix (1 failed/10 passed), then all stock-issue tests passed (11 files/54 tests). Coverage includes omitted data, explicit null, valid .NET GUID demand, five malformed payloads, HTTP401/403/500 propagation and AbortSignal forwarding. Changed-file ESLint and Prettier passed.
+- GitNexus could not resolve crossDockService in its index (impact UNKNOWN); direct consumers were traced manually in use-cross-dock and use-stock-issue-workflow. Only demand parsing changes. Ponytail guidance kept the fix to one expression and focused tests. No new dependency, business API call, DB write, migration, seed, backend restart or commit. Live browser acceptance remains for the user's reload/test.
+- Production-config TypeScript and scoped git diff --check passed. Default tsc includes unrelated tmp camera/export/opening-stock fixtures and fails on their existing type mismatches; these fixtures were not changed.

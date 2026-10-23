@@ -19,7 +19,7 @@ export const crossDockService = {
   demand: (id: string, signal?: AbortSignal) =>
     axiosClient
       .get<ApiResponse<unknown>>(`${path(id)}/cross-dock`, { signal })
-      .then((response) => crossDockDemandSchema.nullable().parse(response.data.data)),
+      .then((response) => crossDockDemandSchema.nullable().parse(response.data.data ?? null)),
   pickers: (id: string, signal?: AbortSignal) =>
     axiosClient
       .get<ApiResponse<unknown>>(`${path(id)}/cross-dock/pickers`, { signal })

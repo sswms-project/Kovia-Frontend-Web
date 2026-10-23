@@ -19,6 +19,10 @@ import type {
 } from '../types/stock-issue.types'
 import { buildStockPickingLines } from '../utils/stock-issue-picking'
 import { crossDockService } from '../services/cross-dock.service'
+import {
+  assignWarehouseTaskSchema,
+  type AssignWarehouseTaskFormValues,
+} from '@/features/inbound/schemas/inbound.schema'
 import type { RecordStockPickingRequest } from '../types/stock-issue.types'
 import {
   useAssignStockIssuePickerMutation,
@@ -50,7 +54,10 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   const [releasingOrder, setReleasingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [reportingOrder, setReportingOrder] = useState<StockIssueRequestSummary | null>(null)
   const [cancellingOrder, setCancellingOrder] = useState<StockIssueRequestSummary | null>(null)
-  const [releaseStaffId, setReleaseStaffId] = useState('')
+  const releaseForm = useForm<AssignWarehouseTaskFormValues>({
+    resolver: zodResolver(assignWarehouseTaskSchema),
+    defaultValues: { staffId: '', priority: 'Normal', dueAt: '', reason: '' },
+  })
   const preparingPick = useRef(false)
   const pickCommand = useRef<{ body: string; commandId: string } | null>(null)
 
@@ -89,7 +96,12 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
           Boolean(pickerWarehouseId && staff.assignedWarehouseIds.includes(pickerWarehouseId)) &&
           candidates.findIndex((candidate) => candidate.id === staff.id) === index
       )
-      .map((staff) => ({ id: staff.id, name: staff.fullName }))
+      .map((staff) => ({
+        id: staff.id,
+        name: staff.fullName,
+        fullName: staff.fullName,
+        email: staff.email,
+      }))
   }, [managerQuery.data?.items, pickerWarehouseId, staffQuery.data?.items])
 
   const recordPickingMutation = useRecordStockPickingMutation()
@@ -235,12 +247,24 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   }
 
   function openRelease(order: StockIssueRequestSummary) {
-    setReleaseStaffId(order.assignedStaffId ?? '')
+    releaseForm.reset({
+      staffId: order.assignedStaffId ?? '',
+      priority: 'Normal',
+      dueAt: '',
+      reason: '',
+    })
     setReleasingOrder(order)
   }
 
-  async function releaseForPicking() {
-    if (!releasingOrder) return
+  async function releaseForPicking(values: AssignWarehouseTaskFormValues) {
+    if (
+      !releasingOrder ||
+      releaseMutation.isPending ||
+      staffQuery.isError ||
+      managerQuery.isError ||
+      !pickerOptions.some((option) => option.id === values.staffId)
+    )
+      return
     if (!releasingOrder.version) {
       toast.error(MISSING_VERSION_MESSAGE)
       return
@@ -250,11 +274,11 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
         stockIssueRequestId: releasingOrder.id,
         commandId: crypto.randomUUID(),
         expectedVersion: releasingOrder.version,
-        assignedStaffId: releaseStaffId,
+        assignedStaffId: values.staffId,
       })
       toast.success('Đã giao việc lấy hàng và giữ tồn kho.')
       setReleasingOrder(null)
-      setReleaseStaffId('')
+      releaseForm.reset({ staffId: '', priority: 'Normal', dueAt: '', reason: '' })
     } catch (error) {
       notifyError(error, 'Không thể giao việc lấy hàng.')
     }
@@ -330,11 +354,17 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
     },
     release: {
       order: releasingOrder,
-      staffId: releaseStaffId,
+      form: releaseForm,
       isPending: releaseMutation.isPending,
-      onStaffChange: setReleaseStaffId,
+      isLoadingStaff: staffQuery.isLoading || managerQuery.isLoading,
+      isErrorStaff: staffQuery.isError || managerQuery.isError,
+      isFetchingStaff: staffQuery.isFetching || managerQuery.isFetching,
+      onRetryStaff: () => {
+        void staffQuery.refetch()
+        void managerQuery.refetch()
+      },
       onClose: () => setReleasingOrder(null),
-      onConfirm: () => void releaseForPicking(),
+      onConfirm: () => void releaseForm.handleSubmit(releaseForPicking)(),
     },
     authorize: {
       order: authorizingOrder,

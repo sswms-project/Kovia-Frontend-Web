@@ -457,6 +457,7 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/discrepancies/${discrepancyId}/resolve`,
   },
   stockIssueRequests: {
+    nextCode: '/stock-issue-requests/next-code',
     importPreview: '/stock-issue-requests/import/preview',
     importInspect: '/stock-issue-requests/import/inspect',
     import: '/stock-issue-requests/import',
