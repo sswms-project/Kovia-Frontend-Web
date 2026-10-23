@@ -51,6 +51,7 @@ export function useCrossDock(order: StockIssueRequestSummary) {
     from: new Date(Date.now() - 30 * 86400000).toISOString(),
   }))
   const [stored, setStored] = useState<Confirmation | null>(null)
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!canView) return
@@ -79,14 +80,14 @@ export function useCrossDock(order: StockIssueRequestSummary) {
   })
   const pickers = useQuery({
     queryKey: ['cross-dock', scope, 'pickers'],
-    enabled: canManage && order.status === 'Pending',
+    enabled: canManage && order.status === 'Pending' && plan.data?.automationEnabled === true,
     retry: false,
     queryFn: ({ signal }) =>
       readCrossDock(() => crossDockService.pickers(order.id, signal), signal),
   })
   const summary = useQuery({
     queryKey: ['cross-dock', scope, 'summary', range],
-    enabled: canView,
+    enabled: canView && summaryOpen,
     retry: false,
     queryFn: ({ signal }) =>
       readCrossDock(
@@ -177,6 +178,7 @@ export function useCrossDock(order: StockIssueRequestSummary) {
     pickers,
     summary,
     range,
+    setSummaryOpen,
     now,
     canView: canView && !denied,
     canManage,
@@ -189,8 +191,10 @@ export function useCrossDock(order: StockIssueRequestSummary) {
       void Promise.all([
         ...(order.status === 'Pending' ? [plan.refetch()] : []),
         demand.refetch(),
-        summary.refetch(),
-        ...(canManage && order.status === 'Pending' ? [pickers.refetch()] : []),
+        ...(summaryOpen ? [summary.refetch()] : []),
+        ...(canManage && order.status === 'Pending' && plan.data?.automationEnabled
+          ? [pickers.refetch()]
+          : []),
       ])
     },
     review: (event?: BaseSyntheticEvent) => {

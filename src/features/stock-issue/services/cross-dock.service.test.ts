@@ -2,9 +2,78 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { axiosClient } from '@/lib/axios'
 import { crossDockService } from './cross-dock.service'
 
-vi.mock('@/lib/axios', () => ({ axiosClient: { get: vi.fn() } }))
+vi.mock('@/lib/axios', () => ({ axiosClient: { get: vi.fn(), post: vi.fn() } }))
 
 beforeEach(() => vi.clearAllMocks())
+
+describe('batch picking preparation', () => {
+  it('sends every source in one read-only request and validates the response', async () => {
+    const id = '10000000-0000-4000-c000-000000000001'
+    const stockId = '10000000-0000-4000-c000-000000000002'
+    const destination = {
+      stockIssueRequestId: id,
+      warehouseId: id,
+      version: 'AQ==',
+      inventoryStockId: stockId,
+      slotId: id,
+      slotCode: 'CHO-XUAT',
+      path: 'ZX / CHO-XUAT',
+    }
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: { data: [destination] } })
+    await expect(crossDockService.destinations(id, [stockId])).resolves.toEqual([destination])
+    expect(axiosClient.post).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining(`/${id}/picking-destinations`),
+      { inventoryStockIds: [stockId] }
+    )
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: { data: [{}] } })
+    await expect(crossDockService.destinations(id, [stockId])).rejects.toThrow()
+  })
+})
+
+describe('cross-dock source location display', () => {
+  it.each([
+    ['K01 / A04 / __SYSTEM_DEFAULT__', 'K01 / A04'],
+    ['K01 / A04 / __system_default__ ', 'K01 / A04'],
+    ['K01 / A04 / S01', 'K01 / A04 / S01'],
+  ])(
+    'normalizes display path %s without changing allocation identity',
+    async (sourcePath, expected) => {
+      const id = '10000000-0000-4000-c000-000000000001'
+      const allocation = {
+        itemId: id,
+        productId: id,
+        inventoryStockId: id,
+        slotId: id,
+        lotId: null,
+        lotNumber: null,
+        expiryDate: null,
+        quantity: 20,
+        directFromReceiving: false,
+        reason: 'FIFO',
+        sku: 'SKU00001',
+        productName: 'Kềm A3',
+        sourcePath,
+      }
+      vi.mocked(axiosClient.get).mockResolvedValue({
+        data: {
+          data: {
+            stockIssueRequestId: id,
+            documentVersion: 'v1',
+            canAllocateWholeRequest: true,
+            decision: 'Đủ hàng',
+            automationEnabled: false,
+            allocations: [allocation],
+          },
+        },
+      })
+
+      const plan = await crossDockService.plan(id)
+
+      expect(plan.allocations[0]).toEqual({ ...allocation, sourcePath: expected })
+      expect(plan.automationEnabled).toBe(false)
+    }
+  )
+})
 
 describe('cross-dock demand response', () => {
   it('treats a successful response without data as no registered demand', async () => {

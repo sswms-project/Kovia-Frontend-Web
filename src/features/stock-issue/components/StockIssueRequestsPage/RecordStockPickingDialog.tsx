@@ -98,7 +98,7 @@ export function RecordStockPickingDialog({
     })
     setScanMessage({
       ok: true,
-      text: `${line.productName} tại ${line.slotCode || 'vị trí đã giữ'}: ${formatStockIssueQuantity(result.pickedQuantity)}/${formatStockIssueQuantity(line.availableQuantity)}`,
+      text: `${line.productName} tại ${line.slotPath || line.slotCode || 'vị trí đã giữ'}: ${formatStockIssueQuantity(result.pickedQuantity)}/${formatStockIssueQuantity(line.availableQuantity)}`,
     })
   }
 
@@ -211,7 +211,7 @@ export function RecordStockPickingDialog({
                       <div className="min-w-0">
                         <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
                           <span className="font-mono" translate="no">
-                            {line.slotCode || 'Chưa giữ vị trí'}
+                            {line.slotPath || line.slotCode || 'Chưa giữ vị trí'}
                           </span>
                           {line.lotNumber ? (
                             <span className="text-muted-foreground text-xs font-normal">
@@ -282,7 +282,8 @@ export function RecordStockPickingDialog({
                       </div>
                       <div>
                         <FieldLabel className="sr-only" htmlFor={inputId}>
-                          Số lượng lấy ({line.unitName}) {line.productName} tại {line.slotCode}
+                          Số lượng lấy ({line.unitName}) {line.productName} tại{' '}
+                          {line.slotPath || line.slotCode}
                         </FieldLabel>
                         <Input
                           id={inputId}

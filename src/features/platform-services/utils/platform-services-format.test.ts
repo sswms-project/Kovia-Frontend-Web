@@ -6,6 +6,41 @@ import { getNotificationReferenceRoute, notificationActionRoutes } from './platf
 const id = '11111111-1111-4111-8111-111111111111'
 
 describe('getNotificationReferenceRoute', () => {
+  it.each([null, 'ViewStockIssueRequests', 'UnknownFutureAction'])(
+    'opens the exact outbound request for legacy action %s',
+    (action) => {
+      for (const type of ['TaskAssigned', 'StockIssueRequestUpdate'] as const)
+        expect(
+          getNotificationReferenceRoute({
+            type,
+            referenceType: 'StockIssueRequest',
+            referenceId: id,
+            action,
+          })
+        ).toBe(APP_ROUTES.stockIssueRequestDetail(id))
+    }
+  )
+
+  it.each([null, '', '../other', '00000000-0000-0000-0000-000000000000'])(
+    'does not invent an outbound detail route for invalid reference %s',
+    (referenceId) => {
+      expect(
+        getNotificationReferenceRoute({
+          type: 'TaskAssigned',
+          referenceType: 'StockIssueRequest',
+          referenceId,
+          action: 'ViewStockIssueRequests',
+        })
+      ).toBe(APP_ROUTES.stockIssueRequests)
+      expect(
+        getNotificationReferenceRoute({
+          type: 'TaskAssigned',
+          referenceType: 'StockIssueRequest',
+          referenceId,
+        })
+      ).toBeNull()
+    }
+  )
   it.each([null, 'ViewInboundRequest', 'ViewMyWarehouseTasks'])(
     'routes inbound task assignments to tasks, including legacy action %s',
     (action) => {

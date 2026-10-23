@@ -1,8 +1,10 @@
 import { queryKeys } from '@/lib/query-keys'
+import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { NotificationItem, NotificationType } from '../types/platform-services.types'
 
 const TZ = 'Asia/Ho_Chi_Minh'
+const notificationReferenceIdSchema = nonEmptyDotNetGuidSchema('Tham chiếu không hợp lệ.')
 
 const dateTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
   day: '2-digit',
@@ -53,6 +55,16 @@ export function getNotificationReferenceRoute(
   // Old assignment notifications point at a management-only document instead of the task.
   if (notification.type === 'TaskAssigned' && referenceType === 'InboundRequest')
     return APP_ROUTES.myTasks
+
+  // The backend's legacy list action still carries the exact outbound request reference.
+  if (
+    referenceType === 'StockIssueRequest' &&
+    (!action || action === 'ViewStockIssueRequests' || !notificationActionRoutes[action])
+  ) {
+    if (notificationReferenceIdSchema.safeParse(referenceId).success && referenceId)
+      return APP_ROUTES.stockIssueRequestDetail(referenceId)
+    return action === 'ViewStockIssueRequests' ? APP_ROUTES.stockIssueRequests : null
+  }
 
   const actionRoute = action ? notificationActionRoutes[action] : undefined
   if (actionRoute) {
@@ -115,6 +127,7 @@ const notificationReferenceDetailKeys: Record<string, (id: string) => readonly s
   StockAdjustment: queryKeys.stockAdjustments.detail,
   StockAdjustmentVoucher: queryKeys.stockAdjustments.voucherDetail,
   InboundRequest: queryKeys.inboundRequests.detail,
+  StockIssueRequest: queryKeys.stockIssueRequests.detail,
   GoodsReceipt: queryKeys.goodsReceipts.detail,
   Product: queryKeys.products.detail,
   SupplierReturnRequest: queryKeys.supplierReturns.detail,
@@ -127,7 +140,10 @@ const notificationReferenceDetailKeys: Record<string, (id: string) => readonly s
 export function getNotificationQueryKeys(
   notification: Pick<NotificationItem, 'type' | 'referenceType' | 'referenceId'>
 ): readonly (readonly unknown[])[] {
-  const roots = notificationTypeQueryRoots[notification.type] ?? []
+  const roots =
+    notification.type === 'TaskAssigned' && notification.referenceType === 'StockIssueRequest'
+      ? [queryKeys.stockIssueRequests.all, ['warehouse-tasks']]
+      : (notificationTypeQueryRoots[notification.type] ?? [])
   const { referenceType, referenceId } = notification
   const detail =
     referenceType && referenceId

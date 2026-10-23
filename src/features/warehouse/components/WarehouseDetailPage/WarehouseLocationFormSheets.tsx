@@ -82,6 +82,10 @@ export function ZoneFormSheet({
   const form = useForm<ZoneFormValues>({ resolver: zodResolver(zoneSchema), defaultValues })
   const { errors } = form.formState
   const createReceivingPoint = useWatch({ control: form.control, name: 'createReceivingPoint' })
+  const createOutboundStagingPoint = useWatch({
+    control: form.control,
+    name: 'createOutboundStagingPoint',
+  })
 
   const [isClosing, setIsClosing] = useState(false)
 
@@ -92,9 +96,7 @@ export function ZoneFormSheet({
   }
 
   async function handleSubmit(values: ZoneFormValues) {
-    const { createReceivingPoint, ...zoneValues } = values
-    if (await onSubmit(mode === 'create' ? { ...zoneValues, createReceivingPoint } : zoneValues))
-      form.reset(defaultValues)
+    if (await onSubmit(values)) form.reset(defaultValues)
   }
 
   return (
@@ -157,29 +159,58 @@ export function ZoneFormSheet({
                 <FieldError errors={[errors.description]} />
               </Field>
               <PhysicalDetailsFields />
-              {mode === 'create' && (
-                <Field className="md:col-span-2">
+              <Field
+                className="md:col-span-2"
+                data-invalid={Boolean(errors.createOutboundStagingPoint)}
+              >
+                <FieldLabel id="zone-staging-label">
+                  {mode === 'create' ? 'Tạo sẵn điểm tập kết' : 'Bổ sung điểm tập kết'}
+                </FieldLabel>
+                <RadioGroup
+                  aria-labelledby="zone-staging-label"
+                  aria-describedby="zone-staging-description"
+                  value={
+                    createReceivingPoint
+                      ? 'receiving'
+                      : createOutboundStagingPoint
+                        ? 'outbound'
+                        : 'none'
+                  }
+                  disabled={isPending || form.formState.isSubmitting}
+                  onValueChange={(value) => {
+                    form.setValue('createReceivingPoint', value === 'receiving', {
+                      shouldDirty: true,
+                    })
+                    form.setValue('createOutboundStagingPoint', value === 'outbound', {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }}
+                >
                   <Field orientation="horizontal">
-                    <Checkbox
-                      id="zone-receiving-point"
-                      checked={createReceivingPoint ?? false}
-                      disabled={isPending || form.formState.isSubmitting}
-                      onCheckedChange={(checked) =>
-                        form.setValue('createReceivingPoint', checked === true, {
-                          shouldDirty: true,
-                        })
-                      }
-                    />
-                    <FieldLabel htmlFor="zone-receiving-point">
-                      Tạo kèm điểm chờ cất hàng
+                    <RadioGroupItem id="zone-staging-none" value="none" />
+                    <FieldLabel htmlFor="zone-staging-none">
+                      {mode === 'create' ? 'Không tạo' : 'Không bổ sung'}
                     </FieldLabel>
                   </Field>
-                  <p className="text-muted-foreground text-sm">
-                    Tạo sẵn điểm chờ 01 trong khu vực này để nhận hàng, không cần tạo kệ và vị trí
-                    thủ công.
-                  </p>
-                </Field>
-              )}
+                  <Field orientation="horizontal">
+                    <RadioGroupItem id="zone-staging-receiving" value="receiving" />
+                    <FieldLabel htmlFor="zone-staging-receiving">
+                      Điểm nhận hàng / chờ cất
+                    </FieldLabel>
+                  </Field>
+                  <Field orientation="horizontal">
+                    <RadioGroupItem id="zone-staging-outbound" value="outbound" />
+                    <FieldLabel htmlFor="zone-staging-outbound">Điểm chờ xuất</FieldLabel>
+                  </Field>
+                </RadioGroup>
+                <p id="zone-staging-description" className="text-muted-foreground text-sm">
+                  Tự tạo điểm tập kết và vị trí bên dưới, không cần tạo kệ/ô thủ công. Điểm đã có sẽ
+                  được giữ nguyên, không tạo trùng hoặc đổi chức năng. Không bổ sung không xóa điểm
+                  hiện có.
+                </p>
+                <FieldError errors={[errors.createOutboundStagingPoint]} />
+              </Field>
             </FieldGroup>
             <FormFooter
               mode={mode}

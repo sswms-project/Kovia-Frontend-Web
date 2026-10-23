@@ -129,12 +129,16 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
     preparingPick.current = true
     try {
       const lines = buildStockPickingLines(order)
-      const destinations = await Promise.all(
-        [...new Set(lines.map((line) => line.inventoryStockId).filter(Boolean))].map((stockId) =>
-          crossDockService.destination(order.id, stockId)
-        )
-      )
+      const stockIds = [...new Set(lines.map((line) => line.inventoryStockId).filter(Boolean))]
+      const destinations = stockIds.length
+        ? await crossDockService.destinations(order.id, stockIds)
+        : []
       if (
+        destinations.length !== stockIds.length ||
+        new Set(destinations.map((target) => target.inventoryStockId)).size !== stockIds.length ||
+        stockIds.some(
+          (stockId) => !destinations.some((target) => target.inventoryStockId === stockId)
+        ) ||
         destinations.some(
           (target) =>
             target.stockIssueRequestId !== order.id ||

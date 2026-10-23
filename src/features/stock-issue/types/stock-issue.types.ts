@@ -37,6 +37,7 @@ export interface StockIssueRequestListQuery {
 
 /** Một vị trí và lô hệ thống đã giữ hàng cho dòng phiếu: nơi nhân viên phải đến lấy. */
 export interface StockIssuePickLocation {
+  isSystemDefaultSlot?: boolean
   directFromReceiving?: boolean
   allocationReason?: string | null
   inventoryStockId: string
@@ -82,6 +83,12 @@ export interface StockIssueAttachment {
 }
 
 export interface StockIssuePickDetail {
+  zoneCode?: string | null
+  rackCode?: string | null
+  isSystemDefaultSlot?: boolean
+  stagingZoneCode?: string | null
+  stagingRackCode?: string | null
+  isSystemDefaultStagingSlot?: boolean
   id: string
   inventoryStockId: string
   slotId: string

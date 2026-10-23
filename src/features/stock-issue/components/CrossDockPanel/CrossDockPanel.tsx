@@ -17,10 +17,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   formatOperationalDateTime,
-  formatOperationalDate,
   formatQuantity,
 } from '@/features/inbound-request/utils/inbound-request-format'
 import type { useCrossDock } from '../../hooks/use-cross-dock'
+import { CrossDockAllocations } from './CrossDockAllocations'
 
 interface Props {
   readonly state: ReturnType<typeof useCrossDock>
@@ -39,9 +39,9 @@ export function CrossDockPanel({ state }: Props) {
           ?.fullName ?? '')
       : ''
   return (
-    <Card className="shrink-0">
+    <Card className="min-w-0 shrink-0" role="region" aria-label="Kế hoạch lấy hàng">
       <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-        <CardTitle>Phân bổ thông minh · FEFO &amp; cross-docking</CardTitle>
+        <CardTitle>Kế hoạch lấy hàng</CardTitle>
         <Button variant="outline" disabled={busy} onClick={state.refresh}>
           Tải lại
         </Button>
@@ -72,29 +72,7 @@ export function CrossDockPanel({ state }: Props) {
                 Đây là đề xuất tại thời điểm tải, chưa giữ chỗ.
               </AlertDescription>
             </Alert>
-            <ul
-              className="max-h-80 divide-y overflow-y-auto border"
-              aria-label="Nguồn hàng theo FEFO"
-            >
-              {state.plan.data.allocations.map((row) => (
-                <li
-                  key={`${row.itemId}:${row.inventoryStockId}`}
-                  className="flex flex-col gap-1 p-3 text-sm"
-                >
-                  <p className="font-medium">
-                    {row.sku} · {row.productName} · {formatQuantity(row.quantity)} đơn vị cơ sở
-                  </p>
-                  <p>
-                    {row.sourcePath} · Lô {row.lotNumber ?? 'không theo lô'} · HSD{' '}
-                    {row.expiryDate ? formatOperationalDate(row.expiryDate) : 'không áp dụng'}
-                  </p>
-                  <p className="text-muted-foreground">
-                    {row.directFromReceiving ? 'Đi thẳng từ khu nhận · ' : ''}
-                    {row.reason}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <CrossDockAllocations allocations={state.plan.data.allocations} />
           </>
         )}
         {demand && (
@@ -187,7 +165,10 @@ export function CrossDockPanel({ state }: Props) {
             </Button>
           </form>
         )}
-        <details className="border-t pt-3">
+        <details
+          className="border-t pt-3"
+          onToggle={(event) => state.setSummaryOpen(event.currentTarget.open)}
+        >
           <summary className="cursor-pointer text-sm font-medium">
             Lượng đi thẳng theo SKU · phân bổ trong 30 ngày
           </summary>

@@ -15,6 +15,7 @@ import {
 import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
 import type { StockIssueWorkflow } from '../../hooks/use-stock-issue-workflow'
 import { formatStockIssueUnitQuantity } from '../../utils/stock-issue-format'
+import { formatStockIssueStagingLocation } from '../../utils/stock-issue-location'
 import {
   CancelStockIssueRequestDialog,
   RecordStockPickingDialog,
@@ -123,7 +124,7 @@ export function StockIssueWorkflowDialogs({ workflow }: { readonly workflow: Sto
                   <p className="text-muted-foreground font-mono text-xs" translate="no">
                     {item.sku}
                     {item.pickDetails.length > 0
-                      ? ` · ${[...new Set(item.pickDetails.map((detail) => detail.stagingSlotCode))].join(', ')}`
+                      ? ` · ${[...new Set(item.pickDetails.map(formatStockIssueStagingLocation))].join(', ')}`
                       : ''}
                   </p>
                 </div>

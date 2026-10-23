@@ -100,6 +100,24 @@ const order = {
 } as unknown as StockIssueRequestSummary
 
 describe('buildStockPickingLines', () => {
+  it('shows the full physical rack path and accepts its code for a default slot', () => {
+    const source = location({
+      slotCode: '__SYSTEM_DEFAULT__',
+      rackCode: 'A04',
+      isSystemDefaultSlot: true,
+    })
+    const lines = buildStockPickingLines({ ...order, items: [item({ pickLocations: [source] })] })
+    expect(lines[0]).toMatchObject({
+      inventoryStockId: source.inventoryStockId,
+      slotCode: 'A04',
+      slotPath: 'Khu Z1 / Kệ A04',
+    })
+    expect(resolveStockPickingScan(lines, 'A04', null)).toMatchObject({
+      kind: 'shelf',
+      lineIndex: 0,
+    })
+    expect(resolveStockPickingScan(lines, '__SYSTEM_DEFAULT__', null).kind).toBe('rejected')
+  })
   it('creates one line per reserved location in walking order and skips fully picked items', () => {
     const lines = buildStockPickingLines(order)
 

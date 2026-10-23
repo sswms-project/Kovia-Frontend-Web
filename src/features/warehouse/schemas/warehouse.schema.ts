@@ -90,11 +90,16 @@ export const zoneSchema = z
       .min(1, 'Tên khu vực là bắt buộc.')
       .max(255, 'Tên khu vực tối đa 255 ký tự.'),
     createReceivingPoint: z.boolean().optional(),
+    createOutboundStagingPoint: z.boolean().optional(),
     description: z.string().trim().max(500, 'Mô tả tối đa 500 ký tự.'),
     ...physicalDetailsShape,
   })
   .transform(normalizeOptionalDimensions)
   .superRefine(validatePhysicalDetails)
+  .refine((values) => !(values.createReceivingPoint && values.createOutboundStagingPoint), {
+    message: 'Chỉ chọn một loại điểm tập kết cho mỗi lần lưu khu vực.',
+    path: ['createOutboundStagingPoint'],
+  })
 
 const optionalCapacitySchema = z
   .number({ error: 'Giới hạn số lượng phải là số.' })

@@ -58,6 +58,7 @@ export const recordStockPickingLineSchema = z.object({
   scannedBarcode: z.string().optional(),
   scannedSlotCode: z.string().optional(),
   slotCode: z.string().optional(),
+  slotPath: z.string().optional(),
   lotNumber: z.string().nullable().optional(),
   unitName: z.string(),
   /** Số đơn vị cơ sở trong một đơn vị của dòng; số lượng lấy nhập theo đơn vị này. */

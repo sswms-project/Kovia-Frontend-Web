@@ -44,4 +44,8 @@ export const crossDockService = {
         ApiResponse<unknown>
       >(`${path(id)}/picking-destination`, { params: { inventoryStockId } })
       .then((response) => pickingDestinationSchema.parse(response.data.data)),
+  destinations: (id: string, inventoryStockIds: readonly string[]) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(`${path(id)}/picking-destinations`, { inventoryStockIds })
+      .then((response) => pickingDestinationSchema.array().parse(response.data.data)),
 }

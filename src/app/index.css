@@ -387,111 +387,39 @@ body {
   font-family: var(--font-inter), Arial, Helvetica, sans-serif;
 }
 
-/* One native scroll owner keeps table headers and rows aligned. */
-[data-slot='table-container']::-webkit-scrollbar {
+/* Native slim scrollbars are the default; specific hide/custom styles still win. */
+:where(*)::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-/* Keep import content gutters while placing its scroll rail at the workspace edge. */
-[data-slot='workspace-scroll-area']:has([data-slot='bulk-import-workspace']) {
-  padding-right: 0;
-}
-
-[data-slot='bulk-import-workspace']::-webkit-scrollbar,
-[data-slot='workspace-scroll-area']:has([data-slot='bulk-import-workspace'])::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-[data-slot='bulk-import-workspace']::-webkit-scrollbar-thumb,
-[data-slot='workspace-scroll-area']:has(
-    [data-slot='bulk-import-workspace']
-  )::-webkit-scrollbar-thumb {
+:where(*)::-webkit-scrollbar-thumb {
   border-radius: 8px;
   background: var(--table-scrollbar-thumb);
 }
 
-[data-slot='bulk-import-workspace']::-webkit-scrollbar-track,
-[data-slot='workspace-scroll-area']:has(
-    [data-slot='bulk-import-workspace']
-  )::-webkit-scrollbar-track {
+:where(*)::-webkit-scrollbar-track,
+:where(*)::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-[data-slot='bulk-import-workspace']::-webkit-scrollbar-button,
-[data-slot='bulk-import-workspace'] [data-slot='table-container']::-webkit-scrollbar-button,
-[data-slot='workspace-scroll-area']:has(
-    [data-slot='bulk-import-workspace']
-  )::-webkit-scrollbar-button {
+:where(*)::-webkit-scrollbar-button {
   display: none;
   width: 0;
   height: 0;
-}
-
-/* Shared slim 6px rail for transfer workspaces and explicitly opted-in scroll regions. */
-[data-slot='workspace-scroll-area']:has([data-slot='transfer-scroll'][data-edge]) {
-  padding-right: 0;
-}
-
-[data-slot='transfer-scroll']::-webkit-scrollbar,
-[data-scrollbar='slim']::-webkit-scrollbar,
-[data-slot='workspace-scroll-area']:has(
-    [data-slot='transfer-scroll'][data-edge]
-  )::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-[data-slot='transfer-scroll']::-webkit-scrollbar-thumb,
-[data-scrollbar='slim']::-webkit-scrollbar-thumb,
-[data-slot='workspace-scroll-area']:has(
-    [data-slot='transfer-scroll'][data-edge]
-  )::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background: var(--table-scrollbar-thumb);
-}
-
-[data-slot='transfer-scroll']::-webkit-scrollbar-track,
-[data-scrollbar='slim']::-webkit-scrollbar-track,
-[data-slot='workspace-scroll-area']:has(
-    [data-slot='transfer-scroll'][data-edge]
-  )::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-[data-slot='transfer-scroll']::-webkit-scrollbar-button,
-[data-scrollbar='slim']::-webkit-scrollbar-button,
-[data-slot='workspace-scroll-area']:has(
-    [data-slot='transfer-scroll'][data-edge]
-  )::-webkit-scrollbar-button {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-[data-slot='table-container']::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background: var(--table-scrollbar-thumb);
-}
-
-[data-slot='table-container']::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 @supports not selector(::-webkit-scrollbar) {
-  [data-slot='table-container'],
-  [data-scrollbar='slim'],
-  [data-slot='transfer-scroll'] {
+  :where(*) {
     scrollbar-width: thin;
     scrollbar-color: var(--table-scrollbar-thumb) transparent;
   }
+}
 
-  [data-slot='bulk-import-workspace'],
-  [data-slot='workspace-scroll-area']:has([data-slot='bulk-import-workspace']) {
-    scrollbar-width: thin;
-    scrollbar-color: var(--table-scrollbar-thumb) transparent;
-  }
+/* Keep edge-aligned workspace rails without changing their scroll owners. */
+[data-slot='workspace-scroll-area']:has([data-slot='bulk-import-workspace']),
+[data-slot='workspace-scroll-area']:has([data-slot='transfer-scroll'][data-edge]) {
+  padding-right: 0;
 }
 
 /* Responsive table wrappers must not leave the scrollbar under the last row. */

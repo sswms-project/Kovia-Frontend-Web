@@ -3,9 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StockIssueRequestSummary } from '../types/stock-issue.types'
 import { useStockIssueWorkflow } from './use-stock-issue-workflow'
 
-const fixture = vi.hoisted(() => ({ release: vi.fn(), error: false }))
+const fixture = vi.hoisted(() => ({
+  release: vi.fn(),
+  destinations: vi.fn(),
+  error: false,
+  permissions: ['stock-issue-requests:assign-picker'],
+}))
 vi.mock('@/features/auth/hooks/use-auth', () => ({
-  useMeQuery: () => ({ data: { permissions: ['stock-issue-requests:assign-picker'] } }),
+  useMeQuery: () => ({ data: { permissions: fixture.permissions } }),
+}))
+vi.mock('../services/cross-dock.service', () => ({
+  crossDockService: { destinations: fixture.destinations },
 }))
 vi.mock('@/features/staff/hooks/use-staff', () => ({
   useStaffListQuery: () => ({
@@ -84,10 +92,68 @@ const order: StockIssueRequestSummary = {
 beforeEach(() => {
   vi.clearAllMocks()
   fixture.error = false
+  fixture.permissions = ['stock-issue-requests:assign-picker']
   fixture.release.mockResolvedValue({})
 })
 
 describe('outbound shared assignment workflow', () => {
+  it.each([false, true])(
+    'prepares all sources in one call and rejects mismatched source mappings (%s)',
+    async (mismatch) => {
+      fixture.permissions = ['stock-issue-requests:pick']
+      const pickOrder: StockIssueRequestSummary = {
+        ...order,
+        items: [
+          {
+            id: 'line',
+            productId: 'product',
+            productName: 'Hàng',
+            sku: 'SKU',
+            quantity: 2,
+            pickedQuantity: 0,
+            returnedQuantity: 0,
+            returnableQuantity: 0,
+            note: null,
+            barcode: null,
+            enteredQuantity: 2,
+            enteredUnitId: 'unit',
+            enteredUnitName: 'Cái',
+            conversionFactor: 1,
+            pickDetails: [],
+            pickLocations: ['one', 'two'].map((inventoryStockId) => ({
+              inventoryStockId,
+              slotId: inventoryStockId,
+              slotCode: inventoryStockId,
+              zoneCode: 'Z',
+              rackCode: 'R',
+              lotId: null,
+              lotNumber: null,
+              expiryDate: null,
+              reservedQuantity: 1,
+            })),
+          },
+        ],
+      }
+      fixture.destinations.mockResolvedValue(
+        ['one', mismatch ? 'wrong' : 'two'].map((inventoryStockId) => ({
+          inventoryStockId,
+          stockIssueRequestId: order.id,
+          warehouseId: order.warehouseId,
+          version: order.version,
+          slotId: 'staging',
+          slotCode: 'X',
+          path: 'ZX / X',
+        }))
+      )
+      const { result } = renderHook(() => useStockIssueWorkflow())
+      await act(async () => result.current.handlers.onRecordStockPicking(pickOrder))
+      await waitFor(() => expect(fixture.destinations).toHaveBeenCalledOnce())
+      expect(fixture.destinations).toHaveBeenCalledWith(order.id, ['one', 'two'])
+      await waitFor(() =>
+        expect(result.current.picking.order?.id ?? null).toBe(mismatch ? null : order.id)
+      )
+    }
+  )
   it('filters warehouse staff and preserves the release API contract', async () => {
     const { result } = renderHook(() => useStockIssueWorkflow())
     act(() => result.current.handlers.onReleaseForPicking(order))
