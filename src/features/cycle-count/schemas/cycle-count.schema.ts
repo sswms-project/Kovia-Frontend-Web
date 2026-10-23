@@ -60,11 +60,19 @@ export const createCycleCountSchema = z
   })
 
 // BE yêu cầu số đếm >= 0 và cột DB có độ chính xác 2 chữ số thập phân.
+const COUNT_QUANTITY_PATTERN = /^\d+(\.\d{1,2})?$/
+
 export const recordCycleCountItemSchema = z
   .string()
   .trim()
   .min(1, 'Vui lòng nhập số lượng đếm.')
-  .regex(/^\d+(\.\d{1,2})?$/, 'Số lượng đếm phải từ 0 và tối đa 2 chữ số thập phân.')
+  .regex(COUNT_QUANTITY_PATTERN, 'Số lượng đếm phải từ 0 và tối đa 2 chữ số thập phân.')
+
+// Cùng luật với schema nhưng không tạo đối tượng lỗi: bảng tính lại mọi dòng mỗi lần gõ phím.
+export function parseCountQuantity(value: string): number | null {
+  const trimmed = value.trim()
+  return COUNT_QUANTITY_PATTERN.test(trimmed) ? Number(trimmed) : null
+}
 
 export const CYCLE_COUNT_NOTE_MAX_LENGTH = 500
 

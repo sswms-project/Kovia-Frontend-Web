@@ -170,6 +170,8 @@ export const queryKeys = {
     list: (params: CycleCountListQuery) => ['cycle-counts', 'list', params] as const,
     detail: (id: string) => ['cycle-counts', 'detail', id] as const,
     allowedActions: (id: string) => ['cycle-counts', 'detail', id, 'allowed-actions'] as const,
+    assignableStaff: (warehouseId: string) =>
+      ['cycle-counts', 'assignable-staff', warehouseId] as const,
   },
   stockAdjustments: {
     all: ['stock-adjustments'] as const,

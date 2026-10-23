@@ -75,17 +75,25 @@ export function CreateCycleCountForm({
   }
 
   function toggleRows(rows: readonly InventoryStock[], checked: boolean) {
-    const rowKeys = new Set(rows.map(getStockScopeKey))
-    const kept = selectedItems.filter((item) => !rowKeys.has(getStockScopeKey(item)))
+    // Kiểm kê đếm theo vị trí vật lý: các dòng tồn khác trạng thái sử dụng của cùng phạm vi gộp thành một dòng phiếu.
+    const rowsByKey = new Map<string, InventoryStock>()
+    for (const row of rows) {
+      const key = getStockScopeKey(row)
+      const existing = rowsByKey.get(key)
+      rowsByKey.set(
+        key,
+        existing
+          ? { ...existing, quantityOnHand: existing.quantityOnHand + row.quantityOnHand }
+          : row
+      )
+    }
+    const kept = selectedItems.filter((item) => !rowsByKey.has(getStockScopeKey(item)))
     if (!checked) {
       setItems(kept)
       return
     }
-    setSelection((current) => ({
-      ...current,
-      ...Object.fromEntries(rows.map((row) => [getStockScopeKey(row), row])),
-    }))
-    setItems([...kept, ...rows.map(toCycleCountItemInput)])
+    setSelection((current) => ({ ...current, ...Object.fromEntries(rowsByKey) }))
+    setItems([...kept, ...[...rowsByKey.values()].map(toCycleCountItemInput)])
   }
 
   async function selectAllMatching() {

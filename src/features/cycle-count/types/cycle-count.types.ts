@@ -196,6 +196,17 @@ export interface AllowedActionsResponse {
   denialReasonCode?: string | null
 }
 
+export interface CycleCountRecordItemRequest {
+  itemId: string
+  countedQuantity: number
+  countedDamagedQuantity: number | null
+  note: string | null
+  countMethod: CycleCountMethod
+  scannedBarcode: string | null
+  damageReason: string | null
+  damageEvidenceIds: readonly string[]
+}
+
 export interface CreateCycleCountRequest {
   warehouseId: string
   zoneId: string | null
