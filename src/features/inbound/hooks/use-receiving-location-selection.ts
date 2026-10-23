@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { inboundService } from '../services/inbound.service'
 import type { ReceivingLocation } from '../types/receipt-commands.types'
 
@@ -18,25 +19,31 @@ export function useReceivingLocationSelection(
   const key = `${warehouseId}:${sessionKey}:${forDamageIsolation}`
   const [stored, setStored] = useState<Selection>({ key, search: '', page: 1, selected: null })
   const state = stored.key === key ? stored : { key, search: '', page: 1, selected: null }
+  const searchState = useMemo(() => ({ key, search: state.search }), [key, state.search])
+  const debounced = useDebouncedValue(searchState, 350)
+  const search = debounced.key === key ? debounced.search.trim() : ''
+  const isSearching = state.search.trim() !== search
   const query = useQuery({
     queryKey: [
       'goods-receipts',
       'receiving-locations',
       warehouseId,
-      state.search,
+      search,
       state.page,
       forDamageIsolation,
     ],
     queryFn: ({ signal }) =>
       inboundService
-        .receivingLocations(warehouseId!, state.search, state.page, signal, forDamageIsolation)
+        .receivingLocations(warehouseId!, search, state.page, signal, forDamageIsolation)
         .then((response) => response.data),
-    enabled: enabled && !!warehouseId,
+    enabled: enabled && !!warehouseId && !isSearching,
     retry: false,
   })
   return {
     ...state,
     query,
+    isSearching,
+    forDamageIsolation,
     searchFor: (search: string) => setStored({ ...state, search, page: 1 }),
     changePage: (page: number) => setStored({ ...state, page }),
     choose: (id: string) =>

@@ -6,6 +6,27 @@ import { getNotificationReferenceRoute, notificationActionRoutes } from './platf
 const id = '11111111-1111-4111-8111-111111111111'
 
 describe('getNotificationReferenceRoute', () => {
+  it.each([null, 'ViewInboundRequest', 'ViewMyWarehouseTasks'])(
+    'routes inbound task assignments to tasks, including legacy action %s',
+    (action) => {
+      expect(
+        getNotificationReferenceRoute({
+          type: 'TaskAssigned',
+          referenceType: 'InboundRequest',
+          referenceId: id,
+          action,
+        })
+      ).toBe(APP_ROUTES.myTasks)
+      expect(
+        getNotificationReferenceRoute({
+          type: 'InboundRequestUpdate',
+          referenceType: 'InboundRequest',
+          referenceId: id,
+          action: 'ViewInboundRequest',
+        })
+      ).toBe(APP_ROUTES.inboundRequestDetail(id))
+    }
+  )
   it('routes tenant approval notifications to the subscription page', () => {
     expect(
       getNotificationReferenceRoute({

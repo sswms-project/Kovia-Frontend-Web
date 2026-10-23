@@ -15,8 +15,8 @@ vi.mock('./InlineCameraScanner', () => ({
     return props.active ? <div data-testid="camera" /> : null
   },
 }))
-vi.mock('../../utils/camera-scan', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../utils/camera-scan')>()),
+vi.mock('@/lib/camera-scan', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/camera-scan')>()),
   isCameraScanSupported: () => true,
 }))
 

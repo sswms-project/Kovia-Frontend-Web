@@ -50,6 +50,10 @@ export function getNotificationReferenceRoute(
 ): string | null {
   const { action, referenceType, referenceId } = notification
 
+  // Old assignment notifications point at a management-only document instead of the task.
+  if (notification.type === 'TaskAssigned' && referenceType === 'InboundRequest')
+    return APP_ROUTES.myTasks
+
   const actionRoute = action ? notificationActionRoutes[action] : undefined
   if (actionRoute) {
     if (actionRoute.requiresId && !referenceId) return null

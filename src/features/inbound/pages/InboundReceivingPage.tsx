@@ -75,6 +75,8 @@ export default function InboundReceivingPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [selectedTask, setSelectedTask] = useState<ReceivingTask | null>(null)
+  const saveInProgress = useRef(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [importTask, setImportTask] = useState<ReceivingTask | null>(null)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importId, setImportId] = useState('')
@@ -103,7 +105,7 @@ export default function InboundReceivingPage() {
     ...(canAssign && assignmentFilter === 'unassigned' ? { unassigned: true } : {}),
   }
   const query = useReceivingTasksQuery(exportFilters)
-  const createMutation = useCreateGoodsReceiptMutation()
+  const createMutation = useCreateGoodsReceiptMutation(true)
   const submitMutation = useSubmitGoodsReceiptMutation()
   const importQuery = useInboundDocumentImportQuery(importId)
   const startImportMutation = useStartInboundDocumentImportMutation()
@@ -288,6 +290,7 @@ export default function InboundReceivingPage() {
   }
 
   async function save(values: GoodsReceiptFormValues, shouldSubmit: boolean) {
+    if (saveInProgress.current) return
     if (!selectedTask?.version) {
       toast.error(
         'Dữ liệu đã được người dùng khác cập nhật. Vui lòng tải lại trang trước khi tiếp tục.'
@@ -304,6 +307,8 @@ export default function InboundReceivingPage() {
       toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
       return
     }
+    saveInProgress.current = true
+    setIsSaving(true)
     try {
       const refusalPayload = shouldSubmit
         ? refusal.payload(values.lines.some((line) => (line.rejectedQty ?? 0) > 0))
@@ -327,10 +332,12 @@ export default function InboundReceivingPage() {
       const response = await createMutation.mutateAsync(request)
       if (shouldSubmit) {
         try {
-          const receipt = await inboundService.getReceipt(response.data)
+          // Missing version is only a compatibility fallback; current BE returns it from creation.
+          const version =
+            response.version || (await inboundService.getReceipt(response.data)).data.version
           await submitMutation.mutateAsync({
             receiptId: response.data,
-            expectedVersion: receipt.data.version,
+            expectedVersion: version,
             receivingSlotId: values.lines.some((line) => line.receivedQty > 0)
               ? receivingLocation.selected?.id
               : null,
@@ -344,10 +351,11 @@ export default function InboundReceivingPage() {
           )
           setSelectedTask(null)
           form.reset()
+          await createMutation.refresh()
           router.push(APP_ROUTES.goodsReceiptDetail(response.data) as Route)
           return
         }
-      }
+      } else await createMutation.refresh()
       toast.success(
         shouldSubmit
           ? 'Đã tạo và gửi phiếu nhận hàng để duyệt.'
@@ -366,6 +374,9 @@ export default function InboundReceivingPage() {
         form.setError('receiptCode', { type: 'server', message }, { shouldFocus: true })
       }
       toast.error(message)
+    } finally {
+      saveInProgress.current = false
+      setIsSaving(false)
     }
   }
 
@@ -383,7 +394,7 @@ export default function InboundReceivingPage() {
     })
   }
 
-  const isPending = createMutation.isPending || submitMutation.isPending || refusal.busy
+  const isPending = isSaving || createMutation.isPending || submitMutation.isPending || refusal.busy
   const listExport = useListExport({
     dataset: 'receiving',
     filters: exportFilters,

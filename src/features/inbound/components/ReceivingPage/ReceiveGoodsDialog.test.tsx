@@ -1,10 +1,24 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GoodsReceiptFormValues } from '../../schemas/inbound.schema'
 import type { ReceivingTask } from '../../types/inbound.types'
 import { ReceiveGoodsDialog } from './ReceiveGoodsDialog'
+
+const { startCameraScan, stopCamera } = vi.hoisted(() => ({
+  startCameraScan: vi.fn(),
+  stopCamera: vi.fn(),
+}))
+vi.mock('@/lib/camera-scan', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/camera-scan')>()),
+  isCameraScanSupported: () => true,
+  startCameraScan,
+}))
+beforeEach(() => {
+  vi.clearAllMocks()
+  startCameraScan.mockResolvedValue({ stop: stopCamera })
+})
 
 const task: ReceivingTask = {
   version: 'AQ==',
@@ -103,6 +117,70 @@ function ReceiptForm({
 }
 
 describe('ReceiveGoodsDialog operational context', () => {
+  it('releases the old camera when switching to a different receiving document', async () => {
+    const view = render(<ReceiptForm />)
+    await userEvent.click(screen.getByRole('button', { name: 'Bật camera: Mã hàng nhận' }))
+    await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
+    const decode = startCameraScan.mock.calls[0]![1]
+    view.rerender(<ReceiptForm receivingTask={{ ...task, inboundRequestId: 'another-document' }} />)
+    act(() => decode('BIA'))
+    expect(screen.getByLabelText('Số lượng chấp nhận nhận')).toHaveValue(4)
+    expect(stopCamera).toHaveBeenCalled()
+    expect(startCameraScan).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Bật camera: Mã hàng nhận' })).toBeEnabled()
+  })
+  it('uses camera codes through the same quantity/unit/foreign-goods checks without submitting', async () => {
+    const saveDraft = vi.fn()
+    render(
+      <ReceiptForm
+        onSaveDraft={saveDraft}
+        receivingTask={{
+          ...task,
+          lines: task.lines.map((line) => ({
+            ...line,
+            barcodeValue: '8930001',
+            remainingQuantity: 120,
+          })),
+        }}
+      />
+    )
+    expect(startCameraScan).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Bật camera: Mã hàng nhận' }))
+    await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
+    const decode = startCameraScan.mock.calls[0]![1]
+    await act(async () => decode('8930001'))
+    expect(screen.getByLabelText('Số lượng chấp nhận nhận')).toHaveValue(5)
+    await act(async () => decode('BIA'))
+    expect(screen.getByLabelText('Số lượng chấp nhận nhận')).toHaveValue(5)
+    expect(screen.getByRole('alert')).toHaveTextContent('đã đủ số lượng còn lại')
+    await act(async () => decode('FOREIGN'))
+    expect(screen.getByRole('alert')).toHaveTextContent('không thuộc yêu cầu nhập này')
+    expect(saveDraft).not.toHaveBeenCalled()
+    await userEvent.selectOptions(screen.getByLabelText('Đơn vị nhận'), 'lon')
+    await act(async () => decode('BIA'))
+    expect(screen.getByLabelText('Số lượng chấp nhận nhận')).toHaveValue(1)
+    expect(screen.getByText('Bia: 1/120 Lon.')).toHaveAttribute('role', 'status')
+  })
+
+  it('stops the receiving camera on pending save and discards late decoded codes', async () => {
+    const view = render(<ReceiptForm />)
+    await userEvent.click(screen.getByRole('button', { name: 'Bật camera: Mã hàng nhận' }))
+    await waitFor(() => expect(startCameraScan).toHaveBeenCalledTimes(1))
+    const decode = startCameraScan.mock.calls[0]![1]
+    view.rerender(<ReceiptForm pending />)
+    expect(stopCamera).toHaveBeenCalled()
+    act(() => decode('BIA'))
+    expect(screen.getByLabelText('Số lượng chấp nhận nhận')).toHaveValue(4)
+    expect(screen.getByRole('button', { name: 'Bật camera: Mã hàng nhận' })).toBeDisabled()
+  })
+  it.each([false, true])('reuses the shared slim scrollbar (correction=%s)', (correction) => {
+    render(<ReceiptForm correction={correction} />)
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-scrollbar', 'slim')
+    expect(screen.getByRole('dialog')).toHaveClass('max-h-[90dvh]', 'overflow-y-auto')
+    expect(screen.getByRole('button', { name: 'Lưu nháp' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Lưu và gửi duyệt' })).toBeEnabled()
+  })
+
   it('keeps refused-before-receiving quantity separate from accepted stock and post-arrival damage', async () => {
     const user = userEvent.setup()
     const saveDraft = vi.fn()

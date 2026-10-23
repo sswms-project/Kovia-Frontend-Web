@@ -91,12 +91,13 @@ export interface LocationFilterState {
 }
 
 export interface CreateZoneRequest extends WarehousePhysicalDetails {
+  createReceivingPoint?: boolean
   zoneCode: string
   zoneName: string
   description: string
 }
 
-export interface UpdateZoneRequest extends CreateZoneRequest {
+export interface UpdateZoneRequest extends Omit<CreateZoneRequest, 'createReceivingPoint'> {
   expectedRowVersion: string
 }
 

@@ -25,7 +25,7 @@ export function FormActions({
         onClick={onSaveDraft}
       >
         <Save aria-hidden="true" />
-        {isApprovedEdit ? 'Lưu thay đổi' : autoApprove ? 'Tạo và duyệt' : 'Lưu nháp'}
+        {isApprovedEdit ? 'Lưu thay đổi' : autoApprove ? 'Tạo' : 'Lưu nháp'}
       </Button>
       {!autoApprove && !isApprovedEdit ? (
         <Button

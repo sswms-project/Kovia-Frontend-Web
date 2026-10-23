@@ -33,6 +33,31 @@ const slotValues = {
 }
 
 describe('WarehouseLocationFormSheets', () => {
+  it('creates a waiting point only when explicitly selected in the create-zone form', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true)
+    render(
+      <ZoneFormSheet
+        open
+        mode="create"
+        isPending={false}
+        defaultValues={{
+          zoneCode: 'CHO',
+          zoneName: 'Khu chờ cất hàng',
+          description: '',
+          ...EMPTY_WAREHOUSE_PHYSICAL_DETAILS,
+        }}
+        onOpenChange={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    )
+    const checkbox = screen.getByRole('checkbox', { name: 'Tạo kèm điểm chờ cất hàng' })
+    expect(checkbox).not.toBeChecked()
+    fireEvent.click(checkbox)
+    fireEvent.click(screen.getByRole('button', { name: /^Lưu$/ }))
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ createReceivingPoint: true }))
+    )
+  })
   it('shows the shared physical detail fields when editing a location', () => {
     render(
       <ZoneFormSheet
@@ -58,6 +83,9 @@ describe('WarehouseLocationFormSheets', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Thông tin chi tiết' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('checkbox', { name: 'Tạo kèm điểm chờ cất hàng' })
+    ).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Dung lượng lưu trữ')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Chiều dài')).toHaveValue(12)
     expect(screen.getByLabelText('Chiều rộng')).toHaveValue(8)

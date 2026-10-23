@@ -89,6 +89,7 @@ export const zoneSchema = z
       .trim()
       .min(1, 'Tên khu vực là bắt buộc.')
       .max(255, 'Tên khu vực tối đa 255 ký tự.'),
+    createReceivingPoint: z.boolean().optional(),
     description: z.string().trim().max(500, 'Mô tả tối đa 500 ký tự.'),
     ...physicalDetailsShape,
   })

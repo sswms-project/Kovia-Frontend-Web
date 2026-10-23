@@ -2,6 +2,9 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -42,6 +45,7 @@ import { goodsReceiptSchema, type GoodsReceiptFormValues } from '../schemas/inbo
 import type { ReceivingTask } from '../types/inbound.types'
 
 export default function GoodsReceiptDetailPage({ receiptId }: { readonly receiptId: string }) {
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [editVersion, setEditVersion] = useState('')
   const detailQuery = useGoodsReceiptQuery(receiptId)
@@ -267,6 +271,12 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
               : 'Đã duyệt kết quả kiểm hàng; hàng tiếp tục theo luồng cất/cách biệt.'
             : 'Đã trả phiếu nhận hàng để chỉnh sửa.'
       )
+      if (
+        action === 'approve' &&
+        !keepAtReceiving &&
+        detailQuery.data?.items.some((item) => item.receivedQuantity > 0)
+      )
+        router.push(APP_ROUTES.inboundPutawayDetail(receiptId) as Route)
       return true
     } catch (error) {
       logMutationFailure(error)

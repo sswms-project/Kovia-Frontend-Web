@@ -68,7 +68,10 @@ export function ReceiveGoodsDialog({
   const selectedLines = watch('lines')
   return (
     <Dialog open={Boolean(task)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent
+        data-scrollbar="slim"
+        className="max-h-[90dvh] overflow-y-auto overscroll-contain sm:max-w-3xl"
+      >
         <DialogHeader>
           <DialogTitle>{title ?? `Nhận hàng ${task?.inboundRequestCode ?? ''}`}</DialogTitle>
           <DialogDescription>
@@ -127,7 +130,12 @@ export function ReceiveGoodsDialog({
               </dl>
             </div>
             {mode === 'create' && canEditReceivedQuantity ? (
-              <ReceiveQuickActions task={task} form={form} disabled={isPending} />
+              <ReceiveQuickActions
+                key={task.inboundRequestId}
+                task={task}
+                form={form}
+                disabled={isPending}
+              />
             ) : null}
             {task.lines
               .filter((line) =>

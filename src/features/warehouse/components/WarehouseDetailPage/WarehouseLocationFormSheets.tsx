@@ -81,6 +81,7 @@ export function ZoneFormSheet({
 }: LocationFormSheetProps<ZoneFormValues>) {
   const form = useForm<ZoneFormValues>({ resolver: zodResolver(zoneSchema), defaultValues })
   const { errors } = form.formState
+  const createReceivingPoint = useWatch({ control: form.control, name: 'createReceivingPoint' })
 
   const [isClosing, setIsClosing] = useState(false)
 
@@ -91,7 +92,9 @@ export function ZoneFormSheet({
   }
 
   async function handleSubmit(values: ZoneFormValues) {
-    if (await onSubmit(values)) form.reset(defaultValues)
+    const { createReceivingPoint, ...zoneValues } = values
+    if (await onSubmit(mode === 'create' ? { ...zoneValues, createReceivingPoint } : zoneValues))
+      form.reset(defaultValues)
   }
 
   return (
@@ -154,6 +157,29 @@ export function ZoneFormSheet({
                 <FieldError errors={[errors.description]} />
               </Field>
               <PhysicalDetailsFields />
+              {mode === 'create' && (
+                <Field className="md:col-span-2">
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id="zone-receiving-point"
+                      checked={createReceivingPoint ?? false}
+                      disabled={isPending || form.formState.isSubmitting}
+                      onCheckedChange={(checked) =>
+                        form.setValue('createReceivingPoint', checked === true, {
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                    <FieldLabel htmlFor="zone-receiving-point">
+                      Tạo kèm điểm chờ cất hàng
+                    </FieldLabel>
+                  </Field>
+                  <p className="text-muted-foreground text-sm">
+                    Tạo sẵn điểm chờ 01 trong khu vực này để nhận hàng, không cần tạo kệ và vị trí
+                    thủ công.
+                  </p>
+                </Field>
+              )}
             </FieldGroup>
             <FormFooter
               mode={mode}
