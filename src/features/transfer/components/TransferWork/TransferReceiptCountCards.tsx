@@ -15,6 +15,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import type { TransferCountFormValues } from '../../schemas/transfer-receipt.schema'
+import { parseTransferQuantityInput } from '../../schemas/transfer-receipt.schema'
 import type { TransferReceiptSheet } from '../../types/transfer-receipt.types'
 import { TRANSFER_RECEIPT_REASONS } from '../../types/transfer.types'
 import { RECEIPT_REASON_LABELS } from '../../utils/transfer-format'
@@ -104,16 +105,16 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
                           </FieldLabel>
                           <Input
                             id={id}
-                            className="h-11 min-w-0"
-                            type="number"
-                            min={0}
-                            step={10 ** -Math.min(2, line.baseQuantityPrecision)}
-                            inputMode="decimal"
+                            className="h-11 min-w-0 text-base md:text-xs"
+                            type="text"
+                            inputMode={line.baseQuantityPrecision === 0 ? 'numeric' : 'decimal'}
                             autoComplete="off"
                             disabled={disabled}
                             aria-invalid={Boolean(errors?.[index]?.[field])}
                             aria-describedby={errors?.[index]?.[field] ? id + '-error' : undefined}
-                            {...form.register(`entries.${index}.${field}`, { valueAsNumber: true })}
+                            {...form.register(`entries.${index}.${field}`, {
+                              setValueAs: parseTransferQuantityInput,
+                            })}
                           />
                           <FieldError id={id + '-error'} className="wrap-anywhere">
                             {errors?.[index]?.[field]?.message}

@@ -47,6 +47,8 @@ export const P = {
   // Goods Return Requests
   GOODS_RETURN_REQUESTS_VIEW: 'goods-return-requests:view',
   GOODS_RETURN_REQUESTS_APPROVE: 'goods-return-requests:approve',
+  GOODS_RETURN_REQUESTS_SELF_APPROVE: 'goods-return-requests:self-approve',
+  GOODS_RETURN_REQUESTS_RESTOCK: 'goods-return-requests:restock',
 
   // Supplier Returns
   SUPPLIER_RETURNS_VIEW: 'supplier-returns:view',
@@ -138,6 +140,7 @@ export const P = {
   STOCK_ISSUE_REQUESTS_RETURN: 'stock-issue-requests:return',
   STOCK_ISSUE_REQUESTS_CANCEL: 'stock-issue-requests:cancel',
   STOCK_ISSUE_REQUESTS_ASSIGN_PICKER: 'stock-issue-requests:assign-picker',
+  STOCK_ISSUE_REQUESTS_SELF_APPROVE: 'stock-issue-requests:self-approve',
 
   // Stock Recipients
   STOCK_RECIPIENTS_VIEW: 'stock-recipients:view',

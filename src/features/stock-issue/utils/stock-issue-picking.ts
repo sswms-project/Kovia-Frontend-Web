@@ -27,7 +27,7 @@ function sameCode(left: string | null | undefined, right: string): boolean {
  * lô đã được giữ theo FEFO lúc giao việc nên không cho chọn lại ở đây.
  */
 export function buildStockPickingLines(order: StockIssueRequestSummary): StockPickingLine[] {
-  const entries = order.items.flatMap((item) => {
+  const entries = order.items.flatMap<{ sortKey: string; line: StockPickingLine }>((item) => {
     const factor = stockIssueItemFactor(item)
     const remainingQuantity = Math.max(0, item.quantity - item.pickedQuantity) / factor
     if (remainingQuantity <= 0) return []
@@ -65,6 +65,8 @@ export function buildStockPickingLines(order: StockIssueRequestSummary): StockPi
         availableQuantity: location.reservedQuantity / factor,
         slotCode: location.slotCode,
         lotNumber: location.lotNumber,
+        directFromReceiving: location.directFromReceiving,
+        allocationReason: location.allocationReason,
       },
     }))
   })

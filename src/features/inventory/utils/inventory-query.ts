@@ -5,6 +5,7 @@ interface InventoryFilters {
   readonly warehouseId: string
   readonly productId: string
   readonly slotId?: string
+  readonly showDepleted?: boolean
 }
 
 export function buildInventoryQuery(
@@ -17,6 +18,7 @@ export function buildInventoryQuery(
   return {
     pageNumber,
     pageSize,
+    inStockOnly: !filters.showDepleted,
     ...(searchTerm ? { searchTerm } : {}),
     ...(filters.warehouseId ? { warehouseId: filters.warehouseId } : {}),
     ...(filters.productId ? { productId: filters.productId } : {}),

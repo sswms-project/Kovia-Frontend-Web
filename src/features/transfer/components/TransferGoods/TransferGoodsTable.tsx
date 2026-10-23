@@ -27,7 +27,10 @@ const DISCREPANCY_LABELS: Record<TransferDiscrepancyState, string> = {
 const COLUMNS = [
   { label: 'SL yêu cầu', description: 'Số lượng yêu cầu điều chuyển theo ĐVT chính' },
   { label: 'Chưa vào đợt', description: 'Phần chưa được chia vào đợt xuất nào' },
-  { label: 'Đã lấy', description: 'Đã lấy ra khỏi vị trí, chưa xuất khỏi kho' },
+  {
+    label: 'Đã lấy',
+    description: 'Số lượng đã lấy hợp lệ, gồm phần đã xuất; không gồm hàng đã trả lại vị trí',
+  },
   { label: 'Đã xuất', description: 'Đã xuất khỏi kho xuất' },
   {
     label: 'SL thực nhận',

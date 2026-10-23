@@ -26,6 +26,7 @@ interface WarehouseOverviewViewProps {
   readonly expiringDays: number
   readonly panels: Readonly<Record<StockAlertKind, StockAlertPanelState>>
   readonly onPageChange: (kind: StockAlertKind, page: number) => void
+  readonly onPageSizeChange: (kind: StockAlertKind, pageSize: number) => void
   readonly onExpand: (kind: StockAlertKind, opener: HTMLButtonElement) => void
   readonly onRefresh: () => void
   readonly isFetching: boolean
@@ -50,6 +51,7 @@ export function WarehouseOverviewView({
   expiringDays,
   panels,
   onPageChange,
+  onPageSizeChange,
   onExpand,
   onRefresh,
   isFetching,
@@ -197,6 +199,7 @@ export function WarehouseOverviewView({
                   expiringDays={expiringDays}
                   canViewInventory={canViewInventory}
                   onPageChange={(page) => onPageChange(kind, page)}
+                  onPageSizeChange={(size) => onPageSizeChange(kind, size)}
                   onExpand={(opener) => onExpand(kind, opener)}
                   settings={kind === 'expiring' ? settings : undefined}
                 />

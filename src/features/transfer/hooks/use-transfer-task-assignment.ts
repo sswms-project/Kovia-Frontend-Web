@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { queryKeys } from '@/lib/query-keys'
 import type { AssignWarehouseTaskFormValues } from '@/features/inbound/schemas/inbound.schema'
 import type { AssignWarehouseTaskTarget } from '@/features/inbound/components/TaskAssignment'
 import { warehouseTaskService } from '@/features/warehouse-task/services/warehouse-task.service'
@@ -18,7 +19,11 @@ import {
 } from '../schemas/transfer-assignment.schema'
 import { describeTransferError, logTransferError } from '../utils/transfer-errors'
 import { useTransferAssignableStaffQuery } from './use-transfer-receipt'
-import { invalidateTransferQueries, TRANSFER_MUTATION_KEY } from './use-transfers'
+import {
+  invalidateTransferQueries,
+  refreshTransferAfterWrite,
+  TRANSFER_MUTATION_KEY,
+} from './use-transfers'
 
 const TASK_TYPES = {
   pick: 'TransferPick',
@@ -159,7 +164,8 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
       if (current && pending)
         for (const kind of pending.kinds)
           pending.versions[kind] = transferAssignmentTask(current, kind).version
-      await invalidateTransferQueries(client)
+      await invalidateTransferQueries(client, 'none')
+      client.setQueryData(queryKeys.transfers.detail(transfer.id), fresh)
       setNeedsVerify(false)
     } catch (error) {
       toast.error(describeTransferError(error, 'Không tải được phiên bản công việc mới.').message)
@@ -169,7 +175,15 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
     }
   }
   async function submit(values: AssignWarehouseTaskFormValues) {
-    if (!transfer || !selected || lock.current || needsVerify || staff.isError || putStaff.isError)
+    if (
+      !transfer ||
+      !selected ||
+      !warehouseId ||
+      lock.current ||
+      needsVerify ||
+      staff.isError ||
+      putStaff.isError
+    )
       return
     const eligible = (staff.data ?? []).filter(
       (person) => !alsoPutAway || (putStaff.data ?? []).some((other) => other.id === person.id)
@@ -201,13 +215,15 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
     }
     attempt.current = pending
     try {
+      const current = (
+        await transferService.getAssignmentSnapshot(transfer.id, selected.shipmentId, warehouseId)
+      ).data
       for (const kind of pending.kinds) {
         if (pending.done.has(kind)) continue
-        const fresh = (await transferService.getTransfer(transfer.id)).data
-        const current = fresh.shipments?.find((row) => row.id === selected.shipmentId)
-        if (!current) throw new Error('Đợt xuất không còn tồn tại.')
-        const next = transferAssignmentTask(current, kind)
-        if (!next.id || !next.version) throw new Error('Công việc chưa có phiên bản để giao.')
+        // The two tasks have independent row versions. The API checks each expected
+        // version/assignee atomically, including changes made after this snapshot.
+        const next = current.find((task) => task.taskType === TASK_TYPES[kind])
+        if (!next?.id || !next.version) throw new Error('Công việc chưa có phiên bản để giao.')
         if (next.version !== pending.versions[kind]) {
           setResults((old) => ({
             ...old,
@@ -247,7 +263,6 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
           })
           pending.done.add(kind)
           setResults((old) => ({ ...old, [kind]: 'Đã giao thành công.' }))
-          await invalidateTransferQueries(client)
         } catch (error) {
           const result = describeTransferError(error, 'Không thể giao việc.')
           setResults((old) => ({ ...old, [kind]: result.message }))
@@ -266,6 +281,7 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
     } catch (error) {
       toast.error(describeTransferError(error, 'Không tải được công việc để giao.').message)
     } finally {
+      if (pending.done.size > 0) await refreshTransferAfterWrite(client, transfer.id)
       lock.current = false
       setWorking(false)
     }

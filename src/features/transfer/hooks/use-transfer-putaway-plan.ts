@@ -11,9 +11,9 @@ import { invalidateTransferQueries, TRANSFER_MUTATION_KEY } from './use-transfer
 export function useTransferPutAwayPlanSuggestionsQuery(transferId: string, shipmentId?: string) {
   return useQuery({
     queryKey: queryKeys.transfers.putAwayPlanSuggestions(transferId, shipmentId),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       transferService
-        .getPutAwayPlanSuggestions(transferId, shipmentId)
+        .getPutAwayPlanSuggestions(transferId, shipmentId, true, signal)
         .then((response) => response.data),
     enabled: false,
     retry: false,
@@ -35,9 +35,9 @@ export function useTransferPutAwayRulesQuery(
       'rules',
       version,
     ],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       transferService
-        .getPutAwayPlanSuggestions(transferId, shipmentId, false)
+        .getPutAwayPlanSuggestions(transferId, shipmentId, false, signal)
         .then((response) => response.data),
     enabled,
     retry: false,
@@ -51,6 +51,10 @@ export function useSetTransferPutAwayPlanMutation() {
   return useMutation({
     mutationKey: TRANSFER_MUTATION_KEY,
     retry: false,
+    onMutate: ({ transferId }) =>
+      queryClient.cancelQueries({
+        queryKey: queryKeys.transfers.putAwayPlanSuggestions(transferId).slice(0, -1),
+      }),
     mutationFn: ({
       transferId,
       request,
@@ -58,7 +62,8 @@ export function useSetTransferPutAwayPlanMutation() {
       transferId: string
       request: SetTransferPutAwayPlanRequest
     }) => transferService.setPutAwayPlan(transferId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    // The plan workspace owns the single mandatory detail/sheet reload after saving.
+    onSuccess: () => invalidateTransferQueries(queryClient, 'none'),
     onError: logTransferError,
   })
 }

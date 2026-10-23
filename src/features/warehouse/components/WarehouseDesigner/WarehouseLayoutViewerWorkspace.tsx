@@ -137,6 +137,7 @@ export function WarehouseLayoutViewerWorkspace({
       pageNumber,
       pageSize,
       warehouseId,
+      inStockOnly: true,
       ...(debouncedInventorySearchTerm ? { searchTerm: debouncedInventorySearchTerm } : {}),
     }
     if (!selection || selection.kind === 'decoration') return base

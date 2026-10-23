@@ -9,7 +9,6 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { Plus, Upload } from 'lucide-react'
-import { StockIssueWorkspaceNavigation } from '@/components/operations/StockIssueWorkspaceNavigation'
 import { Button } from '@/components/ui/button'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
@@ -93,12 +92,6 @@ export default function StockIssueRequestPage() {
     <div className="flex h-full min-h-0 flex-col gap-4">
       <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="sr-only">Yêu cầu xuất kho</h1>
-        <div className="min-w-0 flex-1">
-          <StockIssueWorkspaceNavigation
-            currentView="stockIssueRequests"
-            permissions={meQuery.data?.permissions ?? []}
-          />
-        </div>
         {workflow.capabilities.canCreate ? (
           <div className="flex shrink-0 gap-2">
             <Button asChild variant="outline" size="sm">

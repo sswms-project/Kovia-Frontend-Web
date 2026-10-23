@@ -286,6 +286,8 @@ export const queryKeys = {
     list: (params: GoodsReturnRequestListQuery) =>
       ['goods-return-requests', 'list', params] as const,
     detail: (id: string) => ['goods-return-requests', 'detail', id] as const,
+    slotSuggestions: (stockIssueRequestId: string, items: readonly unknown[]) =>
+      ['goods-return-requests', 'slot-suggestions', stockIssueRequestId, items] as const,
   },
   supplierReturns: {
     all: ['supplier-returns'] as const,

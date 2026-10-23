@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TransferPickSheetLine } from '../../types/transfer.types'
@@ -58,6 +58,15 @@ function renderDialog(scan: PickScanState, handlers = { slot: vi.fn(), product: 
 }
 
 describe('PickEntryDialog camera', () => {
+  it('uses a wheel-safe quantity field and preserves the decimal separator while typing', async () => {
+    renderDialog({ ...INITIAL_PICK_SCAN_STATE, step: 'ready' })
+    const input = screen.getByRole('textbox', { name: '3. Số lượng lấy' })
+    fireEvent.wheel(input, { deltaY: 100 })
+    expect(input).toHaveValue('6')
+    await userEvent.clear(input)
+    await userEvent.type(input, '1.25')
+    expect(input).toHaveValue('1.25')
+  })
   it('sends camera codes to the location step first, then to the product step', async () => {
     const handlers = renderDialog(INITIAL_PICK_SCAN_STATE)
     await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
@@ -79,8 +88,19 @@ describe('PickEntryDialog camera', () => {
 
   it('pauses the camera when both codes are scanned so the quantity can be entered', async () => {
     renderDialog({ ...INITIAL_PICK_SCAN_STATE, step: 'ready', productCode: 'SKU-1' })
-    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
+    expect(
+      screen.getByText(
+        'Đã quét đủ. Camera tạm dừng để bạn nhập số lượng; bấm Quét lại để quét tiếp.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Bật camera quét/ })).toBeDisabled()
     expect(cameraActive).toBe(false)
-    expect(screen.getByText(/Camera tạm dừng/)).toBeInTheDocument()
+    expect(screen.queryByTestId('camera')).not.toBeInTheDocument()
+  })
+  it('shows a camera frame and a full-width start action before asking for permission', () => {
+    renderDialog(INITIAL_PICK_SCAN_STATE)
+    expect(screen.getByText('Khung quét mã QR / mã vạch')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Bật camera quét/ })).toHaveClass('h-11', 'w-full')
+    expect(screen.queryByTestId('camera')).not.toBeInTheDocument()
   })
 })

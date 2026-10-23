@@ -17,7 +17,27 @@ export const transferCountEntrySchema = z.object({
   note: z.string().trim().max(500, 'Ghi chú tối đa 500 ký tự.'),
 })
 export type TransferCountEntryValues = z.infer<typeof transferCountEntrySchema>
-export type TransferCountFormValues = { entries: TransferCountEntryValues[] }
+export const transferReceivingLocationSchema = z.object({
+  receivingSlotId: dotNetGuidSchema('Chọn vị trí nhận hàng.'),
+  scannedSlotCode: z.string().trim().min(1, 'Xác nhận mã vị trí nhận.').max(200),
+})
+export type TransferReceivingLocationValues = z.infer<typeof transferReceivingLocationSchema>
+const dispositionSchema = z.object({
+  keepAtReceiving: z.boolean().optional(),
+  damagedSlotId: z.string().optional(),
+  scannedDamagedSlotCode: z.string().trim().max(200).optional(),
+})
+export type TransferCountFormValues = z.infer<typeof dispositionSchema> & {
+  entries: TransferCountEntryValues[]
+}
+
+/** Text inputs keep wheel scrolling from changing quantities; reject non-decimal notation. */
+export function parseTransferQuantityInput(value: unknown): number {
+  if (typeof value === 'number') return value
+  if (typeof value !== 'string') return Number.NaN
+  const normalized = value.trim().replace(',', '.')
+  return /^\d+(?:\.\d*)?$/.test(normalized) ? Number(normalized) : Number.NaN
+}
 
 export function hasTransferQuantityPrecision(quantity: number, precision: number) {
   const scale = 10 ** Math.min(2, Math.max(0, precision))
@@ -38,12 +58,27 @@ export function createTransferCountSchema(sheet: TransferReceiptSheet | null) {
   )
   return z
     .object({
+      ...dispositionSchema.shape,
       entries: z
         .array(transferCountEntrySchema)
         .min(1, 'Hãy khai báo kết quả kiểm hàng.')
         .max(500, 'Tối đa 500 dòng kiểm hàng mỗi lần.'),
     })
-    .superRefine(({ entries }, context) => {
+    .superRefine(({ entries, damagedSlotId, scannedDamagedSlotCode }, context) => {
+      if (sheet?.receiptFlowVersion === 2 && entries.some((entry) => entry.damagedQuantity > 0)) {
+        if (!damagedSlotId || damagedSlotId === sheet.receivingSlotId)
+          context.addIssue({
+            code: 'custom',
+            path: ['damagedSlotId'],
+            message: 'Chọn vị trí cách biệt khác vị trí nhận.',
+          })
+        if (!scannedDamagedSlotCode)
+          context.addIssue({
+            code: 'custom',
+            path: ['scannedDamagedSlotCode'],
+            message: 'Xác nhận mã vị trí cách biệt hàng hỏng.',
+          })
+      }
       const declared = new Map<string, number>()
       entries.forEach((entry, index) => {
         const key = receiptEntryKey(entry.lineId, entry.lotId)

@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TransferPickSheetLine } from '../../types/transfer.types'
 import { PickLineCard } from './PickLineCard'
+import { TransferPickLinesTable } from './TransferPickLinesTable'
 
 afterEach(cleanup)
 
@@ -66,6 +67,21 @@ function renderCard(canAct: boolean) {
 }
 
 describe('PickLineCard', () => {
+  it('keeps desktop pick progress consistent with the mobile card after dispatch', () => {
+    const noop = vi.fn()
+    render(
+      <TransferPickLinesTable
+        lines={[line]}
+        canAct={false}
+        busy={false}
+        onPick={noop}
+        onSwitch={noop}
+        onEscalate={noop}
+        onReturn={noop}
+      />
+    )
+    expect(screen.getByRole('cell', { name: '2 / 3 Thùng' })).toBeInTheDocument()
+  })
   it('shows pick suggestions with the rack name while the shipment can be picked', () => {
     renderCard(true)
     expect(screen.getByText('Lấy tại (theo FEFO)')).toBeInTheDocument()

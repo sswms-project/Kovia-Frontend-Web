@@ -255,6 +255,9 @@ export const API_ENDPOINTS = {
       `/inbound-requests/${inboundRequestId}/allowed-actions`,
   },
   goodsReceipts: {
+    receivingLocations: '/goods-receipts/receiving-locations',
+    reconcileArrivalStock: (receiptId: string) =>
+      `/goods-receipts/${receiptId}/reconcile-arrival-stock`,
     nextCode: '/goods-receipts/next-code',
     list: '/goods-receipts',
     create: '/goods-receipts',
@@ -374,6 +377,10 @@ export const API_ENDPOINTS = {
     invoiceData: (paymentId: string) => `/payments/${paymentId}/invoice-data`,
   },
   transfers: {
+    assignmentSnapshot: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/assignment-snapshot`,
+    decision: (id: string) => `/transfers/${id}/decision`,
+    withdraw: (id: string) => `/transfers/${id}/withdraw`,
     destinationLoad: '/transfers/destination-load',
     assignableStaff: '/transfers/assignable-staff',
     receiptSheet: (transferId: string, shipmentId: string) =>
@@ -479,6 +486,8 @@ export const API_ENDPOINTS = {
       `/stock-issue-requests/${stockIssueRequestId}/pick-details/${pickDetailId}`,
     goodsReturnRequests: (stockIssueRequestId: string) =>
       `/stock-issue-requests/${stockIssueRequestId}/goods-return-requests`,
+    goodsReturnSuggestions: (stockIssueRequestId: string) =>
+      `/stock-issue-requests/${stockIssueRequestId}/goods-return-requests/suggestions`,
   },
   goodsReturnRequests: {
     list: '/goods-return-requests',

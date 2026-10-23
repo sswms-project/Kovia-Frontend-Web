@@ -6,10 +6,11 @@ import type {
 } from '../../types/warehouse-layout-scene.types'
 import { WarehouseLayoutViewerWorkspace } from './WarehouseLayoutViewerWorkspace'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import type { InventoryStock } from '@/features/inventory/types/inventory.types'
 
 const { inventoryQueryMock } = vi.hoisted(() => ({
   inventoryQueryMock: vi.fn(() => ({
-    data: { items: [], totalCount: 0 },
+    data: { items: Array<InventoryStock>(), totalCount: 0 },
     isPending: false,
     isFetching: false,
     isPlaceholderData: false,
@@ -20,7 +21,13 @@ const { inventoryQueryMock } = vi.hoisted(() => ({
 vi.mock('next/dynamic', () => ({
   default: () =>
     function Canvas({ onSelect }: { onSelect: (value: WarehouseLayoutSelection) => void }) {
-      return <button onClick={() => onSelect({ kind: 'rack', id: 'rack' })}>Chọn kệ canvas</button>
+      return (
+        <>
+          <button onClick={() => onSelect({ kind: 'rack', id: 'rack' })}>Chọn kệ canvas</button>
+          <button onClick={() => onSelect({ kind: 'zone', id: 'zone' })}>Chọn khu canvas</button>
+          <button onClick={() => onSelect({ kind: 'slot', id: 'slot' })}>Chọn ô canvas</button>
+        </>
+      )
     },
 }))
 vi.mock('../../hooks/use-layout-designer-compact', () => ({
@@ -87,6 +94,85 @@ const scene: WarehouseLayoutEditorScene = {
 }
 
 describe('viewer capacity summary', () => {
+  it.each([
+    ['Chọn kệ canvas', 'rackId', 'rack'],
+    ['Chọn khu canvas', 'zoneId', 'zone'],
+    ['Chọn ô canvas', 'slotId', 'slot'],
+  ])('filters physical stock server-side when using %s', (button, filter, id) => {
+    render(
+      <TooltipProvider>
+        <WarehouseLayoutViewerWorkspace
+          warehouseId="warehouse"
+          warehouseName="Kho"
+          scene={scene}
+          canConfigure={false}
+          isClosing={false}
+          onClose={vi.fn()}
+        />
+      </TooltipProvider>
+    )
+    fireEvent.click(screen.getByRole('button', { name: button }))
+    expect(inventoryQueryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        warehouseId: 'warehouse',
+        [filter]: id,
+        inStockOnly: true,
+        pageNumber: 1,
+        pageSize: 20,
+      }),
+      true
+    )
+  })
+
+  it('keeps physical stock visible when all units are held and availability is zero', () => {
+    render(
+      <TooltipProvider>
+        <WarehouseLayoutViewerWorkspace
+          warehouseId="warehouse"
+          warehouseName="Kho"
+          scene={scene}
+          canConfigure={false}
+          isClosing={false}
+          onClose={vi.fn()}
+        />
+      </TooltipProvider>
+    )
+    const item: InventoryStock = {
+      id: 'held-stock',
+      productId: 'product',
+      sku: 'SKU-HELD',
+      productName: 'Hàng đang giữ',
+      warehouseId: 'warehouse',
+      warehouseName: 'Kho',
+      slotId: 'slot',
+      slotCode: 'A05',
+      lotId: null,
+      lotNumber: null,
+      manufacturedDate: null,
+      expiryDate: null,
+      lotStatus: null,
+      qualityStatus: 'Damaged',
+      eligibilityStatus: 'DamageHold',
+      quantityOnHand: 12,
+      reservedQuantity: 0,
+      holdQuantity: 12,
+      availableQuantity: 0,
+      version: null,
+      updatedAt: null,
+      canManageWarehouse: false,
+    }
+    inventoryQueryMock.mockReturnValueOnce({
+      data: { items: [item], totalCount: 1 },
+      isPending: false,
+      isFetching: false,
+      isPlaceholderData: false,
+      isError: false,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn kệ canvas' }))
+    expect(screen.getByText('SKU-HELD')).toBeInTheDocument()
+    expect(screen.getByText('Hàng đang giữ')).toBeInTheDocument()
+  })
+
   it('keeps both searches beside their headings and lets the left panel grow to forty percent', () => {
     render(
       <TooltipProvider>

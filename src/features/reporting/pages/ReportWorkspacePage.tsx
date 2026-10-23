@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { FileSpreadsheet } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -38,6 +38,7 @@ interface ReportWorkspacePageProps {
   readonly reportType: string
   readonly initialFilters?: ReportRouteFilters
 }
+const emptyPermissions: readonly string[] = []
 const parameterKeys: readonly (keyof WarehouseReportQuery)[] = [
   'categoryId',
   'warehouseIds',
@@ -72,7 +73,7 @@ export default function ReportWorkspacePage({
       : null
   )
   const me = useMeQuery()
-  const permissions = me.data?.permissions ?? []
+  const permissions = me.data?.permissions ?? emptyPermissions
   const canView = permissions.includes(P.REPORTS_VIEW)
   const permissionKey = [...permissions].sort().join('|')
   const catalog = useWarehouseReportCatalog(canView, permissionKey)
@@ -102,65 +103,77 @@ export default function ReportWorkspacePage({
     applied &&
     parameterKeys.some((key) => JSON.stringify(draftQuery[key]) !== JSON.stringify(applied[key]))
   )
-  const sourceLinks = new Map<string, UrlObject>()
-  if (canView)
-    for (const row of report.data?.items ?? []) {
-      if ('sourceId' in row && row.sourceId) {
-        if (row.sourceType === 'GoodsReceipt' && permissions.includes(P.GOODS_RECEIPTS_VIEW))
-          sourceLinks.set(row.id, { pathname: APP_ROUTES.goodsReceiptDetail(row.sourceId) })
-        if (
-          row.sourceType === 'StockIssueRequest' &&
-          permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW)
-        )
-          sourceLinks.set(row.id, {
-            pathname: APP_ROUTES.stockIssueRequests,
-            query: { requestId: row.sourceId },
-          })
-        if (row.sourceType === 'InboundRequest' && permissions.includes(P.INBOUND_REQUESTS_VIEW))
-          sourceLinks.set(row.id, { pathname: APP_ROUTES.inboundRequestDetail(row.sourceId) })
-        if (row.sourceType === 'StockTransfer' && permissions.includes(P.TRANSFERS_VIEW))
-          sourceLinks.set(row.id, {
-            pathname: APP_ROUTES.transferDetail(row.sourceId),
-          })
-        if (row.sourceType === 'CycleCount' && permissions.includes(P.CYCLE_COUNTS_VIEW))
-          sourceLinks.set(row.id, { pathname: APP_ROUTES.cycleCountDetail(row.sourceId) })
-        if (row.sourceType === 'StockAdjustment' && permissions.includes(P.STOCK_ADJUSTMENTS_VIEW))
-          sourceLinks.set(row.id, { pathname: APP_ROUTES.stockAdjustmentDetail(row.sourceId) })
-        if (row.rowType === 'task-progress') {
-          if (row.taskType === 'Receiving' && permissions.includes(P.INBOUND_REQUESTS_VIEW))
-            sourceLinks.set(row.id, { pathname: APP_ROUTES.inboundRequestDetail(row.sourceId) })
-          if (row.taskType === 'PutAway' && permissions.includes(P.GOODS_RECEIPTS_VIEW))
-            sourceLinks.set(row.id, { pathname: APP_ROUTES.goodsReceiptDetail(row.sourceId) })
+  const sourceLinks = useMemo(() => {
+    const links = new Map<string, UrlObject>()
+    if (canView)
+      for (const row of report.data?.items ?? []) {
+        if ('sourceId' in row && row.sourceId) {
+          if (row.sourceType === 'GoodsReceipt' && permissions.includes(P.GOODS_RECEIPTS_VIEW))
+            links.set(row.id, { pathname: APP_ROUTES.goodsReceiptDetail(row.sourceId) })
           if (
-            ['Relocation', 'TransferPick', 'TransferReceive', 'TransferPutAway'].includes(
-              row.taskType
-            ) &&
-            (permissions.includes(P.WAREHOUSE_TASKS_VIEW_ALL) ||
-              permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN))
+            row.sourceType === 'StockIssueRequest' &&
+            permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW)
           )
-            sourceLinks.set(row.id, {
-              pathname: APP_ROUTES.myTasks,
-              query: { taskId: row.sourceId },
+            links.set(row.id, {
+              pathname: APP_ROUTES.stockIssueRequests,
+              query: { requestId: row.sourceId },
             })
+          if (row.sourceType === 'InboundRequest' && permissions.includes(P.INBOUND_REQUESTS_VIEW))
+            links.set(row.id, { pathname: APP_ROUTES.inboundRequestDetail(row.sourceId) })
+          if (row.sourceType === 'StockTransfer' && permissions.includes(P.TRANSFERS_VIEW))
+            links.set(row.id, {
+              pathname: APP_ROUTES.transferDetail(row.sourceId),
+            })
+          if (row.sourceType === 'CycleCount' && permissions.includes(P.CYCLE_COUNTS_VIEW))
+            links.set(row.id, { pathname: APP_ROUTES.cycleCountDetail(row.sourceId) })
+          if (
+            row.sourceType === 'StockAdjustment' &&
+            permissions.includes(P.STOCK_ADJUSTMENTS_VIEW)
+          )
+            links.set(row.id, { pathname: APP_ROUTES.stockAdjustmentDetail(row.sourceId) })
+          if (row.rowType === 'task-progress') {
+            if (row.taskType === 'Receiving' && permissions.includes(P.INBOUND_REQUESTS_VIEW))
+              links.set(row.id, { pathname: APP_ROUTES.inboundRequestDetail(row.sourceId) })
+            if (row.taskType === 'PutAway' && permissions.includes(P.GOODS_RECEIPTS_VIEW))
+              links.set(row.id, { pathname: APP_ROUTES.goodsReceiptDetail(row.sourceId) })
+            if (
+              ['Relocation', 'TransferPick', 'TransferReceive', 'TransferPutAway'].includes(
+                row.taskType
+              ) &&
+              (permissions.includes(P.WAREHOUSE_TASKS_VIEW_ALL) ||
+                permissions.includes(P.WAREHOUSE_TASKS_VIEW_OWN))
+            )
+              links.set(row.id, {
+                pathname: APP_ROUTES.myTasks,
+                query: { taskId: row.sourceId },
+              })
+          }
         }
+        if ((row.rowType === 'inventory-balance' || row.rowType === 'slow-moving') && row.productId)
+          links.set(row.id, {
+            pathname: `${APP_ROUTES.reports}/stock-card`,
+            query: {
+              productId: row.productId,
+              warehouseId: row.warehouseId,
+              dateFrom: applied?.dateFrom,
+              dateTo: applied?.dateTo,
+              autoRun: '1',
+            },
+          })
+        if (row.rowType === 'replenishment' && permissions.includes(P.INVENTORY_VIEW))
+          links.set(row.id, {
+            pathname: APP_ROUTES.inventory,
+            query: { warehouseId: row.warehouseId, productId: row.productId },
+          })
       }
-      if ((row.rowType === 'inventory-balance' || row.rowType === 'slow-moving') && row.productId)
-        sourceLinks.set(row.id, {
-          pathname: `${APP_ROUTES.reports}/stock-card`,
-          query: {
-            productId: row.productId,
-            warehouseId: row.warehouseId,
-            dateFrom: applied?.dateFrom,
-            dateTo: applied?.dateTo,
-            autoRun: '1',
-          },
-        })
-      if (row.rowType === 'replenishment' && permissions.includes(P.INVENTORY_VIEW))
-        sourceLinks.set(row.id, {
-          pathname: APP_ROUTES.inventory,
-          query: { warehouseId: row.warehouseId, productId: row.productId },
-        })
-    }
+    return links
+  }, [canView, permissions, report.data?.items, applied?.dateFrom, applied?.dateTo])
+  const onPageChange = useCallback((pageNumber: number) => {
+    setApplied((current) => (current ? { ...current, pageNumber } : null))
+  }, [])
+  const onPageSizeChange = useCallback((pageSize: number) => {
+    setApplied((current) => (current ? { ...current, pageNumber: 1, pageSize } : null))
+  }, [])
   const error = me.isError
     ? getApiErrorMessage(me.error)
     : !me.isPending && !canView
@@ -276,12 +289,8 @@ export default function ReportWorkspacePage({
             report={report.data}
             isFetching={report.isFetching}
             sourceLinks={sourceLinks}
-            onPageChange={(pageNumber) =>
-              setApplied((current) => (current ? { ...current, pageNumber } : null))
-            }
-            onPageSizeChange={(pageSize) =>
-              setApplied((current) => (current ? { ...current, pageNumber: 1, pageSize } : null))
-            }
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
           />
         </>
       ) : !report.isFetching && definition && canView ? (
