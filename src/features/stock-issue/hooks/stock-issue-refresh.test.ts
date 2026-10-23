@@ -1,12 +1,50 @@
-import { QueryClient, QueryObserver } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query'
+import { renderHook } from '@testing-library/react'
+import { createElement, type PropsWithChildren } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { queryKeys } from '@/lib/query-keys'
-import { refreshStockIssueAfterWrite } from './use-stock-issue-requests'
+import {
+  refreshStockIssueAfterWrite,
+  useAuthorizeStockDispatchMutation,
+  useConfirmStockDispatchMutation,
+} from './use-stock-issue-requests'
+import { stockIssueService } from '../services/stock-issue.service'
+import { logger } from '@/lib/logger'
 
 vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn() } }))
 vi.mock('sonner', () => ({ toast: { warning: vi.fn() } }))
 
 describe('outbound committed refresh', () => {
+  it.each([
+    ['authorizeDispatch', useAuthorizeStockDispatchMutation],
+    ['confirmDispatch', useConfirmStockDispatchMutation],
+  ] as const)(
+    'logs %s 403 as a meaningful warning and retains unexpected 500 errors',
+    async (method, useAction) => {
+      const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+      const wrapper = ({ children }: PropsWithChildren) =>
+        createElement(QueryClientProvider, { client }, children)
+      const service = vi.spyOn(stockIssueService, method)
+      const denied = { statusCode: 403, message: 'Bạn chưa có quyền ra lệnh xuất kho.' }
+      const unexpected = { statusCode: 500, message: 'Lỗi máy chủ.' }
+      vi.mocked(logger.warn).mockClear()
+      vi.mocked(logger.error).mockClear()
+      const { result, unmount } = renderHook(() => useAction(), { wrapper })
+      try {
+        service.mockRejectedValueOnce(denied)
+        await expect(result.current.mutateAsync('request')).rejects.toEqual(denied)
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('403'))
+        expect(logger.error).not.toHaveBeenCalled()
+        service.mockRejectedValueOnce(unexpected)
+        await expect(result.current.mutateAsync('request')).rejects.toEqual(unexpected)
+        expect(logger.error).toHaveBeenCalledWith(unexpected)
+      } finally {
+        unmount()
+        client.clear()
+        service.mockRestore()
+      }
+    }
+  )
   it('waits only for the active document version, not a slow list or unrelated inventory', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } },

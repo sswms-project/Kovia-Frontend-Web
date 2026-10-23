@@ -33,6 +33,78 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('cross-dock optional queries', () => {
+  it.each([
+    'ReleasedForPicking',
+    'Picking',
+    'Picked',
+    'AuthorizedForDispatch',
+    'Dispatched',
+    'Cancelled',
+  ] as const)(
+    'loads historical demand once without background polling or root invalidation for %s',
+    async (status) => {
+      service.demand.mockResolvedValue({ completedAt: '2026-10-23T14:00:00Z' })
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const invalidate = vi.spyOn(client, 'invalidateQueries')
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      )
+      const order = {
+        id: 'order',
+        warehouseId: 'warehouse',
+        version: 'v1',
+        status,
+      } as StockIssueRequestSummary
+      const { result, unmount } = renderHook(() => useCrossDock(order), { wrapper })
+      try {
+        await waitFor(() => expect(result.current.demand.isSuccess).toBe(true))
+        expect(service.demand).toHaveBeenCalledOnce()
+        expect(service.plan).not.toHaveBeenCalled()
+        const demandQuery = client
+          .getQueryCache()
+          .getAll()
+          .find((query) => query.queryKey[2] === 'demand')
+        expect(demandQuery?.options).toMatchObject({
+          refetchInterval: false,
+          refetchOnWindowFocus: false,
+          refetchOnReconnect: false,
+        })
+        expect(invalidate).not.toHaveBeenCalled()
+        act(() => result.current.refresh())
+        await waitFor(() => expect(service.demand).toHaveBeenCalledTimes(2))
+      } finally {
+        unmount()
+        client.clear()
+      }
+    }
+  )
+
+  it('refreshes only the current detail when allocation completes while the order is still pending', async () => {
+    service.plan.mockResolvedValue({ automationEnabled: false })
+    service.demand.mockResolvedValue({ completedAt: '2026-10-23T14:00:00Z' })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    const order = {
+      id: 'order',
+      warehouseId: 'warehouse',
+      version: 'v1',
+      status: 'Pending',
+    } as StockIssueRequestSummary
+    const { unmount } = renderHook(() => useCrossDock(order), { wrapper })
+    try {
+      await waitFor(() => expect(invalidate).toHaveBeenCalledOnce())
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: ['stock-issue-requests', 'detail', 'order'],
+        exact: true,
+      })
+    } finally {
+      unmount()
+      client.clear()
+    }
+  })
   it.each([false, true])(
     'loads summary only when opened; picker query follows automation=%s',
     async (automationEnabled) => {

@@ -51,6 +51,24 @@ function line(overrides: Record<string, unknown>) {
 }
 
 describe('recordStockPickingSchema', () => {
+  it('requires a configured destination but not a destination scan', () => {
+    expect(
+      recordStockPickingSchema.safeParse({
+        lines: [line({ barcode: null, scannedStagingSlotCode: undefined })],
+      }).success
+    ).toBe(true)
+    expect(
+      recordStockPickingSchema.safeParse({
+        lines: [
+          line({
+            barcode: null,
+            destinationStagingSlotId: undefined,
+            scannedStagingSlotCode: undefined,
+          }),
+        ],
+      }).success
+    ).toBe(false)
+  })
   it('asks to scan a product that has a barcode before confirming', () => {
     const result = recordStockPickingSchema.safeParse({ lines: [line({})] })
 

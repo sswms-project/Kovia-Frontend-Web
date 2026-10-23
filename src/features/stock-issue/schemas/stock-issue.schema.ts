@@ -83,11 +83,11 @@ export const recordStockPickingSchema = z
 
     values.lines.forEach((line, index) => {
       if (line.pickedQuantity > 0) {
-        if (!line.destinationStagingSlotId || !line.scannedStagingSlotCode?.trim())
+        if (!line.destinationStagingSlotId)
           context.addIssue({
             code: 'custom',
-            path: ['lines', index, 'scannedStagingSlotCode'],
-            message: 'Xác nhận đúng mã khu chờ xuất được hướng dẫn.',
+            path: ['lines', index, 'destinationStagingSlotId'],
+            message: 'Chưa xác định điểm chờ xuất hợp lệ. Hãy tải lại phiếu.',
           })
         // The server accepts canonical location labels, rack labels and custom barcodes too.
         if (!line.scannedSlotCode?.trim())

@@ -90,10 +90,10 @@ export default function StockIssueRequestPage() {
   })
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <header className="flex min-w-0 shrink-0 justify-end gap-2">
-        <h1 className="sr-only">Yêu cầu xuất kho</h1>
+      <header className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Xuất kho</h1>
         {workflow.capabilities.canCreate ? (
-          <div className="flex min-w-0 flex-wrap justify-end gap-2">
+          <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2">
             <Button asChild variant="outline" size="sm">
               <Link href={APP_ROUTES.stockIssueRequestImport as Route}>
                 <Upload aria-hidden="true" />

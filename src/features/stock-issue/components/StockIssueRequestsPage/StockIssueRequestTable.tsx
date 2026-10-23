@@ -143,7 +143,7 @@ export function StockIssueRequestTable({
                       : 'Chưa giao người lấy hàng'}
                   </p>
                 </TableCell>
-                <TableCell>
+                <TableCell className="min-w-0 whitespace-normal">
                   <OperationalQuantityProgress
                     done={progress.done}
                     total={progress.total}
@@ -152,7 +152,7 @@ export function StockIssueRequestTable({
                     suffix={progress.suffix}
                   />
                   {pendingSlots ? (
-                    <p className="text-muted-foreground mt-1 truncate text-xs">
+                    <p className="text-muted-foreground mt-1 max-w-full text-xs wrap-anywhere">
                       Kệ cần lấy:{' '}
                       <span className="font-mono" translate="no">
                         {pendingSlots}

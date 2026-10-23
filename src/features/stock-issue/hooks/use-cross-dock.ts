@@ -38,6 +38,7 @@ export function useCrossDock(order: StockIssueRequestSummary) {
     !me.isError && !!me.data?.tenantId && permissions.includes(P.STOCK_ISSUE_REQUESTS_VIEW)
   const canManage = canView && permissions.includes(P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER)
   const canSelfApprove = permissions.includes(P.STOCK_ISSUE_REQUESTS_SELF_APPROVE)
+  const awaitingAllocation = order.status === 'Pending'
   const scope = JSON.stringify([
     me.data?.id,
     me.data?.tenantId,
@@ -54,10 +55,10 @@ export function useCrossDock(order: StockIssueRequestSummary) {
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (!canView) return
+    if (!canView || !awaitingAllocation) return
     const timer = setInterval(() => setNow(Date.now()), 30000)
     return () => clearInterval(timer)
-  }, [canView])
+  }, [canView, awaitingAllocation])
   const target = stored?.scope === scope ? stored : null
   const client = useQueryClient()
   const form = useForm<CrossDockAuthorizationValues>({
@@ -76,7 +77,9 @@ export function useCrossDock(order: StockIssueRequestSummary) {
     enabled: canView,
     retry: false,
     queryFn: ({ signal }) => readCrossDock(() => crossDockService.demand(order.id, signal), signal),
-    refetchInterval: 30000,
+    refetchInterval: awaitingAllocation ? 30000 : false,
+    refetchOnWindowFocus: awaitingAllocation,
+    refetchOnReconnect: awaitingAllocation,
   })
   const pickers = useQuery({
     queryKey: ['cross-dock', scope, 'pickers'],
@@ -96,9 +99,12 @@ export function useCrossDock(order: StockIssueRequestSummary) {
       ),
   })
   useEffect(() => {
-    if (demand.data?.completedAt)
-      void client.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all })
-  }, [demand.data?.completedAt, client])
+    if (awaitingAllocation && demand.data?.completedAt)
+      void client.invalidateQueries({
+        queryKey: queryKeys.stockIssueRequests.detail(order.id),
+        exact: true,
+      })
+  }, [awaitingAllocation, demand.data?.completedAt, order.id, client])
   const pending = demand.data && !demand.data.completedAt && !demand.data.revokedAt
   const writeReady =
     canManage && !me.isFetching && !demand.isError && !demand.isFetching && demand.isSuccess

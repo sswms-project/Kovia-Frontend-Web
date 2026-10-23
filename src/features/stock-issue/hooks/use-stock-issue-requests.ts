@@ -6,6 +6,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
+import { logApiError } from '@/lib/api-error'
 import { toast } from 'sonner'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
@@ -272,7 +273,7 @@ export function useConfirmStockDispatchMutation() {
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
     mutationFn: stockIssueService.confirmDispatch,
     onSuccess: (_, id) => refreshStockIssueAfterWrite(queryClient, id, true),
-    onError: (error) => logger.error(error),
+    onError: logApiError,
   })
 }
 
@@ -281,7 +282,7 @@ export function useAuthorizeStockDispatchMutation() {
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
     mutationFn: stockIssueService.authorizeDispatch,
     onSuccess: (_, id) => refreshStockIssueAfterWrite(queryClient, id),
-    onError: (error) => logger.error(error),
+    onError: logApiError,
   })
 }
 
