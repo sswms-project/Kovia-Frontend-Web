@@ -20,6 +20,8 @@ import { StockIssueRequestStatusStats } from './StockIssueRequestStatusStats'
 import { StockIssueRequestTable, StockIssueRequestTableSkeleton } from './StockIssueRequestTable'
 
 interface StockIssueRequestDirectoryProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: StockIssueRequestSummary) => void
   readonly items: readonly StockIssueRequestSummary[]
   readonly totalCount: number
   readonly page: number
@@ -53,6 +55,8 @@ interface StockIssueRequestDirectoryProps {
 }
 
 export function StockIssueRequestDirectory({
+  previewId,
+  onPreview,
   items,
   totalCount,
   page,
@@ -134,12 +138,20 @@ export function StockIssueRequestDirectory({
           <>
             <div data-slot="operational-list-body" className="md:hidden">
               <StockIssueRequestMobileList
+                previewId={previewId}
+                onPreview={onPreview}
                 items={items}
                 capabilities={capabilities}
                 handlers={handlers}
               />
             </div>
-            <StockIssueRequestTable items={items} capabilities={capabilities} handlers={handlers} />
+            <StockIssueRequestTable
+              previewId={previewId}
+              onPreview={onPreview}
+              items={items}
+              capabilities={capabilities}
+              handlers={handlers}
+            />
             <OperationalPagination
               page={page}
               pageSize={pageSize}

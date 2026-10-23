@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { Route } from 'next'
-import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
+import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
 import {
   OperationalCellStack,
   OperationalQuantityProgress,
@@ -14,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type {
   StockIssueCapabilities,
@@ -32,6 +31,8 @@ import { StockIssueRequestStatusBadge } from './StockIssueRequestStatusBadge'
 const TABLE_CLASS_NAME = 'min-w-[960px] table-fixed'
 
 interface StockIssueRequestTableProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: StockIssueRequestSummary) => void
   readonly items: readonly StockIssueRequestSummary[]
   readonly capabilities: StockIssueCapabilities
   readonly handlers: StockIssueRowActionHandlers
@@ -93,6 +94,8 @@ export function StockIssueRequestTableSkeleton() {
 }
 
 export function StockIssueRequestTable({
+  previewId,
+  onPreview,
   items,
   capabilities,
   handlers,
@@ -107,22 +110,26 @@ export function StockIssueRequestTable({
             const progress = summarizeStockIssueProgress(item)
             const pendingSlots = summarizeStockIssueSlots(item)
             return (
-              <ClickableTableRow key={item.id} href={detailHref}>
+              <TableRow
+                key={item.id}
+                {...goodsPreviewInteractions(
+                  onPreview ? () => onPreview(item) : undefined,
+                  previewId === item.id
+                )}
+              >
                 <TableCell className="min-w-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={detailHref}
-                        className="text-primary block truncate font-mono font-semibold underline-offset-4 hover:underline"
-                        translate="no"
-                      >
-                        {item.stockIssueRequestCode}
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent className="font-mono" translate="no">
+                  <div
+                    className="font-mono font-semibold wrap-anywhere whitespace-normal"
+                    translate="no"
+                  >
+                    <Link
+                      href={detailHref}
+                      className="underline-offset-4 hover:underline"
+                      translate="no"
+                    >
                       {item.stockIssueRequestCode}
-                    </TooltipContent>
-                  </Tooltip>
+                    </Link>
+                  </div>
                   <p className="text-muted-foreground truncate text-xs">
                     {item.referenceCode
                       ? `Tham chiếu ${item.referenceCode}`
@@ -132,7 +139,7 @@ export function StockIssueRequestTable({
                 <TableCell className="min-w-0">
                   <OperationalCellStack
                     primary={item.recipientName}
-                    secondary={`${item.recipientCode} → ${item.warehouseName}`}
+                    secondary={`Mã: ${item.recipientCode} · Kho xuất: ${item.warehouseName}`}
                   />
                 </TableCell>
                 <TableCell className="min-w-0">
@@ -173,7 +180,7 @@ export function StockIssueRequestTable({
                     handlers={handlers}
                   />
                 </TableCell>
-              </ClickableTableRow>
+              </TableRow>
             )
           })}
         </TableBody>

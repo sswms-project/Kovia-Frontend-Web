@@ -10,6 +10,8 @@ export interface InboundGoodsPreviewRow {
   readonly conversion: string | null
   readonly requested: number
   readonly received: number
+  readonly closed?: number
+  readonly remaining?: number
   readonly locations: readonly {
     readonly id: string
     readonly label: string
@@ -35,6 +37,8 @@ export function requestGoodsPreviewRows(
         : null,
     requested: line.quantity,
     received: line.receivedQuantity,
+    closed: line.closedQuantity,
+    remaining: line.remainingQuantity,
     locations: [],
     lotNumber: null,
     expiryDate: null,

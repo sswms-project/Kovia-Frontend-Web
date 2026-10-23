@@ -1,5 +1,6 @@
 export { RecordStockPickingDialog } from './RecordStockPickingDialog'
 export { StockIssueRequestDirectory } from './StockIssueRequestDirectory'
+export { StockIssueGoodsPreview, StockIssueGoodsWorkspace } from './StockIssueGoodsPreview'
 export { ReportPickIssueDialog } from './ReportPickIssueDialog'
 export { CancelStockIssueRequestDialog } from './CancelStockIssueRequestDialog'
 export { StockIssueAttachmentList } from './StockIssueAttachmentList'

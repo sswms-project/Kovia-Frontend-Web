@@ -14,10 +14,16 @@ import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { APP_ROUTES } from '@/routes/app-routes'
-import { StockIssueRequestDirectory } from '../components/StockIssueRequestsPage'
+import {
+  StockIssueRequestDirectory,
+  StockIssueGoodsPreview,
+  StockIssueGoodsWorkspace,
+} from '../components/StockIssueRequestsPage'
+import { useLocalStorage } from '@/hooks/use-local-storage'
 import { StockIssueWorkflowDialogs } from '../components/StockIssueWorkflow'
 import {
   useStockIssueRequestsQuery,
+  useStockIssueRequestQuery,
   useStockRecipientOptionsQuery,
 } from '../hooks/use-stock-issue-requests'
 import { useStockIssueWorkflow } from '../hooks/use-stock-issue-workflow'
@@ -33,6 +39,8 @@ export default function StockIssueRequestPage() {
   const [assignedToMe, setAssignedToMe] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [previewId, setPreviewId] = useState('')
+  const [expanded, setExpanded] = useLocalStorage('outbound-goods-detail:v1', false)
   const debouncedSearchText = useDebouncedValue(searchText, 350)
 
   const meQuery = useMeQuery()
@@ -49,6 +57,11 @@ export default function StockIssueRequestPage() {
     ...(assignedToMe ? { assignedToMe } : {}),
   }
   const ordersQuery = useStockIssueRequestsQuery(exportFilters)
+  const preview =
+    !ordersQuery.isError && !ordersQuery.isPlaceholderData
+      ? ordersQuery.data?.items.find((item) => item.id === previewId)
+      : undefined
+  const previewQuery = useStockIssueRequestQuery(expanded && preview ? preview.id : null)
   const stockRecipientOptionsQuery = useStockRecipientOptionsQuery({ pageNumber: 1, pageSize: 200 })
   const warehousesQuery = useWarehousesQuery({
     top: 100,
@@ -89,7 +102,7 @@ export default function StockIssueRequestPage() {
     blocked: searchText !== debouncedSearchText,
   })
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div data-compact-workspace-bottom className="flex h-full min-h-0 flex-col gap-4">
       <header className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Xuất kho</h1>
         {workflow.capabilities.canCreate ? (
@@ -109,43 +122,61 @@ export default function StockIssueRequestPage() {
           </div>
         ) : null}
       </header>
-      <StockIssueRequestDirectory
-        exportAction={
-          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      <StockIssueGoodsWorkspace
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+        referenceCode={preview?.stockIssueRequestCode}
+        detail={
+          <StockIssueGoodsPreview
+            key={preview?.id ?? ''}
+            selected={Boolean(preview)}
+            order={previewQuery.data}
+            isLoading={Boolean(preview) && previewQuery.isLoading}
+            isError={Boolean(preview) && previewQuery.isError}
+            onRetry={() => void previewQuery.refetch()}
+          />
         }
-        items={ordersQuery.data?.items ?? []}
-        totalCount={ordersQuery.data?.totalCount ?? 0}
-        statusCounts={ordersQuery.data?.statusCounts ?? []}
-        page={page}
-        pageSize={pageSize}
-        searchText={searchText}
-        status={status}
-        warehouseId={warehouseId}
-        stockRecipientId={stockRecipientId}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        assignedToMe={assignedToMe}
-        stockRecipientOptions={stockRecipientOptions}
-        warehouseOptions={warehouseOptions}
-        capabilities={workflow.capabilities}
-        handlers={workflow.handlers}
-        isLoading={ordersQuery.isLoading}
-        isFetching={ordersQuery.isFetching}
-        isError={ordersQuery.isError}
-        onSearchChange={(value) => updateFilter(setSearchText, value)}
-        onStatusChange={(value) => updateFilter(setStatus, value)}
-        onWarehouseChange={(value) => updateFilter(setWarehouseId, value)}
-        onStockRecipientChange={(value) => updateFilter(setStockRecipientId, value)}
-        onDateFromChange={(value) => updateFilter(setDateFrom, value)}
-        onDateToChange={(value) => updateFilter(setDateTo, value)}
-        onAssignedToMeChange={(value) => updateFilter(setAssignedToMe, value)}
-        onPageChange={setPage}
-        onPageSizeChange={(value) => {
-          setPageSize(value)
-          setPage(1)
-        }}
-        onRetry={() => void ordersQuery.refetch()}
-      />
+      >
+        <StockIssueRequestDirectory
+          previewId={preview?.id}
+          onPreview={(item) => setPreviewId(item.id)}
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
+          items={ordersQuery.data?.items ?? []}
+          totalCount={ordersQuery.data?.totalCount ?? 0}
+          statusCounts={ordersQuery.data?.statusCounts ?? []}
+          page={page}
+          pageSize={pageSize}
+          searchText={searchText}
+          status={status}
+          warehouseId={warehouseId}
+          stockRecipientId={stockRecipientId}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          assignedToMe={assignedToMe}
+          stockRecipientOptions={stockRecipientOptions}
+          warehouseOptions={warehouseOptions}
+          capabilities={workflow.capabilities}
+          handlers={workflow.handlers}
+          isLoading={ordersQuery.isLoading}
+          isFetching={ordersQuery.isFetching}
+          isError={ordersQuery.isError}
+          onSearchChange={(value) => updateFilter(setSearchText, value)}
+          onStatusChange={(value) => updateFilter(setStatus, value)}
+          onWarehouseChange={(value) => updateFilter(setWarehouseId, value)}
+          onStockRecipientChange={(value) => updateFilter(setStockRecipientId, value)}
+          onDateFromChange={(value) => updateFilter(setDateFrom, value)}
+          onDateToChange={(value) => updateFilter(setDateTo, value)}
+          onAssignedToMeChange={(value) => updateFilter(setAssignedToMe, value)}
+          onPageChange={setPage}
+          onPageSizeChange={(value) => {
+            setPageSize(value)
+            setPage(1)
+          }}
+          onRetry={() => void ordersQuery.refetch()}
+        />
+      </StockIssueGoodsWorkspace>
       <StockIssueWorkflowDialogs workflow={workflow} />
     </div>
   )

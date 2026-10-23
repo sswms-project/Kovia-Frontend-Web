@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
+import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
 import type { Route } from 'next'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -11,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   OperationalCellStack,
   OperationalQuantityProgress,
@@ -28,6 +27,8 @@ import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
 import { InboundRequestRowActions } from './InboundRequestRowActions'
 
 interface InboundRequestTableProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canDelete: boolean
   readonly canDeleteApproved?: boolean
@@ -106,6 +107,8 @@ export function InboundRequestTableSkeleton() {
 }
 
 export function InboundRequestTable({
+  previewId,
+  onPreview,
   items,
   canDelete,
   canDeleteApproved = false,
@@ -164,11 +167,14 @@ export function InboundRequestTable({
         </TableHeader>
         <TableBody>
           {items.map((item) => (
-            <ClickableTableRow
+            <TableRow
               key={item.id}
-              href={APP_ROUTES.inboundRequestDetail(item.id) as Route}
+              {...goodsPreviewInteractions(
+                onPreview ? () => onPreview(item) : undefined,
+                previewId === item.id
+              )}
             >
-              <TableCell data-row-ignore className="w-12 p-0 text-center">
+              <TableCell data-row-ignore data-preview-ignore className="w-12 p-0 text-center">
                 <Checkbox
                   className="mx-auto"
                   aria-label={`Chọn ${item.inboundRequestCode}`}
@@ -185,20 +191,18 @@ export function InboundRequestTable({
               </TableCell>
               <TableCell className="min-w-0">
                 <div className="min-w-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={APP_ROUTES.inboundRequestDetail(item.id) as Route}
-                        className="text-primary block truncate font-mono font-semibold underline-offset-4 hover:underline"
-                        translate="no"
-                      >
-                        {item.inboundRequestCode}
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent className="font-mono" translate="no">
+                  <div
+                    className="font-mono font-semibold wrap-anywhere whitespace-normal"
+                    translate="no"
+                  >
+                    <Link
+                      href={APP_ROUTES.inboundRequestDetail(item.id) as Route}
+                      className="underline-offset-4 hover:underline"
+                      translate="no"
+                    >
                       {item.inboundRequestCode}
-                    </TooltipContent>
-                  </Tooltip>
+                    </Link>
+                  </div>
                   <p className="text-muted-foreground truncate text-xs">{item.createdByName}</p>
                 </div>
               </TableCell>
@@ -247,7 +251,7 @@ export function InboundRequestTable({
                   onDuplicate={onDuplicate}
                 />
               </TableCell>
-            </ClickableTableRow>
+            </TableRow>
           ))}
         </TableBody>
       </Table>
