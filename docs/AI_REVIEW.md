@@ -1744,3 +1744,13 @@ Ported existing inbound compatibility changes from the earlier FE checkout while
 Final pnpm typecheck and changed-file ESLint exit0 with no warnings; formatting/diff checks recorded. Existing fixture metadata updated only for compilation; no automated tests or production build executed. Actual Next UI with mocked HTTP observed authorization, stale503/no extra writes, supplier keep approval and concrete staging/required scans at desktop/390px. Mock 40+20 is preset data, not a BE algorithm or stock posting proof. Transfer UI/real API/SQL/native and concurrency/access revocation remain pending. Notification SignalR/CORS and initial compile navigation timeout are harness limitations, not hidden as passing product evidence.
 
 GitNexus picking dialog HIGH affects both list/detail callers; inspected both. Disk graph rebuilt for dev; MCP metadata cache and failed FTS limit static certainty. Full report, exact commands/files/source hashes, evidence and remaining scope: ../outputs/workflow/modules/mobile-rollout/p10-fe-summary.md and checkpoint-p10-fe.json. Canonical UC list still unavailable; no full-module completion claim.
+
+## 2026-10-23 — Realtime notification stale-fetch race
+
+State: READY_FOR_CODEX_REVIEW. Role: assigned implementer; self-verification, not independent review.
+
+- User-requested baseline committed first: 97849c1; not pushed. Follow-up remains uncommitted. Local instruction/output edits preserved.
+- Reproduced with real QueryClient/QueryObserver: a NotificationCreated event while an older GET is pending leaves the pre-event snapshot with cancelRefetch=false. Reproduced both existing-cache and initial-load cases (plain cancelRefetch=true alone does not fix initial load). Explicitly cancel notification queries before event-driven invalidation; foreground recovery retains request coalescing. No polling, new dependency, or changes to .NET GUID parsing.
+- GitNexus provider impact LOW: PrivateLayout direct caller, seven indexed private layout flows. Shared notification behavior tested alongside inbound/transfer regressions.
+- Verification: 113 files / 803 tests passed across inbound/platform-services/transfer; platform-services alone 10 files / 47 tests. Production-config TypeScript, scoped ESLint, Prettier and diff whitespace checks passed. No production FE build or real logged-in two-browser E2E performed in this follow-up.
+- Ponytail/React Best Practices kept the fix in the existing shared provider and BE notification transaction, with no alternate notification mechanism. Manager manual acceptance: refresh once to load the new FE, keep the page open, confirm staff putaway and verify bell/list update without another reload; test partial/completed and duplicate retry.

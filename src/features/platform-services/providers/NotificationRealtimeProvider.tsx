@@ -36,11 +36,12 @@ export function NotificationRealtimeProvider({ children }: NotificationRealtimeP
     let restartTimer: ReturnType<typeof setTimeout> | undefined
     const connection = createNotificationHubConnection(() => getStoredAccessToken() ?? '')
 
-    const invalidateNotifications = () =>
-      queryClient.invalidateQueries(
-        { queryKey: queryKeys.notifications.all },
-        { cancelRefetch: false }
-      )
+    const invalidateNotifications = async (cancelRefetch = false) => {
+      const filters = { queryKey: queryKeys.notifications.all }
+      // Explicit cancellation also replaces an initial fetch with no cached data yet.
+      if (cancelRefetch) await queryClient.cancelQueries(filters)
+      await queryClient.invalidateQueries(filters, { cancelRefetch })
+    }
 
     connection.on('NotificationCreated', (payload: unknown) => {
       const result = notificationCreatedEventSchema.safeParse(payload)
@@ -66,7 +67,8 @@ export function NotificationRealtimeProvider({ children }: NotificationRealtimeP
           },
         })
       }
-      void invalidateNotifications()
+      // An in-flight GET may contain the snapshot from before this committed event.
+      void invalidateNotifications(true)
       // Trang đang mở (vd. chi tiết phiếu kiểm kê) tự tải lại thay vì bắt người dùng F5.
       for (const queryKey of getNotificationQueryKeys({
         type: result.data.type,

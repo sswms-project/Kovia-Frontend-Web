@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query'
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotificationRealtimeProvider } from './NotificationRealtimeProvider'
@@ -60,6 +60,48 @@ async function setup() {
   return { view, invalidate }
 }
 describe('notification connection recovery', () => {
+  it.each([true, false])(
+    'replaces a pre-event fetch without reload (cached: %s)',
+    async (cached) => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const queryKey = ['notifications', 'list', {}]
+      if (cached) client.setQueryData(queryKey, ['existing'])
+      let completeOldFetch: (value: string[]) => void = () => {}
+      const queryFn = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<string[]>((resolve) => {
+              completeOldFetch = resolve
+            })
+        )
+        .mockResolvedValue(['putaway-completed', 'existing'])
+      const observer = new QueryObserver(client, { queryKey, queryFn })
+      const unsubscribe = observer.subscribe(() => {})
+      const view = render(
+        <QueryClientProvider client={client}>
+          <NotificationRealtimeProvider>Child</NotificationRealtimeProvider>
+        </QueryClientProvider>
+      )
+      await act(async () => {})
+      expect(queryFn).toHaveBeenCalledTimes(1)
+      await act(async () => {
+        fixture.handlers.get('NotificationCreated')?.({
+          notificationId: '10000000-0000-4000-8000-000000000001',
+          type: 'GoodsReceiptUpdate',
+          createdAt: '2026-10-23T03:39:00+00:00',
+          referenceType: 'GoodsReceipt',
+          referenceId: '10000000-0000-4000-c000-000000000002',
+        })
+        completeOldFetch(['existing'])
+      })
+      expect(queryFn).toHaveBeenCalledTimes(2)
+      expect(client.getQueryData(queryKey)).toEqual(['putaway-completed', 'existing'])
+      view.unmount()
+      unsubscribe()
+      client.clear()
+    }
+  )
   it('can recover on returning to the browser after the retry budget was exhausted', async () => {
     fixture.start.mockRejectedValue(new Error('offline'))
     const { view } = await setup()
@@ -106,7 +148,7 @@ describe('notification connection recovery', () => {
     )
     expect(invalidate).toHaveBeenCalledWith(
       { queryKey: ['notifications'] },
-      { cancelRefetch: false }
+      { cancelRefetch: true }
     )
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: expect.arrayContaining(['inbound-requests']),
