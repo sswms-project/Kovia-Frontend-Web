@@ -25,6 +25,7 @@ import type {
   InventoryStockHistoryQuery,
   StockMovementListQuery,
 } from '@/features/inventory/types/inventory.types'
+import type { InventoryAnomalyListQuery } from '@/features/inventory-anomaly/types/inventory-anomaly.types'
 import type { ProductListQuery, ProductLotQuery } from '@/features/product/types/product.types'
 import type {
   TransferAvailabilityQuery,
@@ -156,6 +157,12 @@ export const queryKeys = {
     forecastRun: (id: string) => ['inventory', 'forecast-runs', id] as const,
     forecastRuns: (warehouseId: string) => ['inventory', 'forecast-run-list', warehouseId] as const,
     history: (params: InventoryStockHistoryQuery) => ['inventory', 'history', params] as const,
+  },
+  inventoryAnomalies: {
+    all: ['inventory-anomalies'] as const,
+    list: (params: InventoryAnomalyListQuery) => ['inventory-anomalies', 'list', params] as const,
+    summary: (warehouseId: string) => ['inventory-anomalies', 'summary', warehouseId] as const,
+    scans: (warehouseId: string) => ['inventory-anomalies', 'scans', warehouseId] as const,
   },
   units: {
     all: ['units'] as const,

@@ -299,7 +299,7 @@ describe('application navigation visibility', () => {
       },
       {
         label: 'Báo cáo & phân tích',
-        items: ['Báo cáo kho', 'Dự báo & bổ sung hàng'],
+        items: ['Báo cáo kho', 'Dự báo & bổ sung hàng', 'Phát hiện bất thường'],
       },
       { label: 'Hệ thống', items: ['Thông báo', 'Nhật ký hoạt động', 'Gói dịch vụ'] },
       {

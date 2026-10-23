@@ -74,6 +74,9 @@ export const P = {
   INVENTORY_RESERVE: 'inventory:reserve',
   INVENTORY_REPORT_DAMAGED: 'inventory:report-damaged',
   INVENTORY_SELF_APPROVE_OPENING_STOCK: 'inventory:self-approve-opening-stock',
+  INVENTORY_ANOMALIES_VIEW: 'inventory-anomalies:view',
+  INVENTORY_ANOMALIES_REVIEW: 'inventory-anomalies:review',
+  INVENTORY_ANOMALIES_SCAN: 'inventory-anomalies:scan',
 
   // Notifications
   NOTIFICATIONS_VIEW: 'notifications:view',
