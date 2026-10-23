@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Tags,
   TrendingUp,
+  ShieldAlert,
   Truck,
   Undo2,
   Users,
@@ -92,6 +93,12 @@ const tenantReportsSection: NavSection = {
       TrendingUp,
       P.INVENTORY_VIEW
     ),
+    requiredNavItem(
+      APP_ROUTES.inventoryAnomalies,
+      'Phát hiện bất thường',
+      ShieldAlert,
+      P.INVENTORY_ANOMALIES_VIEW
+    ),
   ],
 }
 
@@ -144,7 +151,7 @@ const tenantOperationsSection: NavSection = {
     ]),
     {
       ...requiredNavItem(APP_ROUTES.inventory, 'Tồn kho', PackageSearch, P.INVENTORY_VIEW),
-      excludedPrefixes: [APP_ROUTES.cycleCounts],
+      excludedPrefixes: [APP_ROUTES.cycleCounts, APP_ROUTES.inventoryAnomalies],
     },
     requiredNavItem(APP_ROUTES.transfers, 'Điều chuyển kho', ArrowLeftRight, P.TRANSFERS_VIEW),
     requiredNavItem(APP_ROUTES.cycleCounts, 'Kiểm kê', ClipboardCheck, P.CYCLE_COUNTS_VIEW),
@@ -295,7 +302,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
         ]),
         {
           ...requiredNavItem(APP_ROUTES.inventory, 'Tồn kho', PackageSearch, P.INVENTORY_VIEW),
-          excludedPrefixes: [APP_ROUTES.cycleCounts],
+          excludedPrefixes: [APP_ROUTES.cycleCounts, APP_ROUTES.inventoryAnomalies],
         },
         requiredNavItem(APP_ROUTES.transfers, 'Điều chuyển kho', ArrowLeftRight, P.TRANSFERS_VIEW),
         requiredNavItem(APP_ROUTES.cycleCounts, 'Kiểm kê', ClipboardCheck, P.CYCLE_COUNTS_VIEW),

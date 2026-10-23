@@ -143,6 +143,13 @@ export const API_ENDPOINTS = {
     reactivate: (warehouseId: string) => `/warehouses/${warehouseId}/reactivate`,
     quarantineSlot: (warehouseId: string) => `/warehouses/${warehouseId}/quarantine-slot`,
   },
+  inventoryAnomalies: {
+    list: '/inventory-anomalies',
+    summary: '/inventory-anomalies/summary',
+    scans: '/inventory-anomalies/scans',
+    detail: (id: string) => `/inventory-anomalies/${id}`,
+    review: (id: string) => `/inventory-anomalies/${id}/review`,
+  },
   inventory: {
     list: '/inventory',
     exportExcel: '/inventory/export',
