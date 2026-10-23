@@ -1,6 +1,6 @@
 'use client'
 
-import type { ComponentProps } from 'react'
+import { useEffect, useState, type ComponentProps, type CSSProperties } from 'react'
 import { RefreshCw } from 'lucide-react'
 import {
   OperationalEmptyState,
@@ -9,9 +9,12 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
+import { clampSidePanelWidth } from '@/components/operations/SidePanelResizeHandle'
 import { Button } from '@/components/ui/button'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { InventoryWorkspaceNavigation } from '@/features/inventory/components/InventoryWorkspaceNavigation'
+import { cn } from '@/lib/utils'
+import { useAiAssistantPanelStore } from '@/stores/ai-assistant-panel.store'
 import type {
   AnomalyReviewStatus,
   AnomalySeverity,
@@ -25,7 +28,10 @@ import { InventoryAnomalyDesktopTable, InventoryAnomalyMobileList } from './Inve
 interface InventoryAnomalyWorkspaceProps {
   readonly permissions: readonly string[]
   readonly overview: ComponentProps<typeof AnomalyScanOverview>
-  readonly detail: ComponentProps<typeof InventoryAnomalyDetailSheet>
+  readonly detail: Omit<
+    ComponentProps<typeof InventoryAnomalyDetailSheet>,
+    'width' | 'minWidth' | 'rightOffset' | 'onResize' | 'onResizeEnd'
+  >
   readonly warehouseOptions: readonly { value: string; label: string }[]
   readonly warehouseId: string
   readonly severity: AnomalySeverity | ''
@@ -46,12 +52,46 @@ interface InventoryAnomalyWorkspaceProps {
   readonly onRetry: () => void
 }
 
+const PANEL_MIN_WIDTH = 380
+const PANEL_DEFAULT_WIDTH = 480
+const PANEL_WIDTH_STORAGE_KEY = 'kovia-anomaly-panel-width'
+
+function getStoredPanelWidth() {
+  const stored = Number(window.localStorage.getItem(PANEL_WIDTH_STORAGE_KEY))
+  return clampSidePanelWidth(
+    Number.isFinite(stored) && stored > 0 ? stored : PANEL_DEFAULT_WIDTH,
+    PANEL_MIN_WIDTH
+  )
+}
+
 export function InventoryAnomalyWorkspace(props: InventoryAnomalyWorkspaceProps) {
   const { items, isLoading, isFetching, isError, reviewStatus, severity } = props
   const isFiltered = Boolean(severity) || reviewStatus !== 'Open'
+  const isPanelOpen = Boolean(props.detail.anomaly)
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH)
+  const [isResizing, setIsResizing] = useState(false)
+  // Trợ lý AI mở thì đã chiếm mép phải (trang đã nhường chỗ cho nó); khung cảnh báo đứng ngay bên trái.
+  const isAiPanelOpen = useAiAssistantPanelStore((state) => state.isOpen)
+  const aiPanelWidth = useAiAssistantPanelStore((state) => state.width)
+  const rightOffset = isAiPanelOpen ? aiPanelWidth : 0
+
+  useEffect(() => {
+    const animationFrame = window.requestAnimationFrame(() => setPanelWidth(getStoredPanelWidth()))
+    return () => window.cancelAnimationFrame(animationFrame)
+  }, [])
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
+    <div
+      className={cn(
+        'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4',
+        // Như khung trợ lý AI: khung cảnh báo nằm cạnh danh sách thay vì đè lên nó.
+        !isResizing &&
+          'transition-[padding-right] duration-300 ease-out motion-reduce:transition-none',
+        isPanelOpen && 'sm:pr-(--anomaly-panel-width)'
+      )}
+      // Biến CSS tùy biến không nằm trong kiểu CSSProperties của React nên cần ép kiểu.
+      style={{ '--anomaly-panel-width': `${panelWidth}px` } as CSSProperties}
+    >
       <h1 className="sr-only">Bất thường tồn kho</h1>
       <InventoryWorkspaceNavigation currentView="anomalies" permissions={props.permissions} />
       <AnomalyScanOverview {...props.overview} />
@@ -146,7 +186,21 @@ export function InventoryAnomalyWorkspace(props: InventoryAnomalyWorkspaceProps)
           </>
         )}
       </OperationalListPanel>
-      <InventoryAnomalyDetailSheet {...props.detail} />
+      <InventoryAnomalyDetailSheet
+        {...props.detail}
+        width={panelWidth}
+        minWidth={PANEL_MIN_WIDTH}
+        rightOffset={rightOffset}
+        onResize={(width) => {
+          setIsResizing(true)
+          setPanelWidth(width)
+        }}
+        onResizeEnd={(width) => {
+          setPanelWidth(width)
+          setIsResizing(false)
+          window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(Math.round(width)))
+        }}
+      />
     </div>
   )
 }

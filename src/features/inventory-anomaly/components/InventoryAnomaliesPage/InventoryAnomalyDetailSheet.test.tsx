@@ -46,10 +46,14 @@ function Harness({
   item = anomaly,
   canReview = true,
   onSubmit,
+  onOpenChange = vi.fn(),
+  onResize = vi.fn(),
 }: {
   readonly item?: InventoryAnomaly
   readonly canReview?: boolean
   readonly onSubmit: (values: ReviewInventoryAnomalyFormValues) => Promise<void>
+  readonly onOpenChange?: (open: boolean) => void
+  readonly onResize?: (width: number) => void
 }) {
   const form = useForm<ReviewInventoryAnomalyFormValues>({
     resolver: zodResolver(reviewInventoryAnomalySchema),
@@ -61,7 +65,12 @@ function Harness({
       form={form}
       canReview={canReview}
       isPending={false}
-      onOpenChange={vi.fn()}
+      width={480}
+      minWidth={380}
+      rightOffset={0}
+      onResize={onResize}
+      onResizeEnd={vi.fn()}
+      onOpenChange={onOpenChange}
       onSubmit={onSubmit}
     />
   )
@@ -105,6 +114,31 @@ describe('InventoryAnomalyDetailSheet', () => {
     await waitFor(() =>
       expect(onSubmit.mock.calls[0]?.[0]).toEqual({ decision: 'Dismissed', note: '' })
     )
+  })
+
+  it('stays open while the user works with the page, like the AI assistant panel', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <>
+        <button type="button">Dòng khác</button>
+        <Harness onSubmit={vi.fn()} onOpenChange={onOpenChange} />
+      </>
+    )
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Dòng khác' }))
+
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('resizes from its left edge with the keyboard', () => {
+    const onResize = vi.fn()
+    render(<Harness onSubmit={vi.fn()} onResize={onResize} />)
+
+    const handle = screen.getByRole('separator', { name: 'Kéo để đổi bề rộng khung cảnh báo' })
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' })
+
+    expect(onResize).toHaveBeenCalledWith(504)
   })
 
   it('hides review actions without the review permission', () => {

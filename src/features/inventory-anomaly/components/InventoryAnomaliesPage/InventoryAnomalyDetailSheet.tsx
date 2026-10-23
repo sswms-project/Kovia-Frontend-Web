@@ -1,5 +1,6 @@
 import type { UseFormReturn } from 'react-hook-form'
 import { Sparkles } from 'lucide-react'
+import { SidePanelResizeHandle } from '@/components/operations/SidePanelResizeHandle'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Progress } from '@/components/ui/progress'
@@ -30,6 +31,13 @@ interface InventoryAnomalyDetailSheetProps {
   readonly form: UseFormReturn<ReviewInventoryAnomalyFormValues>
   readonly canReview: boolean
   readonly isPending: boolean
+  /** Bề rộng người dùng kéo, px; dưới breakpoint `sm` khung phủ kín. */
+  readonly width: number
+  readonly minWidth: number
+  /** Phần mép phải đang có khung trợ lý AI chiếm: khung này đứng ngay bên trái nó. */
+  readonly rightOffset: number
+  readonly onResize: (width: number) => void
+  readonly onResizeEnd: (width: number) => void
   readonly onOpenChange: (open: boolean) => void
   readonly onSubmit: (values: ReviewInventoryAnomalyFormValues) => Promise<void>
 }
@@ -54,6 +62,11 @@ export function InventoryAnomalyDetailSheet({
   form,
   canReview,
   isPending,
+  width,
+  minWidth,
+  rightOffset,
+  onResize,
+  onResizeEnd,
   onOpenChange,
   onSubmit,
 }: InventoryAnomalyDetailSheetProps) {
@@ -65,8 +78,22 @@ export function InventoryAnomalyDetailSheet({
   }
 
   return (
-    <Sheet open={Boolean(anomaly)} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-lg">
+    // Không modal, như khung trợ lý AI: trang vẫn thao tác được, bấm dòng khác để xem cảnh báo kế tiếp.
+    <Sheet open={Boolean(anomaly)} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent
+        className="flex flex-col gap-0 p-0"
+        style={{ width: `min(100vw, ${width}px)`, maxWidth: 'none', right: rightOffset }}
+        // Bấm ra ngoài là đang làm việc với danh sách, không phải muốn đóng khung.
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        <SidePanelResizeHandle
+          width={width}
+          minWidth={minWidth}
+          rightOffset={rightOffset}
+          label="Kéo để đổi bề rộng khung cảnh báo"
+          onResize={onResize}
+          onResizeEnd={onResizeEnd}
+        />
         <SheetHeader className="border-b">
           <SheetTitle>Cảnh báo bất thường</SheetTitle>
           <SheetDescription>
