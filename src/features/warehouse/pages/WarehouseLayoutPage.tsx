@@ -496,6 +496,14 @@ export function WarehouseLayoutPage({ warehouseId }: WarehouseLayoutPageProps) {
         <ZoneFormSheet
           open
           mode={zoneFormTarget.mode}
+          stagingDefaults={
+            zoneFormTarget.mode === 'update'
+              ? {
+                  receiving: zoneFormTarget.zone.isDefaultReceivingPoint,
+                  outbound: zoneFormTarget.zone.isDefaultOutboundStagingPoint,
+                }
+              : undefined
+          }
           isPending={createZoneMutation.isPending || updateZoneMutation.isPending}
           defaultValues={
             zoneFormTarget.mode === 'update'

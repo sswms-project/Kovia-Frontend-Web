@@ -36,7 +36,13 @@ export const crossDockPlanSchema = z.object({
       reason: z.string(),
       sku: z.string(),
       productName: z.string(),
-      sourcePath: z.string(),
+      sourcePath: z.string().transform((path) =>
+        path
+          .split('/')
+          .map((part) => part.trim())
+          .filter((part) => part.toUpperCase() !== '__SYSTEM_DEFAULT__')
+          .join(' / ')
+      ),
     })
   ),
 })

@@ -71,6 +71,7 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 ## Pagination
 
 - Use `OperationalPagination` for list screens.
+- Dashboard cards can opt into `density="compact"` to reduce footer padding, gaps and select width without changing other lists. Keep auxiliary metadata behind a labelled, keyboard/touch-accessible information popover; preserve page size, total and previous/next navigation. First/last shortcuts may hide on phones in this compact variant only.
 - Its optional `centerContent` slot can show compact read-only metadata between the total and page controls, without adding another footer row. Omitting the slot preserves the existing two-region footer; content must wrap on narrow screens rather than overlap controls.
 - The default choices are `10`, `20`, `30`, and `50` rows per page.
 - `page` and `pageSize` belong to the page/container component and must be sent to paginated APIs.

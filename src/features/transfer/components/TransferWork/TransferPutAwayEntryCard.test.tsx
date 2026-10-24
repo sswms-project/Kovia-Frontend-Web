@@ -13,8 +13,8 @@ const { startCameraScan, isCameraScanSupported, stop } = vi.hoisted(() => ({
   stop: vi.fn(),
 }))
 
-vi.mock('../../utils/camera-scan', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../utils/camera-scan')>()),
+vi.mock('@/lib/camera-scan', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/camera-scan')>()),
   startCameraScan,
   isCameraScanSupported,
 }))

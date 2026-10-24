@@ -5,6 +5,22 @@ import { TransferOverview } from './TransferOverview'
 afterEach(cleanup)
 
 describe('TransferOverview dates', () => {
+  it('places the compact toggle after the warehouse route in the same non-wrapping header', () => {
+    const transfer = buildTransfer({
+      sourceWarehouseName: 'Đà Nẵng',
+      destinationWarehouseName: 'Kho test cất hàng',
+    })
+    render(<TransferOverview transfer={transfer} />)
+    const route = screen.getByText('Đà Nẵng → Kho test cất hàng')
+    const toggle = screen.getByRole('button', { name: 'Thông tin phiếu' })
+    expect(route.parentElement).toBe(toggle.closest('h2')?.parentElement)
+    expect(route.parentElement).toHaveClass('flex', 'justify-between')
+    expect(route.parentElement).not.toHaveClass('flex-wrap')
+    expect(toggle).toHaveAttribute('data-variant', 'outline')
+    expect(toggle).toHaveAttribute('data-size', 'sm')
+    expect(toggle).not.toHaveClass('px-0')
+    expect(route.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
   it('labels both dates and distinguishes legacy date-only arrival from selected midnight', () => {
     render(
       <TransferOverview

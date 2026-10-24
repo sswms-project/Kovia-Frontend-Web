@@ -203,6 +203,8 @@ Two shared surfaces use the `xl` radius (12px) so every screen gets it without f
 
 ## Components
 
+- **Scrollbars:** Native scroll regions use the shared slim style by default: 6px rails in Chromium/WebKit, transparent tracks and rounded thumbs from `--table-scrollbar-thumb`, with `thin` fallback in Firefox. Pages do not need to add `data-scrollbar="slim"`; existing markers remain compatible. Keep native scroll ownership, keyboard/touch scrolling and deliberate hidden/custom scrollbar exceptions. Do not add a JavaScript scrollbar library just for appearance.
+
 - **Buttons:** Primary buttons use `bg-primary text-primary-foreground`. Secondary buttons use outline/ghost styles with `border-border`, `text-foreground`, and `hover:bg-muted`.
 - **Status Badges:** Prefer semantic tokens. Success/healthy inventory may use green system tokens only when the meaning is truly status-specific; core brand color should still come from `primary`.
 - **Data Tables:** Rows use subtle `hover:bg-muted`. Numeric columns should be right-aligned. Action buttons should be icon-first or icon-only in dense tables.

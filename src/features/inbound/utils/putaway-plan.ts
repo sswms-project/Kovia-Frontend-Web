@@ -1,3 +1,4 @@
+import { findSlotsByCode, type ScannableSlot } from '@/components/operations/putaway/slot-code'
 import type {
   GoodsReceiptItem,
   PutAwayDeviationReasonCode,
@@ -214,6 +215,20 @@ export function buildPlanRequestFromAllocations(
   }
 }
 
+/** So sánh kế hoạch theo đơn vị gốc, không phụ thuộc thứ tự dòng hay metadata hiển thị. */
+export function getPutawayPlanSignature(items: SavePutAwayPlanRequest['items']) {
+  return JSON.stringify(
+    items
+      .map((item) => ({
+        id: item.goodsReceiptItemId.toLowerCase(),
+        slots: item.slots
+          .map((slot) => ({ id: slot.slotId.toLowerCase(), quantity: toCents(slot.quantity) }))
+          .sort((left, right) => left.id.localeCompare(right.id)),
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id))
+  )
+}
+
 export interface ScannableLine {
   readonly index: number
   readonly slotId: string
@@ -235,12 +250,18 @@ export type ScannedSlotMatch =
  */
 export function matchScannedSlotCode(
   rawCode: string,
-  slots: readonly { readonly id: string; readonly code: string }[],
+  slots: readonly ScannableSlot[],
   lines: readonly ScannableLine[]
 ): ScannedSlotMatch {
   const code = rawCode.trim()
   if (!code) return { status: 'error', message: 'Vui lòng quét hoặc nhập mã vị trí.' }
-  const slot = slots.find((candidate) => candidate.code.toLowerCase() === code.toLowerCase())
+  const candidates = findSlotsByCode(code, slots)
+  if (candidates.length > 1)
+    return {
+      status: 'error',
+      message: 'Mã trùng ở nhiều vị trí. Vui lòng quét QR hoặc nhãn đầy đủ khu/kệ/vị trí.',
+    }
+  const slot = candidates[0]
   if (!slot)
     return {
       status: 'error',

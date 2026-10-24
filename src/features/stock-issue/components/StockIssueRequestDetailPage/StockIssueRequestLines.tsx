@@ -9,6 +9,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatDisplayDate, isoDateStringToDate } from '@/lib/date-format'
+import {
+  formatStockIssueLocation,
+  formatStockIssueStagingLocation,
+} from '../../utils/stock-issue-location'
 import type { StockIssueRequestItem } from '../../types/stock-issue.types'
 import {
   formatStockIssueDate,
@@ -64,10 +68,7 @@ function LineLocations({
               <MapPin className="text-primary mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               <span>
                 <span className="font-mono font-medium" translate="no">
-                  {location.slotCode}
-                </span>{' '}
-                <span className="text-muted-foreground">
-                  ({location.zoneCode} / {location.rackCode})
+                  {formatStockIssueLocation(location)}
                 </span>
                 {location.directFromReceiving && (
                   <span className="text-primary block font-medium">
@@ -110,7 +111,7 @@ function LineLocations({
                 <p>
                   Đã lấy tại{' '}
                   <span className="font-mono font-medium" translate="no">
-                    {detail.slotCode}
+                    {formatStockIssueLocation(detail)}
                   </span>
                   {detail.lotNumber ? (
                     <>
@@ -129,8 +130,8 @@ function LineLocations({
                 </p>
                 <p className="text-muted-foreground">
                   {detail.pickedByName} · {formatStockIssueDate(detail.pickedAt)}
-                  {detail.stagingSlotCode && detail.stagingSlotCode !== detail.slotCode
-                    ? ` · Chờ xuất tại ${detail.stagingSlotCode}`
+                  {detail.stagingSlotId && detail.stagingSlotId !== detail.slotId
+                    ? ` · Chờ xuất tại ${formatStockIssueStagingLocation(detail)}`
                     : ''}
                 </p>
                 <p className="text-muted-foreground">

@@ -19,7 +19,7 @@ export const crossDockService = {
   demand: (id: string, signal?: AbortSignal) =>
     axiosClient
       .get<ApiResponse<unknown>>(`${path(id)}/cross-dock`, { signal })
-      .then((response) => crossDockDemandSchema.nullable().parse(response.data.data)),
+      .then((response) => crossDockDemandSchema.nullable().parse(response.data.data ?? null)),
   pickers: (id: string, signal?: AbortSignal) =>
     axiosClient
       .get<ApiResponse<unknown>>(`${path(id)}/cross-dock/pickers`, { signal })
@@ -44,4 +44,8 @@ export const crossDockService = {
         ApiResponse<unknown>
       >(`${path(id)}/picking-destination`, { params: { inventoryStockId } })
       .then((response) => pickingDestinationSchema.parse(response.data.data)),
+  destinations: (id: string, inventoryStockIds: readonly string[]) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(`${path(id)}/picking-destinations`, { inventoryStockIds })
+      .then((response) => pickingDestinationSchema.array().parse(response.data.data)),
 }

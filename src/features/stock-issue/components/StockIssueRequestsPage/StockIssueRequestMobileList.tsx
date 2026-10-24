@@ -2,9 +2,8 @@
 
 import Link from 'next/link'
 import type { Route } from 'next'
-import { useRouter } from 'next/navigation'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
-import { rowActivationProps } from '@/features/inbound/utils/row-activation-props'
+import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type {
   StockIssueCapabilities,
@@ -20,17 +19,20 @@ import { StockIssueRequestRowActions } from './StockIssueRequestRowActions'
 import { StockIssueRequestStatusBadge } from './StockIssueRequestStatusBadge'
 
 interface StockIssueRequestMobileListProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: StockIssueRequestSummary) => void
   readonly items: readonly StockIssueRequestSummary[]
   readonly capabilities: StockIssueCapabilities
   readonly handlers: StockIssueRowActionHandlers
 }
 
 export function StockIssueRequestMobileList({
+  previewId,
+  onPreview,
   items,
   capabilities,
   handlers,
 }: StockIssueRequestMobileListProps) {
-  const router = useRouter()
   return (
     <ItemGroup className="gap-0 md:hidden">
       {items.map((item) => {
@@ -40,13 +42,17 @@ export function StockIssueRequestMobileList({
         return (
           <Item
             key={item.id}
-            {...rowActivationProps(() => router.push(detailHref), 'border-b last:border-b-0')}
+            {...goodsPreviewInteractions(
+              onPreview ? () => onPreview(item) : undefined,
+              previewId === item.id,
+              'border-b last:border-b-0'
+            )}
           >
             <ItemContent className="min-w-0">
               <ItemTitle className="flex flex-wrap items-center gap-2">
                 <Link
                   href={detailHref}
-                  className="text-primary max-w-full min-w-0 truncate font-mono font-semibold underline-offset-4 hover:underline"
+                  className="max-w-full min-w-0 font-mono font-semibold wrap-anywhere whitespace-normal underline-offset-4 hover:underline"
                   translate="no"
                 >
                   {item.stockIssueRequestCode}
@@ -54,8 +60,9 @@ export function StockIssueRequestMobileList({
                 <StockIssueRequestStatusBadge status={item.status} />
               </ItemTitle>
               <ItemDescription>Tạo lúc {formatStockIssueDate(item.createdAt)}</ItemDescription>
+              <ItemDescription>{item.recipientName}</ItemDescription>
               <ItemDescription>
-                {item.recipientName} · {item.warehouseName}
+                Mã: {item.recipientCode} · Kho xuất: {item.warehouseName}
                 {item.assignedStaffName ? ` · Lấy hàng: ${item.assignedStaffName}` : ''}
               </ItemDescription>
               <ItemDescription>

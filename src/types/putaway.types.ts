@@ -22,6 +22,7 @@ export const PUTAWAY_REASON_OPTIONS = [
 export interface PutawaySlotSuggestion {
   slotId: string
   slotCode: string
+  rackCode?: string | null
   zoneName: string | null
   source?: 'Ai' | 'Rules'
   reason: string

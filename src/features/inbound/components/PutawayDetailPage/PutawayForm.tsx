@@ -45,6 +45,7 @@ import { PutawaySuggestionPanel, type PutawaySuggestionState } from './PutawaySu
 export interface SlotOption {
   id: string
   code: string
+  readonly scanCodes?: readonly string[]
   name: string
   zoneId: string
   zoneLabel: string
@@ -57,6 +58,8 @@ export interface SlotOption {
 export interface PutawayPlanningState {
   readonly assigneeName: string | null
   readonly isSaving: boolean
+  readonly hasChanges: boolean
+  readonly hasSavedPlan: boolean
   /** Có quyền cấu hình vị trí cất; thiếu thì chỉ giao việc được. */
   readonly canSavePlan: boolean
   readonly canAssign: boolean
@@ -211,333 +214,365 @@ export function PutawayForm({
   return (
     // `relative`: nhãn/ô ẩn dành cho trình đọc màn hình là phần tử absolute; neo chúng vào đây để
     // chúng không làm khung <main> (overflow hidden) bên ngoài bị cuộn và che mất đầu trang.
-    <div className="relative flex min-h-full w-full min-w-0 shrink-0 flex-col gap-5">
-      <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <Button asChild variant="outline" size="icon">
-            <Link
-              href={APP_ROUTES.inboundPutaway as Route}
-              aria-label="Quay lại danh sách"
-              aria-disabled={allocationLocked}
-              onClick={(event) => {
-                if (allocationLocked) event.preventDefault()
-              }}
-            >
-              <ArrowLeft aria-hidden="true" />
-            </Link>
-          </Button>
-          <div className="min-w-0 flex-1">
-            <p className="text-primary text-xs font-medium">Cất hàng</p>
-            <h1 className="font-mono text-xl font-semibold break-words">{receipt.receiptCode}</h1>
-            <p className="text-muted-foreground mt-1 text-xs break-words sm:text-sm">
-              {receipt.inboundRequestCode} · {receipt.warehouseName}
-            </p>
-          </div>
-        </div>
-        <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
-          {canPlan && onPlan && !planning ? (
-            <Button type="button" variant="outline" disabled={allocationLocked} onClick={onPlan}>
-              <MapPinned aria-hidden="true" />
-              Cấu hình vị trí cất
-            </Button>
-          ) : null}
-          {planning?.canAssign ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={allocationLocked}
-              onClick={planning.onAssign}
-            >
-              <UserPlus aria-hidden="true" />
-              {planning.assigneeName ? 'Giao lại nhân viên' : 'Giao nhân viên'}
-            </Button>
-          ) : null}
-          {canCancel ? (
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={allocationLocked}
-              onClick={onCancel}
-            >
-              <Ban aria-hidden="true" />
-              {cancelLabel}
-            </Button>
-          ) : null}
-        </div>
-      </header>
+    <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
+      <div
+        data-slot="putaway-scroll"
+        data-scrollbar="slim"
+        role="region"
+        aria-label="Nội dung cất hàng"
+        tabIndex={0}
+        className="focus-visible:ring-ring min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:ring-2 focus-visible:outline-none"
+      >
+        <div className="flex flex-col gap-5 pb-5">
+          <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <Button asChild variant="outline" size="icon">
+                <Link
+                  href={APP_ROUTES.inboundPutaway as Route}
+                  aria-label="Quay lại danh sách"
+                  aria-disabled={allocationLocked}
+                  onClick={(event) => {
+                    if (allocationLocked) event.preventDefault()
+                  }}
+                >
+                  <ArrowLeft aria-hidden="true" />
+                </Link>
+              </Button>
+              <div className="min-w-0 flex-1">
+                <p className="text-primary text-xs font-medium">Cất hàng</p>
+                <h1 className="font-mono text-xl font-semibold break-words">
+                  {receipt.receiptCode}
+                </h1>
+                <p className="text-muted-foreground mt-1 text-xs break-words sm:text-sm">
+                  {receipt.inboundRequestCode} · {receipt.warehouseName}
+                </p>
+              </div>
+            </div>
+            <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
+              {canPlan && onPlan && !planning ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={allocationLocked}
+                  onClick={onPlan}
+                >
+                  <MapPinned aria-hidden="true" />
+                  Cấu hình vị trí cất
+                </Button>
+              ) : null}
+              {planning?.canAssign ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={allocationLocked}
+                  onClick={planning.onAssign}
+                >
+                  <UserPlus aria-hidden="true" />
+                  {planning.assigneeName ? 'Giao lại nhân viên' : 'Giao nhân viên'}
+                </Button>
+              ) : null}
+              {canCancel ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={allocationLocked}
+                  onClick={onCancel}
+                >
+                  <Ban aria-hidden="true" />
+                  {cancelLabel}
+                </Button>
+              ) : null}
+            </div>
+          </header>
 
-      {planning ? (
-        <p
-          className="bg-muted/40 border-l-primary border border-l-4 px-4 py-3 text-sm"
-          role="status"
-        >
-          {!planning.canSavePlan ? (
-            <>
-              Nhiệm vụ cất hàng{' '}
-              {planning.assigneeName ? (
+          {planning ? (
+            <p
+              className="bg-muted/40 border-l-primary border border-l-4 px-4 py-3 text-sm"
+              role="status"
+            >
+              {!planning.canSavePlan ? (
                 <>
-                  đang giao cho <strong>{planning.assigneeName}</strong>
+                  Nhiệm vụ cất hàng{' '}
+                  {planning.assigneeName ? (
+                    <>
+                      đang giao cho <strong>{planning.assigneeName}</strong>
+                    </>
+                  ) : (
+                    <strong>chưa giao cho ai</strong>
+                  )}
+                  . Chỉ nhân viên được giao mới ghi nhận cất hàng; bạn có thể giao hoặc giao lại
+                  nhiệm vụ. Tài khoản của bạn chưa có quyền “Cấu hình vị trí cất hàng” nên chưa lưu
+                  được vị trí cho nhân viên.
+                </>
+              ) : planning.assigneeName ? (
+                <>
+                  Nhiệm vụ cất hàng đang giao cho <strong>{planning.assigneeName}</strong>. Chốt vị
+                  trí bên dưới rồi bấm “Lưu vị trí & báo nhân viên”; nhân viên sẽ nhận thông báo và
+                  làm theo.
                 </>
               ) : (
-                <strong>chưa giao cho ai</strong>
+                <>
+                  Nhiệm vụ cất hàng <strong>chưa giao cho ai</strong>. Chốt vị trí bên dưới rồi bấm
+                  “Lưu vị trí & giao nhân viên” để chọn người thực hiện.
+                </>
               )}
-              . Chỉ nhân viên được giao mới ghi nhận cất hàng; bạn có thể giao hoặc giao lại nhiệm
-              vụ. Tài khoản của bạn chưa có quyền “Cấu hình vị trí cất hàng” nên chưa lưu được vị
-              trí cho nhân viên.
-            </>
-          ) : planning.assigneeName ? (
-            <>
-              Nhiệm vụ cất hàng đang giao cho <strong>{planning.assigneeName}</strong>. Chốt vị trí
-              bên dưới rồi bấm “Lưu vị trí & báo nhân viên”; nhân viên sẽ nhận thông báo và làm
-              theo.
-            </>
-          ) : (
-            <>
-              Nhiệm vụ cất hàng <strong>chưa giao cho ai</strong>. Chốt vị trí bên dưới rồi bấm “Lưu
-              vị trí & giao nhân viên” để chọn người thực hiện.
-            </>
-          )}
-        </p>
-      ) : null}
-      <PutawayPlanNotice receipt={receipt} disabled={allocationLocked} onApplyPlan={onApplyPlan} />
-      {errors.root?.server?.message ? <FieldError>{errors.root.server.message}</FieldError> : null}
-
-      <section className="bg-card border" aria-labelledby="putaway-allocation-title">
-        <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <h2 id="putaway-allocation-title" className="text-sm font-semibold">
-              Chọn vị trí cất cho từng sản phẩm
-            </h2>
-            <div className="mt-2 flex items-center gap-3">
-              <Progress
-                className="max-w-56"
-                value={pendingItems.length === 0 ? 0 : (fullyAllocated / pendingItems.length) * 100}
-                aria-label="Tiến độ phân bổ"
-              />
-              <p className="text-muted-foreground text-xs tabular-nums" role="status">
-                Đã phân bổ đủ {fullyAllocated}/{pendingItems.length} sản phẩm
-              </p>
-            </div>
-          </div>
-          {groupedItems.length > 1 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                setCollapsedItemIds(
-                  collapsedItemIds.size === groupedItems.length
-                    ? new Set()
-                    : new Set(groupedItems.map((item) => item.id))
-                )
-              }
-            >
-              {collapsedItemIds.size === groupedItems.length ? 'Mở tất cả' : 'Thu gọn tất cả'}
-            </Button>
+            </p>
           ) : null}
-          {suggestion ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="border-tertiary/40 text-tertiary hover:text-tertiary"
-              disabled={allocationLocked || suggestion.isSuggesting}
-              onClick={suggestion.onSuggest}
-            >
-              {suggestion.isSuggesting ? (
-                <Spinner aria-hidden="true" data-icon="inline-start" />
-              ) : (
-                <Sparkles aria-hidden="true" />
-              )}
-              {suggestion.isSuggesting ? 'Đang phân tích…' : 'Gợi ý vị trí bằng AI'}
-            </Button>
-          ) : null}
-        </div>
-        {suggestion ? (
-          <PutawaySuggestionPanel
-            items={receipt.items}
-            state={suggestion}
-            disabled={allocationLocked}
-            usedSlotIdsByItem={usedSlotIdsByItem}
-          />
-        ) : null}
-
-        {scan && !planning && scan.requiredCount > 0 ? (
-          <PutawayScanBar
-            state={scan}
+          <PutawayPlanNotice
+            receipt={receipt}
             slots={slots}
-            lines={entries.map(({ index, line }) => ({
-              index,
-              slotId: line.slotId,
-              confirmedSlotCode: line.confirmedSlotCode,
-            }))}
             disabled={allocationLocked}
-            onConfirm={(index, code) =>
-              form.setValue(`lines.${index}.confirmedSlotCode`, code, { shouldDirty: true })
-            }
+            onApplyPlan={onApplyPlan}
           />
-        ) : null}
-        <div className="divide-y">
-          {groupedItems.map((item) => {
-            const itemEntries = entries.filter((entry) => entry.line.goodsReceiptItemId === item.id)
-            const requested = (allocation.requestedByItem.get(item.id) ?? 0) / 100
-            const assigned = (allocation.assignedByItem.get(item.id) ?? 0) / 100
-            const excess = Math.round((requested - item.remainingPutAwayQuantity) * 100) / 100
-            const missing =
-              Math.round((item.remainingPutAwayQuantity - Math.max(assigned, requested)) * 100) /
-              100
-            const collapsed = collapsedItemIds.has(item.id)
-            return (
-              <article key={item.id} aria-label={`${item.productSKU} - ${item.productName}`}>
-                <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-expanded={!collapsed}
-                      aria-label={`${collapsed ? 'Mở' : 'Thu gọn'} ${item.productSKU}`}
-                      onClick={() => toggleItem(item.id)}
-                    >
-                      <ChevronDown
-                        aria-hidden="true"
-                        className={cn('transition-transform', collapsed && '-rotate-90')}
-                      />
-                    </Button>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold break-words">
-                        {item.productSKU} - {item.productName}
-                        {item.lotNumber ? ` · Lô ${item.lotNumber}` : ''}
-                      </h3>
-                      <p className="text-muted-foreground text-xs tabular-nums">
-                        Còn phải cất {formatPutawayQuantity(item, item.remainingPutAwayQuantity)} ·
-                        đang phân bổ {formatPutawayQuantity(item, requested)} vào{' '}
-                        {itemEntries.length} vị trí
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* `key` theo trạng thái để nhãn nảy nhẹ mỗi khi đổi từ thiếu sang đủ hay vượt. */}
-                    {excess > 0 ? (
-                      <Badge
-                        key="over"
-                        variant="destructive"
-                        className="animate-in fade-in-0 zoom-in-95 animation-duration-200 motion-reduce:animate-none"
-                      >
-                        Vượt {formatPutawayQuantity(item, excess)}
-                      </Badge>
-                    ) : isFullyAllocated(item) ? (
-                      <Badge
-                        key="full"
-                        variant="secondary"
-                        className="animate-in fade-in-0 zoom-in-95 animation-duration-200 motion-reduce:animate-none"
-                      >
-                        <Check aria-hidden="true" />
-                        Đã đủ
-                      </Badge>
-                    ) : missing > 0 ? (
-                      <Badge
-                        key="missing"
-                        variant="outline"
-                        className="border-warning text-warning animate-in fade-in-0 zoom-in-95 animation-duration-200 motion-reduce:animate-none"
-                      >
-                        Còn thiếu {formatPutawayQuantity(item, missing)}
-                      </Badge>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={allocationLocked}
-                      onClick={() => onAdd(item.id)}
-                    >
-                      <Plus aria-hidden="true" />
-                      Chia sang vị trí khác
-                    </Button>
-                  </div>
-                </div>
-                {collapsed ? (
-                  <p className="text-muted-foreground animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 px-4 py-2 font-mono text-xs break-words motion-reduce:animate-none">
-                    {itemEntries
-                      .filter((entry) => entry.line.slotId)
-                      .map(
-                        (entry) =>
-                          `${slotCodeById.get(entry.line.slotId) ?? '?'} × ${
-                            Number.isFinite(entry.line.enteredQuantity)
-                              ? entry.line.enteredQuantity
-                              : '?'
-                          }`
-                      )
-                      .join(' · ') || 'Chưa chọn vị trí'}
+          {errors.root?.server?.message ? (
+            <FieldError>{errors.root.server.message}</FieldError>
+          ) : null}
+
+          <section className="bg-card border" aria-labelledby="putaway-allocation-title">
+            <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <h2 id="putaway-allocation-title" className="text-sm font-semibold">
+                  Chọn vị trí cất cho từng sản phẩm
+                </h2>
+                <div className="mt-2 flex items-center gap-3">
+                  <Progress
+                    className="max-w-56"
+                    value={
+                      pendingItems.length === 0 ? 0 : (fullyAllocated / pendingItems.length) * 100
+                    }
+                    aria-label="Tiến độ phân bổ"
+                  />
+                  <p className="text-muted-foreground text-xs tabular-nums" role="status">
+                    Đã phân bổ đủ {fullyAllocated}/{pendingItems.length} sản phẩm
                   </p>
-                ) : null}
-                <Collapsible open={!collapsed}>
-                  <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden motion-reduce:animate-none">
-                    {itemEntries.length === 0 ? (
-                      <p className="text-muted-foreground px-4 py-3 text-xs">
-                        Chưa có vị trí nào cho sản phẩm này. Bấm “Chia sang vị trí khác” để thêm.
-                      </p>
-                    ) : (
-                      <>
-                        <div
-                          aria-hidden="true"
-                          className={cn(
-                            'text-muted-foreground hidden border-b px-4 py-1.5 text-xs font-medium',
-                            PUTAWAY_ROW_GRID
-                          )}
-                        >
-                          <span>Vị trí</span>
-                          <span>Số lượng</span>
-                          <span>Đơn vị</span>
-                          <span>Quy đổi</span>
-                          <span className="w-[6.5rem]" />
-                        </div>
-                        <div className="divide-y">
-                          {itemEntries.map((entry) => renderRow(entry, false))}
-                        </div>
-                      </>
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
-              </article>
-            )
-          })}
-          {looseEntries.length > 0 ? (
-            <div aria-label="Dòng chưa chọn sản phẩm">
-              {looseEntries.map((entry) => renderRow(entry, true))}
+                </div>
+              </div>
+              {groupedItems.length > 1 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setCollapsedItemIds(
+                      collapsedItemIds.size === groupedItems.length
+                        ? new Set()
+                        : new Set(groupedItems.map((item) => item.id))
+                    )
+                  }
+                >
+                  {collapsedItemIds.size === groupedItems.length ? 'Mở tất cả' : 'Thu gọn tất cả'}
+                </Button>
+              ) : null}
+              {suggestion ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-tertiary/40 text-tertiary hover:text-tertiary"
+                  disabled={allocationLocked || suggestion.isSuggesting}
+                  onClick={suggestion.onSuggest}
+                >
+                  {suggestion.isSuggesting ? (
+                    <Spinner aria-hidden="true" data-icon="inline-start" />
+                  ) : (
+                    <Sparkles aria-hidden="true" />
+                  )}
+                  {suggestion.isSuggesting ? 'Đang phân tích…' : 'Gợi ý vị trí bằng AI'}
+                </Button>
+              ) : null}
             </div>
+            {suggestion ? (
+              <PutawaySuggestionPanel
+                items={receipt.items}
+                state={suggestion}
+                disabled={allocationLocked}
+                usedSlotIdsByItem={usedSlotIdsByItem}
+              />
+            ) : null}
+
+            {scan && !planning && scan.requiredCount > 0 ? (
+              <PutawayScanBar
+                state={scan}
+                slots={slots}
+                lines={entries.map(({ index, line }) => ({
+                  index,
+                  slotId: line.slotId,
+                  confirmedSlotCode: line.confirmedSlotCode,
+                }))}
+                disabled={allocationLocked}
+                onConfirm={(index, code) =>
+                  form.setValue(`lines.${index}.confirmedSlotCode`, code, { shouldDirty: true })
+                }
+              />
+            ) : null}
+            <div className="divide-y">
+              {groupedItems.map((item) => {
+                const itemEntries = entries.filter(
+                  (entry) => entry.line.goodsReceiptItemId === item.id
+                )
+                const requested = (allocation.requestedByItem.get(item.id) ?? 0) / 100
+                const assigned = (allocation.assignedByItem.get(item.id) ?? 0) / 100
+                const excess = Math.round((requested - item.remainingPutAwayQuantity) * 100) / 100
+                const missing =
+                  Math.round(
+                    (item.remainingPutAwayQuantity - Math.max(assigned, requested)) * 100
+                  ) / 100
+                const collapsed = collapsedItemIds.has(item.id)
+                return (
+                  <article key={item.id} aria-label={`${item.productSKU} - ${item.productName}`}>
+                    <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-expanded={!collapsed}
+                          aria-label={`${collapsed ? 'Mở' : 'Thu gọn'} ${item.productSKU}`}
+                          onClick={() => toggleItem(item.id)}
+                        >
+                          <ChevronDown
+                            aria-hidden="true"
+                            className={cn('transition-transform', collapsed && '-rotate-90')}
+                          />
+                        </Button>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-semibold break-words">
+                            {item.productSKU} - {item.productName}
+                            {item.lotNumber ? ` · Lô ${item.lotNumber}` : ''}
+                          </h3>
+                          <p className="text-muted-foreground text-xs tabular-nums">
+                            Còn phải cất{' '}
+                            {formatPutawayQuantity(item, item.remainingPutAwayQuantity)} · đang phân
+                            bổ {formatPutawayQuantity(item, requested)} vào {itemEntries.length} vị
+                            trí
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* `key` theo trạng thái để nhãn nảy nhẹ mỗi khi đổi từ thiếu sang đủ hay vượt. */}
+                        {excess > 0 ? (
+                          <Badge
+                            key="over"
+                            variant="destructive"
+                            className="animate-in fade-in-0 zoom-in-95 animation-duration-200 motion-reduce:animate-none"
+                          >
+                            Vượt {formatPutawayQuantity(item, excess)}
+                          </Badge>
+                        ) : isFullyAllocated(item) ? (
+                          <Badge
+                            key="full"
+                            variant="secondary"
+                            className="animate-in fade-in-0 zoom-in-95 animation-duration-200 motion-reduce:animate-none"
+                          >
+                            <Check aria-hidden="true" />
+                            Đã đủ
+                          </Badge>
+                        ) : missing > 0 ? (
+                          <Badge
+                            key="missing"
+                            variant="outline"
+                            className="border-warning text-warning animate-in fade-in-0 zoom-in-95 animation-duration-200 motion-reduce:animate-none"
+                          >
+                            Còn thiếu {formatPutawayQuantity(item, missing)}
+                          </Badge>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={allocationLocked}
+                          onClick={() => onAdd(item.id)}
+                        >
+                          <Plus aria-hidden="true" />
+                          Chia sang vị trí khác
+                        </Button>
+                      </div>
+                    </div>
+                    {collapsed ? (
+                      <p className="text-muted-foreground animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 px-4 py-2 font-mono text-xs break-words motion-reduce:animate-none">
+                        {itemEntries
+                          .filter((entry) => entry.line.slotId)
+                          .map(
+                            (entry) =>
+                              `${slotCodeById.get(entry.line.slotId) ?? '?'} × ${
+                                Number.isFinite(entry.line.enteredQuantity)
+                                  ? entry.line.enteredQuantity
+                                  : '?'
+                              }`
+                          )
+                          .join(' · ') || 'Chưa chọn vị trí'}
+                      </p>
+                    ) : null}
+                    <Collapsible open={!collapsed}>
+                      <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden motion-reduce:animate-none">
+                        {itemEntries.length === 0 ? (
+                          <p className="text-muted-foreground px-4 py-3 text-xs">
+                            Chưa có vị trí nào cho sản phẩm này. Bấm “Chia sang vị trí khác” để
+                            thêm.
+                          </p>
+                        ) : (
+                          <>
+                            <div
+                              aria-hidden="true"
+                              className={cn(
+                                'text-muted-foreground hidden border-b px-4 py-1.5 text-xs font-medium',
+                                PUTAWAY_ROW_GRID
+                              )}
+                            >
+                              <span>Vị trí</span>
+                              <span>Số lượng</span>
+                              <span>Đơn vị</span>
+                              <span>Quy đổi</span>
+                              <span className="w-[6.5rem]" />
+                            </div>
+                            <div className="divide-y">
+                              {itemEntries.map((entry) => renderRow(entry, false))}
+                            </div>
+                          </>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </article>
+                )
+              })}
+              {looseEntries.length > 0 ? (
+                <div aria-label="Dòng chưa chọn sản phẩm">
+                  {looseEntries.map((entry) => renderRow(entry, true))}
+                </div>
+              ) : null}
+            </div>
+            {allocation.canSubmit && scanMissing > 0 ? (
+              <p
+                className="text-warning animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 border-t px-4 py-3 text-xs motion-reduce:animate-none"
+                role="status"
+              >
+                Còn {scanMissing} vị trí được giao chưa quét mã. Quét đủ mã để xác nhận cất hàng.
+              </p>
+            ) : null}
+            {!allocation.canSubmit ? (
+              <p className="text-muted-foreground border-t px-4 py-3 text-xs" role="status">
+                Chọn vị trí và nhập số lượng trong giới hạn cho từng sản phẩm để xác nhận.
+              </p>
+            ) : null}
+            {errors.lines?.root?.message ? (
+              <div className="border-t p-3">
+                <FieldError>{errors.lines.root.message}</FieldError>
+              </div>
+            ) : null}
+          </section>
+          {planDeviation.requiresReason && !planning ? (
+            <PutawayDeviationPanel
+              form={form}
+              reasonError={reasonError}
+              disabled={allocationLocked}
+              evidence={evidence}
+              title={deviationTitle}
+              noteRequired={noteRequired}
+            />
           ) : null}
         </div>
-        {allocation.canSubmit && scanMissing > 0 ? (
-          <p
-            className="text-warning animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 border-t px-4 py-3 text-xs motion-reduce:animate-none"
-            role="status"
-          >
-            Còn {scanMissing} vị trí được giao chưa quét mã. Quét đủ mã để xác nhận cất hàng.
-          </p>
-        ) : null}
-        {!allocation.canSubmit ? (
-          <p className="text-muted-foreground border-t px-4 py-3 text-xs" role="status">
-            Chọn vị trí và nhập số lượng trong giới hạn cho từng sản phẩm để xác nhận.
-          </p>
-        ) : null}
-        {errors.lines?.root?.message ? (
-          <div className="border-t p-3">
-            <FieldError>{errors.lines.root.message}</FieldError>
-          </div>
-        ) : null}
-      </section>
-      {planDeviation.requiresReason && !planning ? (
-        <PutawayDeviationPanel
-          form={form}
-          reasonError={reasonError}
-          disabled={allocationLocked}
-          evidence={evidence}
-          title={deviationTitle}
-          noteRequired={noteRequired}
-        />
-      ) : null}
-      <footer className="bg-background/95 sticky bottom-0 z-10 -mx-3 mt-auto flex flex-wrap items-center justify-between gap-3 border-t px-3 py-3 supports-backdrop-filter:backdrop-blur sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5">
+      </div>
+      <footer className="bg-background flex shrink-0 flex-wrap items-center justify-between gap-3 border-t py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <ul className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs tabular-nums">
           <FooterStep
             done={pendingItems.length > 0 && fullyAllocated === pendingItems.length}
@@ -560,7 +595,7 @@ export function PutawayForm({
           {planning?.canSavePlan ? (
             <Button
               type="button"
-              disabled={allocationLocked}
+              disabled={allocationLocked || !planning.hasChanges}
               aria-busy={planning.isSaving}
               onClick={planning.onSavePlan}
             >
@@ -569,7 +604,19 @@ export function PutawayForm({
               ) : (
                 <Send aria-hidden="true" data-icon="inline-start" />
               )}
-              {planning.assigneeName ? 'Lưu vị trí & báo nhân viên' : 'Lưu vị trí & giao nhân viên'}
+              {planning.isSaving
+                ? 'Đang lưu…'
+                : planning.hasSavedPlan && !planning.hasChanges
+                  ? planning.assigneeName
+                    ? 'Đã lưu & báo nhân viên'
+                    : 'Đã lưu vị trí'
+                  : planning.hasSavedPlan
+                    ? planning.assigneeName
+                      ? 'Cập nhật & báo nhân viên'
+                      : 'Cập nhật vị trí & giao nhân viên'
+                    : planning.assigneeName
+                      ? 'Lưu vị trí & báo nhân viên'
+                      : 'Lưu vị trí & giao nhân viên'}
             </Button>
           ) : null}
           <Button

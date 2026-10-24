@@ -15,6 +15,7 @@ export const INBOUND_REQUEST_STATUSES = Object.values(INBOUND_REQUEST_STATUS)
 
 export type InboundRequestStatus = (typeof INBOUND_REQUEST_STATUSES)[number]
 export const INBOUND_REQUEST_ACTION = {
+  AssignReceivingTask: 'AssignReceivingTask',
   Update: 'Update',
   UpdateCode: 'UpdateCode',
   Submit: 'Submit',

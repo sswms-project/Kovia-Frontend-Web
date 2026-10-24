@@ -1,6 +1,5 @@
 import { Copy } from 'lucide-react'
-import { rowActivationProps } from '@/features/inbound/utils/row-activation-props'
-import { useRouter } from 'next/navigation'
+import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { Button } from '@/components/ui/button'
@@ -16,6 +15,8 @@ import { inboundSourceLabels } from '../../schemas/inbound-request.schema'
 import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
 
 interface InboundRequestMobileListProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canCreate: boolean
   readonly isDuplicating: boolean
@@ -23,19 +24,21 @@ interface InboundRequestMobileListProps {
 }
 
 export function InboundRequestMobileList({
+  previewId,
+  onPreview,
   items,
   canCreate,
   isDuplicating,
   onDuplicate,
 }: InboundRequestMobileListProps) {
-  const router = useRouter()
   return (
     <ItemGroup className="gap-0 md:hidden">
       {items.map((item) => (
         <Item
           key={item.id}
-          {...rowActivationProps(
-            () => router.push(APP_ROUTES.inboundRequestDetail(item.id) as Route),
+          {...goodsPreviewInteractions(
+            onPreview ? () => onPreview(item) : undefined,
+            previewId === item.id,
             'border-b last:border-b-0'
           )}
         >
@@ -43,7 +46,7 @@ export function InboundRequestMobileList({
             <ItemTitle className="flex flex-wrap items-center gap-2">
               <Link
                 href={APP_ROUTES.inboundRequestDetail(item.id) as Route}
-                className="text-primary max-w-full min-w-0 truncate font-mono font-semibold underline-offset-4 hover:underline"
+                className="max-w-full min-w-0 font-mono font-semibold wrap-anywhere whitespace-normal underline-offset-4 hover:underline"
                 translate="no"
               >
                 {item.inboundRequestCode}

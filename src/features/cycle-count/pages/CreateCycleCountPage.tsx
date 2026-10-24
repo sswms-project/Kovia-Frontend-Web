@@ -12,15 +12,16 @@ import {
   useInventoryQuery,
 } from '@/features/inventory/hooks/use-inventory'
 import { useCategoriesQuery } from '@/features/product/hooks/use-products'
-import { useStaffListQuery } from '@/features/staff/hooks/use-staff'
-import { STAFF_DIRECTORY_KINDS } from '@/features/staff/types/staff.types'
 import {
   useWarehouseLayoutQuery,
   useWarehousesQuery,
 } from '@/features/warehouse/hooks/use-warehouse'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { CreateCycleCountForm, type SubmitMode } from '../components/CreateCycleCountPage'
-import { useCreateCycleCountMutation } from '../hooks/use-cycle-count'
+import {
+  useCreateCycleCountMutation,
+  useCycleCountAssignableStaffQuery,
+} from '../hooks/use-cycle-count'
 import {
   createCycleCountSchema,
   type CreateCycleCountFormValues,
@@ -63,11 +64,7 @@ export default function CreateCycleCountPage() {
   const warehouses = useWarehousesQuery({ top: 100, skip: 0, needTotalCount: true, isActive: true })
   const categories = useCategoriesQuery(true, 'Active')
   const layout = useWarehouseLayoutQuery(warehouseId, Boolean(warehouseId))
-  const staff = useStaffListQuery(STAFF_DIRECTORY_KINDS.staff, {
-    top: 100,
-    skip: 0,
-    needTotalCount: true,
-  })
+  const staff = useCycleCountAssignableStaffQuery(warehouseId)
   const inventory = useInventoryQuery(
     {
       pageNumber: inventoryPage,
@@ -114,15 +111,20 @@ export default function CreateCycleCountPage() {
         })),
     [categories.data]
   )
+  // Backend đã lọc nhân viên đủ điều kiện tại kho và xếp người ít việc nhất lên đầu.
   const staffOptions = useMemo(
     () =>
-      (staff.data?.items ?? [])
-        .filter(
-          (member) =>
-            member.status === 'Active' && member.assignedWarehouseIds.includes(warehouseId)
-        )
-        .map((member) => ({ value: member.id, label: `${member.fullName} · ${member.email}` })),
-    [staff.data?.items, warehouseId]
+      (staff.data ?? []).map((member) => ({
+        value: member.id,
+        label: [
+          member.fullName,
+          member.isRecommended ? 'Đề xuất' : null,
+          `${member.openCycleCounts ?? 0} phiếu kiểm kê đang mở`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      })),
+    [staff.data]
   )
 
   async function selectAllMatching() {

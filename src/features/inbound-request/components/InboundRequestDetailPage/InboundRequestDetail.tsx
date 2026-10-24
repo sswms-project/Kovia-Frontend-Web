@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Check, Edit3, Mail, Send, X } from 'lucide-react'
+import { ArrowLeft, Check, Edit3, Mail, Send, UserPlus, X } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -44,6 +44,7 @@ interface InboundRequestDetailProps {
   readonly allowedActions: readonly InboundRequestAction[]
   readonly selfApprovalRequired: boolean
   readonly isPending: boolean
+  readonly onAssignReceiving?: () => void
   readonly onSubmit: () => Promise<boolean>
   readonly onApprove: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onApproveAndSend: (selfApprovalAcknowledged: boolean) => Promise<boolean>
@@ -90,6 +91,7 @@ export function InboundRequestDetail({
   onSendToSupplier,
   onReject,
   onReconcile,
+  onAssignReceiving,
 }: InboundRequestDetailProps) {
   const [confirmationAction, setConfirmationAction] = useState<InboundRequestAction | null>(null)
   const [isRejectOpen, setIsRejectOpen] = useState(false)
@@ -182,6 +184,18 @@ export function InboundRequestDetail({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {allowedActions.includes(INBOUND_REQUEST_ACTION.AssignReceivingTask) &&
+          onAssignReceiving ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={onAssignReceiving}
+            >
+              <UserPlus aria-hidden="true" data-icon="inline-start" />
+              Phân công nhân viên
+            </Button>
+          ) : null}
           {allowedActions.includes(INBOUND_REQUEST_ACTION.Update) ||
           allowedActions.includes('UpdateCode') ? (
             <Button asChild variant="outline">

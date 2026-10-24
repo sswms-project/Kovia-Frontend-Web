@@ -1,4 +1,5 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SlotOption } from '../components/PutawayDetailPage'
@@ -7,6 +8,10 @@ import type { GoodsReceiptDetail, PutAwaySuggestionsResponse } from '../types/in
 import { usePutawayFormSuggestions } from './use-putaway-form-suggestions'
 
 const mutateAsync = vi.hoisted(() => vi.fn())
+const autoSuggest = vi.hoisted(() => vi.fn())
+vi.mock('../services/inbound.service', () => ({
+  inboundService: { suggestPutawaySlots: autoSuggest },
+}))
 vi.mock('./use-inbound', () => ({
   usePutawayFormSuggestionsMutation: () => ({ mutateAsync, isPending: false }),
 }))
@@ -67,18 +72,27 @@ const response: PutAwaySuggestionsResponse = {
   ],
 }
 
-function setup(lines: PutawayFormValues['lines']) {
-  return renderHook(() => {
-    const form = useForm<PutawayFormValues>({ defaultValues: { lines } })
-    const fieldArray = useFieldArray({ control: form.control, name: 'lines' })
-    const suggestion = usePutawayFormSuggestions({
-      receipt,
-      form,
-      append: fieldArray.append,
-      slots,
-    })
-    return { form, suggestion }
-  })
+function setup(lines: PutawayFormValues['lines'], autoFill = false, currentReceipt = receipt) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
+  return renderHook(
+    () => {
+      const form = useForm<PutawayFormValues>({ defaultValues: { lines } })
+      const fieldArray = useFieldArray({ control: form.control, name: 'lines' })
+      const suggestion = usePutawayFormSuggestions({
+        receipt: currentReceipt,
+        form,
+        append: fieldArray.append,
+        slots,
+        autoFill,
+      })
+      return { form, suggestion }
+    },
+    {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    }
+  )
 }
 
 const line = (slotId: string, quantity = 100) => ({
@@ -91,7 +105,90 @@ const line = (slotId: string, quantity = 100) => ({
 describe('usePutawayFormSuggestions', () => {
   beforeEach(() => {
     mutateAsync.mockReset()
+    autoSuggest.mockReset()
+    autoSuggest.mockResolvedValue({ data: response })
     mutateAsync.mockResolvedValue({ data: response })
+  })
+
+  it('automatically fills selectable suggestions once', async () => {
+    const hook = setup([line('')], true)
+    await waitFor(() =>
+      expect(hook.result.current.form.getValues('lines.0.slotId')).toBe(slots[0]!.id)
+    )
+    hook.rerender()
+    expect(autoSuggest).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not request automatic suggestions when a location is already filled', () => {
+    setup([line(slots[1]!.id)], true)
+    expect(autoSuggest).not.toHaveBeenCalled()
+  })
+
+  it('does not request automatic suggestions when a manager plan already exists', () => {
+    setup([line('')], true, {
+      ...receipt,
+      items: receipt.items.map((item) => ({
+        ...item,
+        putAwayPlan: [
+          {
+            id: 'plan',
+            slotId: slots[1]!.id,
+            slotCode: 'B',
+            rackCode: 'R',
+            isSystemDefaultSlot: false,
+            quantity: 100,
+          },
+        ],
+      })),
+    })
+    expect(autoSuggest).not.toHaveBeenCalled()
+  })
+
+  it('does not overwrite an edit made while suggestions are loading', async () => {
+    let finish: (value: { data: PutAwaySuggestionsResponse }) => void = () => undefined
+    autoSuggest.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
+    const hook = setup([line('')], true)
+    await waitFor(() => expect(autoSuggest).toHaveBeenCalledTimes(1))
+    act(() =>
+      hook.result.current.form.setValue('lines.0.slotId', slots[1]!.id, { shouldDirty: true })
+    )
+    await act(async () => finish({ data: response }))
+    expect(hook.result.current.form.getValues('lines.0.slotId')).toBe(slots[1]!.id)
+  })
+
+  it('keeps a remainder row when a suggestion only covers part of the quantity', async () => {
+    autoSuggest.mockResolvedValueOnce({
+      data: {
+        ...response,
+        items: [
+          {
+            ...response.items[0]!,
+            suggestions: [
+              {
+                ...response.items[0]!.suggestions[0]!,
+                slotId: slots[0]!.id,
+                suggestedQuantity: 40,
+              },
+            ],
+            unallocatedQuantity: 60,
+          },
+        ],
+      },
+    })
+    const hook = setup([line('')], true)
+    await waitFor(() => expect(hook.result.current.form.getValues('lines')).toHaveLength(2))
+    expect(
+      hook.result.current.form
+        .getValues('lines')
+        .map((value) => [value.slotId, value.enteredQuantity])
+    ).toEqual([
+      [slots[0]!.id, 40],
+      ['', 60],
+    ])
   })
 
   it('keeps only slots the form can actually select', async () => {

@@ -46,6 +46,7 @@ const fixtures = vi.hoisted(() => {
     allowedActions: [] as string[],
     currentUserId: { value: 'staff-user' as string | null },
     savePlan: vi.fn(),
+    onCommitted: undefined as ((receiptId: string) => void) | undefined,
     openAssign: vi.fn(),
     mutate: vi.fn(),
     upload: vi.fn(),
@@ -96,7 +97,10 @@ vi.mock('../hooks/use-inbound', () => ({
   useUploadPutawayEvidenceMutation: () => ({ mutateAsync: fixtures.upload, isPending: false }),
   useSavePutawayPlanMutation: () => ({ mutateAsync: fixtures.savePlan, isPending: false }),
   usePutawayHeldSlotsQuery: () => ({ data: fixtures.heldSlots }),
-  usePutawayMutation: () => ({ mutateAsync: fixtures.mutate, isPending: false }),
+  usePutawayMutation: (onCommitted?: (receiptId: string) => void) => {
+    fixtures.onCommitted = onCommitted
+    return { mutateAsync: fixtures.mutate, isPending: false }
+  },
   useCancelPutawayTaskMutation: () => ({ isPending: false }),
   useReconcilePutawayCancellationMutation: () => ({ isPending: false }),
   useIsolateReceiptDamageMutation: () => ({
@@ -124,6 +128,8 @@ beforeEach(() => {
   fixtures.receipt.putAwayAssignedTo = 'staff-user'
   fixtures.receipt.putAwayAssignedToName = 'Trần Văn An'
   fixtures.savePlan.mockResolvedValue(undefined)
+  fixtures.mutate.mockReset()
+  fixtures.onCommitted = undefined
   fixtures.refetch.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
@@ -150,7 +156,101 @@ function prepareAllocation() {
   })
 }
 
+describe('put-away plan duplicate protection', () => {
+  function prepareManager() {
+    fixtures.currentUserId.value = 'manager'
+    fixtures.allowedActions.push('PlanPutAway')
+  }
+
+  it('blocks identical saved plans, including equivalent quantities entered in another unit', () => {
+    prepareManager()
+    fixtures.receipt.items[0]!.putAwayPlan = [{ slotId: fixtures.slotId, quantity: 240 }]
+    renderPutawayPage()
+    expect(renderedForm.planning).toMatchObject({ hasChanges: false, hasSavedPlan: true })
+    act(() => {
+      renderedForm.form.setValue('lines.0.enteredQuantity', 240)
+      renderedForm.form.setValue('lines.0.enteredUnitId', fixtures.receipt.items[0]!.baseUnitId)
+    })
+    expect(renderedForm.planning?.hasChanges).toBe(false)
+    act(() => renderedForm.planning!.onSavePlan())
+    expect(fixtures.savePlan).not.toHaveBeenCalled()
+  })
+
+  it('locks synchronously during save and after success until the allocation changes', async () => {
+    prepareManager()
+    let finish!: () => void
+    fixtures.savePlan.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        })
+    )
+    renderPutawayPage()
+    prepareAllocation()
+    act(() => {
+      renderedForm.planning!.onSavePlan()
+      renderedForm.planning!.onSavePlan()
+    })
+    expect(fixtures.savePlan).toHaveBeenCalledOnce()
+    expect(renderedForm.planning?.isSaving).toBe(true)
+    await act(async () => finish())
+    expect(renderedForm.planning).toMatchObject({
+      isSaving: false,
+      hasChanges: false,
+      hasSavedPlan: true,
+    })
+    act(() => renderedForm.planning!.onSavePlan())
+    expect(fixtures.savePlan).toHaveBeenCalledOnce()
+    act(() => renderedForm.form.setValue('lines.0.enteredQuantity', 3))
+    expect(renderedForm.planning?.hasChanges).toBe(true)
+    act(() => renderedForm.form.setValue('lines.0.enteredQuantity', 4))
+    expect(renderedForm.planning?.hasChanges).toBe(false)
+  })
+
+  it('keeps the changed form retryable after a failed save', async () => {
+    prepareManager()
+    fixtures.savePlan.mockRejectedValueOnce({ statusCode: 500, message: 'Lỗi lưu' })
+    renderPutawayPage()
+    prepareAllocation()
+    await act(async () => renderedForm.planning!.onSavePlan())
+    expect(renderedForm.planning).toMatchObject({
+      isSaving: false,
+      hasChanges: true,
+      hasSavedPlan: false,
+    })
+    await act(async () => renderedForm.planning!.onSavePlan())
+    expect(fixtures.savePlan).toHaveBeenCalledTimes(2)
+    expect(renderedForm.planning?.hasChanges).toBe(false)
+  })
+})
+
 describe('put-away command retry safety', () => {
+  it('replaces the form with committed feedback while refreshed quantities are zero and navigation is pending', async () => {
+    const user = userEvent.setup()
+    let finishRefresh!: () => void
+    fixtures.mutate.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve
+        })
+    )
+    const view = renderPutawayPage()
+    prepareAllocation()
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(fixtures.mutate).toHaveBeenCalledOnce())
+    act(() => {
+      fixtures.onCommitted?.('receipt')
+      fixtures.receipt.version = 'v2'
+      fixtures.receipt.items[0]!.remainingPutAwayQuantity = 0
+    })
+    view.rerender(<InboundPutawayDetailPage receiptId="receipt" />)
+    expect(screen.getByRole('status')).toHaveTextContent('Đã ghi nhận cất hàng')
+    expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument()
+    expect(fixtures.push).not.toHaveBeenCalled()
+    await act(async () => finishRefresh())
+    expect(fixtures.push).toHaveBeenCalledOnce()
+  })
+
   it('replays the immutable command after a committed response is lost, even when refreshed stock cannot fit it', async () => {
     const user = userEvent.setup()
     const commands = new Set<string>()

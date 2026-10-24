@@ -4,6 +4,10 @@ import { ArrowLeft, Plus, Save, UserPlus } from 'lucide-react'
 import type { FieldArrayWithId, UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
+  BusinessCodeField,
+  type BusinessCodeFieldProps,
+} from '@/components/forms/BusinessCodeField'
+import {
   Card,
   CardAction,
   CardContent,
@@ -57,6 +61,8 @@ interface StockIssueRequestFormProps {
   readonly isRecipientSearchLoading: boolean
   readonly isProductSearchLoading: boolean
   readonly isPending: boolean
+  readonly codeSuggestionStatus?: BusinessCodeFieldProps['suggestionStatus']
+  readonly onCodeChange?: () => void
   readonly onWarehouseSearchChange: (value: string) => void
   readonly onRecipientSearchChange: (value: string) => void
   readonly onProductSearchChange: (scope: string, value: string) => void
@@ -91,6 +97,8 @@ export function StockIssueRequestForm({
   isRecipientSearchLoading,
   isProductSearchLoading,
   isPending,
+  codeSuggestionStatus,
+  onCodeChange,
   onWarehouseSearchChange,
   onRecipientSearchChange,
   onProductSearchChange,
@@ -115,7 +123,7 @@ export function StockIssueRequestForm({
   const lines = watch('lines')
 
   return (
-    <div className="flex w-full flex-col gap-5">
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-5">
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b pb-3">
         <Button
           type="button"
@@ -134,7 +142,8 @@ export function StockIssueRequestForm({
       </header>
 
       <form
-        className="flex flex-col gap-5"
+        data-scrollbar="slim"
+        className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pr-1 pb-3 [&>*]:shrink-0"
         onSubmit={(event) => {
           event.preventDefault()
           onSave()
@@ -147,6 +156,24 @@ export function StockIssueRequestForm({
           <CardContent>
             <FieldSet>
               <FieldGroup className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <BusinessCodeField
+                  label="Mã yêu cầu xuất kho"
+                  error={errors.stockIssueRequestCode}
+                  suggestionStatus={codeSuggestionStatus}
+                  description={
+                    isEditing
+                      ? 'Mã yêu cầu không đổi sau khi đã tạo.'
+                      : 'Mã được gợi ý, có thể chỉnh sửa. Để trống thì hệ thống tự cấp.'
+                  }
+                  inputProps={{
+                    ...register('stockIssueRequestCode', { onChange: onCodeChange }),
+                    id: 'stock-issue-request-code',
+                    maxLength: 100,
+                    readOnly: isEditing,
+                    disabled: isPending,
+                    className: 'font-mono',
+                  }}
+                />
                 <Field data-invalid={Boolean(errors.warehouseId)}>
                   <FieldLabel htmlFor="stock-issue-warehouse">Kho xuất hàng</FieldLabel>
                   <LookupCombobox

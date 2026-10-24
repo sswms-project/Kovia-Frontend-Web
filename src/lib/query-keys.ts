@@ -25,6 +25,7 @@ import type {
   InventoryStockHistoryQuery,
   StockMovementListQuery,
 } from '@/features/inventory/types/inventory.types'
+import type { InventoryAnomalyListQuery } from '@/features/inventory-anomaly/types/inventory-anomaly.types'
 import type { ProductListQuery, ProductLotQuery } from '@/features/product/types/product.types'
 import type {
   TransferAvailabilityQuery,
@@ -157,6 +158,12 @@ export const queryKeys = {
     forecastRuns: (warehouseId: string) => ['inventory', 'forecast-run-list', warehouseId] as const,
     history: (params: InventoryStockHistoryQuery) => ['inventory', 'history', params] as const,
   },
+  inventoryAnomalies: {
+    all: ['inventory-anomalies'] as const,
+    list: (params: InventoryAnomalyListQuery) => ['inventory-anomalies', 'list', params] as const,
+    summary: (warehouseId: string) => ['inventory-anomalies', 'summary', warehouseId] as const,
+    scans: (warehouseId: string) => ['inventory-anomalies', 'scans', warehouseId] as const,
+  },
   units: {
     all: ['units'] as const,
     list: (status?: 'Active' | 'Inactive') => ['units', 'list', status] as const,
@@ -170,6 +177,8 @@ export const queryKeys = {
     list: (params: CycleCountListQuery) => ['cycle-counts', 'list', params] as const,
     detail: (id: string) => ['cycle-counts', 'detail', id] as const,
     allowedActions: (id: string) => ['cycle-counts', 'detail', id, 'allowed-actions'] as const,
+    assignableStaff: (warehouseId: string) =>
+      ['cycle-counts', 'assignable-staff', warehouseId] as const,
   },
   stockAdjustments: {
     all: ['stock-adjustments'] as const,
@@ -269,6 +278,7 @@ export const queryKeys = {
       ['transfers', 'receive-sheet', transferId, shipmentId] as const,
   },
   stockIssueRequests: {
+    nextCode: ['stock-issue-requests', 'next-code'] as const,
     all: ['stock-issue-requests'] as const,
     lists: ['stock-issue-requests', 'list'] as const,
     list: (params: StockIssueRequestListQuery) => ['stock-issue-requests', 'list', params] as const,

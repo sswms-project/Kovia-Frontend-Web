@@ -52,6 +52,7 @@ function renderDetail(
     onSendToSupplier: vi.fn().mockResolvedValue(true),
     onReject: vi.fn().mockResolvedValue(true),
     onReconcile: vi.fn().mockResolvedValue(true),
+    onAssignReceiving: vi.fn(),
   }
   render(
     <InboundRequestDetail
@@ -66,6 +67,17 @@ function renderDetail(
 }
 
 describe('InboundRequestDetail supplier email actions', () => {
+  it('lets the warehouse manager open assignment when the server permits it', async () => {
+    const handlers = renderDetail(request({ status: 'Approved', receivingAssignedTo: null }), [
+      'AssignReceivingTask',
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Phân công nhân viên' }))
+    expect(handlers.onAssignReceiving).toHaveBeenCalledOnce()
+  })
+  it('does not advertise assignment without the backend action', () => {
+    renderDetail(request({ status: 'Approved' }), [])
+    expect(screen.queryByRole('button', { name: 'Phân công nhân viên' })).not.toBeInTheDocument()
+  })
   it('shows code-only edit when operational content is locked', () => {
     renderDetail(request({ status: 'Received' }), ['UpdateCode'])
     expect(screen.getByRole('link', { name: 'Đổi mã yêu cầu' })).toHaveAttribute(

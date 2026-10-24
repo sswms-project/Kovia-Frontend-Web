@@ -88,6 +88,30 @@ const item: GoodsReceiptItem = {
 }
 
 describe('putaway capacity units', () => {
+  it('retains exact printed labels, QR and custom barcodes without exposing the internal slot marker', () => {
+    const options = getPutawaySlotOptions([
+      {
+        ...zone,
+        racks: zone.racks.map((rack) => ({
+          ...rack,
+          slots: [{ ...slot, barcodeValue: '89300001' }],
+        })),
+      },
+    ])
+    expect(options[0]?.scanCodes).toEqual([`ZA-R-A01`, `KOVIA:LOC:SLOT:${slot.id}`, '89300001'])
+    const rackOptions = getPutawaySlotOptions([
+      {
+        ...zone,
+        racks: zone.racks.map((rack) => ({
+          ...rack,
+          storageMode: 'RackLevel',
+          defaultSlotId: slot.id,
+        })),
+      },
+    ])
+    expect(rackOptions[0]?.scanCodes).toEqual(['ZA-R', 'KOVIA:LOC:RACK:rack'])
+    expect(rackOptions[0]?.scanCodes).not.toContain('__SYSTEM_DEFAULT__')
+  })
   it('rejects conversion when JS quantity loses exact hundredths near its safe-integer boundary', () => {
     const unit = { ...item.allowedUnits[1]!, conversionFactor: 1000.000001 }
     const base = { ...item.allowedUnits[0]!, quantityPrecision: 2 }

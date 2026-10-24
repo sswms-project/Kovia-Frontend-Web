@@ -14,7 +14,10 @@ export function StockIssueRequestOverview({ order }: { readonly order: StockIssu
   const progress = summary.total <= 0 ? 0 : Math.min(100, (summary.done / summary.total) * 100)
 
   return (
-    <section className="bg-card border" aria-labelledby="stock-issue-request-overview">
+    <section
+      className="bg-card order-3 border xl:order-none"
+      aria-labelledby="stock-issue-request-overview"
+    >
       <div className="border-b p-4">
         <h2 id="stock-issue-request-overview" className="text-sm font-semibold">
           Tổng quan

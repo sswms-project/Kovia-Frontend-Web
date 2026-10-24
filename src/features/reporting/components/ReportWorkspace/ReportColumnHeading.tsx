@@ -8,8 +8,8 @@ interface ReportColumnHeadingProps {
 }
 export function ReportColumnHeading({ label, help }: ReportColumnHeadingProps) {
   return (
-    <span className="inline-flex items-center gap-1">
-      <span className="max-w-24 whitespace-normal">{label}</span>
+    <span className="inline-flex items-center gap-1 py-2 leading-5">
+      <span className="whitespace-nowrap">{label}</span>
       {help ? (
         <Popover>
           <PopoverTrigger asChild>

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { CameraScanControl } from '@/components/operations/scanning'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import type { useReceiptDamageIsolation } from '../hooks/use-receipt-damage-isolation'
 import { ReceivingLocationPicker } from './ReceivingLocationPicker'
@@ -35,7 +36,10 @@ export function ReceiptDamageIsolationDialog({
           if (!open) state.close()
         }}
       >
-        <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <DialogContent
+          data-scrollbar="slim"
+          className="max-h-[90dvh] overflow-y-auto overscroll-contain"
+        >
           <DialogHeader>
             <DialogTitle>Cách biệt hàng hỏng đã nhập</DialogTitle>
             <DialogDescription>
@@ -70,8 +74,30 @@ export function ReceiptDamageIsolationDialog({
           </label>
           <label className="space-y-1">
             Mã vị trí thực tế
-            <Input disabled={busy} {...register('confirmedSlotCode')} />
+            <Input
+              autoComplete="off"
+              spellCheck={false}
+              className="h-11 font-mono text-base sm:h-8 sm:text-sm"
+              disabled={busy}
+              {...register('confirmedSlotCode')}
+            />
           </label>
+          <CameraScanControl
+            key={state.location.selected?.id ?? 'no-location'}
+            label="Mã vị trí cách biệt"
+            disabled={busy || state.discard || !state.target}
+            mode="single"
+            pausedMessage={
+              !state.location.selected ? 'Chọn vị trí cách biệt trước khi quét mã.' : undefined
+            }
+            onCode={(code) => {
+              state.form.setValue('confirmedSlotCode', code.trim(), {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+              return true
+            }}
+          />
           <Controller
             control={control}
             name="physicallySeparated"

@@ -90,6 +90,27 @@ const props = {
   onPageSizeChange: vi.fn(),
 }
 describe('readable detail report table', () => {
+  it('skips unchanged rows on parent renders and still displays refreshed values', () => {
+    const sourceRow = report.items[0]
+    if (!sourceRow || sourceRow.rowType !== 'inventory-balance')
+      throw new Error('Missing inventory balance fixture')
+    const row = { ...sourceRow }
+    const readQuantity = vi.fn(() => 1234.5678914)
+    Object.defineProperty(row, 'externalIn', { get: readQuantity, enumerable: true })
+    const data = { ...report, items: [row] }
+    const { rerender } = render(<ReportTable {...props} report={data} />)
+    expect(screen.getByRole('cell', { name: '1.234,567891' })).toBeInTheDocument()
+    const readsAfterRender = readQuantity.mock.calls.length
+
+    rerender(<ReportTable {...props} report={data} />)
+    expect(readQuantity).toHaveBeenCalledTimes(readsAfterRender)
+
+    rerender(
+      <ReportTable {...props} report={{ ...data, items: [{ ...row, externalIn: 2500.25 }] }} />
+    )
+    expect(screen.getByRole('cell', { name: '2.500,25' })).toBeInTheDocument()
+    expect(screen.queryByRole('cell', { name: '1.234,567891' })).not.toBeInTheDocument()
+  })
   it('opens a readable explanation on click, including on touch screens', async () => {
     render(<ReportTable {...props} />)
     await userEvent
