@@ -24,6 +24,7 @@ export interface SupplierReturnItem {
 }
 
 export interface SupplierReturn {
+  readonly version?: string | null
   readonly id: string
   readonly code: string
   readonly supplierId: string

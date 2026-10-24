@@ -54,6 +54,7 @@ export const P = {
   SUPPLIER_RETURNS_VIEW: 'supplier-returns:view',
   SUPPLIER_RETURNS_CREATE: 'supplier-returns:create',
   SUPPLIER_RETURNS_APPROVE: 'supplier-returns:approve',
+  SUPPLIER_RETURNS_SELF_APPROVE: 'supplier-returns:self-approve',
   SUPPLIER_RETURNS_DISPATCH: 'supplier-returns:dispatch',
 
   // Inbound Requests

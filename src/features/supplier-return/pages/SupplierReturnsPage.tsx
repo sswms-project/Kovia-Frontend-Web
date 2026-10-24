@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
+import { USER_ROLES } from '@/config/roles'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useInventoryQuery } from '@/features/inventory/hooks/use-inventory'
 import { useSuppliersQuery } from '@/features/supplier/hooks/use-suppliers'
@@ -59,7 +60,10 @@ export default function SupplierReturnsPage() {
   const isCreateOpen = searchParams.get('create') === '1'
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
-  const canApprove = permissions.includes(P.SUPPLIER_RETURNS_APPROVE)
+  const canApprove =
+    meQuery.data?.role !== USER_ROLES.WarehouseStaff &&
+    permissions.includes(P.SUPPLIER_RETURNS_APPROVE)
+  const canSelfApprove = canApprove && permissions.includes(P.SUPPLIER_RETURNS_SELF_APPROVE)
   const canDispatch = permissions.includes(P.SUPPLIER_RETURNS_DISPATCH)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -178,9 +182,21 @@ export default function SupplierReturnsPage() {
     }
   }
 
-  async function approve(item: SupplierReturn) {
+  async function approve(item: SupplierReturn, selfApprovalAcknowledged = false) {
+    if (!canApprove || meQuery.isError || meQuery.isFetching) return
+    if (
+      item.createdById === meQuery.data?.id &&
+      (!canSelfApprove || !selfApprovalAcknowledged || !item.version)
+    ) {
+      toast.error('Cần quyền tự duyệt, xác nhận rõ và phiên bản phiếu mới nhất. Vui lòng tải lại.')
+      return
+    }
     try {
-      await approveMutation.mutateAsync(item.id)
+      await approveMutation.mutateAsync({
+        supplierReturnId: item.id,
+        selfApprovalAcknowledged,
+        expectedVersion: item.version,
+      })
       toast.success('Đã duyệt phiếu trả hàng NCC.')
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Không thể duyệt phiếu trả hàng NCC.'))
@@ -295,13 +311,14 @@ export default function SupplierReturnsPage() {
         isLoading={Boolean(detailId) && detailQuery.isLoading}
         isError={Boolean(detailId) && detailQuery.isError}
         canApprove={canApprove}
+        canSelfApprove={canSelfApprove}
         canDispatch={canDispatch}
         currentUserId={meQuery.data?.id ?? null}
         onRetry={() => void detailQuery.refetch()}
         onOpenChange={(open) => {
           if (!open) navigate({})
         }}
-        onApprove={(item) => void approve(item)}
+        onApprove={(item, acknowledged) => void approve(item, acknowledged)}
         onReject={(item) => openDecision('reject', item)}
         onCancel={(item) => openDecision('cancel', item)}
         onDeliver={openDelivery}

@@ -54,8 +54,17 @@ export function useCreateSupplierReturnMutation() {
 
 export function useApproveSupplierReturnMutation() {
   const invalidate = useInvalidateAfterTransition()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
-    mutationFn: supplierReturnService.approveSupplierReturn,
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    { supplierReturnId: string; selfApprovalAcknowledged: boolean; expectedVersion?: string | null }
+  >({
+    mutationFn: ({ supplierReturnId, selfApprovalAcknowledged, expectedVersion }) =>
+      supplierReturnService.approveSupplierReturn(
+        supplierReturnId,
+        selfApprovalAcknowledged,
+        expectedVersion
+      ),
     onSuccess: invalidate,
     onError: (error) => logger.error(error),
   })
