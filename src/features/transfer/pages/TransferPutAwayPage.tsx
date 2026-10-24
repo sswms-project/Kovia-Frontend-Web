@@ -38,7 +38,11 @@ import {
   TransferConfirmDialog,
   TransferUnsavedChanges,
 } from '../components/TransferShared'
-import { TransferPutAwayForm, TransferWorkHeader } from '../components/TransferWork'
+import {
+  TransferPutAwayForm,
+  TransferPutAwayStatus,
+  TransferWorkHeader,
+} from '../components/TransferWork'
 import { useTransferPlanEditor } from '../hooks/use-transfer-plan-editor'
 import {
   useTransferPutAwayPlanSuggestionsQuery,
@@ -392,29 +396,13 @@ export default function TransferPutAwayPage({
             </>
           ) : sheet ? (
             <>
-              <Alert>
-                <AlertDescription>
-                  {sheet.receipt.keptAtReceiving
-                    ? 'Có thể cất từ khu nhận: '
-                    : 'Đã nhận, chưa cất: '}
-                  <strong className="tabular-nums">{formatQuantity(remaining)}</strong>.{' '}
-                  {sheet.receipt.keptAtReceiving
-                    ? 'Chỉ chuyển phần còn khả dụng, không lấy hàng đã giữ cho công việc khác và không ghi nhập tồn lần nữa.'
-                    : sheet.receipt.receiptFlowVersion === 2
-                      ? 'Thực nhận đã được ghi tồn. Cất chỉ chuyển vị trí và mở khả dụng cho hàng đạt, không nhận tồn thêm.'
-                      : 'Theo luồng cũ, bước cất ghi tăng tồn kho nhận.'}{' '}
-                  Chỉ cất hàng tốt; hàng hỏng giữ Hold/cách biệt.
-                </AlertDescription>
+              <TransferPutAwayStatus sheet={sheet} remaining={remaining} canResume={canResume}>
                 {canResume && (
-                  <Button
-                    className="mt-3 min-h-11"
-                    disabled={busy}
-                    onClick={() => void resumePutAway()}
-                  >
+                  <Button className="min-h-11" disabled={busy} onClick={() => void resumePutAway()}>
                     {resume.isPending && <Spinner />}Tiếp tục cất vào kệ
                   </Button>
                 )}
-              </Alert>
+              </TransferPutAwayStatus>
               {canPutAway && remaining > 0 ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
@@ -503,19 +491,6 @@ export default function TransferPutAwayPage({
                     ) : null}
                   </div>
                 </Alert>
-              ) : null}
-              {sheet.receipt.status !== 'AwaitingPutAway' ? (
-                <p className="text-muted-foreground text-sm">
-                  {sheet.receipt.status === 'InTransit' || sheet.receipt.status === 'Receiving'
-                    ? 'Nộp phiếu nhập trước khi cất hàng.'
-                    : sheet.receipt.keptAtReceiving
-                      ? canResume
-                        ? 'Bấm Tiếp tục cất vào kệ để mở lại công việc.'
-                        : remaining > 0
-                          ? 'Liên hệ người được giao cất hoặc quản lý kho để tiếp tục.'
-                          : 'Không còn hàng khả dụng tại điểm nhận để cất. Lịch sử nhận và cất được giữ nguyên.'
-                      : 'Đợt đã hoàn tất; lịch sử cất được giữ nguyên.'}
-                </p>
               ) : null}
               <TransferPutAwayForm
                 validationAttempt={putAway.validationAttempt}

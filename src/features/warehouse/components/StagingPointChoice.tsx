@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Pencil } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
@@ -15,6 +16,7 @@ export function StagingPointChoice({
   onChange,
   disabled,
   frozen = false,
+  className,
 }: {
   readonly id: string
   readonly title: string
@@ -23,13 +25,14 @@ export function StagingPointChoice({
   readonly onChange: (value: string) => void
   readonly disabled?: boolean
   readonly frozen?: boolean
+  readonly className?: string
 }) {
   const [editing, setEditing] = useState(false)
   const selected =
     points.items.find((point) => point.slotId === value) ??
     (frozen && points.boundPoint?.slotId === value ? points.boundPoint : undefined)
   return (
-    <Field className="min-w-0 border p-3">
+    <Field className={cn('min-w-0 border p-3', className)}>
       <FieldLabel htmlFor={id}>{title}</FieldLabel>
       {!frozen && (editing || !selected) ? (
         <NativeSelect
