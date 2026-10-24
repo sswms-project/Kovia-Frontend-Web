@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { logger } from '@/lib/logger'
 import { CAMERA_FAILURE_MESSAGES, isCameraScanSupported } from '../../utils/camera-scan'
-import { playScanFeedback } from '../../utils/scan-feedback'
+import { playScanFeedback, prepareScanFeedback } from '../../utils/scan-feedback'
 import { useScanPreferences } from '../../utils/scan-preferences'
 import { InlineCameraScanner } from './InlineCameraScanner'
 import type { ScanResult } from './ScanInput'
@@ -119,7 +119,10 @@ export function CameraScanPanel({
         aria-pressed={open}
         aria-controls={frameId}
         disabled={!open && (!supported || disabled || Boolean(pausedMessage))}
-        onClick={() => onOpenChange(!open)}
+        onClick={() => {
+          if (!open && preferences.feedback) prepareScanFeedback()
+          onOpenChange(!open)
+        }}
       >
         {open ? <CameraOff aria-hidden="true" /> : <Camera aria-hidden="true" />}
         {open ? 'Tắt camera quét' : 'Bật camera quét'}

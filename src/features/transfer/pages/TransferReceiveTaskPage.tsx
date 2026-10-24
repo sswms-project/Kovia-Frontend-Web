@@ -26,6 +26,7 @@ import {
   TransferReceiptCountCards,
   TransferWorkHeader,
   TransferReceivingDisposition,
+  TransferReceiptHelp,
 } from '../components/TransferWork'
 import {
   TransferChangedBanner,
@@ -270,15 +271,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         shipmentStatus={sheet.status}
         route={'Nhận tại ' + warehouses.destinationWarehouseName}
       />
-      <Alert>
-        <AlertTitle>Kiểm hàng trước khi cất</AlertTitle>
-        <AlertDescription>
-          Tốt, hỏng và thiếu phải khớp số đã xuất.{' '}
-          {sheet.receiptFlowVersion === 1
-            ? 'Đợt theo luồng cũ: nộp kiểm đếm chưa ghi tồn, cất là bước nhận tồn.'
-            : 'Luồng mới ghi thực nhận đúng một lần tại vị trí nhận. Hàng đạt có thể giữ tại khu nhận hoặc tiếp tục cất; hàng hỏng phải đặt riêng và bị Hold.'}
-        </AlertDescription>
-      </Alert>
+      <TransferReceiptHelp receiptFlowVersion={sheet.receiptFlowVersion} />
       {sheet.status === 'AwaitingPutAway' ? (
         <Alert role="status">
           <AlertDescription>
@@ -315,7 +308,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         </Alert>
       ) : null}
       {sheet.status === 'InTransit' && mayReceive ? (
-        <div className="grid shrink-0 gap-3 border p-3 sm:grid-cols-2">
+        <div className="bg-card grid shrink-0 gap-3 border p-3 sm:grid-cols-2">
           {staged ? (
             sheet.stagingPoints ? (
               <StagingPointChoice
@@ -388,6 +381,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
       {staged && sheet.status !== 'InTransit' && sheet.receivingSlotId && sheet.stagingPoints && (
         <StagingPointChoice
           id="transfer-frozen-receiving"
+          className="bg-card"
           title="Điểm đã nhận hàng"
           points={sheet.stagingPoints}
           value={sheet.receivingSlotId}
@@ -397,7 +391,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
       )}
       {sheet.status === 'Receiving' && sheet.receiptFlowVersion === 2 && (
         <>
-          <Field className="shrink-0">
+          <Field className="bg-card shrink-0 border p-3">
             <FieldLabel htmlFor="transfer-damage-search">
               Tìm vị trí cách biệt hàng hỏng nếu có
             </FieldLabel>

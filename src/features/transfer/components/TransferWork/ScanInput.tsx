@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { isCameraScanSupported } from '../../utils/camera-scan'
-import { playScanFeedback } from '../../utils/scan-feedback'
+import { playScanFeedback, prepareScanFeedback } from '../../utils/scan-feedback'
 import { useScanPreferences } from '../../utils/scan-preferences'
 
 // Thư viện giải mã chỉ tải khi người dùng mở camera.
@@ -67,6 +67,7 @@ export function ScanInput({
 
   function handle(code: string) {
     if (!code || disabled || pending) return
+    if (preferences.feedback) prepareScanFeedback()
     const result = onScan(code)
     if (!preferences.feedback || result === undefined) return
     void Promise.resolve(result).then((ok) => {
@@ -131,7 +132,10 @@ export function ScanInput({
             className="size-11 shrink-0"
             aria-label={`Quét bằng camera: ${label}`}
             disabled={disabled || pending}
-            onClick={() => setIsCameraOpen(true)}
+            onClick={() => {
+              if (preferences.feedback) prepareScanFeedback()
+              setIsCameraOpen(true)
+            }}
           >
             <Camera aria-hidden="true" />
           </Button>

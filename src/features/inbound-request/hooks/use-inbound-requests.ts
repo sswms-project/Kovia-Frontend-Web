@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { productService } from '@/features/product/services/product.service'
 import { logger } from '@/lib/logger'
-import { formatApiError, isApiErrorResponse } from '@/lib/api-error'
+import { formatApiError, isApiErrorResponse, logApiError } from '@/lib/api-error'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
 import { inboundRequestService } from '../services/inbound-request.service'
@@ -282,6 +282,6 @@ export function useReconcileInboundRequestMutation() {
         : inboundRequestService.closeRemainingInboundQuantity(inboundRequestId, request)
     },
     onSuccess: (_, variables) => invalidate(variables.inboundRequestId),
-    onError: (error) => logger.error(error),
+    onError: logApiError,
   })
 }

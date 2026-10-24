@@ -2123,3 +2123,43 @@ State: APPROVED_FINAL. Role: same-agent self-review of dev diff and direct depen
 - Warehouse operations now consistently order Inventory, Inbound, Outbound, Cycle counts, Transfers, Returns for Tenant Owner/Manager/Staff; permission and active-route metadata retained. Existing navigation suite passes all 55 cases.
 - Fresh origin/dev is already an ancestor of screen/huytv. Adjacent regression: 82 files / 599 tests passed. ESLint on all changed TS/TSX files, diff checks, isolated production webpack build and TypeScript pass (74 static pages).
 - Coordinate with BE resume-putaway API (Backend PR261); backend first. No migration or data writes. Local AGENTS.md, CLAUDE.md and outputs remain excluded. PR targets dev; user performs merge.
+
+## 2026-10-24 — Mobile scan feedback audio activation
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer; not independent review.
+
+- Shared scan feedback previously created/resumed AudioContext only after asynchronous camera decoding/validation, outside the initiating user gesture, and scheduled tones without waiting for resume. Mobile autoplay restrictions can leave this context suspended; rejected resume promises were not handled.
+- Prepare audio synchronously when opening inline/dialog camera or submitting a manual/hardware scan with feedback enabled. Preparation emits no success tone. Playback waits for running state, recreates closed contexts and contains asynchronous denial without blocking scanning or vibration. Existing feedback preference, validation and camera lifecycle remain intact.
+- GitNexus playScanFeedback LOW3direct, playTones LOW1direct, ScanInput MEDIUM5direct; CameraScanPanel unindexed/UNKNOWN, source callers inspected (transfer picking/putaway and outbound picking). No new dependency, API or database change.
+- Four focused suites /25tests pass, including unlock-before-camera, no false success on preparation, delayed resume, asynchronous denial/vibration, context recreation, scanner behavior and putaway regression. Scoped ESLint, source TypeScript and diff checks pass. Physical phone audio remains unverified; browser/device mute settings and feedback preference still apply. Local source only; no commit, push, deployment or BE/FE restart.
+
+## 2026-10-24 — Explain inbound reconciliation refusals
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer; not independent review.
+
+- Inbound detail previously replaced any cancel/close API error with a generic update toast, hiding conflicts and permission/version reasons. It now uses existing getApiErrorMessage/logApiError utilities; expected4xx refusals are warnings rather than dev error overlays. Reconciliation hook uses the same logger policy. Dialog stays open on failure as before; no payload, permission, retry or API write behavior changed.
+- GitNexus page LOW0direct, reconciliation hook LOW1direct/1process. Detail and dialog suites15tests pass, including actual API refusal text and request/version wiring. Scoped ESLint, formatting and whitespace checks pass. Coordinated BE closure guard fix has402Inbound tests passing. Local-only changes; no real close command, migration, commit, push or deployment.
+
+## 2026-10-24 — Outbound form borders and receiving context help
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer; not independent review.
+
+- Outbound form's three Cards used a faint foreground/10 ring; added a solid semantic foreground border and disabled the ring locally. Inputs and shared Card remain unchanged. GitNexus form LOW1direct; scoped ESLint/diff checks pass. Styling-only, no new tests added for border utilities.
+- Receiving instructions now use existing shadcn Popover via a small TransferReceiptHelp component: title stays visible, details open on a labelled44px Info button, keyboard/Escape supported; content constrained to mobile viewport and reduced-motion honored. Both legacy and current stock-posting explanations retained with shorter wording.
+- Receiving start block, frozen receiving point and damaged-location search use bg-card rather than inheriting the page green. StagingPointChoice accepts optional className so other callers keep their existing background. No location selection, inventory, count or permission behavior changed. Page impact LOW0direct; shared staging component unindexed/UNKNOWN, pick/receive callers checked.
+  -18focused tests pass (both help variants and focus return, receiving handoff regression, staging selector). Scoped ESLint and diff checks pass. No physical browser visual test, API/data writes, BE change, commit, push or deployment.
+
+## 2026-10-24 — Compact putaway status and contextual stock explanation
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer; not independent review.
+
+- Replaced the long always-visible stock-accounting alert and duplicate completion paragraph with one TransferPutAwayStatus summary. Shows remaining quantity while pending, completion only for closed receiving states with no movable/unmovable remainder, and distinct receiving/cancelled/zero-balance-awaiting-finalization states.
+- Kept stock with movable quantity retains the receiving-stock label and existing permission-gated continuation button. Unavailable/reserved remainder is not labelled completed. Stock accounting and damaged-stock explanation move into a labelled44px Info Popover with keyboard/Escape, focus return, viewport width limit and reduced-motion support. Legacy flow explanation preserved. No mutation, permission, quantity calculation, query or scanner behavior changed.
+- GitNexus page LOW0direct.16focused tests pass across status component and page, including resume action/reload, kept/reserved stock, completion, incomplete statuses and contextual help. Scoped ESLint and whitespace checks pass. Local source only; no physical browser verification, API/data writes, BE change, commit, push or deployment.
+
+## 2026-10-24 — Safe working-branch synchronization from dev
+
+- Merged origin/devd991304 into screen/huytv, preserving local8e4adb0 scan-audio/receiving UX changes. No conflicts. Local AGENTS.md/CLAUDE.md and outputs remain outside the merge.
+- Incoming changes add dashboard alert charts, converted picking quantity normalization, base quantity validation and supplier-return controlled self-approval/unit-precision handling. No dependency/build config or migration changes.
+- Post-merge adjacent regression:121files/801tests passed (dashboard, supplier return, stock issue, transfer, inbound request); source TypeScript and diff checks passed. No API/data writes or service restart. GitNexus incoming scope HIGH because shared stock-issue workflow has multiple consumers; impacted feature tests covered.
+- BEdev lacks counterpart fixes8f975d21,1ff3ad48,25bd412d (still on separate fix branches). Existing supplier-return BE response has no version/self-approval permission, so new FE self-approval cannot be assumed usable; precision enforcement is not yet aligned at the BE trust boundary. Recorded for coordination, not silently fixed or merged from extra branches. Local integration tests are not live cross-service acceptance evidence.
