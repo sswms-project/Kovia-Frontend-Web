@@ -13,6 +13,15 @@ beforeEach(() => {
 })
 
 describe('Transfer request correlation', () => {
+  it('resumes the existing putaway task with a versioned replay-safe command', async () => {
+    const request = { expectedVersion: 'v1', commandId: 'command' }
+    await transferService.resumePutAway('transfer', 'shipment', request)
+    expect(axiosClient.post).toHaveBeenCalledExactlyOnceWith(
+      '/transfers/transfer/shipments/shipment/resume-putaway',
+      request,
+      { headers: { 'X-Transfer-Client-Id': getTransferClientId() } }
+    )
+  })
   it('uses the scoped compact assignment read without loading the complete document', async () => {
     await transferService.getAssignmentSnapshot('transfer', 'shipment', 'warehouse')
     expect(axiosClient.get).toHaveBeenCalledExactlyOnceWith(

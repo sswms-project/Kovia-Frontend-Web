@@ -7,6 +7,7 @@ import type {
   SubmitTransferReceiptRequest,
   PutAwayTransferShipmentRequest,
   TransferTaskType,
+  ResumeTransferPutAwayRequest,
 } from '../types/transfer-receipt.types'
 import { logTransferError } from '../utils/transfer-errors'
 import { TRANSFER_MUTATION_KEY, invalidateTransferQueries } from './use-transfers'
@@ -102,6 +103,22 @@ export function usePutAwayTransferShipmentMutation() {
       }),
     mutationFn: ({ transferId, shipmentId, request }) =>
       transferService.putAwayShipment(transferId, shipmentId, request),
+    onSuccess: () => invalidateTransferQueries(client, 'none'),
+    onError: logTransferError,
+  })
+}
+
+export function useResumeTransferPutAwayMutation() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationKey: TRANSFER_MUTATION_KEY,
+    retry: false,
+    mutationFn: ({
+      transferId,
+      shipmentId,
+      request,
+    }: ShipmentScope & { request: ResumeTransferPutAwayRequest }) =>
+      transferService.resumePutAway(transferId, shipmentId, request),
     onSuccess: () => invalidateTransferQueries(client, 'none'),
     onError: logTransferError,
   })

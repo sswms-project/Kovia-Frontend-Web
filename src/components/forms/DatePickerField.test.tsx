@@ -84,6 +84,29 @@ describe('DatePickerField', () => {
     await user.click(screen.getByRole('button', { name: 'Hôm nay' }))
     expect(screen.getByRole('button', { name: 'Ngày hàng về' })).toHaveTextContent('14/10/2026')
   })
+  it.each(['', '2026-10-20', '2026-10-20T08:15'])(
+    'sets the current Vietnam date and time at click time instead of retaining %s',
+    async (value) => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-23T16:59:00Z'))
+      const onChange = vi.fn()
+      render(
+        <DatePickerField
+          id="now"
+          label="Ngày điều chuyển"
+          withTime
+          value={value}
+          onChange={onChange}
+        />
+      )
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Ngày điều chuyển' }))
+      vi.setSystemTime(new Date('2026-10-23T17:02:00Z'))
+      await user.click(screen.getByRole('button', { name: 'Hôm nay' }))
+      expect(onChange).toHaveBeenCalledWith('2026-10-24T00:02')
+    }
+  )
+
   it('marks a required field and shows its error under the picker', () => {
     render(
       <DatePickerField

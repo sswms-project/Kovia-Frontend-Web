@@ -261,7 +261,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
   const busy = count.isPending || start.isPending || isReloading
   const readOnly = sheet.status !== 'Receiving'
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 max-md:[&_a]:min-h-11 pointer-coarse:[&_a]:min-h-11 max-md:[&_button]:min-h-11 pointer-coarse:[&_button]:min-h-11">
+    <div className="flex min-h-full w-full min-w-0 flex-col gap-3 max-md:[&_a]:min-h-11 pointer-coarse:[&_a]:min-h-11 max-md:[&_button:not([role=checkbox])]:min-h-11 pointer-coarse:[&_button:not([role=checkbox])]:min-h-11">
       <TransferWorkHeader
         heading="Phiếu nhập điều chuyển"
         transferId={transferId}
@@ -426,9 +426,14 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
         <Alert>
           <AlertTitle>Hàng đạt giữ tại khu nhận</AlertTitle>
           <AlertDescription>
-            Đã mở khả dụng theo FEFO tại vị trí nhận. Không ghi giả đã cất và không tăng tồn khi lấy
-            nội bộ.
+            Đã ghi tồn tại điểm nhận và mở khả dụng theo FEFO. Bạn vẫn có thể tiếp tục cất vào kệ,
+            không ghi nhập tồn lần nữa.
           </AlertDescription>
+          <Button asChild variant="outline" className="mt-3 min-h-11">
+            <Link href={APP_ROUTES.transferPutAwayTask(transferId, shipmentId)}>
+              Mở trang cất hàng
+            </Link>
+          </Button>
         </Alert>
       )}
       {sheet.status === 'Receiving' && !mayReceive ? (
@@ -439,7 +444,11 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
           </AlertDescription>
         </Alert>
       ) : null}
-      <OperationalListPanel aria-label="Đối chiếu hàng điều chuyển" aria-busy={busy}>
+      <OperationalListPanel
+        className="flex-none"
+        aria-label="Đối chiếu hàng điều chuyển"
+        aria-busy={busy}
+      >
         <TransferReceiptCountCards
           form={count.form}
           sheet={sheet}

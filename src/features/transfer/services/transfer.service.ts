@@ -2,6 +2,7 @@ import { axiosClient } from '@/lib/axios'
 import { warehouseStagingPointsSchema } from '@/features/warehouse/schemas/warehouse-staging-points.schema'
 import { transferWriteConfig } from '../utils/transfer-client'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
+import type { ResumeTransferPutAwayRequest } from '../types/transfer-receipt.types'
 import type { ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
 import type {
@@ -127,6 +128,12 @@ export const transferService = {
       .post<
         ApiResponse<unknown>
       >(API_ENDPOINTS.transfers.submitReceipt(transferId, shipmentId), request, transferWriteConfig())
+      .then(unwrap),
+  resumePutAway: (transferId: string, shipmentId: string, request: ResumeTransferPutAwayRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.resumePutAway(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
   putAwayShipment: (
     transferId: string,

@@ -193,6 +193,19 @@ export function canChoosePutAwaySlot(item: TransferItem) {
   return item.receivedQuantity === 0 && item.damagedQuantity === 0 && item.missingQuantity === 0
 }
 
+export function canHandleTransferPutAway(
+  viewer: TransferViewer,
+  assigneeId: string | null | undefined,
+  warehouseId: string | undefined
+) {
+  return (
+    has(viewer, P.TRANSFERS_RECEIVE) &&
+    (has(viewer, P.WAREHOUSE_TASKS_ASSIGN) ||
+      (viewer.currentUserId !== null && assigneeId === viewer.currentUserId)) &&
+    manages(viewer, warehouseId)
+  )
+}
+
 export function getShipmentCapabilities(
   viewer: TransferViewer,
   shipment: Pick<TransferShipment, 'status' | 'lines'> &
@@ -213,10 +226,12 @@ export function getShipmentCapabilities(
     canViewPutAway:
       has(viewer, P.TRANSFERS_VIEW) && manages(viewer, warehouses?.destinationWarehouseId),
     canOpenPutAway:
-      has(viewer, P.TRANSFERS_RECEIVE) &&
       shipment.status === 'AwaitingPutAway' &&
-      (canManageTasks || isAssignedTo(shipment.putAwayAssigneeId)) &&
-      manages(viewer, warehouses?.destinationWarehouseId),
+      canHandleTransferPutAway(
+        viewer,
+        shipment.putAwayAssigneeId,
+        warehouses?.destinationWarehouseId
+      ),
     canAssignPutAway:
       has(viewer, P.WAREHOUSE_TASKS_ASSIGN) &&
       has(viewer, P.TRANSFERS_RECEIVE) &&

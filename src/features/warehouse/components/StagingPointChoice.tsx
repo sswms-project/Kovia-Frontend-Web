@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
@@ -56,12 +57,13 @@ export function StagingPointChoice({
           {!frozen && (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="max-md:min-h-11 pointer-coarse:min-h-11"
+              className="shrink-0 max-md:min-h-11 pointer-coarse:min-h-11"
               disabled={disabled}
               onClick={() => setEditing(true)}
             >
+              <Pencil aria-hidden="true" />
               Đổi vị trí
             </Button>
           )}
