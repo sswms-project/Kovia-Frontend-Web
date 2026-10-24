@@ -3,7 +3,7 @@
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -68,11 +68,11 @@ export default function ProductListPage() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const page = parsePositiveInteger(searchParams.get('page'), 1)
+  const requestedPage = parsePositiveInteger(searchParams.get('page'), 1)
   const pageSize = parsePageSize(searchParams.get('pageSize'))
   const searchText = searchParams.get('search') ?? ''
   const categoryId = searchParams.get('category') ?? ''
-  const warehouseId = searchParams.get('warehouse') ?? ''
+  const requestedWarehouseId = searchParams.get('warehouse') ?? ''
   const status = parseProductStatus(searchParams.get('status') ?? '')
   const trackingMode = parseTrackingMode(searchParams.get('tracking') ?? '')
   const stockStatus = parseStockStatus(searchParams.get('stock'))
@@ -108,7 +108,32 @@ export default function ProductListPage() {
   const permissions = new Set(meQuery.data?.permissions ?? [])
   const canViewInventory = permissions.has(P.INVENTORY_VIEW)
   const warehousesQuery = useInventoryWarehouseOptionsQuery(canViewInventory)
+  const manageableWarehouses = (warehousesQuery.data ?? []).filter(
+    (warehouse) => warehouse.canManageWarehouse
+  )
+  const needsWarehouseOptions = canViewInventory && Boolean(requestedWarehouseId)
+  const warehouseOptionsFailed = needsWarehouseOptions && warehousesQuery.isError
+  const warehouseOptionsReady = warehousesQuery.data !== undefined && !warehousesQuery.isError
+  const unavailableWarehouse =
+    needsWarehouseOptions &&
+    warehouseOptionsReady &&
+    !manageableWarehouses.some((warehouse) => warehouse.id === requestedWarehouseId)
+  const warehouseId = unavailableWarehouse ? '' : requestedWarehouseId
+  const page = unavailableWarehouse ? 1 : requestedPage
+  const listEnabled = !needsWarehouseOptions || warehouseOptionsReady
+  const currentParams = searchParams.toString()
+
+  useEffect(() => {
+    if (!unavailableWarehouse) return
+    const next = new URLSearchParams(currentParams)
+    next.delete('warehouse')
+    next.delete('page')
+    const query = next.toString()
+    window.history.replaceState(null, '', query ? `${pathname}?${query}` : pathname)
+  }, [unavailableWarehouse, currentParams, pathname])
+
   const exportFilters = {
+    managedWarehousesOnly: true,
     pageNumber: page,
     pageSize,
     ...(debouncedSearch ? { searchTerm: debouncedSearch } : {}),
@@ -118,7 +143,7 @@ export default function ProductListPage() {
     ...(trackingMode ? { isLotTracked: trackingMode === 'lot' } : {}),
     ...(canViewInventory && stockStatus ? { stockStatus } : {}),
   }
-  const listQuery = useProductListQuery(exportFilters)
+  const listQuery = useProductListQuery(exportFilters, listEnabled)
 
   const createMutation = useCreateProductMutation()
   const uploadImageMutation = useUploadProductImageMutation()
@@ -126,10 +151,13 @@ export default function ProductListPage() {
   const unitsQuery = useUnitsQuery(isCreateOpen, 'Active')
   const categoriesQuery = useCategoriesQuery(true, 'Active')
 
-  const listData = listQuery.isPlaceholderData ? undefined : listQuery.data
-  const stockStatusCounts = listQuery.data?.stockStatusCounts
+  const listData = !listEnabled || listQuery.isPlaceholderData ? undefined : listQuery.data
+  const stockStatusCounts = listEnabled ? listQuery.data?.stockStatusCounts : undefined
   const products = listData?.items ?? []
-  const isListLoading = listQuery.isLoading || listQuery.isPlaceholderData
+  const isListLoading =
+    (!listEnabled && !warehouseOptionsFailed) ||
+    (listEnabled && (listQuery.isLoading || listQuery.isPlaceholderData))
+  const isListError = warehouseOptionsFailed || (listEnabled && listQuery.isError)
   const canCreate = permissions.has(P.PRODUCTS_CREATE)
   const canEdit = permissions.has(P.PRODUCTS_UPDATE)
   const canManageUnits = permissions.has(P.UNITS_MANAGE)
@@ -248,8 +276,8 @@ export default function ProductListPage() {
     viewPermission: P.PRODUCTS_VIEW,
     totalCount: listQuery.data?.totalCount ?? 0,
     isFetching: listQuery.isFetching,
-    isError: listQuery.isError,
-    blocked: searchText.trim() !== debouncedSearch,
+    isError: isListError,
+    blocked: !listEnabled || searchText.trim() !== debouncedSearch,
   })
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
@@ -327,7 +355,7 @@ export default function ProductListPage() {
           status={status}
           trackingMode={trackingMode}
           categories={categoriesQuery.data ?? []}
-          warehouses={warehousesQuery.data ?? []}
+          warehouses={manageableWarehouses}
           canViewInventory={canViewInventory}
           isFetching={listQuery.isFetching}
           onSearchChange={handleSearchChange}
@@ -343,7 +371,7 @@ export default function ProductListPage() {
           onTrackingModeChange={(value) => {
             updateListParams({ tracking: parseTrackingMode(value) || null, page: null })
           }}
-          onRefresh={() => void listQuery.refetch()}
+          onRefresh={() => void (listEnabled ? listQuery.refetch() : warehousesQuery.refetch())}
         />
 
         {isListLoading && (
@@ -358,7 +386,7 @@ export default function ProductListPage() {
           </div>
         )}
 
-        {listQuery.isError && (
+        {isListError && (
           <div className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
             <Package className="text-destructive size-10" aria-hidden="true" />
             <div>
@@ -369,14 +397,14 @@ export default function ProductListPage() {
               type="button"
               variant="outline"
               disabled={listQuery.isFetching}
-              onClick={() => void listQuery.refetch()}
+              onClick={() => void (listEnabled ? listQuery.refetch() : warehousesQuery.refetch())}
             >
               Thử lại
             </Button>
           </div>
         )}
 
-        {!isListLoading && !listQuery.isError && products.length === 0 && (
+        {!isListLoading && !isListError && products.length === 0 && (
           <div className="flex min-h-64 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
             <div className="bg-muted flex size-12 items-center justify-center">
               <Package className="text-muted-foreground size-5" aria-hidden="true" />

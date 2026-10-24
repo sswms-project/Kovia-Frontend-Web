@@ -194,6 +194,7 @@ export const API_ENDPOINTS = {
     history: '/inventory/history',
   },
   cycleCounts: {
+    nextCode: '/cycle-counts/next-code',
     list: '/cycle-counts',
     create: '/cycle-counts',
     detail: (cycleCountId: string) => `/cycle-counts/${cycleCountId}`,

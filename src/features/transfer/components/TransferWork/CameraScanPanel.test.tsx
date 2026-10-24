@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useState, type ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CameraScanPanel } from './CameraScanPanel'
+import { prepareScanFeedback } from '../../utils/scan-feedback'
 
 const { startCameraScan, isCameraScanSupported, stop } = vi.hoisted(() => ({
   startCameraScan: vi.fn(),
@@ -14,7 +15,10 @@ vi.mock('@/lib/camera-scan', async (importOriginal) => ({
   startCameraScan,
   isCameraScanSupported,
 }))
-vi.mock('../../utils/scan-feedback', () => ({ playScanFeedback: vi.fn() }))
+vi.mock('../../utils/scan-feedback', () => ({
+  playScanFeedback: vi.fn(),
+  prepareScanFeedback: vi.fn(),
+}))
 
 function TestPanel(props: Partial<ComponentProps<typeof CameraScanPanel>>) {
   const [open, setOpen] = useState(false)
@@ -48,7 +52,12 @@ describe('mobile transfer camera surface', () => {
     expect(screen.getByText('Khung quét mã QR / mã vạch')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Bật camera/ })).toHaveClass('h-11', 'w-full')
     expect(startCameraScan).not.toHaveBeenCalled()
+    expect(prepareScanFeedback).not.toHaveBeenCalled()
     await start()
+    expect(prepareScanFeedback).toHaveBeenCalledOnce()
+    expect(vi.mocked(prepareScanFeedback).mock.invocationCallOrder[0]).toBeLessThan(
+      startCameraScan.mock.invocationCallOrder[0]!
+    )
     expect(screen.getByText(/Đang mở camera/)).toBeInTheDocument()
     fireEvent.playing(screen.getByLabelText('Hình ảnh từ camera'))
     expect(screen.queryByText(/Đang mở camera/)).not.toBeInTheDocument()

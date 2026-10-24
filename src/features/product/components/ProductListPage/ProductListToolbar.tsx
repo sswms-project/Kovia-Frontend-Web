@@ -69,7 +69,7 @@ export function ProductListToolbar({
           value={warehouseId}
           onChange={(event) => onWarehouseChange(event.target.value)}
         >
-          <NativeSelectOption value="">Tất cả kho trong đơn vị</NativeSelectOption>
+          <NativeSelectOption value="">Tất cả kho được quản lý</NativeSelectOption>
           {warehouses.map((warehouse) => (
             <NativeSelectOption key={warehouse.id} value={warehouse.id}>
               {warehouse.warehouseCode} — {warehouse.warehouseName}

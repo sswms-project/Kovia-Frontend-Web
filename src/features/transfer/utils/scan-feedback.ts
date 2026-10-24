@@ -18,14 +18,31 @@ const VIBRATION: Record<ScanFeedbackKind, number | number[]> = {
 
 let audioContext: AudioContext | null = null
 
-function playTones(kind: ScanFeedbackKind) {
+function getAudioContext() {
   const Context =
     window.AudioContext ??
     (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
   if (!Context) return
-  audioContext ??= new Context()
-  const context = audioContext
-  if (context.state === 'suspended') void context.resume()
+  if (!audioContext || audioContext.state === 'closed') audioContext = new Context()
+  return audioContext
+}
+
+/** Call synchronously from a scan control's user gesture, before camera/validation awaits. */
+export function prepareScanFeedback() {
+  if (typeof window === 'undefined') return
+  try {
+    const context = getAudioContext()
+    if (context && context.state !== 'running') void context.resume().catch(() => undefined)
+  } catch {
+    // Audio support/permission is optional; scanning must remain available.
+  }
+}
+
+async function playTones(kind: ScanFeedbackKind) {
+  const context = getAudioContext()
+  if (!context) return
+  if (context.state !== 'running') await context.resume()
+  if (context.state !== 'running') return
   for (const tone of TONES[kind]) {
     const oscillator = context.createOscillator()
     const gain = context.createGain()
@@ -46,11 +63,8 @@ function playTones(kind: ScanFeedbackKind) {
  */
 export function playScanFeedback(kind: ScanFeedbackKind) {
   if (typeof window === 'undefined') return
-  try {
-    playTones(kind)
-  } catch {
-    // Trình duyệt chặn âm thanh: bỏ qua.
-  }
+  // Playback can be blocked even after a gesture; do not reject the scan result.
+  void playTones(kind).catch(() => undefined)
   try {
     window.navigator.vibrate?.(VIBRATION[kind])
   } catch {

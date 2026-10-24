@@ -112,6 +112,10 @@ export interface CycleCountItemHistory {
 export type CycleCountMethod = 'Manual' | 'Scanned'
 
 export interface CycleCountItem {
+  rackId?: string | null
+  zoneCode?: string | null
+  zoneName?: string | null
+  rackName?: string | null
   id: string
   productId: string
   productName: string
@@ -208,6 +212,7 @@ export interface CycleCountRecordItemRequest {
 }
 
 export interface CreateCycleCountRequest {
+  code?: string
   warehouseId: string
   zoneId: string | null
   scheduledDate: string

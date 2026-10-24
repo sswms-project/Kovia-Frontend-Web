@@ -121,6 +121,7 @@ vi.mock('../components/TransferWork', () => ({
   TransferWorkHeader: () => null,
   TransferReceiptCountCards: () => null,
   TransferReceivingDisposition: () => null,
+  TransferReceiptHelp: () => null,
 }))
 vi.mock('../components/TransferShared', () => ({
   TransferChangedBanner: () => null,

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { EACH_UNIT_REPEAT_GUARD_MS } from '@/lib/camera-scan'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -36,9 +37,6 @@ interface PickEntryDialogProps {
   readonly onConfirm: () => void
   readonly onOpenChange: (open: boolean) => void
 }
-
-/** Quét từng đơn vị: cho phép quét lại cùng mã sau khoảng ngắn để đếm từng thùng giống nhau. */
-const EACH_UNIT_REPEAT_GUARD_MS = 600
 
 export function PickEntryDialog(props: PickEntryDialogProps) {
   return (
