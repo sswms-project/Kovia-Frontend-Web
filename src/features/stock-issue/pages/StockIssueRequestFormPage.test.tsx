@@ -13,6 +13,8 @@ const fixture = vi.hoisted(() => ({
   update: vi.fn(),
   editing: false,
   nextCode: vi.fn(),
+  quantity: 1,
+  factor: 1,
 }))
 const router = { push: vi.fn() }
 vi.mock('next/navigation', () => ({ useRouter: () => router }))
@@ -42,7 +44,30 @@ vi.mock('../hooks/use-stock-issue-requests', () => ({
         }
       : {},
   useStockRecipientOptionsQuery: () => ({}),
-  useStockIssueProductOptionsQuery: () => ({}),
+  useStockIssueProductOptionsQuery: () => ({
+    data: [
+      {
+        id: '10000000-0000-4000-8000-000000000003',
+        sku: 'SKU',
+        productName: 'Product',
+        barcode: null,
+        unitId: 'base',
+        unitName: 'Base',
+        availableQuantity: 100,
+        firstExpiringLotNumber: null,
+        firstExpiringLotDate: null,
+        units: [
+          { unitId: 'base', unitName: 'Base', conversionFactor: 1, quantityPrecision: 6 },
+          {
+            unitId: 'alternate',
+            unitName: 'Alternate',
+            conversionFactor: fixture.factor,
+            quantityPrecision: 6,
+          },
+        ],
+      },
+    ],
+  }),
   useStockIssueSavedProductOptions: () => [],
   useCreateStockIssueRequestMutation: () => ({ mutateAsync: fixture.create }),
   useUpdateStockIssueRequestMutation: () => ({ mutateAsync: fixture.update }),
@@ -60,11 +85,27 @@ vi.mock('../components/StockIssueRequestFormPage', () => ({
       props.form.setValue('warehouseId', '10000000-0000-4000-8000-000000000001')
       props.form.setValue('stockRecipientId', '10000000-0000-4000-8000-000000000002')
       props.form.setValue('lines', [
-        { productId: '10000000-0000-4000-8000-000000000003', quantity: 1, unitId: '', note: '' },
+        {
+          productId: '10000000-0000-4000-8000-000000000003',
+          quantity: fixture.quantity,
+          unitId: fixture.factor === 1 ? '' : 'alternate',
+          note: '',
+        },
       ])
     }
     return (
       <>
+        <button
+          onClick={() =>
+            props.onProductSelect({
+              value: '10000000-0000-4000-8000-000000000003',
+              label: 'Product',
+            })
+          }
+        >
+          Select product
+        </button>
+        <span>{props.form.formState.errors.lines?.[0]?.quantity?.message}</span>
         <BusinessCodeField
           label="Mã yêu cầu xuất kho"
           suggestionStatus={props.codeSuggestionStatus}
@@ -100,12 +141,44 @@ beforeEach(() => {
   fixture.fetching = false
   fixture.error = false
   fixture.editing = false
+  fixture.quantity = 1
+  fixture.factor = 1
   fixture.create.mockResolvedValue({ data: 'created-id' })
   fixture.update.mockResolvedValue({})
 })
 afterEach(cleanup)
 
 describe('outbound request code suggestion', () => {
+  it.each([
+    [0.001, 1, false],
+    [0.1, 3, true],
+  ])(
+    'checks exact converted storage quantity for factor %s',
+    async (factor, quantity, accepted) => {
+      fixture.factor = factor
+      fixture.quantity = quantity
+      render(<StockIssueRequestFormPage />)
+      fireEvent.click(screen.getByText('Select product'))
+      fireEvent.click(screen.getByText('Save'))
+      if (accepted) await waitFor(() => expect(fixture.create).toHaveBeenCalled())
+      else {
+        await screen.findByText(/Số lượng quy đổi phải lưu chính xác/)
+        expect(fixture.create).not.toHaveBeenCalled()
+      }
+    }
+  )
+  it.each([false, true])(
+    'blocks unrepresentable quantities before %s create/update HTTP calls',
+    async (editing) => {
+      fixture.editing = editing
+      fixture.quantity = 0.001
+      render(<StockIssueRequestFormPage stockIssueRequestId={editing ? 'saved-id' : undefined} />)
+      fireEvent.click(screen.getByText('Save'))
+      await screen.findByText(/Số lượng quy đổi phải lưu chính xác/)
+      expect(fixture.create).not.toHaveBeenCalled()
+      expect(fixture.update).not.toHaveBeenCalled()
+    }
+  )
   it('preserves the saved code on edit and never sends it to the update API', async () => {
     fixture.editing = true
     render(<StockIssueRequestFormPage stockIssueRequestId="saved-id" />)
