@@ -22,3 +22,18 @@ export function useStockAlertsQuery(
     retry: false,
   })
 }
+
+export function useStockExpiryDistributionQuery(
+  params: { readonly warehouseId?: string; readonly expiringDays: number },
+  enabled: boolean,
+  permissionKey: string
+) {
+  const user = useAuthStore((state) => state.user)
+  return useQuery({
+    queryKey: ['stock-expiry-distribution', user?.tenantId, user?.id, permissionKey, params],
+    queryFn: ({ signal }) => stockAlertService.getExpiryDistribution(params, signal),
+    enabled: enabled && Boolean(user?.tenantId),
+    staleTime: 30_000,
+    retry: false,
+  })
+}

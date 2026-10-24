@@ -80,6 +80,15 @@ export interface InventoryAnomalySummary {
   /** Tỷ lệ cảnh báo được xác nhận trên số đã xem xét trong 30 ngày (0..1); null khi chưa xem xét cảnh báo nào. */
   precision30Days: number | null
   latestScan: InventoryAnomalyScan | null
+  /** 14 ngày gần nhất theo giờ Việt Nam, cũ trước; ngày không có cảnh báo có số 0. */
+  newLast14Days: InventoryAnomalyDailyCount[]
+}
+
+export interface InventoryAnomalyDailyCount {
+  /** Ngày dạng yyyy-MM-dd. */
+  date: string
+  high: number
+  medium: number
 }
 
 export interface ReviewInventoryAnomalyRequest {

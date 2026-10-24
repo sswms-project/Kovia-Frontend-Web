@@ -20,6 +20,7 @@ export type InventoryEligibilityStatus =
   | 'Quarantine'
 
 export interface InventoryStock {
+  quantityPrecision?: number | null
   id: string
   productId: string
   sku: string

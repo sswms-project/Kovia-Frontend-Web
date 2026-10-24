@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { createSupplierReturnSchema } from './supplier-return.schema'
+import {
+  createSupplierReturnSchema,
+  confirmSupplierReturnDeliverySchema,
+} from './supplier-return.schema'
 
 const line = {
   inventoryStockId: 'stock-1',
@@ -18,6 +21,35 @@ const valid = {
 }
 
 describe('createSupplierReturnSchema', () => {
+  it.each([
+    [0, 0.5, false],
+    [0, 1, true],
+    [2, 0.25, true],
+    [6, 0.001, false],
+  ])(
+    'validates unit precision %s for quantity %s before creating a return',
+    (quantityPrecision, quantity, accepted) => {
+      expect(
+        createSupplierReturnSchema.safeParse({
+          ...valid,
+          lines: [{ ...line, quantityPrecision, quantity }],
+        }).success
+      ).toBe(accepted)
+    }
+  )
+  it.each([
+    [2, 0.5],
+    [1.5, 1],
+  ])(
+    'rejects fractional delivery or an invalid old approved quantity (%s/%s)',
+    (approvedQuantity, deliveredQuantity) => {
+      expect(
+        confirmSupplierReturnDeliverySchema.safeParse({
+          items: [{ itemId: 'line', quantityPrecision: 0, approvedQuantity, deliveredQuantity }],
+        }).success
+      ).toBe(false)
+    }
+  )
   it('accepts a valid return', () => {
     expect(createSupplierReturnSchema.safeParse(valid).success).toBe(true)
   })

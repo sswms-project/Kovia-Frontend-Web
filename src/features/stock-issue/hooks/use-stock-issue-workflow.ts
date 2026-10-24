@@ -304,7 +304,8 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
           .map((line) => ({
             stockIssueRequestItemId: line.stockIssueRequestItemId,
             inventoryStockId: line.inventoryStockId,
-            pickedQuantity: line.pickedQuantity * line.unitFactor,
+            // Conversion factors support six decimals; remove binary noise without rounding to storage scale.
+            pickedQuantity: Number((line.pickedQuantity * line.unitFactor).toFixed(6)),
             scannedBarcode: line.scannedBarcode?.trim() || null,
             scannedSlotCode: line.scannedSlotCode?.trim() || null,
             destinationStagingSlotId: line.destinationStagingSlotId,

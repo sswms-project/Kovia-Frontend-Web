@@ -18,7 +18,9 @@ Các view đang dùng API thật, không dùng `utils/sample-data.ts`. Những c
 - GET `/dashboard/stock-alerts/thresholds?kind=below-minimum|above-maximum`.
 - GET `/dashboard/stock-alerts/expiry?kind=expiring|expired&expiringDays=5`.
 - Hai họ API nhận warehouseIds, pageNumber, pageSize (1–50), search (tối đa 200 ký tự); FE serialize mảng kho cùng kiểu overview hiện có.
-- Bốn query riêng, reload từng bảng độc lập. Màn hình hẹp hiển thị một bảng và bốn lựa chọn có tổng số ngay trên nút; nhóm chưa mở chỉ lấy 1 dòng để có totalCount.
+- Tổng quan chỉ hiển thị hai bảng: dưới tối thiểu và sắp hết hạn. API vượt tối đa/quá hạn vẫn giữ cho nơi khác; URL cũ trỏ tới hai nhóm đó rơi về dưới tối thiểu.
+- Hai query bảng riêng, reload từng bảng độc lập. Màn hình hẹp hiển thị một bảng và hai lựa chọn có tổng số ngay trên nút.
+- Phía trên hai bảng có ba thẻ số và ba biểu đồ (`AlertOverviewCharts`): dưới tối thiểu lấy 6 dòng đầu của API ngưỡng (đã xếp thiếu nhiều nhất trước) và vẽ % khả dụng so với tối thiểu; sắp hết hạn đọc GET `/dashboard/stock-alerts/expiry-distribution?expiringDays=N` (số lô theo số ngày còn lại) rồi gom khoảng ở FE (`utils/expiry-buckets.ts`); bất thường đọc `newLast14Days` của GET `/inventory-anomalies/summary` (ngày Việt Nam). Thẻ và biểu đồ bất thường chỉ hiện khi có `inventory-anomalies:view`; lỗi 403 của nó không khóa cả tổng quan.
 - “Xem tất cả” dùng Dialog rộng, bảng dùng chung, search server và page size 10/20/30/50. Preview không bị search của Dialog thay đổi.
 - Query key gồm tenant, user, permissionKey, kho, loại, trang/cỡ trang và search. N chỉ thuộc key sắp hết hạn. Không dùng placeholder từ kho/tenant khác; dữ liệu bị từ chối 401/403 không được hiển thị.
 - Link hàng hóa chỉ xuất hiện khi có INVENTORY_VIEW và giữ warehouseId/productId. Route tồn kho chưa lọc lotId; không tuyên bố là link lọc đúng lô.
@@ -37,13 +39,13 @@ Cảnh báo có dữ liệu dùng icon, nhãn và màu ngữ nghĩa: đỏ cho q
 
 Ngày đánh giá HSD dùng UTC để tương thích `ProductLotRules`/khả dụng hiện có; UI trả/hiển thị evaluationDate và UTC. `ExpiryDate` là DateOnly, không chuyển timezone. Sắp hết hạn gồm hôm nay đến hôm nay + N (N nguyên 1–365); quá hạn nhỏ hơn ngày đánh giá.
 
-`ReplenishmentPlanning` và biểu đồ hoạt động dùng ngày Việt Nam UTC+7. Vì vậy 00:00–06:59 VN có thể lệch ngày đánh giá với forecast. Task này không âm thầm đổi quy tắc lô toàn hệ thống. Thời điểm cập nhật hiển thị theo giờ Việt Nam, chỉ đổi sau đọc thành công; bốn bảng không phải snapshot giao dịch nguyên tử.
+`ReplenishmentPlanning` và biểu đồ hoạt động dùng ngày Việt Nam UTC+7. Vì vậy 00:00–06:59 VN có thể lệch ngày đánh giá với forecast. Task này không âm thầm đổi quy tắc lô toàn hệ thống. Thời điểm cập nhật hiển thị theo giờ Việt Nam, chỉ đổi sau đọc thành công; các bảng và biểu đồ không phải snapshot giao dịch nguyên tử.
 
 ## UI và bố cục
 
 - Dùng `OperationalListPanel`, `Table`, `OperationalPagination`; header/footer cố định, chỉ body cuộn, scrollbar chung.
 - Root → Tabs → TabsContent → Grid có min-h-0/min-w-0/flex-1 đúng chuỗi. Không thêm gutter hoặc công thức chiều cao viewport nghiệp vụ.
-- Desktop đủ diện tích: grid 2 × 2. Hẹp/thấp: một bảng + bộ chọn nhóm có số lượng; ở viewport rất thấp giảm khoảng cách và đưa “Xem tất cả” lên header, snapshot vẫn đọc được trong Dialog.
+- Desktop đủ diện tích: thẻ số, hàng biểu đồ, rồi hai bảng cạnh nhau (cao tối thiểu 22rem, tab cuộn). Hẹp/thấp: một bảng + bộ chọn nhóm có số lượng; ở viewport rất thấp giảm khoảng cách và đưa “Xem tất cả” lên header, snapshot vẫn đọc được trong Dialog.
 - Reload ở bên phải. Tên dài xuống tối đa hai dòng ở preview, đầy đủ trong Dialog. Không để tên hàng đẩy cột số ra khỏi bảng.
 - Thời điểm cập nhật và ngày đánh giá UTC nằm giữa footer phân trang, không tạo hàng riêng ở header hay phía dưới bảng; áp dụng cả preview và Dialog.
 - Phân biệt tải lần đầu, lỗi, dữ liệu cũ khi reload thất bại, không có cảnh báo, chưa cấu hình policy và không có kho được phép. Không hiển thị tổng 0 giả lúc chưa tải.

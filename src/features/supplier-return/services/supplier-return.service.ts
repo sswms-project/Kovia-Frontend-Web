@@ -26,9 +26,15 @@ export const supplierReturnService = {
       .post<ApiResponse<string>>(API_ENDPOINTS.supplierReturns.list, request)
       .then((response) => response.data),
 
-  approveSupplierReturn: (supplierReturnId: string) =>
+  approveSupplierReturn: (
+    supplierReturnId: string,
+    selfApprovalAcknowledged = false,
+    expectedVersion?: string | null
+  ) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.supplierReturns.approve(supplierReturnId))
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.supplierReturns.approve(supplierReturnId), { selfApprovalAcknowledged, expectedVersion })
       .then((response) => response.data),
 
   rejectSupplierReturn: (supplierReturnId: string, request: SupplierReturnReasonRequest) =>
