@@ -19,6 +19,7 @@ export const createSupplierReturnSchema = z
           maxQuantity: z.number(),
           unit: z.string(),
           quantity: z.number({ error: 'Vui lòng nhập số lượng.' }),
+          quantityPrecision: z.number().int().min(0).max(6).optional(),
         })
       )
       .min(1, 'Phiếu trả NCC cần ít nhất một dòng hàng.'),
@@ -34,6 +35,12 @@ export const createSupplierReturnSchema = z
         })
       }
       seen.add(line.inventoryStockId)
+      if (Number(line.quantity.toFixed(Math.min(line.quantityPrecision ?? 2, 2))) !== line.quantity)
+        context.addIssue({
+          code: 'custom',
+          path: ['lines', index, 'quantity'],
+          message: 'Số lượng không phù hợp độ chính xác đơn vị và giới hạn 2 chữ số thập phân.',
+        })
       if (!(line.quantity > 0)) {
         context.addIssue({
           code: 'custom',
@@ -65,11 +72,23 @@ export const confirmSupplierReturnDeliverySchema = z
         itemId: z.string().min(1, 'Thiếu dòng hàng của phiếu.'),
         approvedQuantity: z.number(),
         deliveredQuantity: z.number({ error: 'Vui lòng nhập số lượng giao.' }),
+        quantityPrecision: z.number().int().min(0).max(6).optional(),
       })
     ),
   })
   .superRefine((value, context) => {
     value.items.forEach((item, index) => {
+      const precision = Math.min(item.quantityPrecision ?? 2, 2)
+      if (
+        Number(item.deliveredQuantity.toFixed(precision)) !== item.deliveredQuantity ||
+        Number(item.approvedQuantity.toFixed(precision)) !== item.approvedQuantity
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['items', index, 'deliveredQuantity'],
+          message:
+            'Số lượng không phù hợp đơn vị. Phiếu cũ sai số lượng cần được đối soát trước khi giao.',
+        })
       if (!(item.deliveredQuantity >= 0)) {
         context.addIssue({
           code: 'custom',
