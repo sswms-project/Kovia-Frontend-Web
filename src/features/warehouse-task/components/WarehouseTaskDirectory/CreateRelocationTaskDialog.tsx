@@ -13,6 +13,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
+import { formatInventoryLocation } from '@/features/inventory/utils/inventory-format'
 import type {
   InventoryStock,
   InventoryWarehouseOption,
@@ -130,7 +131,7 @@ export function CreateRelocationTaskDialog(props: CreateRelocationTaskDialogProp
                       <NativeSelectOption value="">Chọn tồn kho</NativeSelectOption>
                       {props.inventoryOptions.map((stock) => (
                         <NativeSelectOption key={stock.id} value={stock.id}>
-                          {stock.sku} · {stock.productName} · {stock.slotCode} · còn{' '}
+                          {stock.sku} · {stock.productName} · {formatInventoryLocation(stock)} · còn{' '}
                           {stock.availableQuantity}
                         </NativeSelectOption>
                       ))}

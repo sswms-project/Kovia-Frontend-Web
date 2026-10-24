@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import type { UseFormReturn } from 'react-hook-form'
+import { Controller, type UseFormReturn } from 'react-hook-form'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -10,12 +10,11 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import type { TransferCountFormValues } from '../../schemas/transfer-receipt.schema'
-import { parseTransferQuantityInput } from '../../schemas/transfer-receipt.schema'
+import { TransferReceiptQuantityInput } from './TransferReceiptQuantityInput'
 import type { TransferReceiptSheet } from '../../types/transfer-receipt.types'
 import { TRANSFER_RECEIPT_REASONS } from '../../types/transfer.types'
 import { RECEIPT_REASON_LABELS } from '../../utils/transfer-format'
@@ -37,7 +36,7 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
           const line = sheet.lines.find((line) => line.lineId === entry.lineId)
           const lot = line?.lots.find((lot) => lot.lotId === entry.lotId)
           if (!line || !lot) return null
-          // Ô để trống cho valueAsNumber = NaN; hiển thị coi là 0, lỗi "phải là số" vẫn do schema báo khi nộp.
+          // Chưa kiểm đếm được giữ là NaN trong form; tổng tạm coi là 0, schema vẫn chặn nộp.
           const damaged = entry.damagedQuantity || 0
           const missing = entry.missingQuantity || 0
           const declared = (entry.goodQuantity || 0) + damaged + missing
@@ -48,7 +47,7 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
             <Card
               key={entry.lineId + '-' + (entry.lotId ?? 'no-lot')}
               size="sm"
-              className="min-w-0 @3xl/receipt:flex-row @3xl/receipt:flex-wrap @3xl/receipt:items-start @3xl/receipt:has-data-[slot=card-footer]:pb-(--card-spacing)"
+              className="min-w-0 border ring-0 @3xl/receipt:flex-row @3xl/receipt:flex-wrap @3xl/receipt:items-start @3xl/receipt:has-data-[slot=card-footer]:pb-(--card-spacing)"
               role="group"
               aria-labelledby={prefix + '-title'}
             >
@@ -103,18 +102,27 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
                               · {line.sku} · {lot.lotNumber ?? 'Không theo lô'}
                             </span>
                           </FieldLabel>
-                          <Input
-                            id={id}
-                            className="h-11 min-w-0 text-base md:text-xs"
-                            type="text"
-                            inputMode={line.baseQuantityPrecision === 0 ? 'numeric' : 'decimal'}
-                            autoComplete="off"
-                            disabled={disabled}
-                            aria-invalid={Boolean(errors?.[index]?.[field])}
-                            aria-describedby={errors?.[index]?.[field] ? id + '-error' : undefined}
-                            {...form.register(`entries.${index}.${field}`, {
-                              setValueAs: parseTransferQuantityInput,
-                            })}
+                          <Controller
+                            control={form.control}
+                            name={`entries.${index}.${field}`}
+                            render={({ field: quantityField }) => (
+                              <TransferReceiptQuantityInput
+                                {...quantityField}
+                                id={id}
+                                className="h-11 min-w-0 text-base md:text-xs"
+                                type="text"
+                                inputMode={line.baseQuantityPrecision === 0 ? 'numeric' : 'decimal'}
+                                autoComplete="off"
+                                placeholder={
+                                  field === 'goodQuantity' ? 'Nhập số thực nhận' : undefined
+                                }
+                                disabled={disabled}
+                                aria-invalid={Boolean(errors?.[index]?.[field])}
+                                aria-describedby={
+                                  errors?.[index]?.[field] ? id + '-error' : undefined
+                                }
+                              />
+                            )}
                           />
                           <FieldError id={id + '-error'} className="wrap-anywhere">
                             {errors?.[index]?.[field]?.message}

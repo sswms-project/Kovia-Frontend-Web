@@ -16,21 +16,27 @@ export function TransferReceivingDisposition({ form, slots, receivingSlotId, dis
   const keep = useWatch({ control: form.control, name: 'keepAtReceiving' })
   const entries = useWatch({ control: form.control, name: 'entries' })
   return (
-    <div className="grid shrink-0 gap-3 border p-3 sm:grid-cols-2">
-      <Field className="sm:col-span-2">
-        <FieldLabel htmlFor="transfer-keep-receiving" className="flex items-center gap-2">
+    <div className="bg-card grid shrink-0 gap-3 border p-3 sm:grid-cols-2">
+      <Field className="sm:col-span-2" data-disabled={disabled}>
+        <FieldLabel
+          htmlFor="transfer-keep-receiving"
+          className="flex min-h-11 w-full cursor-pointer items-center gap-3"
+        >
           <Checkbox
             id="transfer-keep-receiving"
+            className="border-foreground/60 bg-card size-5 shrink-0"
+            aria-describedby="transfer-keep-receiving-description"
             checked={keep === true}
             disabled={disabled}
             onCheckedChange={(value) =>
               form.setValue('keepAtReceiving', value === true, { shouldDirty: true })
             }
           />
-          Giữ hàng đạt tại khu nhận, cho phép lấy trực tiếp theo FEFO
+          Giữ hàng đạt tại khu nhận
         </FieldLabel>
-        <p className="text-muted-foreground text-xs">
-          Nếu không chọn, hàng đạt tiếp tục chờ cất. Hàng hỏng luôn Hold/cách biệt.
+        <p id="transfer-keep-receiving-description" className="text-muted-foreground text-xs">
+          Khi chọn, hàng đạt có thể được lấy trực tiếp theo FEFO. Nếu không chọn, hàng tiếp tục chờ
+          cất. Hàng hỏng luôn được cách biệt.
         </p>
       </Field>
       {entries.some((entry) => entry.damagedQuantity > 0) && (

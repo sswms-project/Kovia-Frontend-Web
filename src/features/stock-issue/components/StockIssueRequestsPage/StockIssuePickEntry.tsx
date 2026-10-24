@@ -84,7 +84,7 @@ export function StockIssuePickEntry({
           id="outbound-pick-source"
           label="1. Quét mã vị trí"
           hideCamera
-          focusWhen={!scan.slotCode}
+          focusWhen={!cameraOn && !scan.slotCode}
           confirmedValue={scan.slotCode ? line.slotPath || scan.slotCode : undefined}
           error={!scan.slotCode ? scan.error : null}
           disabled={disabled}
@@ -94,7 +94,7 @@ export function StockIssuePickEntry({
           id="outbound-pick-product"
           label="2. Quét mã hàng"
           hideCamera
-          focusWhen={Boolean(scan.slotCode) && !scan.ready}
+          focusWhen={!cameraOn && Boolean(scan.slotCode) && (!scan.ready || scan.eachUnit)}
           confirmedValue={scan.productCode}
           error={scan.slotCode ? scan.error : null}
           description={

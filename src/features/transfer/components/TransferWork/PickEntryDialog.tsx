@@ -130,8 +130,8 @@ export function PickEntryWorkspace({
             <ScanInput
               id="pick-scan-slot"
               label="1. Quét mã vị trí"
-              autoFocus
-              focusWhen={scan.step === 'slot'}
+              autoFocus={!cameraOn}
+              focusWhen={!cameraOn && scan.step === 'slot'}
               confirmedValue={scan.suggestion ? formatTransferLocation(scan.suggestion) : undefined}
               error={scan.step === 'slot' ? scan.error : null}
               disabled={isPending}
@@ -158,7 +158,7 @@ export function PickEntryWorkspace({
             <ScanInput
               id="pick-scan-product"
               label="2. Quét mã hàng"
-              focusWhen={scan.step === 'product'}
+              focusWhen={!cameraOn && (scan.step === 'product' || (eachUnit && isReady))}
               description={
                 eachUnit
                   ? `Mỗi lần quét tính 1 đơn vị (đã quét ${formatQuantity(quantity)}/${formatQuantity(maximumQuantity)}). Nhấn Enter khi ô trống để xác nhận lấy.`

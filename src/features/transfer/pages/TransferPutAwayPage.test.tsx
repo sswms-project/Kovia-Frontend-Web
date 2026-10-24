@@ -11,6 +11,8 @@ const mock = vi.hoisted(() => ({
   sheetFetching: false,
   missingSheet: false,
   canPlan: false,
+  canResume: true,
+  resume: vi.fn(),
   ai: vi.fn(),
   seed: vi.fn(),
   apply: vi.fn(),
@@ -36,6 +38,7 @@ const putAway = {
   setConfirmOpen: vi.fn(),
   applySuggestions: mock.apply,
   requestConfirm: vi.fn(),
+  acceptFresh: vi.fn(),
 }
 const editor = {
   isOpen: true,
@@ -43,6 +46,7 @@ const editor = {
   isPending: false,
   open: vi.fn(),
   seedSuggestions: mock.seed,
+  rebase: vi.fn(),
 }
 vi.mock('../hooks/use-transfer-viewer', () => ({
   useTransferViewer: () => ({ viewer: {}, isReady: true }),
@@ -55,15 +59,17 @@ vi.mock('../hooks/use-transfers', () => ({
     data: transfer,
     isLoading: false,
     isFetching: mock.detailFetching,
-    refetch: vi.fn(),
+    refetch: async () => ({ data: transfer, isError: false }),
   }),
   useTransferPutAwaySlotsQuery: () => ({ data: [], isFetching: false }),
 }))
 vi.mock('../hooks/use-transfer-receipt', () => ({
+  useResumeTransferPutAwayMutation: () => ({ isPending: false, mutateAsync: mock.resume }),
   useTransferPutAwaySheetQuery: () => ({
     data: mock.missingSheet ? undefined : sheet,
     isLoading: mock.missingSheet,
     isFetching: mock.sheetFetching,
+    refetch: async () => ({ data: sheet, isError: false }),
   }),
 }))
 vi.mock('../hooks/use-transfer-realtime', () => ({
@@ -90,6 +96,7 @@ vi.mock('../utils/transfer-capabilities', () => ({
   canSeeWarehouse: () => true,
   getTransferCapabilities: () => ({ canSetPutAwaySlots: mock.canPlan }),
   getShipmentCapabilities: () => ({ canOpenPutAway: true }),
+  canHandleTransferPutAway: () => mock.canResume,
 }))
 vi.mock('../components/TransferDetailPage', () => ({ TransferPutawayPlanWorkspace: () => null }))
 vi.mock('../components/TransferFormPage', () => ({ TransferSlotMapDialog: () => null }))
@@ -128,6 +135,11 @@ beforeEach(() => {
   mock.sheetFetching = false
   mock.missingSheet = false
   mock.canPlan = false
+  mock.canResume = true
+  mock.resume.mockResolvedValue(undefined)
+  sheet.canResumePutAway = false
+  sheet.receipt.keptAtReceiving = false
+  sheet.receipt.status = 'AwaitingPutAway'
   putAway.reloadRequired = false
   putAway.unknownResult = false
   transfer.status = 'InProgress'
@@ -136,6 +148,42 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 describe('Trang cất hàng — tự điền và AI theo yêu cầu', () => {
+  it('offers continuation for eligible kept stock and reloads the existing workflow after reopening', async () => {
+    sheet.canResumePutAway = true
+    sheet.receipt.keptAtReceiving = true
+    sheet.receipt.status = 'Received'
+    transfer.status = 'Completed'
+    render(
+      <TransferPutAwayPage
+        transferId={transfer.id}
+        shipmentId={sheet.receipt.shipmentId}
+        initialTab="execution"
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục cất vào kệ' }))
+    await waitFor(() => expect(mock.resume).toHaveBeenCalledOnce())
+    expect(mock.resume).toHaveBeenCalledWith({
+      transferId: transfer.id,
+      shipmentId: sheet.receipt.shipmentId,
+      request: { expectedVersion: sheet.receipt.version, commandId: expect.any(String) },
+    })
+    await waitFor(() => expect(putAway.acceptFresh).toHaveBeenCalledWith(sheet))
+  })
+
+  it('does not offer continuation to an unassigned viewer without task management permission', () => {
+    sheet.canResumePutAway = true
+    sheet.receipt.keptAtReceiving = true
+    mock.canResume = false
+    render(
+      <TransferPutAwayPage
+        transferId={transfer.id}
+        shipmentId={sheet.receipt.shipmentId}
+        initialTab="execution"
+      />
+    )
+    expect(screen.queryByRole('button', { name: 'Tiếp tục cất vào kệ' })).not.toBeInTheDocument()
+  })
+
   it('still allows valid putaway suggestions while another discrepancy awaits resolution', () => {
     transfer.status = 'AwaitingResolution'
     render(

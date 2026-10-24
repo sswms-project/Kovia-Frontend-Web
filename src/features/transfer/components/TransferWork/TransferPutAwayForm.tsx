@@ -153,7 +153,7 @@ export function TransferPutAwayForm({
               </CollapsibleTrigger>
             </header>
             <CollapsibleContent className="motion-reduce:animate-none">
-              <div className="flex flex-col gap-2 p-2">
+              <div className="flex min-w-0 flex-col divide-y">
                 {indices.map((index) => {
                   const entryId = fields[index]?.id
                   return entryId ? (

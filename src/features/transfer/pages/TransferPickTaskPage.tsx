@@ -123,17 +123,22 @@ export default function TransferPickTaskPage({
         </Alert>
       ) : null}
 
-      <div data-slot="transfer-scroll" className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        data-slot="transfer-scroll"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+      >
         {staged && sheet?.stagingPoints && (
-          <StagingPointChoice
-            id="transfer-outbound-staging"
-            title="Đưa hàng tới điểm chờ xuất"
-            points={sheet.stagingPoints}
-            value={stagingSlotId}
-            frozen={Boolean(sheet.outboundStagingSlotId)}
-            disabled={!canAct || actions.complete.isPending}
-            onChange={(slotId) => setStagingChoice({ shipmentId, slotId })}
-          />
+          <div className="shrink-0">
+            <StagingPointChoice
+              id="transfer-outbound-staging"
+              title="Đưa hàng tới điểm chờ xuất"
+              points={sheet.stagingPoints}
+              value={stagingSlotId}
+              frozen={Boolean(sheet.outboundStagingSlotId)}
+              disabled={!canAct || actions.complete.isPending}
+              onChange={(slotId) => setStagingChoice({ shipmentId, slotId })}
+            />
+          </div>
         )}
         {!isReady || sheetQuery.isLoading || detailQuery.isLoading ? (
           <OperationalLoadingState rows={3} />
@@ -148,7 +153,7 @@ export default function TransferPickTaskPage({
             description="Quản lý có thể đã giảm hoặc hủy đợt này."
           />
         ) : (
-          <div className="flex flex-col gap-3 pb-3 lg:h-full lg:min-h-0">
+          <div className="flex shrink-0 flex-col gap-3 pb-3 lg:min-h-0 lg:flex-1">
             {isPicking && !hasPickPermission ? (
               <MissingPermissionNotice action="lấy hàng điều chuyển" />
             ) : isPicking && !canAct ? (
@@ -256,14 +261,6 @@ export default function TransferPickTaskPage({
             <PackageCheck aria-hidden="true" />
             Hoàn tất lấy hàng
           </Button>
-          {staged && (
-            <p className="text-muted-foreground mt-2 text-sm">
-              Xác nhận hàng của đợt đã tập kết tại{' '}
-              {sheet?.stagingPoints?.items.find((point) => point.slotId === stagingSlotId)?.label ??
-                'điểm chờ xuất đã chọn'}
-              .
-            </p>
-          )}
         </footer>
       ) : null}
 

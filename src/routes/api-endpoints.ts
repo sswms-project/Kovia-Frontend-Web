@@ -399,6 +399,8 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/shipments/${shipmentId}/start-receiving`,
     submitReceipt: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/submit-receipt`,
+    resumePutAway: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/resume-putaway`,
     putAwayShipment: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/putaway`,
     list: '/transfers',

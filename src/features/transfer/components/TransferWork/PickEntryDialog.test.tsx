@@ -36,28 +36,74 @@ const line = {
   picks: [],
 } as unknown as TransferPickSheetLine
 
-function renderDialog(scan: PickScanState, handlers = { slot: vi.fn(), product: vi.fn() }) {
-  render(
-    <PickEntryDialog
-      line={line}
-      scan={scan}
-      quantity={6}
-      maximumQuantity={6}
-      quantityError={null}
-      isPending={false}
-      onScanSlot={handlers.slot}
-      onScanProduct={handlers.product}
-      onQuantityChange={vi.fn()}
-      onUseAlternative={vi.fn()}
-      onRescan={vi.fn()}
-      onConfirm={vi.fn()}
-      onOpenChange={vi.fn()}
-    />
-  )
-  return handlers
+function renderDialog(
+  scan: PickScanState,
+  handlers = { slot: vi.fn(), product: vi.fn() },
+  eachUnit = false
+) {
+  const props = {
+    line,
+    scan,
+    quantity: 6,
+    maximumQuantity: 6,
+    quantityError: null,
+    isPending: false,
+    eachUnit,
+    onScanSlot: handlers.slot,
+    onScanProduct: handlers.product,
+    onQuantityChange: vi.fn(),
+    onUseAlternative: vi.fn(),
+    onRescan: vi.fn(),
+    onConfirm: vi.fn(),
+    onOpenChange: vi.fn(),
+  }
+  const view = render(<PickEntryDialog {...props} />)
+  return {
+    ...handlers,
+    updateScan: (next: PickScanState) => view.rerender(<PickEntryDialog {...props} scan={next} />),
+  }
 }
 
 describe('PickEntryDialog camera', () => {
+  it('keeps camera focus after the location, then focuses quantity after the product', async () => {
+    const view = renderDialog(INITIAL_PICK_SCAN_STATE)
+    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
+    const cameraButton = screen.getByRole('button', { name: /Tắt camera quét/ })
+    expect(cameraButton).toHaveFocus()
+    view.updateScan({ ...INITIAL_PICK_SCAN_STATE, step: 'product', slotCode: 'A07' })
+    expect(cameraButton).toHaveFocus()
+    expect(screen.getByTestId('camera')).toBeInTheDocument()
+    view.updateScan({
+      ...INITIAL_PICK_SCAN_STATE,
+      step: 'ready',
+      slotCode: 'A07',
+      productCode: 'SKU-1',
+    })
+    expect(screen.getByLabelText('3. Số lượng lấy')).toHaveFocus()
+    expect(screen.queryByTestId('camera')).not.toBeInTheDocument()
+  })
+
+  it('keeps the camera in each-unit mode and restores product input focus when camera is turned off', async () => {
+    const view = renderDialog(INITIAL_PICK_SCAN_STATE, undefined, true)
+    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
+    const cameraButton = screen.getByRole('button', { name: /Tắt camera quét/ })
+    view.updateScan({ ...INITIAL_PICK_SCAN_STATE, step: 'product', slotCode: 'A07' })
+    expect(cameraButton).toHaveFocus()
+    await userEvent.click(cameraButton)
+    expect(screen.getByLabelText('2. Quét mã hàng')).toHaveFocus()
+    await userEvent.click(screen.getByRole('button', { name: /Bật camera quét/ }))
+    view.updateScan({
+      ...INITIAL_PICK_SCAN_STATE,
+      step: 'ready',
+      slotCode: 'A07',
+      productCode: 'SKU-1',
+    })
+    expect(screen.getByRole('button', { name: /Tắt camera quét/ })).toHaveFocus()
+    expect(screen.getByTestId('camera')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Tắt camera quét/ }))
+    expect(screen.getByLabelText('2. Quét mã hàng')).toHaveFocus()
+  })
+
   it('uses a wheel-safe quantity field and preserves the decimal separator while typing', async () => {
     renderDialog({ ...INITIAL_PICK_SCAN_STATE, step: 'ready' })
     const input = screen.getByRole('textbox', { name: '3. Số lượng lấy' })

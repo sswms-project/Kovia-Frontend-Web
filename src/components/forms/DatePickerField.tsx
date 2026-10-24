@@ -9,7 +9,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
-import { operationalToday } from '@/lib/operational-date-time'
+import { operationalToday, toOperationalDateTimeInput } from '@/lib/operational-date-time'
 import { cn } from '@/lib/utils'
 
 interface DatePickerFieldProps {
@@ -134,7 +134,7 @@ export function DatePickerField({
                   type="button"
                   variant="outline"
                   className="min-h-11"
-                  onClick={() => onChange(`${toDateInputValue(today)}${time ? `T${time}` : ''}`)}
+                  onClick={() => onChange(toOperationalDateTimeInput(new Date().toISOString()))}
                 >
                   Hôm nay
                 </Button>

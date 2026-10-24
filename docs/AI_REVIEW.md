@@ -2048,3 +2048,69 @@ State: APPROVED_FINAL for prior findings/direct regressions after dev synchroniz
 - Synced origin/dev254b23c into ui/remove-pagination-row-range; query-keys/api-endpoints merged without conflicts and includes current anomaly/report/cycle-count changes. Feature commit ecf1a16 retains prior reviewed staging fixes.
 - Full merged FE suite:308files/1967tests passed. Scoped ESLint passed; isolated production build and TypeScript passed using KOVIA_ISOLATED_BUILD=true and webpack (74 static pages). Local AGENTS.md/CLAUDE.md changes and untracked outputs excluded from commits.
 - Coordinate rollout with BE staging API/schema. Backend must receive separately approved20261024042105_TransferShipmentStagingPoints before new staging flows can be manually accepted. No migration, business API writes, data QA or automatic merge requested/performed.
+
+## 2026-10-24 — Transfer current-time shortcut and picking layout spacing
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer; no independent review performed.
+
+- DatePickerField's date-time-only Today shortcut now uses the existing Vietnam time formatter on a fresh Date at click time. It replaces stale time values and handles a midnight rollover after opening the popup; date-only fields and manual calendar/time selection retain their behavior. Only transfer forms currently enable withTime.
+- TransferPickTaskPage now places staging choice and picking workspace in a vertical flex layout with a 12px gap. Staging retains its natural height; desktop picking fills remaining space rather than taking 100% height in addition to staging. Mobile remains a natural-height stack; completion remains outside the scroller.
+- User-requested follow-up: removed the repeated staging-location sentence below picking completion. Shared StagingPointChoice now uses the existing outline Button with a decorative pencil icon and retained 44px mobile/touch targets. GitNexus lookup for this new shared symbol returned UNKNOWN/unindexed; inspected its callers (transfer pick and receive pages). No location selection, locking or validation behavior changed.
+- Follow-up verification: StagingPointChoice and TransferPickTaskPage suites pass (2 files / 7 tests); scoped ESLint passes.
+- GitNexus impact: shared DatePickerField HIGH (4 direct callers, 2 affected processes); caller inspection limits the changed branch to date-time transfer fields. TransferPickTaskPage LOW with no indexed upstream callers. No API contract or BE changes.
+- Focused verification: 2 files / 15 tests passed; scoped ESLint and diff whitespace checks passed. Source TypeScript check passed after regenerating stale Next route types with next typegen; the temporary check configuration excludes unrelated local scratch outputs. Live browser visual verification unavailable because local browser use is disabled in Work settings. No warehouse data writes, migration, seed, commit or push.
+
+## 2026-10-24 — Camera versus hardware-scanner focus during picking
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer; not an independent review.
+
+- Root cause: shared ScanInput focuses the next input when focusWhen becomes true. Pick and outbound workspaces enabled that transition after a camera location decode, which can scroll the mobile browser away from the still-active camera.
+- Transfer PickEntryWorkspace and outbound StockIssuePickEntry now suppress location/product input autofocus while cameraOn. Non-each-unit product completion still focuses/selects quantity as requested and pauses camera through existing behavior. Each-unit mode keeps the camera active; turning it off restores product input focus, including after a successful count. Keyboard/Bluetooth slot-to-product-to-quantity navigation remains available when camera is off. No user-agent detection, new preferences, global focus changes or dependencies.
+- GitNexus impact requests returned UNKNOWN/unindexed for both components; direct source callers inspected: transfer picking page/dialog and outbound RecordStockPickingDialog. Changes limited to focus conditions; scan validation, counts and persistence unchanged.
+- Verification: 4 focused files / 17 tests passed, covering camera location-to-product focus preservation, quantity handoff, each-unit camera continuity, camera-off handoff and keyboard scanner regression. Scoped ESLint, source TypeScript and whitespace checks passed. No BE changes, migration, API writes, commit or push. Physical mobile camera/browser keyboard behavior still requires manual verification; local browser automation is disabled in Work settings.
+
+## 2026-10-24 — Receiving count card border visibility
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer.
+
+- The receiving count card inherited Card's foreground/10 ring instead of a solid border; the outline looked faded against its white container. Added the existing border utility and disabled the decorative ring on TransferReceiptCountCards only. Shared Card styling and disabled input behavior are unchanged.
+- GitNexus impact LOW, 1 direct caller/process (TransferReceiveTaskPage). Styling-only change; no data, API, migration, commit or push.
+
+## 2026-10-24 — Mobile receiving disposition checkbox and contrast
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer.
+
+- Root cause: page-wide mobile/touch button min-height also selected the Radix checkbox button, stretching its default 16px width into a narrow 44px rectangle. Receiving page touch-height selectors now exclude role=checkbox. Disposition uses bg-card, a fixed square 20px checkbox with a stronger semantic border, and a full-width label with a 44px minimum hit area. Shortened label; FEFO and damaged-goods explanation remains linked via aria-describedby. Shared Checkbox behavior unchanged.
+- GitNexus page impact LOW; disposition symbol unindexed/UNKNOWN, caller checked directly. Focused verification: 2 files / 15 tests passed, including label and keyboard toggling, disabled state and receiving-page regression. No data/API writes, migration, commit or push. Physical mobile visual check remains manual.
+
+## 2026-10-24 — Cleared receiving quantities default to zero on blur
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer.
+
+- TransferReceiptQuantityInput allows empty editing, then normalizes an edited blank to display text 0 and numeric form value 0 on blur, before forwarding the Controller blur handler. Untouched initial uncounted values stay blank; disabled/read-only fields are not changed and nonblank invalid input is not silently coerced. Applies equally to actual, damaged and missing quantity inputs.
+- GitNexus symbol unindexed/UNKNOWN; only caller is TransferReceiptCountCards, checked directly. Focused count suite 11 tests passed (all three blur defaults, initial untouched blank, decimals, numeric reset and validation); scoped ESLint passed. No API/data writes, migration, commit or push.
+
+## 2026-10-24 — Blank receiving counts and zoom-safe receiving layout
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer; not independent review.
+
+- Unsubmitted counts deliberately initialize goodQuantity to NaN to require manual counting. Registering that numeric state directly into a text input exposed the NaN sentinel. Local TransferReceiptQuantityInput now keeps a text draft and forwards parsed numbers through Controller; uncounted values display blank with a placeholder. Decimal separators remain editable and incoming numeric resets synchronize. Existing schema continues rejecting blank/invalid values; expected shipment quantities are not silently treated as received.
+- Receiving page previously constrained all context blocks plus the goods panel into a viewport-height flex column. At increased browser zoom/short viewport height, the list body collapsed above its fixed-size footer. The receiving form now grows naturally (min-h-full, no h-full/flex-1 root constraint, flex-none goods panel) and uses the existing workspace scroll area. No fixed viewport-height formula or global layout change.
+- GitNexus impacts LOW for TransferReceiveTaskPage and TransferReceiptCountCards (one direct caller/process). Focused and adjacent receiving validation regression: 4 files / 75 tests passed, including blank enabled/disabled initial values, blank validation, decimal parsing, numeric reset, existing count schema/hooks and natural-height page contract. Scoped ESLint, source TypeScript and whitespace checks passed. Physical 125% browser zoom visual validation remains manual because local browser control is disabled. No migration, BE changes, data writes, commit or push.
+
+## 2026-10-24 — Continue putaway from receiving and relocation source labels
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer, not independent review.
+
+- Relocation inventory dropdown now uses existing formatInventoryLocation for complete zone/rack/slot labels instead of raw slotCode, hiding the system default marker. Receipt kept-at-receiving banner links to the existing putaway workspace. That workspace offers one clear 44px continuation action only when backend reports resumable stock and viewer is assigned/authorized in destination warehouse. Uses version/commandId and preserves uncertain command identity across retry; reloads snapshots before scanning. Existing receive/putaway actor policy factored without broadening permissions. Available-only amount and no-second-receipt behavior explained in the existing single alert, avoiding duplicate boxes.
+- Backend retains future putaway tasks for kept good receipts and adds guarded resume for historical closed kept tasks. No direct repair or user shipment write performed by the agent.
+- GitNexus capability helper HIGH3direct was disclosed; page/dialog impacts LOW. Verification: 80 files / 545 tests passed; scoped ESLint, source TypeScript and whitespace checks passed. BE427passed/5isolatedSQLskipped, final40focused passed; isolated API publish passed. Physical browser/mobile visual check remains manual (local browser control disabled).
+- Local FE session80174/port3000 uses local BE7070, new BE session60118 uses startup migrations/seed disabled. Real shipment checked by SELECT only and still needs the user's continuation/scan/confirmation. No migration, commit or push. Evidence in ../outputs/transfer-continue-putaway-implementation-20261024.md.
+
+## 2026-10-24 — Flatten putaway allocation layout
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer.
+
+- Removed the outer execution panel border and redundant inset padding. Product/lot group retains the single enclosing border; allocation articles inside it are borderless and separated by divider lines. Standalone entry cards retain their own border. Removed extra footer/manual-entry box outlines.
+- Camera and allocation controls use a named container query: side by side when the actual allocation has enough width, naturally stacked on phones/narrow/zoomed content. No camera lifecycle, scanner validation, quantities or persistence behavior changed.
+- GitNexus LOW impacts: entry to form, form to putaway page, page0 indexed callers. Existing 3 focused suites /18tests passed (camera stop/switch, collapse/edit preservation, validation and page actions); scoped ESLint and whitespace checks passed. No BE restart, API writes, migration, commit or push. Physical browser visual verification unavailable while local browser control is disabled.
