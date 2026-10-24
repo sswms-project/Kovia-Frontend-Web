@@ -2114,3 +2114,12 @@ State: READY_FOR_CODEX_REVIEW. Role: implementer.
 - Removed the outer execution panel border and redundant inset padding. Product/lot group retains the single enclosing border; allocation articles inside it are borderless and separated by divider lines. Standalone entry cards retain their own border. Removed extra footer/manual-entry box outlines.
 - Camera and allocation controls use a named container query: side by side when the actual allocation has enough width, naturally stacked on phones/narrow/zoomed content. No camera lifecycle, scanner validation, quantities or persistence behavior changed.
 - GitNexus LOW impacts: entry to form, form to putaway page, page0 indexed callers. Existing 3 focused suites /18tests passed (camera stop/switch, collapse/edit preservation, validation and page actions); scoped ESLint and whitespace checks passed. No BE restart, API writes, migration, commit or push. Physical browser visual verification unavailable while local browser control is disabled.
+
+## 2026-10-24 — Transfer UX and navigation PR readiness
+
+State: APPROVED_FINAL. Role: same-agent self-review of dev diff and direct dependencies; not independent review.
+
+- Reviewed current-time shortcut, camera versus scanner focus, receiving numeric drafts, mobile checkbox, natural-height receiving layout, continuation contract/capabilities, relocation location labels and flattened putaway layout. No remaining Blocker or High finding found. Physical mobile camera and 125% zoom checks remain manual.
+- Warehouse operations now consistently order Inventory, Inbound, Outbound, Cycle counts, Transfers, Returns for Tenant Owner/Manager/Staff; permission and active-route metadata retained. Existing navigation suite passes all 55 cases.
+- Fresh origin/dev is already an ancestor of screen/huytv. Adjacent regression: 82 files / 599 tests passed. ESLint on all changed TS/TSX files, diff checks, isolated production webpack build and TypeScript pass (74 static pages).
+- Coordinate with BE resume-putaway API (Backend PR261); backend first. No migration or data writes. Local AGENTS.md, CLAUDE.md and outputs remain excluded. PR targets dev; user performs merge.
