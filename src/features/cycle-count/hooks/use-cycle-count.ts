@@ -31,6 +31,14 @@ export function useCycleCountsQuery(params: CycleCountListQuery) {
   })
 }
 
+export function useNextCycleCountCodeQuery(sessionKey: string) {
+  return useQuery({
+    queryKey: [...queryKeys.cycleCounts.all, 'next-code', sessionKey],
+    queryFn: () => cycleCountService.getNextCode().then((response) => response.data),
+    staleTime: 0,
+  })
+}
+
 // Nạp sẵn chi tiết + allowed-actions khi rê chuột lên dòng để mở trang gần như tức thì (DB ở xa).
 export function usePrefetchCycleCount() {
   const queryClient = useQueryClient()

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DatePickerField } from '@/components/forms/DatePickerField'
+import { BusinessCodeField } from '@/components/forms/BusinessCodeField'
 import { OptionSelect } from '../OptionSelect'
 import type { CycleCountFormApi, SelectOption } from './types'
 
@@ -18,6 +19,8 @@ const PRIORITY_OPTIONS: readonly SelectOption[] = [
 ]
 
 interface CycleCountInfoPanelProps {
+  readonly onCodeChange?: () => void
+  readonly codeSuggestionStatus?: 'loading' | 'error' | 'ready'
   readonly form: CycleCountFormApi
   readonly staff: readonly SelectOption[]
   readonly hasWarehouse: boolean
@@ -26,6 +29,8 @@ interface CycleCountInfoPanelProps {
 }
 
 export function CycleCountInfoPanel({
+  onCodeChange,
+  codeSuggestionStatus,
   form,
   staff,
   hasWarehouse,
@@ -55,9 +60,19 @@ export function CycleCountInfoPanel({
     >
       <h2 className="shrink-0 border-b px-4 py-2.5 text-sm font-semibold">Thông tin phiếu</h2>
       <div className="flex flex-col gap-4 p-4">
+        <BusinessCodeField
+          label="Mã kiểm kê"
+          description="Mã được gợi ý, có thể chỉnh sửa. Để trống thì hệ thống tự cấp."
+          suggestionStatus={codeSuggestionStatus}
+          error={errors.code}
+          inputProps={{
+            id: 'cycle-count-code',
+            maxLength: 50,
+            className: 'font-mono',
+            ...form.register('code', { onChange: onCodeChange }),
+          }}
+        />
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-muted-foreground">Số phiếu</dt>
-          <dd>Hệ thống tự sinh khi lưu</dd>
           <dt className="text-muted-foreground">Ngày tạo</dt>
           <dd>{new Date().toLocaleDateString('vi-VN')}</dd>
           <dt className="text-muted-foreground">Trạng thái</dt>

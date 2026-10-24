@@ -313,18 +313,18 @@ export function StockAdjustmentDetailView({
   const [rejecting, setRejecting] = useState(false)
   const [approving, setApproving] = useState(false)
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-4">
+    <div className="flex min-h-full w-full min-w-0 flex-col gap-4 pb-3">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4">
-        <div className="flex items-start gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
           <Button asChild variant="ghost" size="icon">
             <Link href={APP_ROUTES.stockAdjustments} aria-label="Quay lại">
               <ArrowLeft />
             </Link>
           </Button>
-          <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
+          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
             <SlidersHorizontal />
           </span>
-          <div>
+          <div className="min-w-0 break-words">
             <p className="text-primary text-xs font-medium">Đề nghị điều chỉnh</p>
             <h1 className="text-xl font-semibold">{detail.productName}</h1>
             <p className="text-muted-foreground font-mono text-xs">
@@ -340,9 +340,9 @@ export function StockAdjustmentDetailView({
         <Metric label="Chênh lệch hệ thống tính" value={detail.quantityChange} signed />
       </section>
       <section className="bg-card grid gap-4 border p-4 md:grid-cols-2">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold">Căn cứ điều chỉnh</h2>
-          <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+          <dl className="mt-3 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm [&>dd]:break-words">
             <dt className="text-muted-foreground">Mã VTHH</dt>
             <dd className="font-mono">{detail.productSku}</dd>
             <dt className="text-muted-foreground">Tên VTHH</dt>

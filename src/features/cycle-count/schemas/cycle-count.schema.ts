@@ -13,6 +13,7 @@ const cycleCountItemSchema = z.object({
 
 export const createCycleCountSchema = z
   .object({
+    code: z.string().trim().max(50, 'Mã kiểm kê không được vượt quá 50 ký tự.').optional(),
     warehouseId: dotNetGuidSchema('Vui lòng chọn kho.'),
     zoneId: z.string(),
     scheduledDate: z.string().min(1, 'Vui lòng chọn thời gian kiểm kê.'),

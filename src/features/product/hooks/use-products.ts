@@ -101,10 +101,11 @@ export function useChangeCategoryStatusMutation() {
   })
 }
 
-export function useProductListQuery(params?: ProductListQuery) {
+export function useProductListQuery(params?: ProductListQuery, enabled = true) {
   return useQuery<ProductListResponse, ApiErrorResponse>({
     queryKey: queryKeys.products.list(params),
     queryFn: () => productService.getProducts(params).then((r) => r.data),
+    enabled,
     placeholderData: (prev) => prev,
   })
 }

@@ -1,5 +1,36 @@
 # AI Review Handoff
 
+## 2026-10-24 — Cycle-count/catalog findings fixed (R2)
+
+State: READY_FOR_FINAL_REVIEW. Role: assigned implementer, self-verification; not independent review.
+
+- R1 High resolved: scanner save wrapper has a synchronous in-flight latch plus pending UI state. A disabled fieldset and explicit input/scan guards prevent edits, mode/location changes and Enter submissions while saving. Dialog dismissal is blocked for the same operation. Rejected/failed saves unlock the editor and retain counts/evidence; values clear only on success. Camera and manual location/SKU entry remain available outside the pending window. Saving while an evidence upload is active is also guarded.
+- R1 camera Medium resolved: exported the existing600ms each-unit guard from the shared camera library and use it in both transfer picking and cycle-count increment mode. Normal scan mode retains the1500ms held-code guard. Decoder test verifies repeated frames are ignored and a subsequent identical unit700ms later is counted; scanner integration verifies the mode-specific guard.
+- R1 warehouse Medium resolved: bookmarked warehouse filters wait for warehouse options before the list query runs. An inaccessible warehouse is removed from the request/export and URL, page resets to1, and other filters are preserved. Valid filters remain unchanged. Failed option loads preserve the URL, block querying/export and offer retry of options rather than incorrectly clearing access. Inventory scope and BE authorization unchanged.
+- Validation:66 suites/419 tests passed across cycle count, product, transfer scanner/work surfaces/utilities and shared code suggestions. Source TypeScript, scoped ESLint and whitespace checks passed. Regression cases cover back-to-back Enter before parent pending repaint, locked inputs/Escape, failure/retry with manual entry, each-unit guard, stale/valid/loading/failed warehouse options and export consistency. Isolated production webpack build passed with74 static pages.
+- GitNexus impacts LOW for scanner/dialog, product page/query and transfer picker; aggregate change scan remains expected medium. No BE feature-source changes, app startup, business API/DB writes, migration, seed, commit, push or deployment. Physical mobile camera/audio remains manual. Temporary R1 reproductions retained under outputs with .repro suffixes so obsolete failure assertions do not enter normal test discovery.
+
+## 2026-10-24 — Cycle-count/catalog review R1
+
+State: NEEDS_CLAUDE_FIX. Role: same implementer performing requested review; not independent review. No feature-source edits in this round.
+
+- High / open — Reused CycleCountScanDialog.tsx:222,334-373 allows quantity/damage edits while isPending and Enter bypasses the disabled save button. A delayed save can clear a subsequently edited value; Enter can issue another save with that value while the first is pending. Reproduced with a deferred onSave, pending rerender and3-to5 count edit; two callbacks fire and completion clears the editor. Lock editing and guard save/keyboard entry until the operation completes (including a synchronous in-flight guard). This is an inherited scanner defect still present in the reused flow.
+- Medium / open — CycleCountScanDialog.tsx:248-254 does not pass a short repeatGuardMs for increment mode. Default camera guard is1500ms; existing transfer each-unit flow uses600ms. Two distinct units with the same barcode presented700ms apart count once here but twice with the transfer guard. Reproduced with the real camera decoding guard and a mocked decoder. Pass the each-unit guard only in increment mode and cover the integration.
+- Medium / open — ProductListPage.tsx:117,331-333 removes unassigned warehouse options but retains the warehouse ID from the URL in the request. A stale/shared URL shows the native select's All option while still sending the unassigned ID, which BE rejects403. Reproduced against the real page/native select. Once options are resolved, normalize an inaccessible warehouse filter/page or show an explicit clear-filter recovery action; retain BE authorization.
+- Requirements checked: workspace width/natural-height change present; staff cycle-count response and card/table labels include zone before rack; printed location QR matching/shared camera present; editable suggested code uses shared field/hook/rules; catalog scope is separate from Inventory and owner retains all warehouses. Camera still needs the above corrections and physical phone acceptance; layout has no authenticated deployed visual acceptance in this review.
+- Review verification:27 existing focused FE tests passed;3 isolated reproductions confirm the findings. Temporary reproduction files are under outputs/cycle-count-review-20261024, not feature source. No business API traffic, deployed DB writes, service restart, commit, push or deployment.
+
+## 2026-10-24 — Cycle-count scanner/code, adjustment layout and catalog scope
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer, self-verification; not independent review.
+
+- Adjustment detail uses workspace width and natural height instead of a private max-width/fixed-height constraint. Long heading/detail values wrap on mobile. Existing shell, controls and design tokens reused.
+- Cycle-count location labels show zone before rack, including names from BE. Scanner uses shared CameraScanPanel and transfer location matching for printed SLOT/RACK QR and composite codes; ambiguous rack codes and the internal default marker are rejected. Valid location scanning retains camera focus; product scanning focuses quantity except in increment mode. Manual counting and damage evidence preserved.
+- Creation reuses BusinessCodeField/useCodeSuggestion and BE SequentialCodeSuggestion. Code can be edited/cleared; save-and-add gets a fresh suggestion. BE checks length and tenant-scoped uniqueness; no migration.
+- Product catalog requests managed scope for rows, stock totals/status counts and Excel export. Dropdown filters existing canManageWarehouse flags. Owner retains all warehouses; Inventory and other lookup callers retain cross-warehouse behavior.
+- Validation:29 FE suites/169 tests, source TypeScript, scoped ESLint, whitespace checks and isolated production webpack build passed (74 static pages). BE50 focused tests passed on isolated InMemory fixtures. GitNexus expected medium aggregate scope; formatStockLocation HIGH/9direct consumers inspected and cycle-count regression covered.
+- No service startup, deployed DB/business API writes, migration, seed, commit, push or deployment. Physical mobile camera/audio and authenticated deployed visual verification remain manual. Deploy BE first for the code endpoint/location metadata. Existing local rules/config/output changes excluded.
+
 ## 2026-10-23 — Single-frame mobile picking list
 
 State: READY_FOR_CODEX_REVIEW. Role: implementer, self-verification.
