@@ -221,9 +221,8 @@ describe('outbound shared assignment workflow', () => {
       ],
     }
   }
-  async function openExecutable() {
+  async function openExecutable(original = executableOrder()) {
     fixture.permissions = ['stock-issue-requests:pick']
-    const original = executableOrder()
     fixture.fetchQuery.mockResolvedValue(original)
     fixture.destinations.mockImplementation(async () => [
       {
@@ -241,6 +240,37 @@ describe('outbound shared assignment workflow', () => {
     await waitFor(() => expect(hook.result.current.picking.order?.version).toBe('AQ=='))
     return hook
   }
+  it.each([
+    [0.1, 0.3],
+    [0.003, 0.009],
+    [10, 30],
+  ])(
+    'serializes converted picks for factor %s without binary noise or storage rounding',
+    async (factor, expected) => {
+      const original = executableOrder()
+      original.items = original.items.map((item) => ({
+        ...item,
+        quantity: 6 * factor,
+        pickedQuantity: 0,
+        enteredQuantity: 6,
+        conversionFactor: factor,
+        pickLocations: item.pickLocations.map((location) => ({
+          ...location,
+          reservedQuantity: 6 * factor,
+        })),
+      }))
+      const { result } = await openExecutable(original)
+      const values = result.current.picking.form.getValues()
+      values.lines.forEach((line) => {
+        line.pickedQuantity = 3
+        line.scannedSlotCode = 'A'
+        line.scannedBarcode = 'BAR'
+      })
+      await act(async () => result.current.picking.onSubmit(values))
+      expect(fixture.record).toHaveBeenCalledOnce()
+      expect(fixture.record.mock.calls[0]?.[0].request.items[0].pickedQuantity).toBe(expected)
+    }
+  )
   it('saves a partial pick immediately, advances with fresh version and reopens only the remainder', async () => {
     const { result } = await openExecutable()
     const fresh = executableOrder('Ag==', 1)
