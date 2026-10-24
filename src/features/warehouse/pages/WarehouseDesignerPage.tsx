@@ -544,6 +544,10 @@ export function WarehouseDesignerPage({
           open
           mode="update"
           isPending={updateZoneMutation.isPending}
+          stagingDefaults={{
+            receiving: locationEditTarget.location.isDefaultReceivingPoint,
+            outbound: locationEditTarget.location.isDefaultOutboundStagingPoint,
+          }}
           defaultValues={{
             zoneCode: locationEditTarget.location.zoneCode,
             zoneName: locationEditTarget.location.zoneName,

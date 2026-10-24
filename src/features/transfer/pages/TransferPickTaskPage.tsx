@@ -1,6 +1,8 @@
 'use client'
 
 import { PackageCheck } from 'lucide-react'
+import { useState } from 'react'
+import { StagingPointChoice } from '@/features/warehouse/components/StagingPointChoice'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -49,7 +51,19 @@ export default function TransferPickTaskPage({
   const shipment = transfer?.shipments?.find((row) => row.id === shipmentId)
   // Nhân viên có thể đang nhập số lượng dở: chỉ báo thay đổi, không tải đè lên màn hình.
   const realtime = useTransferRealtime({ transferId, autoRefresh: false })
-  const actions = useTransferPickActions(transferId, shipmentId, sheet)
+  const [stagingChoice, setStagingChoice] = useState<{ shipmentId: string; slotId: string } | null>(
+    null
+  )
+  const stagingSlotId =
+    sheet?.outboundStagingSlotId ??
+    (stagingChoice?.shipmentId === shipmentId
+      ? stagingChoice.slotId
+      : sheet?.stagingPoints?.suggestedSlotId) ??
+    ''
+  const staged = (sheet?.outboundStagingFlowVersion ?? 0) > 0
+  const validStaging =
+    !staged || Boolean(sheet?.stagingPoints?.items.some((point) => point.slotId === stagingSlotId))
+  const actions = useTransferPickActions(transferId, shipmentId, sheet, stagingSlotId)
 
   const isPicking = sheet?.shipmentStatus === 'Picking'
   const hasPickPermission = viewer.permissions.includes(P.TRANSFERS_PICK)
@@ -110,6 +124,17 @@ export default function TransferPickTaskPage({
       ) : null}
 
       <div data-slot="transfer-scroll" className="min-h-0 flex-1 overflow-y-auto">
+        {staged && sheet?.stagingPoints && (
+          <StagingPointChoice
+            id="transfer-outbound-staging"
+            title="Đưa hàng tới điểm chờ xuất"
+            points={sheet.stagingPoints}
+            value={stagingSlotId}
+            frozen={Boolean(sheet.outboundStagingSlotId)}
+            disabled={!canAct || actions.complete.isPending}
+            onChange={(slotId) => setStagingChoice({ shipmentId, slotId })}
+          />
+        )}
         {!isReady || sheetQuery.isLoading || detailQuery.isLoading ? (
           <OperationalLoadingState rows={3} />
         ) : sheetQuery.isError || detailQuery.isError || !sheet || !shipment ? (
@@ -220,15 +245,25 @@ export default function TransferPickTaskPage({
             className="h-12 w-full text-base"
             disabled={
               !canDispatch ||
+              !validStaging ||
+              actions.complete.isPending ||
               actions.entry.isPending ||
               actions.entry.uncertain ||
               actions.entry.needsRefresh
             }
-            onClick={actions.complete.open}
+            onClick={staged ? () => void actions.complete.confirm() : actions.complete.open}
           >
             <PackageCheck aria-hidden="true" />
             Hoàn tất lấy hàng
           </Button>
+          {staged && (
+            <p className="text-muted-foreground mt-2 text-sm">
+              Xác nhận hàng của đợt đã tập kết tại{' '}
+              {sheet?.stagingPoints?.items.find((point) => point.slotId === stagingSlotId)?.label ??
+                'điểm chờ xuất đã chọn'}
+              .
+            </p>
+          )}
         </footer>
       ) : null}
 

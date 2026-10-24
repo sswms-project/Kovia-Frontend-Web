@@ -93,6 +93,7 @@ export interface LocationFilterState {
 export interface CreateZoneRequest extends WarehousePhysicalDetails {
   createReceivingPoint?: boolean
   createOutboundStagingPoint?: boolean
+  setAsDefaultStagingPoint?: boolean | null
   zoneCode: string
   zoneName: string
   description: string

@@ -1,4 +1,5 @@
 import { axiosClient } from '@/lib/axios'
+import { warehouseStagingPointsSchema } from '@/features/warehouse/schemas/warehouse-staging-points.schema'
 import { transferWriteConfig } from '../utils/transfer-client'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse, QueryResult } from '@/types/api'
@@ -60,6 +61,12 @@ import type {
 } from '../types/transfer-receipt.types'
 
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
+const validateStagingPoints = <TData extends { stagingPoints?: unknown }>(
+  response: ApiResponse<TData>
+) => {
+  if (response.data?.stagingPoints) warehouseStagingPointsSchema.parse(response.data.stagingPoints)
+  return response
+}
 
 export const transferService = {
   getAssignmentSnapshot: (transferId: string, shipmentId: string, warehouseId: string) =>
@@ -97,7 +104,8 @@ export const transferService = {
       .get<
         ApiResponse<TransferReceiptSheet>
       >(API_ENDPOINTS.transfers.receiptSheet(transferId, shipmentId))
-      .then(unwrap),
+      .then(unwrap)
+      .then(validateStagingPoints),
   getPutAwaySheet: (transferId: string, shipmentId: string) =>
     axiosClient
       .get<
@@ -279,7 +287,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<string>
-      >(API_ENDPOINTS.transfers.shipments(transferId), request, transferWriteConfig())
+      >(API_ENDPOINTS.transfers.shipments(transferId), { ...request, outboundStagingFlowVersion: 1 }, transferWriteConfig())
       .then(unwrap),
 
   cancelShipment: (
@@ -298,7 +306,8 @@ export const transferService = {
       .get<
         ApiResponse<TransferPickSheet>
       >(API_ENDPOINTS.transfers.pickSheet(transferId, shipmentId))
-      .then(unwrap),
+      .then(unwrap)
+      .then(validateStagingPoints),
 
   getPickAlternatives: (transferId: string, shipmentId: string, lineId: string) =>
     axiosClient

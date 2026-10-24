@@ -91,6 +91,7 @@ export const zoneSchema = z
       .max(255, 'Tên khu vực tối đa 255 ký tự.'),
     createReceivingPoint: z.boolean().optional(),
     createOutboundStagingPoint: z.boolean().optional(),
+    setAsDefaultStagingPoint: z.boolean().nullable().optional(),
     description: z.string().trim().max(500, 'Mô tả tối đa 500 ký tự.'),
     ...physicalDetailsShape,
   })

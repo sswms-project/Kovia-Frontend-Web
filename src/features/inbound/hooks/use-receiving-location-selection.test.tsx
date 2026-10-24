@@ -77,3 +77,66 @@ it('does not reuse the previous warehouse selection or pending search in a new s
     )
   ).toBe(false)
 })
+
+it('autofills only an explicit suggestion and keeps a staff override after refresh', async () => {
+  const items = [
+    { id: 'default', displayPath: 'Khu A / Điểm chờ nhận', isSuggested: true },
+    { id: 'other', displayPath: 'Khu B / Điểm chờ nhận' },
+  ]
+  receivingLocations.mockResolvedValueOnce({ data: { items, totalCount: 2 } })
+  const { result } = setup()
+  await waitFor(() => expect(result.current.selected?.id).toBe('default'))
+  act(() => result.current.choose('other'))
+  receivingLocations.mockResolvedValue({ data: { items, totalCount: 2 } })
+  await act(async () => {
+    await result.current.query.refetch()
+  })
+  expect(result.current.selected?.id).toBe('other')
+})
+
+it.each(['search', 'page'] as const)(
+  'keeps the autofilled point while browsing by %s',
+  async (action) => {
+    receivingLocations.mockResolvedValueOnce({
+      data: {
+        items: [{ id: 'default', displayPath: 'Khu A / Điểm chờ nhận', isSuggested: true }],
+        totalCount: 40,
+      },
+    })
+    const { result } = setup()
+    await waitFor(() => expect(result.current.selected?.id).toBe('default'))
+    act(() => {
+      if (action === 'search') result.current.searchFor('Khu B')
+      else result.current.changePage(2)
+    })
+    expect(result.current.selected?.id).toBe('default')
+    await waitFor(() =>
+      expect(result.current.query.isSuccess && !result.current.isSearching).toBe(true)
+    )
+    expect(result.current.selected?.id).toBe('default')
+  }
+)
+
+it('preserves the latest explicit choice or clear when search updates are batched', async () => {
+  receivingLocations.mockResolvedValueOnce({
+    data: {
+      items: [
+        { id: 'default', displayPath: 'Khu A', isSuggested: true },
+        { id: 'other', displayPath: 'Khu B' },
+      ],
+      totalCount: 2,
+    },
+  })
+  const { result } = setup()
+  await waitFor(() => expect(result.current.selected?.id).toBe('default'))
+  act(() => {
+    result.current.choose('other')
+    result.current.searchFor('Khu B')
+  })
+  expect(result.current.selected?.id).toBe('other')
+  act(() => {
+    result.current.choose('')
+    result.current.searchFor('')
+  })
+  expect(result.current.selected).toBeNull()
+})

@@ -60,11 +60,14 @@ function outstandingOf(pick: TransferPickDetail) {
 export function useTransferPickActions(
   transferId: string,
   shipmentId: string,
-  sheet: TransferPickSheet | undefined
+  sheet: TransferPickSheet | undefined,
+  outboundStagingSlotId?: string
 ) {
   const run = useTransferActionRunner()
   const queryClient = useQueryClient()
   const pickLock = useRef(false)
+  const completeLock = useRef(false)
+  const completeIntent = useRef<{ key: string; commandId: string } | null>(null)
   const pickIntent = useRef<RecordTransferPickRequest | null>(null)
   const [isAdvancing, setIsAdvancing] = useState(false)
   const [pickUncertain, setPickUncertain] = useState(false)
@@ -422,18 +425,47 @@ export function useTransferPickActions(
       open: () => setIsCompleteOpen(true),
       onOpenChange: setIsCompleteOpen,
       confirm: async () => {
-        if (!sheet?.version || pickLock.current || pickUncertain || needsPickRefresh) return
-        const done = await run(
-          () =>
-            completeMutation.mutateAsync({
-              transferId,
-              shipmentId,
-              request: { expectedVersion: sheet.version ?? '' },
-            }),
-          'Đã báo lấy xong; chờ quản lý xác nhận xe rời kho.',
-          'Không thể hoàn tất lấy hàng.'
+        if (
+          !sheet?.version ||
+          pickLock.current ||
+          completeLock.current ||
+          pickUncertain ||
+          needsPickRefresh
         )
-        if (done) setIsCompleteOpen(false)
+          return
+        const staged = (sheet.outboundStagingFlowVersion ?? 0) > 0
+        if (staged && !outboundStagingSlotId) return
+        const key = `${sheet.version}:${outboundStagingSlotId ?? ''}`
+        if (completeIntent.current?.key !== key)
+          completeIntent.current = { key, commandId: newCommandId() }
+        const commandId = completeIntent.current.commandId
+        completeLock.current = true
+        try {
+          const done = await run(
+            () =>
+              completeMutation.mutateAsync({
+                transferId,
+                shipmentId,
+                request: {
+                  expectedVersion: sheet.version ?? '',
+                  ...(staged
+                    ? {
+                        outboundStagingSlotId,
+                        commandId,
+                      }
+                    : {}),
+                },
+              }),
+            'Đã báo lấy xong; chờ quản lý xác nhận xe rời kho.',
+            'Không thể hoàn tất lấy hàng.'
+          )
+          if (done) {
+            setIsCompleteOpen(false)
+            completeIntent.current = null
+          }
+        } finally {
+          completeLock.current = false
+        }
       },
     },
   }

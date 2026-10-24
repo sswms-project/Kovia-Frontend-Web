@@ -9,6 +9,7 @@ interface Selection {
   search: string
   page: number
   selected: ReceivingLocation | null
+  touched?: boolean
 }
 export function useReceivingLocationSelection(
   warehouseId: string | undefined,
@@ -39,14 +40,37 @@ export function useReceivingLocationSelection(
     enabled: enabled && !!warehouseId && !isSearching,
     retry: false,
   })
+  const selected =
+    state.selected ??
+    (!state.touched && !search && state.page === 1 && !isSearching
+      ? (query.data?.items.find((item) => item.isSuggested) ?? null)
+      : null)
   return {
     ...state,
+    selected,
     query,
     isSearching,
     forDamageIsolation,
-    searchFor: (search: string) => setStored({ ...state, search, page: 1 }),
-    changePage: (page: number) => setStored({ ...state, page }),
+    searchFor: (search: string) =>
+      setStored((previous) => {
+        const latest = previous.key === key ? previous : state
+        return {
+          ...latest,
+          selected: latest.selected ?? (latest.touched ? null : selected),
+          search,
+          page: 1,
+        }
+      }),
+    changePage: (page: number) =>
+      setStored((previous) => {
+        const latest = previous.key === key ? previous : state
+        return { ...latest, selected: latest.selected ?? (latest.touched ? null : selected), page }
+      }),
     choose: (id: string) =>
-      setStored({ ...state, selected: query.data?.items.find((item) => item.id === id) ?? null }),
+      setStored((previous) => ({
+        ...(previous.key === key ? previous : state),
+        touched: true,
+        selected: query.data?.items.find((item) => item.id === id) ?? null,
+      })),
   }
 }

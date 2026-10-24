@@ -37,6 +37,10 @@ export interface TransferReceiptSheetLine {
 }
 
 export interface TransferReceiptSheet {
+  outboundStagingFlowVersion?: number
+  stagingPoints?:
+    | import('@/features/warehouse/schemas/warehouse-staging-points.schema').WarehouseStagingPoints
+    | null
   execution?: {
     sourceWarehouseId: string
     destinationWarehouseId: string

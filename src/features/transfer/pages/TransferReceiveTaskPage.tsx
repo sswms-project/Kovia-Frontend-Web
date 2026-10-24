@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { StagingPointChoice } from '@/features/warehouse/components/StagingPointChoice'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
@@ -41,6 +42,7 @@ import { useTransferViewer } from '../hooks/use-transfer-viewer'
 import { useTransferQuery, useTransferPutAwaySlotsQuery } from '../hooks/use-transfers'
 import {
   transferReceivingLocationSchema,
+  transferStagingReceivingLocationSchema,
   type TransferReceivingLocationValues,
 } from '../schemas/transfer-receipt.schema'
 import { getShipmentCapabilities } from '../utils/transfer-capabilities'
@@ -59,6 +61,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
   const { viewer, isReady } = useTransferViewer()
   const query = useTransferReceiptSheetQuery(transferId, shipmentId)
   const sheet = query.data
+  const staged = (sheet?.outboundStagingFlowVersion ?? 0) > 0
   // Older BE versions have no compact context; retain the existing read path for them.
   const detail = useTransferQuery(sheet && !sheet.execution ? transferId : null)
   const transfer = detail.data
@@ -95,12 +98,36 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
   const debouncedSlotSearch = useDebouncedValue(slotSearch, 300)
   const locations = useTransferPutAwaySlotsQuery(
     { warehouseId: warehouses?.destinationWarehouseId ?? '', search: debouncedSlotSearch, top: 30 },
-    mayReceive && !!warehouses && (sheet?.status === 'InTransit' || sheet?.status === 'Receiving')
+    mayReceive &&
+      !!warehouses &&
+      ((!staged && sheet?.status === 'InTransit') || sheet?.status === 'Receiving')
   )
   const receivingForm = useForm<TransferReceivingLocationValues>({
-    resolver: zodResolver(transferReceivingLocationSchema),
+    resolver: zodResolver(
+      staged ? transferStagingReceivingLocationSchema : transferReceivingLocationSchema
+    ),
     defaultValues: { receivingSlotId: '', scannedSlotCode: '' },
   })
+  const receivingSlotId = useWatch({ control: receivingForm.control, name: 'receivingSlotId' })
+  const receivingScope = useRef(`${transferId}:${shipmentId}`)
+  useEffect(() => {
+    const scope = `${transferId}:${shipmentId}`
+    if (receivingScope.current !== scope) {
+      receivingScope.current = scope
+      receivingForm.reset({ receivingSlotId: '', scannedSlotCode: '' })
+      startIntent.current = null
+      startResolved.current = false
+    }
+    if (
+      staged &&
+      sheet?.status === 'InTransit' &&
+      sheet.stagingPoints?.suggestedSlotId &&
+      !receivingForm.getFieldState('receivingSlotId').isDirty &&
+      !receivingForm.getValues('receivingSlotId') &&
+      !startIntent.current
+    )
+      receivingForm.setValue('receivingSlotId', sheet.stagingPoints.suggestedSlotId)
+  }, [receivingForm, sheet, staged, transferId, shipmentId])
   const entries = useWatch({ control: count.form.control, name: 'entries' })
   const keepAtReceiving = useWatch({ control: count.form.control, name: 'keepAtReceiving' })
   const totals = entries.reduce(
@@ -172,9 +199,15 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
     if (
       !startUncertain &&
       (!(await receivingForm.trigger()) ||
-        locations.isError ||
-        locations.isFetching ||
-        !locations.data?.some((slot) => slot.id === receivingForm.getValues('receivingSlotId')))
+        (staged
+          ? !sheet.stagingPoints?.items.some(
+              (point) => point.slotId === receivingForm.getValues('receivingSlotId')
+            )
+          : locations.isError ||
+            locations.isFetching ||
+            !locations.data?.some(
+              (slot) => slot.id === receivingForm.getValues('receivingSlotId')
+            )))
     )
       return
     startLock.current = true
@@ -182,6 +215,9 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
       expectedVersion: sheet.version,
       commandId: newCommandId(),
       ...receivingForm.getValues(),
+      ...(staged && !receivingForm.getValues('scannedSlotCode')
+        ? { scannedSlotCode: undefined }
+        : {}),
     }
     startIntent.current = request
     let done = false
@@ -280,49 +316,85 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
       ) : null}
       {sheet.status === 'InTransit' && mayReceive ? (
         <div className="grid shrink-0 gap-3 border p-3 sm:grid-cols-2">
-          <Field className="sm:col-span-2">
-            <FieldLabel htmlFor="transfer-slot-search">Tìm mã/vị trí nhận</FieldLabel>
-            <Input
-              id="transfer-slot-search"
-              value={slotSearch}
-              onChange={(event) => setSlotSearch(event.target.value)}
-              disabled={busy || startUncertain}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="transfer-receiving-location">Vị trí thực tế nhận hàng</FieldLabel>
-            <NativeSelect
-              id="transfer-receiving-location"
-              {...receivingForm.register('receivingSlotId')}
-              disabled={busy || startUncertain || locations.isFetching || locations.isError}
-            >
-              <NativeSelectOption value="">Chọn vị trí nhận</NativeSelectOption>
-              {!locations.isPlaceholderData &&
-                locations.data?.map((slot) => (
-                  <NativeSelectOption key={slot.id} value={slot.id}>
-                    {slot.path}
-                  </NativeSelectOption>
-                ))}
-            </NativeSelect>
-            <FieldError>{receivingForm.formState.errors.receivingSlotId?.message}</FieldError>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="transfer-receiving-code">Quét/nhập mã vị trí nhận</FieldLabel>
-            <Input
-              id="transfer-receiving-code"
-              maxLength={200}
-              {...receivingForm.register('scannedSlotCode')}
-              disabled={busy || startUncertain}
-            />
-            <FieldError>{receivingForm.formState.errors.scannedSlotCode?.message}</FieldError>
-          </Field>
-          {locations.isError && <p role="alert">Chưa tải được vị trí nhận. Vui lòng tải lại.</p>}
+          {staged ? (
+            sheet.stagingPoints ? (
+              <StagingPointChoice
+                id="transfer-receiving-staging"
+                title="Điểm thực tế nhận hàng"
+                points={sheet.stagingPoints}
+                value={receivingSlotId}
+                disabled={busy || startUncertain}
+                onChange={(value) =>
+                  receivingForm.setValue('receivingSlotId', value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+              />
+            ) : (
+              <p role="alert">Chưa tải được điểm chờ nhận. Vui lòng tải lại phiếu.</p>
+            )
+          ) : (
+            <>
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="transfer-slot-search">Tìm mã/vị trí nhận</FieldLabel>
+                <Input
+                  id="transfer-slot-search"
+                  value={slotSearch}
+                  onChange={(event) => setSlotSearch(event.target.value)}
+                  disabled={busy || startUncertain}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="transfer-receiving-location">
+                  Vị trí thực tế nhận hàng
+                </FieldLabel>
+                <NativeSelect
+                  id="transfer-receiving-location"
+                  {...receivingForm.register('receivingSlotId')}
+                  disabled={busy || startUncertain || locations.isFetching || locations.isError}
+                >
+                  <NativeSelectOption value="">Chọn vị trí nhận</NativeSelectOption>
+                  {!locations.isPlaceholderData &&
+                    locations.data?.map((slot) => (
+                      <NativeSelectOption key={slot.id} value={slot.id}>
+                        {slot.path}
+                      </NativeSelectOption>
+                    ))}
+                </NativeSelect>
+                <FieldError>{receivingForm.formState.errors.receivingSlotId?.message}</FieldError>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="transfer-receiving-code">Quét/nhập mã vị trí nhận</FieldLabel>
+                <Input
+                  id="transfer-receiving-code"
+                  maxLength={200}
+                  {...receivingForm.register('scannedSlotCode')}
+                  disabled={busy || startUncertain}
+                />
+                <FieldError>{receivingForm.formState.errors.scannedSlotCode?.message}</FieldError>
+              </Field>
+              {locations.isError && (
+                <p role="alert">Chưa tải được vị trí nhận. Vui lòng tải lại.</p>
+              )}
+            </>
+          )}
           <Button disabled={busy || isStartResolved} onClick={() => void startReceiving()}>
             {start.isPending ? <Spinner /> : <PackageCheck />}
-            {startUncertain ? 'Kiểm tra lại thao tác nhận hàng' : 'Nhận hàng'}
+            {startUncertain ? 'Kiểm tra lại thao tác nhận hàng' : 'Bắt đầu nhận hàng'}
           </Button>
         </div>
       ) : null}
+      {staged && sheet.status !== 'InTransit' && sheet.receivingSlotId && sheet.stagingPoints && (
+        <StagingPointChoice
+          id="transfer-frozen-receiving"
+          title="Điểm đã nhận hàng"
+          points={sheet.stagingPoints}
+          value={sheet.receivingSlotId}
+          frozen
+          onChange={() => undefined}
+        />
+      )}
       {sheet.status === 'Receiving' && sheet.receiptFlowVersion === 2 && (
         <>
           <Field className="shrink-0">

@@ -562,6 +562,8 @@ export interface ReturnTransferPickRequest {
 
 export interface CompleteTransferPickingRequest {
   expectedVersion: string
+  outboundStagingSlotId?: string
+  commandId?: string
 }
 
 /** Một vị trí/lô ở kho xuất mà dòng phiếu đang giữ chỗ hoặc có thể chuyển sang. */
@@ -713,6 +715,11 @@ export interface TransferPickSheetLine {
 }
 
 export interface TransferPickSheet {
+  outboundStagingFlowVersion?: number
+  outboundStagingSlotId?: string | null
+  stagingPoints?:
+    | import('@/features/warehouse/schemas/warehouse-staging-points.schema').WarehouseStagingPoints
+    | null
   shipmentId: string
   shipmentNumber: number
   transferId: string

@@ -23,6 +23,8 @@ const mock = vi.hoisted(() => ({
   detailRefetch: vi.fn(),
   slotReads: vi.fn(),
   receiptFlowVersion: 1,
+  staging: false,
+  start: vi.fn(),
 }))
 const receipt = receiptFixture()
 const shipment = buildShipment({
@@ -69,12 +71,26 @@ vi.mock('../hooks/use-transfers', () => ({
   },
 }))
 vi.mock('../hooks/use-transfer-receipt', () => ({
-  useStartTransferReceivingMutation: () => ({ isPending: false }),
+  useStartTransferReceivingMutation: () => ({ isPending: false, mutateAsync: mock.start }),
   useTransferReceiptSheetQuery: () => ({
     data: {
       ...receipt,
       receiptFlowVersion: mock.receiptFlowVersion,
       execution: mock.compact ? execution : undefined,
+      ...(mock.staging
+        ? {
+            status: 'InTransit',
+            outboundStagingFlowVersion: 1,
+            stagingPoints: {
+              items: [
+                { slotId: '10000000-0000-4000-8000-000000000001', label: 'Khu A / Điểm chờ nhận' },
+              ],
+              suggestedSlotId: '10000000-0000-4000-8000-000000000001',
+              configuredDefaultSlotId: '10000000-0000-4000-8000-000000000001',
+              invalidDefault: false,
+            },
+          }
+        : {}),
     },
     refetch: async () => ({ data: mock.freshReceipt, isError: mock.receiptError }),
   }),
@@ -125,6 +141,8 @@ beforeEach(() => {
   mock.compact = false
   mock.receiptError = false
   mock.receiptFlowVersion = 1
+  mock.staging = false
+  mock.start.mockResolvedValue({})
   mock.detailRefetch.mockImplementation(async () => ({
     data: mock.freshDetail,
     isError: mock.failedRefresh,
@@ -133,6 +151,24 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('Receiving hands off to putaway', () => {
+  it('autofills the configured receiving point and starts without requiring its scan', async () => {
+    mock.compact = true
+    mock.staging = true
+    render(<TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
+    await waitFor(() => expect(screen.getByText('Khu A / Điểm chờ nhận')).toBeInTheDocument())
+    expect(screen.queryByLabelText('Quét/nhập mã vị trí nhận')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Bắt đầu nhận hàng' }))
+    await waitFor(() =>
+      expect(mock.start).toHaveBeenCalledWith(
+        expect.objectContaining({
+          request: expect.objectContaining({
+            receivingSlotId: '10000000-0000-4000-8000-000000000001',
+            scannedSlotCode: undefined,
+          }),
+        })
+      )
+    )
+  })
   it('loads receiving locations from compact warehouse context for flow 2', () => {
     mock.compact = true
     mock.receiptFlowVersion = 2

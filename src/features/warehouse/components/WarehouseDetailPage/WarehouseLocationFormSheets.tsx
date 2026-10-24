@@ -76,12 +76,19 @@ export function ZoneFormSheet({
   mode,
   isPending,
   defaultValues,
+  stagingDefaults,
   onOpenChange,
   onSubmit,
-}: LocationFormSheetProps<ZoneFormValues>) {
+}: LocationFormSheetProps<ZoneFormValues> & {
+  readonly stagingDefaults?: { receiving?: boolean; outbound?: boolean }
+}) {
   const form = useForm<ZoneFormValues>({ resolver: zodResolver(zoneSchema), defaultValues })
   const { errors } = form.formState
   const createReceivingPoint = useWatch({ control: form.control, name: 'createReceivingPoint' })
+  const setAsDefaultStagingPoint = useWatch({
+    control: form.control,
+    name: 'setAsDefaultStagingPoint',
+  })
   const createOutboundStagingPoint = useWatch({
     control: form.control,
     name: 'createOutboundStagingPoint',
@@ -178,6 +185,7 @@ export function ZoneFormSheet({
                   }
                   disabled={isPending || form.formState.isSubmitting}
                   onValueChange={(value) => {
+                    form.setValue('setAsDefaultStagingPoint', null, { shouldDirty: true })
                     form.setValue('createReceivingPoint', value === 'receiving', {
                       shouldDirty: true,
                     })
@@ -204,6 +212,29 @@ export function ZoneFormSheet({
                     <FieldLabel htmlFor="zone-staging-outbound">Điểm chờ xuất</FieldLabel>
                   </Field>
                 </RadioGroup>
+                {(createReceivingPoint || createOutboundStagingPoint) && (
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id="zone-default-staging"
+                      checked={
+                        setAsDefaultStagingPoint ??
+                        (createReceivingPoint
+                          ? stagingDefaults?.receiving
+                          : stagingDefaults?.outbound) ??
+                        false
+                      }
+                      disabled={isPending || form.formState.isSubmitting}
+                      onCheckedChange={(checked) =>
+                        form.setValue('setAsDefaultStagingPoint', checked === true, {
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                    <FieldLabel htmlFor="zone-default-staging">
+                      Đặt làm điểm mặc định của kho
+                    </FieldLabel>
+                  </Field>
+                )}
                 <p id="zone-staging-description" className="text-muted-foreground text-sm">
                   Tự tạo điểm tập kết và vị trí bên dưới, không cần tạo kệ/ô thủ công. Điểm đã có sẽ
                   được giữ nguyên, không tạo trùng hoặc đổi chức năng. Không bổ sung không xóa điểm
