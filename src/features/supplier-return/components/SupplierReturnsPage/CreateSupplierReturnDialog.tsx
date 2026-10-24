@@ -99,6 +99,7 @@ export function CreateSupplierReturnDialog({
       maxQuantity: returnableQuantity(stock),
       unit: stock.unitName ?? '',
       quantity: returnableQuantity(stock),
+      quantityPrecision: stock.quantityPrecision ?? 2,
     })
     setSelectedStockId('')
     form.clearErrors('lines')
@@ -272,7 +273,7 @@ export function CreateSupplierReturnDialog({
                         inputMode="decimal"
                         min={0}
                         max={line.maxQuantity}
-                        step="any"
+                        step={10 ** -Math.min(line.quantityPrecision ?? 2, 2)}
                         aria-invalid={Boolean(quantityError)}
                         {...form.register(`lines.${index}.quantity`, { valueAsNumber: true })}
                       />

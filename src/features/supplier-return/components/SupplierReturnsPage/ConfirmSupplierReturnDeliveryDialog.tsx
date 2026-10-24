@@ -71,7 +71,7 @@ export function ConfirmSupplierReturnDeliveryDialog({
                         inputMode="decimal"
                         min={0}
                         max={line.quantity}
-                        step="any"
+                        step={10 ** -Math.min(line.quantityPrecision ?? 2, 2)}
                         aria-invalid={Boolean(lineError)}
                         {...form.register(`items.${index}.deliveredQuantity`, {
                           valueAsNumber: true,

@@ -7,6 +7,7 @@ import type {
 export type SupplierReturnStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' | 'Completed'
 
 export interface SupplierReturnItem {
+  readonly quantityPrecision?: number | null
   readonly id: string
   readonly inventoryStockId: string
   readonly productId: string

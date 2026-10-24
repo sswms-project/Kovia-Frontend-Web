@@ -233,6 +233,7 @@ export default function SupplierReturnsPage() {
         itemId: line.id,
         approvedQuantity: line.quantity,
         deliveredQuantity: line.quantity,
+        quantityPrecision: line.quantityPrecision ?? 2,
       })),
     })
     setDeliveringItem(item)
