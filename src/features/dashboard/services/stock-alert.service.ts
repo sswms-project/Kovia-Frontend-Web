@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse } from '@/types/api'
 import {
   stockExpiryAlertsSchema,
+  stockExpiryDistributionSchema,
   stockThresholdAlertsSchema,
   type StockAlertParams,
 } from '../schemas/stock-alert.schema'
@@ -30,5 +31,22 @@ export const stockAlertService = {
     return threshold
       ? stockThresholdAlertsSchema.parse(response.data.data)
       : stockExpiryAlertsSchema.parse(response.data.data)
+  },
+  getExpiryDistribution: async (
+    params: { readonly warehouseId?: string; readonly expiringDays: number },
+    signal?: AbortSignal
+  ) => {
+    const response = await axiosClient.get<ApiResponse<unknown>>(
+      API_ENDPOINTS.dashboard.stockExpiryDistribution,
+      {
+        signal,
+        params: {
+          warehouseIds: params.warehouseId ? [params.warehouseId] : undefined,
+          expiringDays: params.expiringDays,
+        },
+        paramsSerializer: { indexes: null },
+      }
+    )
+    return stockExpiryDistributionSchema.parse(response.data.data)
   },
 }
