@@ -34,6 +34,13 @@ const { state, alerts, overview, activity, refresh, update, meRefresh, optionsRe
     meRefresh: vi.fn(),
     optionsRefresh: vi.fn(),
   }))
+// Biểu đồ dưới tối thiểu dùng chung hook với bảng nhưng chỉ đọc 6 dòng đầu.
+const CHART_ROWS = 6
+const tableCalls = (kind: string) =>
+  alerts.mock.calls.filter(
+    (call) => call[0].kind === kind && call[1] === true && call[0].pageSize !== CHART_ROWS
+  )
+
 vi.mock('@/features/auth/hooks/use-auth', () => ({
   useMeQuery: () => ({
     data: { permissions: state.permissions },
@@ -56,7 +63,30 @@ vi.mock('../hooks/use-overview-navigation', () => ({
   }),
   useOverviewCompactLayout: () => ({ ref: { current: null }, compact: state.compact }),
 }))
-vi.mock('../hooks/use-stock-alerts', () => ({ useStockAlertsQuery: alerts }))
+vi.mock('../hooks/use-stock-alerts', () => ({
+  useStockAlertsQuery: alerts,
+  useStockExpiryDistributionQuery: () => ({
+    data: undefined,
+    isPending: true,
+    isFetching: false,
+    isError: false,
+    error: null,
+    refetch: () => Promise.resolve({ isSuccess: true }),
+  }),
+}))
+vi.mock('@/features/inventory-anomaly/hooks/use-inventory-anomalies', () => ({
+  useInventoryAnomalySummaryQuery: () => ({
+    data: undefined,
+    isPending: true,
+    isFetching: false,
+    isError: false,
+    error: null,
+    refetch: () => Promise.resolve({ isSuccess: true }),
+  }),
+}))
+vi.mock('../components/WarehouseOverview/AlertOverviewCharts', () => ({
+  AlertOverviewCharts: () => <div>Biểu đồ cảnh báo QA</div>,
+}))
 vi.mock('../hooks/use-warehouse-overview', () => ({
   useReportingWarehousesQuery: () => ({
     data: [{ id: warehouseId, name: 'Đà Nẵng' }],
@@ -231,48 +261,51 @@ describe('warehouse overview orchestration', () => {
 
   it('lets the user select an urgent group directly from its visible count', async () => {
     render(<WarehouseOverviewPage />)
-    const panel = screen.getByRole('region', { name: 'Hàng hóa quá hạn sử dụng' })
+    const panel = screen.getByRole('region', { name: 'Sắp hết hạn · hôm nay và 5 ngày tới' })
     const scroll = vi.spyOn(panel, 'scrollIntoView')
-    await userEvent.click(screen.getByLabelText(/quá hạn sử dụng.*7/i))
-    expect(update).toHaveBeenCalledWith({ alert: 'expired' })
+    await userEvent.click(screen.getByLabelText(/sắp hết hạn.*25/i))
+    expect(update).toHaveBeenCalledWith({ alert: 'expiring' })
     expect(scroll).toHaveBeenCalledWith({ block: 'nearest' })
-    expect(screen.getAllByRole('table')).toHaveLength(4)
+    expect(screen.getAllByRole('table')).toHaveLength(2)
     scroll.mockRestore()
   })
 
-  it('applies a valid N-day setting through the URL without touching the expired-stock window', async () => {
+  it('applies a valid N-day setting through the URL and restarts the expiring table', async () => {
     state.compact = false
-    state.expiredTotal = 25
     state.kind = 'expiring'
     const user = userEvent.setup()
     render(<WarehouseOverviewPage />)
     await user.click(
-      within(screen.getByRole('region', { name: 'Hàng hóa quá hạn sử dụng' })).getByRole('button', {
-        name: 'Trang sau',
-      })
+      within(screen.getByRole('region', { name: 'Sắp hết hạn · hôm nay và 5 ngày tới' })).getByRole(
+        'button',
+        {
+          name: 'Trang sau',
+        }
+      )
     )
+    expect(tableCalls('expiring').at(-1)?.[0].pageNumber).toBe(2)
     await user.click(screen.getByRole('button', { name: 'Cài đặt số ngày sắp hết hạn' }))
     fireEvent.change(screen.getByLabelText('Số ngày trước hạn'), { target: { value: '30' } })
     await user.click(screen.getByRole('button', { name: 'Áp dụng' }))
     await waitFor(() => expect(update).toHaveBeenCalledWith({ expiringDays: '30' }))
+    expect(tableCalls('expiring').at(-1)?.[0].pageNumber).toBe(1)
     expect(
-      alerts.mock.calls.filter((call) => call[0].kind === 'expired').at(-1)?.[0].pageNumber
-    ).toBe(2)
-    expect(
-      alerts.mock.calls
-        .filter((call) => call[0].kind === 'expired')
-        .every((call) => call[0].expiringDays === undefined)
-    ).toBe(true)
+      alerts.mock.calls.some((call) => ['expired', 'above-maximum'].includes(call[0].kind))
+    ).toBe(false)
   })
 
-  it('keeps all four fully paginated panels on narrow or short screens', () => {
+  it('keeps both fully paginated panels on narrow or short screens', () => {
     render(<WarehouseOverviewPage />)
-    expect(screen.getByLabelText(/quá hạn sử dụng.*7/i)).toBeInTheDocument()
-    const enabled = alerts.mock.calls.slice(-5).filter((call) => call[1] === true)
-    expect(enabled).toHaveLength(4)
-    expect(enabled.every((call) => call[0].pageSize === 10)).toBe(true)
+    expect(screen.getByLabelText(/sắp hết hạn.*25/i)).toBeInTheDocument()
+    const enabled = alerts.mock.calls.slice(-4).filter((call) => call[1] === true)
+    expect(enabled.map((call) => [call[0].kind, call[0].pageSize])).toEqual([
+      ['below-minimum', 10],
+      ['expiring', 10],
+      ['below-minimum', CHART_ROWS],
+    ])
     expect(overview.mock.calls.at(-1)?.[1]).toBe(false)
-    expect(screen.getAllByRole('table')).toHaveLength(4)
+    expect(screen.getAllByRole('table')).toHaveLength(2)
+    expect(screen.getByText('Biểu đồ cảnh báo QA')).toBeInTheDocument()
     const board = screen.getByRole('tabpanel', { name: 'Cảnh báo tồn kho' })
     expect(board).toHaveClass('overflow-y-auto')
     expect(board).toHaveAttribute('data-scrollbar', 'slim')
@@ -280,16 +313,18 @@ describe('warehouse overview orchestration', () => {
       screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' }).parentElement
     ).toHaveClass('min-h-fit', 'auto-rows-[minmax(18rem,1fr)]')
   })
-  it('renders four real panels in the wide layout without duplicate mobile tables', () => {
+  it('renders both real panels in the wide layout without duplicate mobile tables', () => {
     state.compact = false
     render(<WarehouseOverviewPage />)
-    expect(screen.getAllByRole('table')).toHaveLength(4)
+    expect(screen.getAllByRole('table')).toHaveLength(2)
     const grid = screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' }).parentElement
-    expect(grid).toHaveClass('min-h-0', 'grid-cols-2', 'grid-rows-2')
+    expect(grid).toHaveClass('min-h-[22rem]', 'grid-cols-2')
     expect(grid).not.toHaveClass('min-h-fit')
     expect(screen.queryByRole('group', { name: 'Nhóm cảnh báo' })).not.toBeInTheDocument()
     expect(
-      alerts.mock.calls.filter((call) => call[1] === true).every((call) => call[0].pageSize === 10)
+      [...tableCalls('below-minimum'), ...tableCalls('expiring')].every(
+        (call) => call[0].pageSize === 10
+      )
     ).toBe(true)
   })
   it('changes each panel page size independently, resets its page and keeps the shared 10/20/50 choices', async () => {
@@ -298,10 +333,7 @@ describe('warehouse overview orchestration', () => {
     render(<WarehouseOverviewPage />)
     const panel = within(screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' }))
     await user.click(panel.getByRole('button', { name: 'Trang sau' }))
-    expect(
-      alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
-        .pageNumber
-    ).toBe(2)
+    expect(tableCalls('below-minimum').at(-1)?.[0].pageNumber).toBe(2)
     for (const size of [20, 50, 10]) {
       fireEvent.keyDown(panel.getByRole('combobox', { name: 'Số dòng mỗi trang' }), {
         key: 'Enter',
@@ -312,12 +344,11 @@ describe('warehouse overview orchestration', () => {
         '50',
       ])
       await user.click(screen.getByRole('option', { name: String(size) }))
-      expect(
-        alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
-      ).toMatchObject({ pageNumber: 1, pageSize: size })
-      expect(
-        alerts.mock.calls.filter((call) => call[0].kind === 'above-maximum').at(-1)?.[0].pageSize
-      ).toBe(10)
+      expect(tableCalls('below-minimum').at(-1)?.[0]).toMatchObject({
+        pageNumber: 1,
+        pageSize: size,
+      })
+      expect(tableCalls('expiring').at(-1)?.[0].pageSize).toBe(10)
     }
   })
 
@@ -328,36 +359,30 @@ describe('warehouse overview orchestration', () => {
     fireEvent.keyDown(panel.getByRole('combobox', { name: 'Số dòng mỗi trang' }), { key: 'Enter' })
     await user.click(screen.getByRole('option', { name: '20' }))
     await user.click(panel.getByRole('button', { name: 'Trang sau' }))
-    state.kind = 'expired'
+    state.kind = 'expiring'
     state.compact = false
     view.rerender(<WarehouseOverviewPage />)
-    expect(
-      alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
-    ).toMatchObject({ pageSize: 20, pageNumber: 2 })
-    expect(
-      alerts.mock.calls.filter((call) => call[0].kind === 'expired').at(-1)?.[0].pageSize
-    ).toBe(10)
+    expect(tableCalls('below-minimum').at(-1)?.[0]).toMatchObject({ pageSize: 20, pageNumber: 2 })
+    expect(tableCalls('expiring').at(-1)?.[0].pageSize).toBe(10)
     state.kind = 'below-minimum'
     state.compact = true
     view.rerender(<WarehouseOverviewPage />)
-    expect(
-      alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
-    ).toMatchObject({ pageSize: 20, pageNumber: 2 })
-    expect(screen.getAllByRole('table')).toHaveLength(4)
+    expect(tableCalls('below-minimum').at(-1)?.[0]).toMatchObject({ pageSize: 20, pageNumber: 2 })
+    expect(screen.getAllByRole('table')).toHaveLength(2)
   })
 
-  it('refreshes only the requested panel, while the header refreshes all four', async () => {
+  it('refreshes only the requested panel, while the header refreshes every alert query', async () => {
     const user = userEvent.setup()
     render(<WarehouseOverviewPage />)
     await user.click(screen.getByRole('button', { name: 'Tải lại Khả dụng dưới mức tối thiểu' }))
     expect(refresh.mock.calls).toEqual([['below-minimum']])
     refresh.mockClear()
     await user.click(screen.getByRole('button', { name: 'Tải lại tổng quan' }))
+    // Bảng dưới tối thiểu, bảng sắp hết hạn, rồi biểu đồ dưới tối thiểu.
     expect(refresh.mock.calls.map((call) => call[0])).toEqual([
       'below-minimum',
-      'above-maximum',
       'expiring',
-      'expired',
+      'below-minimum',
     ])
   })
   it('keeps dialogs scoped and applies search server-side without changing the preview total', async () => {
@@ -408,13 +433,13 @@ describe('warehouse overview orchestration', () => {
   it('rechecks an inactive denied alert and keeps activity hidden until recovery finishes', async () => {
     state.tab = 'activity'
     state.denied = true
-    state.deniedKind = 'expired'
+    state.deniedKind = 'expiring'
     let finish = () => {}
     const pending = new Promise<void>((resolve) => {
       finish = resolve
     })
     refresh.mockImplementation((kind) => {
-      if (kind === 'expired') {
+      if (kind === 'expiring') {
         state.denied = false
         return pending.then(() => ({ isSuccess: true }))
       }
@@ -451,7 +476,7 @@ describe('warehouse overview orchestration', () => {
     expect(meRefresh).toHaveBeenCalledWith({ cancelRefetch: false })
     expect(optionsRefresh).toHaveBeenCalledWith({ cancelRefetch: false })
     expect(refresh.mock.calls.map((call) => call[0])).toContain('overview')
-    expect(refresh.mock.calls.map((call) => call[0])).toContain('expired')
+    expect(refresh.mock.calls.map((call) => call[0])).toContain('expiring')
     expect(reload).toBeDisabled()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     finish()
@@ -479,7 +504,7 @@ describe('warehouse overview orchestration', () => {
       render(<WarehouseOverviewPage />)
       expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Tải lại tổng quan' }))
-      await waitFor(() => expect(screen.getAllByText('Hàng QA')).toHaveLength(4))
+      await waitFor(() => expect(screen.getAllByText('Hàng QA')).toHaveLength(2))
       expect(retryOverview).toHaveBeenCalledOnce()
       expect(meRefresh).toHaveBeenCalledOnce()
     }
@@ -531,7 +556,7 @@ describe('warehouse overview orchestration', () => {
       expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
       refresh.mockReturnValue({ isSuccess: true })
       await userEvent.click(reload)
-      await waitFor(() => expect(screen.getAllByText('Hàng QA')).toHaveLength(4))
+      await waitFor(() => expect(screen.getAllByText('Hàng QA')).toHaveLength(2))
       expect(meRefresh).toHaveBeenCalledTimes(2)
     }
   )
@@ -546,7 +571,7 @@ describe('warehouse overview orchestration', () => {
       const user = userEvent.setup()
       render(<WarehouseOverviewPage />)
       const region = screen.getByRole('region', {
-        name: compact ? 'Khả dụng dưới mức tối thiểu' : 'Khả dụng vượt mức tối đa',
+        name: compact ? 'Khả dụng dưới mức tối thiểu' : 'Sắp hết hạn · hôm nay và 5 ngày tới',
       })
       const opener = within(region).getByRole('button', { name: 'Xem tất cả' })
       opener.focus()
@@ -562,7 +587,7 @@ describe('warehouse overview orchestration', () => {
   it('shows alerts without granting inventory navigation from a role name', () => {
     state.permissions = [P.DASHBOARD_VIEW]
     render(<WarehouseOverviewPage />)
-    expect(screen.getAllByText('Hàng QA')).toHaveLength(4)
+    expect(screen.getAllByText('Hàng QA')).toHaveLength(2)
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 

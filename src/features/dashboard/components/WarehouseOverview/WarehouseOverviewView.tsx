@@ -7,11 +7,12 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import type { ReportingWarehouse } from '../../schemas/warehouse-overview.schema'
-import type { StockAlertKind } from '../../schemas/stock-alert.schema'
 import { StockAlertPanel, stockAlertTitles, type StockAlertPanelState } from './StockAlertPanel'
 import { WarehouseOperationsSkeleton } from './WarehouseOperationsSkeleton'
 
-export const stockAlertKinds = ['below-minimum', 'above-maximum', 'expiring', 'expired'] as const
+// Tổng quan chỉ theo dõi hai nhóm tồn kho cần xử lý; API vẫn hỗ trợ vượt tối đa và quá hạn cho nơi khác.
+export const stockAlertKinds = ['below-minimum', 'expiring'] as const
+export type OverviewStockAlertKind = (typeof stockAlertKinds)[number]
 interface WarehouseOverviewViewProps {
   readonly workspaceRef: Ref<HTMLDivElement>
   readonly compact: boolean
@@ -21,13 +22,15 @@ interface WarehouseOverviewViewProps {
   readonly onWarehouseChange: (id: string) => void
   readonly tab: string
   readonly onTabChange: (value: string) => void
-  readonly selectedKind: StockAlertKind
-  readonly onKindChange: (value: StockAlertKind) => void
+  readonly selectedKind: OverviewStockAlertKind
+  readonly onKindChange: (value: OverviewStockAlertKind) => void
   readonly expiringDays: number
-  readonly panels: Readonly<Record<StockAlertKind, StockAlertPanelState>>
-  readonly onPageChange: (kind: StockAlertKind, page: number) => void
-  readonly onPageSizeChange: (kind: StockAlertKind, pageSize: number) => void
-  readonly onExpand: (kind: StockAlertKind, opener: HTMLButtonElement) => void
+  readonly panels: Readonly<Record<OverviewStockAlertKind, StockAlertPanelState>>
+  readonly onPageChange: (kind: OverviewStockAlertKind, page: number) => void
+  readonly onPageSizeChange: (kind: OverviewStockAlertKind, pageSize: number) => void
+  readonly onExpand: (kind: OverviewStockAlertKind, opener: HTMLButtonElement) => void
+  /** Thẻ số và biểu đồ tóm tắt đặt trên hai bảng cảnh báo. */
+  readonly charts: ReactNode
   readonly onRefresh: () => void
   readonly isFetching: boolean
   readonly errorMessage?: string
@@ -60,6 +63,7 @@ export function WarehouseOverviewView({
   canViewInventory,
   settings,
   operations,
+  charts,
 }: WarehouseOverviewViewProps) {
   const noWarehouses = !warehouseOptionsLoading && warehouses.length === 0
   return (
@@ -147,7 +151,7 @@ export function WarehouseOverviewView({
             variant="outline"
             size="sm"
             aria-label="Nhóm cảnh báo"
-            className="grid w-full shrink-0 grid-cols-2 gap-1 sm:grid-cols-4"
+            className="grid w-full shrink-0 grid-cols-2 gap-1"
             onValueChange={(value) => {
               const selected = stockAlertKinds.find((kind) => kind === value)
               if (selected) onKindChange(selected)
@@ -165,29 +169,21 @@ export function WarehouseOverviewView({
                   aria-label={`${stockAlertTitles[kind]} · ${count}`}
                   title={stockAlertTitles[kind]}
                 >
-                  <span>
-                    {
-                      {
-                        'below-minimum': 'Dưới tối thiểu',
-                        'above-maximum': 'Vượt tối đa',
-                        expiring: 'Sắp hết hạn',
-                        expired: 'Quá hạn',
-                      }[kind]
-                    }
-                  </span>
+                  <span>{kind === 'below-minimum' ? 'Dưới tối thiểu' : 'Sắp hết hạn'}</span>
                   <span className="tabular-nums">{count}</span>
                 </ToggleGroupItem>
               )
             })}
           </ToggleGroup>
         ) : null}
+        {canShowData && !noWarehouses ? charts : null}
         {canShowData && !noWarehouses ? (
           <div
             className={cn(
               'grid min-w-0 flex-1 gap-3',
               compact
                 ? 'min-h-fit auto-rows-[minmax(18rem,1fr)] grid-cols-1 @min-[64rem]:grid-cols-2'
-                : 'min-h-0 grid-cols-2 grid-rows-2'
+                : 'min-h-[22rem] grid-cols-2'
             )}
           >
             {stockAlertKinds.map((kind) => (

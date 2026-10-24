@@ -15,19 +15,22 @@ import {
   WarehouseOperationsView,
   WarehouseActivityChart,
   WarehouseOverviewView,
+  AlertOverviewCharts,
+  stockAlertKinds,
+  type OverviewStockAlertKind,
   type StockAlertPanelState,
 } from '../components/WarehouseOverview'
+import { useInventoryAnomalySummaryQuery } from '@/features/inventory-anomaly/hooks/use-inventory-anomalies'
 import {
   useReportingWarehousesQuery,
   useWarehouseOverviewQuery,
   useWarehouseActivityQuery,
 } from '../hooks/use-warehouse-overview'
-import { useStockAlertsQuery } from '../hooks/use-stock-alerts'
+import { useStockAlertsQuery, useStockExpiryDistributionQuery } from '../hooks/use-stock-alerts'
 import { useOverviewCompactLayout, useOverviewNavigation } from '../hooks/use-overview-navigation'
 import {
   expiryDaysSchema,
   type ExpiryDaysValues,
-  type StockAlertKind,
   type StockAlertParams,
 } from '../schemas/stock-alert.schema'
 import {
@@ -38,14 +41,14 @@ import {
   type ActivityPeriodValues,
 } from '../schemas/activity-period.schema'
 
-const initialPages: Record<StockAlertKind, number> = {
+const initialPages: Record<OverviewStockAlertKind, number> = {
   'below-minimum': 1,
-  'above-maximum': 1,
   expiring: 1,
-  expired: 1,
 }
+// Biểu đồ dưới tối thiểu vẽ các sản phẩm đầu bảng (API xếp thiếu nhiều nhất trước).
+const BELOW_MINIMUM_CHART_ROWS = 6
 interface AlertDialogState {
-  readonly kind: StockAlertKind
+  readonly kind: OverviewStockAlertKind
   readonly scope: string
   readonly page: number
   readonly pageSize: number
@@ -56,11 +59,9 @@ export default function WarehouseOverviewPage() {
   const location = useOverviewNavigation()
   const { ref, compact } = useOverviewCompactLayout()
   const [pages, setPages] = useState(initialPages)
-  const [pageSizes, setPageSizes] = useState<Record<StockAlertKind, number>>({
+  const [pageSizes, setPageSizes] = useState<Record<OverviewStockAlertKind, number>>({
     'below-minimum': 10,
-    'above-maximum': 10,
     expiring: 10,
-    expired: 10,
   })
   const [currentOverviewRange] = useState(() => resolveActivityPeriod(defaultActivityPeriod()))
   const activityForm = useForm<ActivityPeriodValues>({
@@ -82,6 +83,7 @@ export default function WarehouseOverviewPage() {
   const permissionKey = [...permissions].sort().join('|')
   const canView = permissions.includes(P.DASHBOARD_VIEW)
   const canViewInventory = permissions.includes(P.INVENTORY_VIEW)
+  const canViewAnomalies = permissions.includes(P.INVENTORY_ANOMALIES_VIEW)
   const options = useReportingWarehousesQuery(canView, permissionKey)
   const warehouseMissing =
     options.isSuccess &&
@@ -93,10 +95,13 @@ export default function WarehouseOverviewPage() {
     !warehouseMissing &&
     options.isSuccess &&
     options.data.length > 0
+  // Đường dẫn cũ có thể còn trỏ tới nhóm đã bỏ khỏi tổng quan (vượt tối đa, quá hạn).
+  const selectedKind: OverviewStockAlertKind =
+    stockAlertKinds.find((kind) => kind === location.kind) ?? 'below-minimum'
   const scope = `${location.warehouseId}:${location.expiringDays}`
   const activeDialog = dialog?.scope === scope && location.tab === 'alerts' ? dialog : null
   const search = useDebouncedValue(activeDialog?.search ?? '', 350)
-  const request = (kind: StockAlertKind): StockAlertParams => ({
+  const request = (kind: OverviewStockAlertKind): StockAlertParams => ({
     kind,
     warehouseId: location.warehouseId || undefined,
     expiringDays: kind === 'expiring' ? location.expiringDays : undefined,
@@ -108,20 +113,24 @@ export default function WarehouseOverviewPage() {
     enabled && location.tab === 'alerts',
     permissionKey
   )
-  const above = useStockAlertsQuery(
-    request('above-maximum'),
-    enabled && location.tab === 'alerts',
-    permissionKey
-  )
   const expiring = useStockAlertsQuery(
     request('expiring'),
     enabled && location.tab === 'alerts',
     permissionKey
   )
-  const expired = useStockAlertsQuery(
-    request('expired'),
+  const belowChart = useStockAlertsQuery(
+    { ...request('below-minimum'), pageNumber: 1, pageSize: BELOW_MINIMUM_CHART_ROWS },
     enabled && location.tab === 'alerts',
     permissionKey
+  )
+  const expiryChart = useStockExpiryDistributionQuery(
+    { warehouseId: location.warehouseId || undefined, expiringDays: location.expiringDays },
+    enabled && location.tab === 'alerts',
+    permissionKey
+  )
+  const anomalySummary = useInventoryAnomalySummaryQuery(
+    location.warehouseId,
+    enabled && location.tab === 'alerts' && canViewAnomalies
   )
   const overview = useWarehouseOverviewQuery(
     location.warehouseId || undefined,
@@ -137,10 +146,10 @@ export default function WarehouseOverviewPage() {
   )
   const details = useStockAlertsQuery(
     {
-      kind: activeDialog?.kind ?? location.kind,
+      kind: activeDialog?.kind ?? selectedKind,
       warehouseId: location.warehouseId || undefined,
       expiringDays:
-        (activeDialog?.kind ?? location.kind) === 'expiring' ? location.expiringDays : undefined,
+        (activeDialog?.kind ?? selectedKind) === 'expiring' ? location.expiringDays : undefined,
       pageNumber: activeDialog?.page ?? 1,
       pageSize: activeDialog?.pageSize ?? 10,
       search,
@@ -149,8 +158,20 @@ export default function WarehouseOverviewPage() {
     permissionKey
   )
   const activeQueries =
-    location.tab === 'alerts' ? [below, above, expiring, expired, details] : [overview]
-  const accessQueries = [below, above, expiring, expired, details, overview, activity, options, me]
+    location.tab === 'alerts'
+      ? [below, expiring, belowChart, expiryChart, anomalySummary, details]
+      : [overview]
+  const accessQueries = [
+    below,
+    expiring,
+    belowChart,
+    expiryChart,
+    details,
+    overview,
+    activity,
+    options,
+    me,
+  ]
   const deniedQueries = accessQueries.filter(
     (query) => isApiErrorResponse(query.error) && [401, 403].includes(query.error.statusCode)
   )
@@ -181,14 +202,29 @@ export default function WarehouseOverviewPage() {
   })
   const panels = {
     'below-minimum': panelState(below),
-    'above-maximum': panelState(above),
     expiring: panelState(expiring),
-    expired: panelState(expired),
   }
+  const chartState = <T,>(query: {
+    readonly data?: T
+    readonly isPending: boolean
+    readonly isError: boolean
+    readonly error: unknown
+    readonly refetch: () => Promise<unknown>
+  }) => ({
+    data: canShowData ? query.data : undefined,
+    isLoading: query.isPending,
+    errorMessage: query.isError ? getApiErrorMessage(query.error) : undefined,
+    onRetry: () => {
+      if (enabled) void query.refetch()
+    },
+  })
+  const belowChartState = chartState(belowChart)
   const refresh = async () => {
     const recoverAccess = Boolean(denied || me.isError || !canView || accessRecoveryFailed)
     const visibleQueries =
-      location.tab === 'activity' ? [overview, activity] : [below, above, expiring, expired]
+      location.tab === 'activity'
+        ? [overview, activity]
+        : [below, expiring, belowChart, expiryChart, ...(canViewAnomalies ? [anomalySummary] : [])]
     const targets = new Set([
       options,
       ...(enabled ? visibleQueries : []),
@@ -251,7 +287,7 @@ export default function WarehouseOverviewPage() {
           setSettingsOpen(false)
           location.updateLocation({ tab })
         }}
-        selectedKind={location.kind}
+        selectedKind={selectedKind}
         onKindChange={(alert) => {
           location.updateLocation({ alert })
           ref.current
@@ -285,6 +321,28 @@ export default function WarehouseOverviewPage() {
         canShowData={canShowData}
         canViewInventory={canViewInventory && canShowData}
         settings={settings}
+        charts={
+          <AlertOverviewCharts
+            belowMinimum={{
+              ...belowChartState,
+              data:
+                belowChartState.data && 'configuredPolicyCount' in belowChartState.data
+                  ? belowChartState.data
+                  : undefined,
+            }}
+            expiry={chartState(expiryChart)}
+            anomalies={canViewAnomalies ? chartState(anomalySummary) : undefined}
+            expiringDays={location.expiringDays}
+            anomaliesHref={
+              canViewAnomalies
+                ? {
+                    pathname: APP_ROUTES.inventoryAnomalies,
+                    query: location.warehouseId ? { warehouseId: location.warehouseId } : {},
+                  }
+                : undefined
+            }
+          />
+        }
         operations={
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
             <WarehouseOperationsView
@@ -349,7 +407,7 @@ export default function WarehouseOverviewPage() {
       />
       <StockAlertDialog
         {...panelState(details)}
-        kind={activeDialog?.kind ?? location.kind}
+        kind={activeDialog?.kind ?? selectedKind}
         open={Boolean(activeDialog) && canShowData}
         onClose={() => setDialog(null)}
         onRestoreFocus={() => {
