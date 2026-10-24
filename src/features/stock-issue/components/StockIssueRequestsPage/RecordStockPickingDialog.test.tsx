@@ -11,7 +11,26 @@ import type { StockIssueRequestSummary } from '../../types/stock-issue.types'
 import { setScanPreferences } from '@/features/transfer/utils/scan-preferences'
 
 vi.mock('@/features/transfer/components/TransferWork/CameraScanPanel', () => ({
-  CameraScanPanel: () => <div>Camera dùng chung</div>,
+  CameraScanPanel: ({
+    open,
+    onOpenChange,
+    onCode,
+  }: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    onCode: (code: string) => unknown
+  }) => (
+    <div>
+      Camera dùng chung
+      <button onClick={() => onOpenChange(!open)}>{open ? 'Tắt camera' : 'Bật camera'}</button>
+      {open && (
+        <>
+          <button onClick={() => onCode('Z1-R1')}>Camera vị trí</button>
+          <button onClick={() => onCode('BAR')}>Camera mã hàng</button>
+        </>
+      )}
+    </div>
+  ),
 }))
 const save = vi.fn<(values: RecordStockPickingFormValues) => Promise<void>>(async () => {})
 const close = vi.fn()
@@ -80,6 +99,25 @@ beforeEach(() => {
   setScanPreferences({ feedback: false, eachUnit: false })
 })
 describe('outbound picking workspace', () => {
+  it.each([false, true])('keeps camera focus between codes, each-unit=%s', (eachUnit) => {
+    setScanPreferences({ eachUnit })
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'Bật camera' }))
+    const camera = screen.getByRole('button', { name: 'Tắt camera' })
+    camera.focus()
+    fireEvent.click(screen.getByRole('button', { name: 'Camera vị trí' }))
+    expect(camera).toHaveFocus()
+    fireEvent.click(screen.getByRole('button', { name: 'Camera mã hàng' }))
+    if (eachUnit) {
+      expect(camera).toHaveFocus()
+      expect(screen.getByLabelText('3. Số lượng lấy (Hộp)')).toHaveValue('1')
+      fireEvent.click(camera)
+      expect(screen.getByLabelText('2. Quét mã hàng')).toHaveFocus()
+    } else {
+      expect(screen.getByLabelText('3. Số lượng lấy (Hộp)')).toHaveFocus()
+    }
+  })
+
   it('persists one source immediately on confirm, without staging scan or final batch save', async () => {
     render(<Harness />)
     expect(screen.getByText('Camera dùng chung')).toBeInTheDocument()
@@ -94,9 +132,11 @@ describe('outbound picking workspace', () => {
     expect(screen.queryByRole('button', { name: 'Lưu kết quả lấy hàng' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('2. Quét mã hàng')).toBeDisabled()
     scan('1. Quét mã vị trí', 'Z1-R1')
+    expect(screen.getByLabelText('2. Quét mã hàng')).toHaveFocus()
     scan('2. Quét mã hàng', 'WRONG')
     expect(screen.getByRole('button', { name: 'Xác nhận & tiếp tục' })).toBeDisabled()
     scan('2. Quét mã hàng', 'BAR')
+    expect(screen.getByLabelText('3. Số lượng lấy (Hộp)')).toHaveFocus()
     fireEvent.change(screen.getByLabelText('3. Số lượng lấy (Hộp)'), { target: { value: '1' } })
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận & tiếp tục' }))
     await waitFor(() => expect(save).toHaveBeenCalledOnce())

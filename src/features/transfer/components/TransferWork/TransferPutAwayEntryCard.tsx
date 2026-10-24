@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 import type { UseFormReturn } from 'react-hook-form'
 import { MapPin, MapPinned, Split, Trash2 } from 'lucide-react'
 import { PutawayDeviationPanel } from '@/components/operations/putaway'
@@ -91,7 +92,7 @@ export function TransferPutAwayEntryCard({
   }
   return (
     <article
-      className="bg-card border"
+      className={cn('bg-card @container/putaway-entry min-w-0', !hideHeader && 'border')}
       aria-label={'Cất ' + row.sku + ' · ' + (row.lotNumber ?? 'Không theo lô')}
     >
       {!hideHeader ? (
@@ -113,227 +114,236 @@ export function TransferPutAwayEntryCard({
           </p>
         </header>
       ) : null}
-      <FieldGroup className="gap-3 p-3">
-        {!manual ? (
-          <CameraScanPanel
-            label="Quét mã vị trí cất hàng"
-            open={cameraTarget === 'slot'}
-            disabled={disabled || pendingScan}
-            onOpenChange={(open) => onCameraTargetChange(open ? 'slot' : null)}
-            onCode={scanSlot}
-          />
-        ) : null}
-        {planChanged ? (
-          <p className="text-warning text-sm" role="status">
-            Kế hoạch hoặc số còn lại của dòng này đã đổi. Kiểm tra trước khi xác nhận.
-          </p>
-        ) : null}
-        {entry.plannedSlotLabel ? (
-          <p className="text-primary flex flex-wrap items-center gap-2 text-sm">
-            <MapPin aria-hidden="true" />
-            Theo kế hoạch: <strong>{entry.plannedSlotLabel}</strong>
-          </p>
-        ) : (
-          <p className="text-muted-foreground text-xs">
-            {entry.destinationSlotId
-              ? 'Vị trí đề xuất đã được điền. Có thể chỉnh lại trước khi quét.'
-              : 'Chưa tìm được vị trí đủ điều kiện. Chọn vị trí khác hoặc kiểm tra cấu hình sức chứa.'}
-          </p>
+      <FieldGroup
+        className={cn(
+          'gap-4 p-3',
+          !manual && 'grid @3xl/putaway-entry:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]'
         )}
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem]">
-          <Field data-invalid={Boolean(errors?.destinationSlotId)}>
-            <FieldLabel htmlFor={`putaway-location-${index}`}>Vị trí cất</FieldLabel>
-            <LookupCombobox
-              id={`putaway-location-${index}`}
-              value={entry.destinationSlotId}
-              options={slotOptions}
-              selectedOption={
-                entry.destinationSlotId
-                  ? {
-                      value: entry.destinationSlotId,
-                      label: entry.slotLabel || entry.destinationSlotId,
-                    }
-                  : undefined
-              }
-              ariaLabel="Vị trí cất hàng"
-              placeholder="Chọn vị trí cất hàng"
-              emptyMessage="Không tìm thấy vị trí nhận hàng."
-              disabled={disabled}
-              isLoading={loadingSlots}
-              isInvalid={Boolean(errors?.destinationSlotId)}
-              onSearchChange={onSearchSlots}
-              onChange={(value, option) =>
-                onChangeSlot(index, value ? (option ?? { value, label: value }) : null)
-              }
-              footerAction={
-                onOpenMap
-                  ? {
-                      label: 'Chọn trên sơ đồ kho',
-                      icon: <MapPinned />,
-                      onClick: () => {
-                        if (!disabled) onOpenMap(index)
-                      },
-                    }
-                  : undefined
-              }
-            />
-            <FieldError>{errors?.destinationSlotId?.message}</FieldError>
-          </Field>
-          <Field data-invalid={Boolean(errors?.quantity)}>
-            <FieldLabel htmlFor={quantityId}>Số lượng cất ({row.baseUnitName})</FieldLabel>
-            <Input
-              id={quantityId}
-              className="h-11 text-base md:h-8 md:text-xs pointer-coarse:h-11"
-              type="text"
-              inputMode={row.baseQuantityPrecision === 0 ? 'numeric' : 'decimal'}
-              disabled={disabled}
-              aria-invalid={Boolean(errors?.quantity)}
-              aria-describedby={errors?.quantity ? `${quantityId}-error` : undefined}
-              {...form.register(`entries.${index}.quantity`, {
-                setValueAs: parseTransferQuantityInput,
-              })}
-            />
-            <FieldError id={`${quantityId}-error`}>{errors?.quantity?.message}</FieldError>
-          </Field>
-        </div>
+      >
         {!manual ? (
-          <ScanInput
-            id={`putaway-slot-${index}`}
-            label="Quét mã vị trí cất hàng"
-            confirmedValue={confirmed ? entry.slotLabel || entry.scannedSlotCode : undefined}
-            error={errors?.scannedSlotCode?.message ?? errors?.destinationSlotId?.message ?? null}
-            disabled={disabled}
-            pending={pendingScan}
-            hideCamera
-            onScan={scanSlot}
-          />
+          <div className="min-w-0">
+            <CameraScanPanel
+              label="Quét mã vị trí cất hàng"
+              open={cameraTarget === 'slot'}
+              disabled={disabled || pendingScan}
+              onOpenChange={(open) => onCameraTargetChange(open ? 'slot' : null)}
+              onCode={scanSlot}
+            />
+          </div>
         ) : null}
-        {unreadableOpen || manual ? (
-          <FieldGroup className="gap-3 border p-3">
+        <div className="flex min-w-0 flex-col gap-3">
+          {planChanged ? (
+            <p className="text-warning text-sm" role="status">
+              Kế hoạch hoặc số còn lại của dòng này đã đổi. Kiểm tra trước khi xác nhận.
+            </p>
+          ) : null}
+          {entry.plannedSlotLabel ? (
+            <p className="text-primary flex flex-wrap items-center gap-2 text-sm">
+              <MapPin aria-hidden="true" />
+              Theo kế hoạch: <strong>{entry.plannedSlotLabel}</strong>
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              {entry.destinationSlotId
+                ? 'Vị trí đề xuất đã được điền. Có thể chỉnh lại trước khi quét.'
+                : 'Chưa tìm được vị trí đủ điều kiện. Chọn vị trí khác hoặc kiểm tra cấu hình sức chứa.'}
+            </p>
+          )}
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem]">
             <Field data-invalid={Boolean(errors?.destinationSlotId)}>
-              <FieldLabel>Vị trí khi không quét được mã</FieldLabel>
+              <FieldLabel htmlFor={`putaway-location-${index}`}>Vị trí cất</FieldLabel>
               <LookupCombobox
-                value={manual ? entry.destinationSlotId : ''}
+                id={`putaway-location-${index}`}
+                value={entry.destinationSlotId}
                 options={slotOptions}
-                isInvalid={Boolean(errors?.destinationSlotId)}
                 selectedOption={
-                  manual && entry.destinationSlotId
+                  entry.destinationSlotId
                     ? {
                         value: entry.destinationSlotId,
                         label: entry.slotLabel || entry.destinationSlotId,
                       }
                     : undefined
                 }
-                ariaLabel="Vị trí cất hàng khi không quét được mã"
+                ariaLabel="Vị trí cất hàng"
                 placeholder="Chọn vị trí cất hàng"
-                emptyMessage="Không tìm thấy vị trí phù hợp."
+                emptyMessage="Không tìm thấy vị trí nhận hàng."
                 disabled={disabled}
                 isLoading={loadingSlots}
+                isInvalid={Boolean(errors?.destinationSlotId)}
                 onSearchChange={onSearchSlots}
                 onChange={(value, option) =>
-                  onMarkUnreadable(index, value ? (option ?? { value, label: value }) : null)
+                  onChangeSlot(index, value ? (option ?? { value, label: value }) : null)
+                }
+                footerAction={
+                  onOpenMap
+                    ? {
+                        label: 'Chọn trên sơ đồ kho',
+                        icon: <MapPinned />,
+                        onClick: () => {
+                          if (!disabled) onOpenMap(index)
+                        },
+                      }
+                    : undefined
                 }
               />
               <FieldError>{errors?.destinationSlotId?.message}</FieldError>
             </Field>
+            <Field data-invalid={Boolean(errors?.quantity)}>
+              <FieldLabel htmlFor={quantityId}>Số lượng cất ({row.baseUnitName})</FieldLabel>
+              <Input
+                id={quantityId}
+                className="h-11 text-base md:h-8 md:text-xs pointer-coarse:h-11"
+                type="text"
+                inputMode={row.baseQuantityPrecision === 0 ? 'numeric' : 'decimal'}
+                disabled={disabled}
+                aria-invalid={Boolean(errors?.quantity)}
+                aria-describedby={errors?.quantity ? `${quantityId}-error` : undefined}
+                {...form.register(`entries.${index}.quantity`, {
+                  setValueAs: parseTransferQuantityInput,
+                })}
+              />
+              <FieldError id={`${quantityId}-error`}>{errors?.quantity?.message}</FieldError>
+            </Field>
+          </div>
+          {!manual ? (
+            <ScanInput
+              id={`putaway-slot-${index}`}
+              label="Quét mã vị trí cất hàng"
+              confirmedValue={confirmed ? entry.slotLabel || entry.scannedSlotCode : undefined}
+              error={errors?.scannedSlotCode?.message ?? errors?.destinationSlotId?.message ?? null}
+              disabled={disabled}
+              pending={pendingScan}
+              hideCamera
+              onScan={scanSlot}
+            />
+          ) : null}
+          {unreadableOpen || manual ? (
+            <FieldGroup className="bg-muted/40 gap-3 p-3">
+              <Field data-invalid={Boolean(errors?.destinationSlotId)}>
+                <FieldLabel>Vị trí khi không quét được mã</FieldLabel>
+                <LookupCombobox
+                  value={manual ? entry.destinationSlotId : ''}
+                  options={slotOptions}
+                  isInvalid={Boolean(errors?.destinationSlotId)}
+                  selectedOption={
+                    manual && entry.destinationSlotId
+                      ? {
+                          value: entry.destinationSlotId,
+                          label: entry.slotLabel || entry.destinationSlotId,
+                        }
+                      : undefined
+                  }
+                  ariaLabel="Vị trí cất hàng khi không quét được mã"
+                  placeholder="Chọn vị trí cất hàng"
+                  emptyMessage="Không tìm thấy vị trí phù hợp."
+                  disabled={disabled}
+                  isLoading={loadingSlots}
+                  onSearchChange={onSearchSlots}
+                  onChange={(value, option) =>
+                    onMarkUnreadable(index, value ? (option ?? { value, label: value }) : null)
+                  }
+                />
+                <FieldError>{errors?.destinationSlotId?.message}</FieldError>
+              </Field>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  setUnreadableOpen(false)
+                  onMarkUnreadable(index, null)
+                }}
+              >
+                Quay lại quét mã vị trí
+              </Button>
+            </FieldGroup>
+          ) : (
             <Button
-              variant="outline"
+              variant="link"
               size="sm"
               type="button"
               disabled={disabled}
+              className="justify-self-start px-0"
               onClick={() => {
-                setUnreadableOpen(false)
-                onMarkUnreadable(index, null)
+                onCameraTargetChange(null)
+                setUnreadableOpen(true)
+                onSearchSlots('')
               }}
             >
-              Quay lại quét mã vị trí
+              Không quét được mã vị trí?
             </Button>
-          </FieldGroup>
-        ) : (
-          <Button
-            variant="link"
-            size="sm"
-            type="button"
-            disabled={disabled}
-            className="justify-self-start px-0"
-            onClick={() => {
-              onCameraTargetChange(null)
-              setUnreadableOpen(true)
-              onSearchSlots('')
+          )}
+          <Collapsible
+            onOpenChange={(open) => {
+              if (!open) onCameraTargetChange(null)
             }}
           >
-            Không quét được mã vị trí?
-          </Button>
-        )}
-        <Collapsible
-          onOpenChange={(open) => {
-            if (!open) onCameraTargetChange(null)
-          }}
-        >
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" type="button" size="sm">
-              Quét mã hàng (tùy chọn)
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 motion-reduce:animate-none">
-            <CameraScanPanel
-              label="Quét mã hàng (không bắt buộc)"
-              open={cameraTarget === 'product'}
-              disabled={disabled || pendingScan}
-              onOpenChange={(open) => onCameraTargetChange(open ? 'product' : null)}
-              onCode={(code) => {
-                if (disabled || pendingScan) return false
-                const done = onScanProduct(index, code)
-                if (done) onCameraTargetChange(null)
-                return done
-              }}
-            />
-            <ScanInput
-              id={`putaway-product-${index}`}
-              label="Quét mã hàng (không bắt buộc)"
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" type="button" size="sm">
+                Quét mã hàng (tùy chọn)
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 motion-reduce:animate-none">
+              <CameraScanPanel
+                label="Quét mã hàng (không bắt buộc)"
+                open={cameraTarget === 'product'}
+                disabled={disabled || pendingScan}
+                onOpenChange={(open) => onCameraTargetChange(open ? 'product' : null)}
+                onCode={(code) => {
+                  if (disabled || pendingScan) return false
+                  const done = onScanProduct(index, code)
+                  if (done) onCameraTargetChange(null)
+                  return done
+                }}
+              />
+              <ScanInput
+                id={`putaway-product-${index}`}
+                label="Quét mã hàng (không bắt buộc)"
+                disabled={disabled}
+                hideCamera
+                confirmedValue={entry.scannedProductCode || undefined}
+                error={errors?.scannedProductCode?.message ?? null}
+                onScan={(code) => onScanProduct(index, code)}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+          {manual || planState?.isOffPlan ? (
+            <PutawayDeviationPanel
               disabled={disabled}
-              hideCamera
-              confirmedValue={entry.scannedProductCode || undefined}
-              error={errors?.scannedProductCode?.message ?? null}
-              onScan={(code) => onScanProduct(index, code)}
+              reasonCode={entry.deviationReasonCode}
+              note={entry.note}
+              title={manual ? 'Lý do không quét được mã vị trí' : 'Lý do cất khác kế hoạch'}
+              reasons={manual ? UNREADABLE_SLOT_REASONS : undefined}
+              error={errors?.deviationReasonCode?.message ?? errors?.note?.message ?? null}
+              onReasonChange={(value) =>
+                form.setValue(`entries.${index}.deviationReasonCode`, value, { shouldDirty: true })
+              }
+              onNoteChange={(value) =>
+                form.setValue(`entries.${index}.note`, value, { shouldDirty: true })
+              }
             />
-          </CollapsibleContent>
-        </Collapsible>
-        {manual || planState?.isOffPlan ? (
-          <PutawayDeviationPanel
-            disabled={disabled}
-            reasonCode={entry.deviationReasonCode}
-            note={entry.note}
-            title={manual ? 'Lý do không quét được mã vị trí' : 'Lý do cất khác kế hoạch'}
-            reasons={manual ? UNREADABLE_SLOT_REASONS : undefined}
-            error={errors?.deviationReasonCode?.message ?? errors?.note?.message ?? null}
-            onReasonChange={(value) =>
-              form.setValue(`entries.${index}.deviationReasonCode`, value, { shouldDirty: true })
-            }
-            onNoteChange={(value) =>
-              form.setValue(`entries.${index}.note`, value, { shouldDirty: true })
-            }
-          />
-        ) : null}
-        {planState?.isOffPlan && planState.withinPlan > 0 && planState.excess > 0 ? (
-          <div className="flex flex-col gap-2 text-sm">
-            <p>
-              Trong kế hoạch {formatQuantity(planState.withinPlan)} · Vượt{' '}
-              {formatQuantity(planState.excess)}. Nếu giữ nguyên, cả khai báo này được ghi là khác
-              kế hoạch.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={disabled}
-              onClick={() => onSplitExcess(index)}
-            >
-              Tách phần vượt kế hoạch
-            </Button>
-          </div>
-        ) : null}
+          ) : null}
+          {planState?.isOffPlan && planState.withinPlan > 0 && planState.excess > 0 ? (
+            <div className="flex flex-col gap-2 text-sm">
+              <p>
+                Trong kế hoạch {formatQuantity(planState.withinPlan)} · Vượt{' '}
+                {formatQuantity(planState.excess)}. Nếu giữ nguyên, cả khai báo này được ghi là khác
+                kế hoạch.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={disabled}
+                onClick={() => onSplitExcess(index)}
+              >
+                Tách phần vượt kế hoạch
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </FieldGroup>
-      <footer className="grid gap-2 border-t p-3 sm:flex sm:flex-wrap">
+      <footer className="grid gap-2 px-3 pb-3 sm:flex sm:flex-wrap">
         <Button type="button" variant="outline" disabled={disabled} onClick={() => onSplit(index)}>
           <Split aria-hidden="true" />
           Chia sang vị trí khác

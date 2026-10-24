@@ -103,10 +103,16 @@ export interface TransferActualPutAway {
 }
 
 export interface TransferPutAwaySheet {
+  canResumePutAway?: boolean
   receipt: TransferReceiptSheet
   planVersion: string
   rows: TransferPutAwaySheetRow[]
   putAwayLines: TransferActualPutAway[]
+}
+
+export interface ResumeTransferPutAwayRequest {
+  expectedVersion: string
+  commandId: string
 }
 
 export interface StartTransferReceivingRequest {

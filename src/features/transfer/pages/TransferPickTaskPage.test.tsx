@@ -24,6 +24,13 @@ const sheet: TransferPickSheet = {
   destinationWarehouseId: transfer.destinationWarehouseId,
   destinationWarehouseName: 'Đích',
   shipmentStatus: 'Picking',
+  outboundStagingFlowVersion: 1,
+  stagingPoints: {
+    items: [],
+    suggestedSlotId: null,
+    configuredDefaultSlotId: null,
+    invalidDefault: false,
+  },
   version: 'AQ==',
   lines: [
     {
@@ -110,10 +117,13 @@ describe('Pick workspace authorization', () => {
     expect(panes).toHaveClass('flex', 'flex-col', 'lg:grid', 'lg:flex-1', 'lg:min-h-0')
     expect(panes).not.toHaveClass('grid', 'flex-1', 'min-h-0')
     const content = panes.parentElement!
-    expect(content).toHaveClass('lg:h-full', 'lg:min-h-0')
-    expect(content).not.toHaveClass('h-full', 'min-h-0')
+    expect(content).toHaveClass('shrink-0', 'lg:flex-1', 'lg:min-h-0')
+    expect(content).not.toHaveClass('h-full', 'lg:h-full', 'min-h-0')
     const scroller = container.querySelector('[data-slot="transfer-scroll"]')!
-    expect(scroller).toHaveClass('overflow-y-auto')
+    expect(scroller).toHaveClass('flex', 'flex-col', 'gap-3', 'overflow-y-auto')
+    const staging = screen.getByText('Đưa hàng tới điểm chờ xuất').closest('[data-slot="field"]')!
+    expect(staging.parentElement).toHaveClass('shrink-0')
+    expect(staging.parentElement?.parentElement).toBe(scroller)
     expect(scroller).toContainElement(scannerPane)
     expect(scroller).toContainElement(screen.getByTestId('can-act'))
     const complete = screen.getByRole('button', { name: 'Hoàn tất lấy hàng' })

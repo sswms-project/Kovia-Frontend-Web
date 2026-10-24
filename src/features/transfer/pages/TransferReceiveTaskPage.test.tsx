@@ -151,6 +151,17 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('Receiving hands off to putaway', () => {
+  it('lets receiving content grow instead of squeezing count fields into remaining viewport height', () => {
+    const { container } = render(
+      <TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />
+    )
+    expect(container.firstElementChild).toHaveClass('min-h-full')
+    expect(container.firstElementChild).not.toHaveClass('h-full', 'min-h-0', 'flex-1')
+    expect(screen.getByRole('region', { name: 'Đối chiếu hàng điều chuyển' })).toHaveClass(
+      'flex-none'
+    )
+  })
+
   it('autofills the configured receiving point and starts without requiring its scan', async () => {
     mock.compact = true
     mock.staging = true

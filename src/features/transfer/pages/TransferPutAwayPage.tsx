@@ -45,12 +45,19 @@ import {
   useTransferPutAwayRulesQuery,
 } from '../hooks/use-transfer-putaway-plan'
 import { useTransferPutAwayForm } from '../hooks/use-transfer-putaway-form'
-import { useTransferPutAwaySheetQuery } from '../hooks/use-transfer-receipt'
+import {
+  useTransferPutAwaySheetQuery,
+  useResumeTransferPutAwayMutation,
+} from '../hooks/use-transfer-receipt'
+import { newCommandId } from '../utils/transfer-command-id'
+import { describeTransferError } from '../utils/transfer-errors'
+import type { ResumeTransferPutAwayRequest } from '../types/transfer-receipt.types'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
 import { useTransferPutAwaySlotsQuery, useTransferQuery } from '../hooks/use-transfers'
 import {
   canSeeWarehouse,
+  canHandleTransferPutAway,
   getShipmentCapabilities,
   getTransferCapabilities,
 } from '../utils/transfer-capabilities'
@@ -79,6 +86,14 @@ export default function TransferPutAwayPage({
   const shipment = transfer?.shipments?.find((row) => row.id === shipmentId)
   const query = useTransferPutAwaySheetQuery(transferId, shipmentId ?? '', Boolean(shipmentId))
   const sheet = query.data
+  const resume = useResumeTransferPutAwayMutation()
+  const resumeIntent = useRef<ResumeTransferPutAwayRequest | null>(null)
+  const resumeLock = useRef(false)
+  const canResume = Boolean(
+    sheet?.canResumePutAway &&
+    shipment &&
+    canHandleTransferPutAway(viewer, shipment.putAwayAssigneeId, transfer?.destinationWarehouseId)
+  )
   const canSee = canSeeWarehouse(viewer, transfer?.destinationWarehouseId)
   const canPlan = getTransferCapabilities(viewer, transfer).canSetPutAwaySlots
   const canPutAway = Boolean(
@@ -137,7 +152,8 @@ export default function TransferPutAwayPage({
   const suggestions = useTransferPutAwayPlanSuggestionsQuery(transferId, shipmentId)
   const reloadLock = useRef(false)
   const [reloading, setReloading] = useState(false)
-  const busy = editor.isPending || putAway.isPending || putAway.isFindingSlot || reloading
+  const busy =
+    editor.isPending || putAway.isPending || putAway.isFindingSlot || reloading || resume.isPending
   const snapshotBlocked = Boolean(
     editor.reloadRequired || putAway.reloadRequired || putAway.unknownResult
   )
@@ -220,6 +236,27 @@ export default function TransferPutAwayPage({
       setReloading(false)
     }
   }
+  async function resumePutAway() {
+    if (!canResume || !sheet?.receipt.version || !shipmentId || resumeLock.current || busy) return
+    resumeLock.current = true
+    const request = resumeIntent.current ?? {
+      expectedVersion: sheet.receipt.version,
+      commandId: newCommandId(),
+    }
+    resumeIntent.current = request
+    try {
+      await resume.mutateAsync({ transferId, shipmentId, request })
+      resumeIntent.current = null
+      await reload()
+      toast.success('Đã mở lại nhiệm vụ cất hàng. Chỉ cất phần còn khả dụng tại khu nhận.')
+    } catch (error) {
+      const result = describeTransferError(error, 'Không thể tiếp tục cất hàng.')
+      if (result.kind !== 'unknown-result') resumeIntent.current = null
+      toast.error(result.message)
+    } finally {
+      resumeLock.current = false
+    }
+  }
   if (!isReady || detail.isLoading || (shipmentId && query.isLoading))
     return <OperationalLoadingState rows={4} />
   if (!transfer || detail.isError || (shipmentId && (!shipment || query.isError || !sheet)))
@@ -299,14 +336,14 @@ export default function TransferPutAwayPage({
         </Tabs>
       ) : null}
       <OperationalListPanel
-        className={cn(tab === 'plan' && 'rounded-none border-0 bg-transparent')}
+        className="rounded-none border-0 bg-transparent"
         aria-label={tab === 'plan' ? 'Kế hoạch cất hàng' : 'Thực hiện cất hàng'}
         aria-busy={busy || rules.isFetching}
       >
         <div
           data-slot="operational-list-body"
           data-scrollbar="slim"
-          className={cn('flex flex-col', tab === 'plan' ? 'gap-5 px-0' : 'gap-3 p-3')}
+          className={cn('flex flex-col', tab === 'plan' ? 'gap-5 px-0' : 'gap-3')}
         >
           {rules.data &&
           (rules.data.risks.length > 0 ||
@@ -357,13 +394,26 @@ export default function TransferPutAwayPage({
             <>
               <Alert>
                 <AlertDescription>
-                  Đã nhận, chưa cất:{' '}
+                  {sheet.receipt.keptAtReceiving
+                    ? 'Có thể cất từ khu nhận: '
+                    : 'Đã nhận, chưa cất: '}
                   <strong className="tabular-nums">{formatQuantity(remaining)}</strong>.{' '}
-                  {sheet.receipt.receiptFlowVersion === 2
-                    ? 'Thực nhận đã được ghi tồn. Cất chỉ chuyển vị trí và mở khả dụng cho hàng đạt, không nhận tồn thêm.'
-                    : 'Theo luồng cũ, bước cất ghi tăng tồn kho nhận.'}{' '}
+                  {sheet.receipt.keptAtReceiving
+                    ? 'Chỉ chuyển phần còn khả dụng, không lấy hàng đã giữ cho công việc khác và không ghi nhập tồn lần nữa.'
+                    : sheet.receipt.receiptFlowVersion === 2
+                      ? 'Thực nhận đã được ghi tồn. Cất chỉ chuyển vị trí và mở khả dụng cho hàng đạt, không nhận tồn thêm.'
+                      : 'Theo luồng cũ, bước cất ghi tăng tồn kho nhận.'}{' '}
                   Chỉ cất hàng tốt; hàng hỏng giữ Hold/cách biệt.
                 </AlertDescription>
+                {canResume && (
+                  <Button
+                    className="mt-3 min-h-11"
+                    disabled={busy}
+                    onClick={() => void resumePutAway()}
+                  >
+                    {resume.isPending && <Spinner />}Tiếp tục cất vào kệ
+                  </Button>
+                )}
               </Alert>
               {canPutAway && remaining > 0 ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -458,7 +508,13 @@ export default function TransferPutAwayPage({
                 <p className="text-muted-foreground text-sm">
                   {sheet.receipt.status === 'InTransit' || sheet.receipt.status === 'Receiving'
                     ? 'Nộp phiếu nhập trước khi cất hàng.'
-                    : 'Đợt đã hoàn tất; lịch sử cất được giữ nguyên.'}
+                    : sheet.receipt.keptAtReceiving
+                      ? canResume
+                        ? 'Bấm Tiếp tục cất vào kệ để mở lại công việc.'
+                        : remaining > 0
+                          ? 'Liên hệ người được giao cất hoặc quản lý kho để tiếp tục.'
+                          : 'Không còn hàng khả dụng tại điểm nhận để cất. Lịch sử nhận và cất được giữ nguyên.'
+                      : 'Đợt đã hoàn tất; lịch sử cất được giữ nguyên.'}
                 </p>
               ) : null}
               <TransferPutAwayForm

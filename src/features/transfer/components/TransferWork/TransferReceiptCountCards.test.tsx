@@ -19,9 +19,11 @@ import { TransferReceiptCountCards } from './TransferReceiptCountCards'
 function Harness({
   disabled = false,
   manyLots = false,
+  uncounted = false,
 }: {
   disabled?: boolean
   manyLots?: boolean
+  uncounted?: boolean
 }) {
   const sheet = receiptFixture()
   if (manyLots)
@@ -36,8 +38,8 @@ function Harness({
       entries: sheet.lines[0]!.lots.map((lot) => ({
         lineId: RECEIPT_LINE,
         lotId: lot.lotId,
-        goodQuantity: 8,
-        damagedQuantity: 2,
+        goodQuantity: uncounted ? Number.NaN : 8,
+        damagedQuantity: uncounted ? 0 : 2,
         missingQuantity: 0,
         reasonCode: '',
         note: '',
@@ -48,11 +50,70 @@ function Harness({
     <OperationalListPanel aria-label="Kiểm hàng">
       <TransferReceiptCountCards form={form} sheet={sheet} disabled={disabled} />
       <Button onClick={() => void form.trigger()}>Kiểm tra</Button>
+      <Button
+        onClick={() =>
+          form.reset({
+            entries: form.getValues('entries').map((entry) => ({
+              ...entry,
+              goodQuantity: 10,
+              damagedQuantity: 0,
+              missingQuantity: 0,
+            })),
+          })
+        }
+      >
+        Nạp số đã nhận
+      </Button>
     </OperationalListPanel>
   )
 }
 
 describe('Kiểm hàng responsive', () => {
+  it.each([false, true])('shows an uncounted quantity as blank, disabled=%s', (disabled) => {
+    render(<Harness uncounted disabled={disabled} />)
+    const input = screen.getByRole('textbox', { name: /^SL thực nhận/ })
+    expect(input).toHaveValue('')
+    expect(input).toHaveAttribute('placeholder', 'Nhập số thực nhận')
+    expect(screen.getByRole('textbox', { name: /^Hỏng/ })).toHaveValue('0')
+    expect(screen.getByRole('textbox', { name: /^Thiếu/ })).toHaveValue('0')
+  })
+
+  it('requires an initial count, preserves decimals and resets cleared counts to zero on blur', async () => {
+    render(<Harness uncounted />)
+    const user = userEvent.setup()
+    const input = screen.getByRole('textbox', { name: /^SL thực nhận/ })
+    await user.click(input)
+    await user.tab()
+    expect(input).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Kiểm tra' }))
+    expect(await screen.findByText('Số lượng phải là số.')).toBeInTheDocument()
+    expect(input).toHaveValue('')
+    await user.type(input, '1,5')
+    expect(input).toHaveValue('1,5')
+    expect(screen.getByText('Đã kiểm: 1,5')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Nạp số đã nhận' }))
+    expect(input).toHaveValue('10')
+    await user.clear(input)
+    expect(input).toHaveValue('')
+    await user.click(screen.getByRole('button', { name: 'Kiểm tra' }))
+    expect(input).toHaveValue('0')
+    expect(screen.queryByText('Số lượng phải là số.')).not.toBeInTheDocument()
+  })
+
+  it.each([/^SL thực nhận/, /^Hỏng/, /^Thiếu/])(
+    'defaults a cleared %s to numeric zero only after leaving the field',
+    async (label) => {
+      render(<Harness />)
+      const user = userEvent.setup()
+      const input = screen.getByRole('textbox', { name: label })
+      await user.clear(input)
+      expect(input).toHaveValue('')
+      await user.tab()
+      expect(input).toHaveValue('0')
+      expect(screen.queryByText(/NaN/)).not.toBeInTheDocument()
+    }
+  )
+
   it('renders a single set of good, damaged and missing fields per lot with no wide table', () => {
     render(<Harness manyLots />)
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
