@@ -46,6 +46,24 @@ describe('InventoryWorkspaceNavigation', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1)
     expect(screen.getByRole('link', { name: 'Điều chỉnh' })).toHaveAttribute('aria-current', 'page')
   })
+  it('shows the anomaly view only with its own permission', () => {
+    const view = render(
+      <InventoryWorkspaceNavigation
+        currentView="anomalies"
+        permissions={[P.INVENTORY_ANOMALIES_VIEW]}
+      />
+    )
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Bất thường' })).toHaveAttribute(
+      'href',
+      '/inventory/anomalies'
+    )
+    expect(screen.getByRole('link', { name: 'Bất thường' })).toHaveAttribute('aria-current', 'page')
+    view.rerender(
+      <InventoryWorkspaceNavigation currentView="availability" permissions={[P.INVENTORY_VIEW]} />
+    )
+    expect(screen.queryByRole('link', { name: 'Bất thường' })).not.toBeInTheDocument()
+  })
   it('keeps feature-owned actions outside the navigation and callable', () => {
     const onCreate = vi.fn()
     render(

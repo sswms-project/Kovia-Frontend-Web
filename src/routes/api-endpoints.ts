@@ -143,6 +143,13 @@ export const API_ENDPOINTS = {
     reactivate: (warehouseId: string) => `/warehouses/${warehouseId}/reactivate`,
     quarantineSlot: (warehouseId: string) => `/warehouses/${warehouseId}/quarantine-slot`,
   },
+  inventoryAnomalies: {
+    list: '/inventory-anomalies',
+    summary: '/inventory-anomalies/summary',
+    scans: '/inventory-anomalies/scans',
+    detail: (id: string) => `/inventory-anomalies/${id}`,
+    review: (id: string) => `/inventory-anomalies/${id}/review`,
+  },
   inventory: {
     list: '/inventory',
     exportExcel: '/inventory/export',
@@ -190,8 +197,8 @@ export const API_ENDPOINTS = {
     create: '/cycle-counts',
     detail: (cycleCountId: string) => `/cycle-counts/${cycleCountId}`,
     allowedActions: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/allowed-actions`,
-    recordItem: (cycleCountId: string, itemId: string) =>
-      `/cycle-counts/${cycleCountId}/items/${itemId}`,
+    recordItems: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/items`,
+    assignableStaff: '/cycle-counts/assignable-staff',
     evidence: '/cycle-counts/evidence',
     evidenceFile: (evidenceId: string) => `/cycle-counts/evidence/${evidenceId}`,
     start: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/start`,

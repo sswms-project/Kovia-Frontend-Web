@@ -2040,3 +2040,11 @@ State: READY_FOR_FINAL_REVIEW. Role: explicitly assigned implementer, self-verif
 - P2 autofill loss fixed: browsing persists the visible selected point, using functional updates to preserve the latest choice or explicit clear under batching; existing warehouse/session isolation and debounce retained. No added request/effect/UI primitive.
 - Verification:13focused BE staging/default cases pass (includes2positive/negative control cases added after broad regression). Broad regression908BE passed/5SQL opt-in skipped;136FE files/970tests passed, hook7cases included. Scoped ESLint, production TypeScript, isolated Next webpack production build and diff checks pass. Existing SupplierReturn analyzer/JSDOM navigation warning unchanged. Prior unrelated CycleCount mock failure remains recorded; full BE suite was not rerun in this fix round.
 - GitNexus Receive handler LOW1direct, UpdateRack LOW0; new zone/selection helpers unindexed UNKNOWN, production callers inspected. No entity/migration changes in this fix. No deployed data/API/SQL writes, migration application, BE reload, commit or push. Original migration still requires explicit authorization. Updated ../outputs/transfer-staging-code-review-20261024.md preserves original findings and records resolutions.
+
+## 2026-10-24 — PR preparation and dev synchronization
+
+State: APPROVED_FINAL for prior findings/direct regressions after dev synchronization. Role: same-agent final self-review, not independent review.
+
+- Synced origin/dev254b23c into ui/remove-pagination-row-range; query-keys/api-endpoints merged without conflicts and includes current anomaly/report/cycle-count changes. Feature commit ecf1a16 retains prior reviewed staging fixes.
+- Full merged FE suite:308files/1967tests passed. Scoped ESLint passed; isolated production build and TypeScript passed using KOVIA_ISOLATED_BUILD=true and webpack (74 static pages). Local AGENTS.md/CLAUDE.md changes and untracked outputs excluded from commits.
+- Coordinate rollout with BE staging API/schema. Backend must receive separately approved20261024042105_TransferShipmentStagingPoints before new staging flows can be manually accepted. No migration, business API writes, data QA or automatic merge requested/performed.

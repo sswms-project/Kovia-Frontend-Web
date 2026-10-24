@@ -15,6 +15,7 @@ type InventoryWorkspaceView =
   | 'damage-cases'
   | 'opening-stocks'
   | 'discrepancies'
+  | 'anomalies'
 
 interface InventoryWorkspaceNavigationProps {
   readonly currentView: InventoryWorkspaceView
@@ -121,6 +122,15 @@ export function InventoryWorkspaceNavigation({
               Chênh lệch
             </Link>
           </>
+        ) : null}
+        {permissions.includes(P.INVENTORY_ANOMALIES_VIEW) ? (
+          <Link
+            href={APP_ROUTES.inventoryAnomalies}
+            aria-current={currentView === 'anomalies' ? 'page' : undefined}
+            className={linkClassName}
+          >
+            Bất thường
+          </Link>
         ) : null}
       </nav>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}

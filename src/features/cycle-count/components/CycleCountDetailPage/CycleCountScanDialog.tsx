@@ -20,7 +20,7 @@ import {
   useDamageEvidenceUpload,
   type DamageEvidenceFile,
 } from '../../hooks/use-damage-evidence-upload'
-import { recordCycleCountItemSchema } from '../../schemas/cycle-count.schema'
+import { parseCountQuantity } from '../../schemas/cycle-count.schema'
 import type { CycleCountItem } from '../../types/cycle-count.types'
 import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
 import { formatCount } from '../../utils/cycle-count-format'
@@ -124,12 +124,12 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
   const selectableItems =
     candidateIds.length > 0 ? slotItems.filter((item) => candidateIds.includes(item.id)) : slotItems
   const quantityError =
-    quantity !== '' && !recordCycleCountItemSchema.safeParse(quantity).success
+    quantity !== '' && parseCountQuantity(quantity) === null
       ? 'Số lượng từ 0, tối đa 2 chữ số thập phân.'
       : null
   const damagedError =
     damaged !== '' &&
-    (!recordCycleCountItemSchema.safeParse(damaged).success ||
+    (parseCountQuantity(damaged) === null ||
       (quantityError === null && quantity !== '' && Number(damaged) > Number(quantity)))
       ? 'Số hỏng phải từ 0 và không vượt số đếm.'
       : null
