@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 import { AUDIT_LOG_TIME_RANGES, NOTIFICATION_TYPES } from '../types/platform-services.types'
 
 const optionalFilter = (maximumLength: number) =>
@@ -34,9 +35,9 @@ export const auditLogFiltersSchema = z
   })
 
 export const notificationCreatedEventSchema = z.object({
-  notificationId: z.uuid(),
+  notificationId: dotNetGuidSchema('Mã thông báo không hợp lệ.'),
   type: z.enum(NOTIFICATION_TYPES),
   createdAt: z.iso.datetime({ offset: true }),
   referenceType: z.string().nullish(),
-  referenceId: z.uuid().nullish(),
+  referenceId: dotNetGuidSchema('Mã tham chiếu không hợp lệ.').nullish(),
 })

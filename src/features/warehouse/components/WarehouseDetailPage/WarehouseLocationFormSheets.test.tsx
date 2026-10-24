@@ -33,6 +33,32 @@ const slotValues = {
 }
 
 describe('WarehouseLocationFormSheets', () => {
+  it('creates a waiting point only when explicitly selected in the create-zone form', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true)
+    render(
+      <ZoneFormSheet
+        open
+        mode="create"
+        isPending={false}
+        defaultValues={{
+          zoneCode: 'CHO',
+          zoneName: 'Khu chờ cất hàng',
+          description: '',
+          ...EMPTY_WAREHOUSE_PHYSICAL_DETAILS,
+        }}
+        onOpenChange={vi.fn()}
+        onSubmit={onSubmit}
+      />
+    )
+    expect(screen.getByRole('radio', { name: 'Không tạo' })).toBeChecked()
+    fireEvent.click(screen.getByRole('radio', { name: 'Điểm nhận hàng / chờ cất' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Lưu$/ }))
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ createReceivingPoint: true, createOutboundStagingPoint: false })
+      )
+    )
+  })
   it('shows the shared physical detail fields when editing a location', () => {
     render(
       <ZoneFormSheet
@@ -58,11 +84,48 @@ describe('WarehouseLocationFormSheets', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Thông tin chi tiết' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Không bổ sung' })).toBeChecked()
     expect(screen.queryByLabelText('Dung lượng lưu trữ')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Chiều dài')).toHaveValue(12)
     expect(screen.getByLabelText('Chiều rộng')).toHaveValue(8)
     expect(screen.getByLabelText('Chiều cao')).toHaveValue(4)
   })
+
+  it.each(['create', 'update'] as const)(
+    'submits an exclusive outbound point in %s mode',
+    async (mode) => {
+      const onSubmit = vi.fn().mockResolvedValue(true)
+      render(
+        <ZoneFormSheet
+          open
+          mode={mode}
+          isPending={false}
+          defaultValues={{
+            zoneCode: 'XUAT',
+            zoneName: 'Khu chờ xuất',
+            description: '',
+            ...EMPTY_WAREHOUSE_PHYSICAL_DETAILS,
+          }}
+          onOpenChange={vi.fn()}
+          onSubmit={onSubmit}
+        />
+      )
+      fireEvent.click(screen.getByRole('radio', { name: 'Điểm nhận hàng / chờ cất' }))
+      fireEvent.click(screen.getByRole('radio', { name: 'Điểm chờ xuất' }))
+      expect(screen.getByRole('radio', { name: 'Điểm nhận hàng / chờ cất' })).not.toBeChecked()
+      fireEvent.click(
+        screen.getByRole('button', { name: mode === 'create' ? 'Lưu' : 'Lưu thay đổi' })
+      )
+      await waitFor(() =>
+        expect(onSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            createReceivingPoint: false,
+            createOutboundStagingPoint: true,
+          })
+        )
+      )
+    }
+  )
 
   it('uses the same responsive right-side drawer width as the product form', () => {
     render(

@@ -64,11 +64,11 @@ export function StockIssueAttachmentList({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       {attachments.length === 0 ? (
         <p className="text-muted-foreground text-sm">Chưa có tệp đính kèm.</p>
       ) : (
-        <ul className="divide-y border text-sm">
+        <ul className="w-full divide-y border text-sm">
           {attachments.map((attachment) => (
             <li key={attachment.id} className="flex items-center justify-between gap-2 px-2 py-1">
               <span className="truncate">

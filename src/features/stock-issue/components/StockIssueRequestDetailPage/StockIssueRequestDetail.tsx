@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Route } from 'next'
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type {
@@ -27,7 +28,6 @@ import {
 } from '../../utils/stock-issue-format'
 import {
   StockIssueAttachmentList,
-  StockIssueAuditTimeline,
   StockIssuePickerAssignment,
   StockIssueRequestStatusBadge,
   StockIssueStatusStepper,
@@ -35,6 +35,7 @@ import {
 } from '../StockIssueRequestsPage'
 import { StockIssueRequestLines } from './StockIssueRequestLines'
 import { StockIssueRequestOverview } from './StockIssueRequestOverview'
+import { StockIssueAuditCard } from './StockIssueAuditCard'
 
 interface StockIssueRequestDetailProps {
   readonly order: StockIssueRequestSummary
@@ -45,6 +46,7 @@ interface StockIssueRequestDetailProps {
   readonly isRemovingPick: boolean
   readonly onAssignPicker: (staffId: string) => void
   readonly onRemovePickDetail: (pickDetailId: string) => void
+  readonly pickingPlan?: ReactNode
 }
 
 export function StockIssueRequestDetail({
@@ -56,13 +58,12 @@ export function StockIssueRequestDetail({
   isRemovingPick,
   onAssignPicker,
   onRemovePickDetail,
+  pickingPlan,
 }: StockIssueRequestDetailProps) {
   const canPickNow = capabilities.canPick && canRecordStockPicking(order.status)
   const canReassignPicker =
     capabilities.canAssignPicker &&
-    (order.status === 'Pending' ||
-      order.status === 'ReleasedForPicking' ||
-      order.status === 'Picking')
+    (order.status === 'ReleasedForPicking' || order.status === 'Picking')
   const canRemovePick =
     capabilities.canPick &&
     (order.status === 'ReleasedForPicking' ||
@@ -70,7 +71,7 @@ export function StockIssueRequestDetail({
       order.status === 'Picked')
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-5">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <Button asChild variant="outline" size="icon">
@@ -150,8 +151,15 @@ export function StockIssueRequestDetail({
         </div>
       </header>
 
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="flex min-w-0 flex-col gap-5">
+      <section className="bg-card shrink-0 border p-4" aria-label="Tiến trình xuất kho">
+        <StockIssueStatusStepper
+          status={order.status}
+          hasAssignedPicker={Boolean(order.assignedStaffId)}
+        />
+      </section>
+
+      <div className="flex min-w-0 flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+        <div className="order-2 flex w-full min-w-0 flex-col gap-4 xl:order-1">
           <StockIssueRequestOverview order={order} />
           <StockIssueRequestLines
             items={order.items}
@@ -159,8 +167,12 @@ export function StockIssueRequestDetail({
             isRemovingPick={isRemovingPick}
             onRemovePickDetail={onRemovePickDetail}
           />
-          <section className="bg-card border" aria-labelledby="stock-issue-request-attachments">
-            <div className="border-b p-4">
+          {pickingPlan}
+          <section
+            className="bg-card order-4 border xl:order-none"
+            aria-labelledby="stock-issue-request-attachments"
+          >
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
               <h2 id="stock-issue-request-attachments" className="text-sm font-semibold">
                 Đính kèm
               </h2>
@@ -176,31 +188,23 @@ export function StockIssueRequestDetail({
           </section>
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-5">
-          <section className="bg-card border" aria-labelledby="stock-issue-request-progress">
-            <div className="border-b p-4">
-              <h2 id="stock-issue-request-progress" className="text-sm font-semibold">
-                Tiến trình xuất kho
-              </h2>
-            </div>
-            <div className="p-4">
-              <StockIssueStatusStepper
-                status={order.status}
-                hasAssignedPicker={Boolean(order.assignedStaffId)}
-              />
-            </div>
-          </section>
-          <section className="bg-card border" aria-labelledby="stock-issue-request-picker">
+        <aside className="contents xl:order-2 xl:flex xl:min-w-0 xl:flex-col xl:gap-4">
+          <section
+            className="bg-card order-1 w-full border"
+            aria-labelledby="stock-issue-request-picker"
+          >
             <div className="border-b p-4">
               <h2 id="stock-issue-request-picker" className="text-sm font-semibold">
-                Người lấy hàng
+                Người phụ trách lấy hàng
               </h2>
             </div>
             <div className="flex flex-col gap-3 p-4">
               <p className="text-sm">
                 {order.assignedStaffName ?? (
                   <span className="text-muted-foreground">
-                    Chưa giao — chờ quản lý kho giao việc.
+                    {capabilities.canAssignPicker && order.status === 'Pending'
+                      ? 'Chưa phân công. Dùng “Giao việc lấy hàng” ở đầu trang để chọn nhân viên.'
+                      : 'Chưa phân công. Chờ quản lý kho giao việc.'}
                   </span>
                 )}
               </p>
@@ -215,16 +219,7 @@ export function StockIssueRequestDetail({
               ) : null}
             </div>
           </section>
-          <section className="bg-card border" aria-labelledby="stock-issue-request-audit">
-            <div className="border-b p-4">
-              <h2 id="stock-issue-request-audit" className="text-sm font-semibold">
-                Nhật ký thao tác
-              </h2>
-            </div>
-            <div className="p-4">
-              <StockIssueAuditTimeline stockIssueRequestId={order.id} />
-            </div>
-          </section>
+          <StockIssueAuditCard key={order.id} order={order} />
         </aside>
       </div>
     </div>

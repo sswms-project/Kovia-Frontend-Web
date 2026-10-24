@@ -262,6 +262,7 @@ export const API_ENDPOINTS = {
       `/inbound-requests/${inboundRequestId}/allowed-actions`,
   },
   goodsReceipts: {
+    createWithVersion: '/goods-receipts/with-version',
     receivingLocations: '/goods-receipts/receiving-locations',
     reconcileArrivalStock: (receiptId: string) =>
       `/goods-receipts/${receiptId}/reconcile-arrival-stock`,
@@ -463,6 +464,7 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/discrepancies/${discrepancyId}/resolve`,
   },
   stockIssueRequests: {
+    nextCode: '/stock-issue-requests/next-code',
     importPreview: '/stock-issue-requests/import/preview',
     importInspect: '/stock-issue-requests/import/inspect',
     import: '/stock-issue-requests/import',

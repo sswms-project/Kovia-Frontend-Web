@@ -19,6 +19,7 @@ const fixtures = vi.hoisted(() => {
   return {
     codeQuery,
     create: vi.fn(),
+    refreshCreated: vi.fn(),
     nextCodeEnabled: vi.fn(),
     toastError: vi.fn(),
     receivingLocations: vi.fn(),
@@ -100,7 +101,11 @@ vi.mock('@/components/operations/UnsavedChangesDialog', () => ({
 vi.mock('../hooks/use-inbound', () => ({
   useReceivingTasksQuery: () => ({ data: { items: [fixtures.task], totalCount: 1 } }),
   useGoodsReceiptQuery: () => ({}),
-  useCreateGoodsReceiptMutation: () => ({ mutateAsync: fixtures.create, isPending: false }),
+  useCreateGoodsReceiptMutation: () => ({
+    mutateAsync: fixtures.create,
+    isPending: false,
+    refresh: fixtures.refreshCreated,
+  }),
   useSubmitGoodsReceiptMutation: () => ({ mutateAsync: fixtures.submit, isPending: false }),
   useNextGoodsReceiptCodeQuery: (enabled: boolean) => {
     fixtures.nextCodeEnabled(enabled)
@@ -224,6 +229,7 @@ describe('manual receipt code suggestion and persistence', () => {
       )
     )
     expect(fixtures.nextCodeEnabled).toHaveBeenLastCalledWith(false)
+    expect(fixtures.refreshCreated).toHaveBeenCalledTimes(1)
   })
 
   it.each([false, true])(
@@ -294,6 +300,56 @@ describe('manual receipt code suggestion and persistence', () => {
 })
 
 describe('accepted receipt submission and receiving location', () => {
+  it('submits with the creation version without fetching the full receipt', async () => {
+    const user = userEvent.setup()
+    fixtures.create.mockResolvedValueOnce({ data: 'receipt', version: 'Aw==' })
+    renderReceivingPage()
+    await user.click(screen.getByRole('button', { name: 'Nhập thủ công' }))
+    await user.type(screen.getByLabelText('Mã phiếu nhận'), 'PN000020')
+    await user.type(screen.getByLabelText('Số lượng chấp nhận nhận'), '5')
+    await screen.findByRole('option', { name: 'Khu K01 / Kệ A01 / Ô 01' })
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Vị trí tại khu chờ cất hàng' }),
+      '10000000-0000-4000-8000-000000000006'
+    )
+    await user.click(screen.getByRole('button', { name: 'Lưu và gửi duyệt' }))
+    await waitFor(() =>
+      expect(fixtures.submit).toHaveBeenCalledWith(
+        expect.objectContaining({ expectedVersion: 'Aw==' })
+      )
+    )
+    expect(fixtures.getReceipt).not.toHaveBeenCalled()
+  })
+
+  it('keeps saving locked through the version read and skips intermediate refresh', async () => {
+    const user = userEvent.setup()
+    let resolveReceipt: (value: { data: { version: string } }) => void = () => undefined
+    fixtures.getReceipt.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveReceipt = resolve
+      })
+    )
+    renderReceivingPage()
+    await user.click(screen.getByRole('button', { name: 'Nhập thủ công' }))
+    await user.type(screen.getByLabelText('Mã phiếu nhận'), 'PN000010')
+    await user.type(screen.getByLabelText('Số lượng chấp nhận nhận'), '5')
+    await screen.findByRole('option', { name: 'Khu K01 / Kệ A01 / Ô 01' })
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Vị trí tại khu chờ cất hàng' }),
+      '10000000-0000-4000-8000-000000000006'
+    )
+    await user.click(screen.getByRole('button', { name: 'Lưu và gửi duyệt' }))
+    await waitFor(() => expect(fixtures.getReceipt).toHaveBeenCalledTimes(1))
+    expect(dialog.isPending).toBe(true)
+    expect(fixtures.refreshCreated).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Lưu và gửi duyệt' }))
+    expect(fixtures.create).toHaveBeenCalledTimes(1)
+    await act(async () => resolveReceipt({ data: { version: 'Ag==' } }))
+    await waitFor(() => expect(fixtures.submit).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByLabelText('Mã phiếu nhận')).not.toBeInTheDocument())
+    expect(fixtures.refreshCreated).not.toHaveBeenCalled()
+  })
+
   it('starts with no accepted quantity and refuses an empty receipt even with a valid code', async () => {
     const user = userEvent.setup()
     renderReceivingPage()
@@ -338,7 +394,7 @@ describe('accepted receipt submission and receiving location', () => {
     await user.type(screen.getByLabelText('Số lượng chấp nhận nhận'), '5')
     await screen.findByRole('option', { name: 'Khu K01 / Kệ A01 / Ô 01' })
     await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Vị trí thực tế nhận hàng' }),
+      screen.getByRole('combobox', { name: 'Vị trí tại khu chờ cất hàng' }),
       '10000000-0000-4000-8000-000000000006'
     )
     await user.click(screen.getByRole('button', { name: 'Lưu và gửi duyệt' }))
@@ -393,7 +449,7 @@ describe('accepted receipt submission and receiving location', () => {
     await user.type(screen.getByLabelText('Số lượng chấp nhận nhận'), '5')
     await screen.findByRole('option', { name: 'Khu K01 / Kệ A01 / Ô 01' })
     await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Vị trí thực tế nhận hàng' }),
+      screen.getByRole('combobox', { name: 'Vị trí tại khu chờ cất hàng' }),
       '10000000-0000-4000-8000-000000000006'
     )
     await user.click(screen.getByRole('button', { name: 'Lưu và gửi duyệt' }))
@@ -402,6 +458,7 @@ describe('accepted receipt submission and receiving location', () => {
     )
     expect(fixtures.create).toHaveBeenCalledTimes(1)
     expect(fixtures.submit).toHaveBeenCalledTimes(1)
+    expect(fixtures.refreshCreated).toHaveBeenCalledTimes(1)
     expect(fixtures.toastError).toHaveBeenCalledWith(
       'Phiếu nhận hàng đã được lưu nháp nhưng chưa gửi duyệt. Bạn có thể thử lại từ trang chi tiết.'
     )

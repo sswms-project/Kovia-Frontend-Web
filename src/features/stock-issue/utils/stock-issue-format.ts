@@ -5,6 +5,7 @@ import type {
   GoodsReturnRequestItemCondition,
   GoodsReturnRequestStatus,
 } from '../types/stock-issue.types'
+import { formatStockIssueLocation } from './stock-issue-location'
 
 export const STOCK_ISSUE_REQUEST_STATUS_LABELS: Record<StockIssueRequestStatus, string> = {
   Pending: 'Chờ xử lý',
@@ -133,7 +134,9 @@ export function summarizeStockIssueSlots(
   order: Pick<StockIssueRequestSummary, 'items'>,
   limit = 3
 ): string | null {
-  const codes = stockIssuePendingSlotCodes(order)
+  const codes = [
+    ...new Set(order.items.flatMap((item) => item.pickLocations.map(formatStockIssueLocation))),
+  ]
   if (codes.length === 0) return null
   const shown = codes.slice(0, limit).join(', ')
   return codes.length > limit ? `${shown} +${codes.length - limit}` : shown

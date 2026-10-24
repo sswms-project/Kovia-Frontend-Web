@@ -1,6 +1,7 @@
 import type { RecordStockPickingFormValues } from '../schemas/stock-issue.schema'
 import type { StockIssueRequestSummary } from '../types/stock-issue.types'
 import { stockIssueItemFactor } from './stock-issue-format'
+import { formatStockIssueLocation, isStockIssueRackLocation } from './stock-issue-location'
 
 export type StockPickingLine = RecordStockPickingFormValues['lines'][number]
 
@@ -63,7 +64,8 @@ export function buildStockPickingLines(order: StockIssueRequestSummary): StockPi
         ...base,
         inventoryStockId: location.inventoryStockId,
         availableQuantity: location.reservedQuantity / factor,
-        slotCode: location.slotCode,
+        slotCode: isStockIssueRackLocation(location) ? location.rackCode : location.slotCode,
+        slotPath: formatStockIssueLocation(location),
         lotNumber: location.lotNumber,
         directFromReceiving: location.directFromReceiving,
         allocationReason: location.allocationReason,

@@ -93,11 +93,17 @@ function SuggestionRow({
   readonly used: boolean
   readonly onApply: (slotId: string) => void
 }) {
+  const locationLabel =
+    suggestion.slotCode.trim().toUpperCase() === '__SYSTEM_DEFAULT__'
+      ? suggestion.rackCode?.trim()
+        ? `Kệ ${suggestion.rackCode.trim()}`
+        : 'Vị trí lưu trữ theo kệ'
+      : suggestion.slotCode
   return (
     <li className="flex items-start justify-between gap-3 px-3 py-2 text-xs">
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <strong className="font-mono text-sm">{suggestion.slotCode}</strong>
+          <strong className="font-mono text-sm break-words">{locationLabel}</strong>
           {suggestion.suggestedQuantity > 0 ? (
             <span className="font-medium tabular-nums">
               {formatQuantity(suggestion.suggestedQuantity)} {unitName}

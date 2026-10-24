@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { goodsReceiptSchema } from './inbound.schema'
+import { receiptDamageIsolationSchema } from './receipt-damage-isolation.schema'
 
 const receipt = {
   inboundRequestId: '10000000-0000-4000-8000-000000000001',
@@ -33,5 +34,29 @@ describe('manual goods receipt code', () => {
     expect(goodsReceiptSchema.safeParse({ ...receipt, receiptCode: 'A'.repeat(100) }).success).toBe(
       true
     )
+  })
+})
+
+describe('damage isolation scan contract', () => {
+  const isolation = {
+    goodsReceiptItemId: '10000000-0000-4000-8000-000000000002',
+    quantity: 1,
+    physicallySeparated: true,
+  }
+  it.each([
+    `${'Z'.repeat(50)}-${'R'.repeat(50)}-${'S'.repeat(50)}`,
+    'KOVIA:LOC:SLOT:10000000-0000-4000-8000-000000000003',
+    'KOVIA:LOC:RACK:10000000-0000-4000-8000-000000000004',
+    '9'.repeat(255),
+  ])('preserves a valid printed label or barcode for backend verification', (code) => {
+    expect(
+      receiptDamageIsolationSchema.parse({ ...isolation, confirmedSlotCode: ` ${code} ` })
+        .confirmedSlotCode
+    ).toBe(code)
+  })
+  it.each(['', '   ', 'X'.repeat(256)])('rejects empty or oversized input', (code) => {
+    const result = receiptDamageIsolationSchema.safeParse({ ...isolation, confirmedSlotCode: code })
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues[0]?.path).toEqual(['confirmedSlotCode'])
   })
 })

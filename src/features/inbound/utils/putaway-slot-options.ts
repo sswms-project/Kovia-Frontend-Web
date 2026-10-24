@@ -28,6 +28,10 @@ export function getPutawaySlotOptions(zones: readonly ZoneResponse[]): SlotOptio
               {
                 id: rack.defaultSlotId,
                 code: rack.rackCode,
+                scanCodes: [
+                  `${zone.zoneCode.trim()}-${rack.rackCode.trim()}`,
+                  `KOVIA:LOC:RACK:${rack.id}`,
+                ],
                 name: rack.rackName,
                 zoneId: zone.id,
                 zoneLabel,
@@ -43,6 +47,11 @@ export function getPutawaySlotOptions(zones: readonly ZoneResponse[]): SlotOptio
             .map((slot) => ({
               id: slot.id,
               code: slot.slotCode,
+              scanCodes: [
+                `${zone.zoneCode.trim()}-${rack.rackCode.trim()}-${slot.slotCode.trim()}`,
+                `KOVIA:LOC:SLOT:${slot.id}`,
+                ...(slot.barcodeValue ? [slot.barcodeValue] : []),
+              ],
               name: slot.slotName,
               zoneId: zone.id,
               zoneLabel,

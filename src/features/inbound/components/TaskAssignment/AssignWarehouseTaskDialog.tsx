@@ -25,7 +25,13 @@ import type { AssignWarehouseTaskFormValues } from '../../schemas/inbound.schema
 import type { AssignableWarehouseStaff } from '../../types/inbound.types'
 
 export interface AssignWarehouseTaskTarget {
-  readonly kind: 'Receiving' | 'PutAway' | 'TransferPick' | 'TransferReceive' | 'TransferPutAway'
+  readonly kind:
+    | 'Receiving'
+    | 'PutAway'
+    | 'TransferPick'
+    | 'TransferReceive'
+    | 'TransferPutAway'
+    | 'StockIssuePick'
   readonly id: string
   readonly referenceCode: string
   readonly warehouseId: string
@@ -36,6 +42,9 @@ export interface AssignWarehouseTaskTarget {
   readonly currentDueAt: string | null
 }
 
+type AssignmentStaff = Pick<AssignableWarehouseStaff, 'id' | 'fullName' | 'email'> &
+  Partial<Omit<AssignableWarehouseStaff, 'id' | 'fullName' | 'email'>>
+
 interface AssignWarehouseTaskDialogProps {
   readonly title?: string
   readonly lockSelection?: boolean
@@ -43,7 +52,7 @@ interface AssignWarehouseTaskDialogProps {
   readonly children?: ReactNode
   readonly target: AssignWarehouseTaskTarget | null
   readonly form: UseFormReturn<AssignWarehouseTaskFormValues>
-  readonly staff: readonly AssignableWarehouseStaff[]
+  readonly staff: readonly AssignmentStaff[]
   readonly isLoadingStaff: boolean
   readonly isErrorStaff: boolean
   readonly isFetchingStaff: boolean
@@ -60,6 +69,7 @@ const TASK_LABELS = {
   TransferPick: 'lấy hàng',
   TransferReceive: 'nhận hàng',
   TransferPutAway: 'cất hàng',
+  StockIssuePick: 'lấy hàng',
 } as const
 
 export function AssignWarehouseTaskDialog({
@@ -86,10 +96,11 @@ export function AssignWarehouseTaskDialog({
   } = form
   const isReassignment = Boolean(target?.currentAssigneeId)
   const isTransfer = Boolean(target?.kind.startsWith('Transfer'))
+  const isStockIssue = target?.kind === 'StockIssuePick'
   const taskLabel = target ? TASK_LABELS[target.kind] : ''
   const canUnassign = Boolean(onUnassign) && isReassignment && target?.kind === 'Receiving'
   const hasOtherStaff = staff.some(
-    (person) => isTransfer || person.id !== target?.currentAssigneeId
+    (person) => isTransfer || isStockIssue || person.id !== target?.currentAssigneeId
   )
 
   return (
@@ -116,8 +127,9 @@ export function AssignWarehouseTaskDialog({
             <Field data-invalid={Boolean(errors.staffId)}>
               <FieldLabel>Nhân viên kho nhận việc</FieldLabel>
               <FieldDescription>
-                Chỉ hiển thị nhân viên đang hoạt động, thuộc kho và đủ quyền nhận việc. Người có
-                điểm tải thấp (ít việc còn phải làm) được xếp trước.
+                {isStockIssue
+                  ? 'Chọn người đang hoạt động và được phân công tại kho này. Hệ thống kiểm tra quyền và giữ tồn đủ điều kiện khi giao việc.'
+                  : 'Chỉ hiển thị nhân viên đang hoạt động, thuộc kho và đủ quyền nhận việc. Người có điểm tải thấp (ít việc còn phải làm) được xếp trước.'}
               </FieldDescription>
               {isLoadingStaff ? (
                 <div className="flex flex-col gap-2">
@@ -169,6 +181,7 @@ export function AssignWarehouseTaskDialog({
                       value={field.value}
                       onValueChange={field.onChange}
                       aria-label="Nhân viên kho nhận việc"
+                      data-scrollbar="slim"
                       className="max-h-72 gap-1.5 overflow-y-auto"
                       disabled={isPending || lockSelection}
                     >
@@ -181,7 +194,7 @@ export function AssignWarehouseTaskDialog({
                           disabled={
                             isPending ||
                             lockSelection ||
-                            (!isTransfer && person.id === target.currentAssigneeId)
+                            (!isTransfer && !isStockIssue && person.id === target.currentAssigneeId)
                           }
                         />
                       ))}
@@ -192,32 +205,34 @@ export function AssignWarehouseTaskDialog({
               <FieldError>{errors.staffId?.message}</FieldError>
             </Field>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field data-invalid={Boolean(errors.priority)}>
-                <FieldLabel htmlFor="assign-task-priority">Mức ưu tiên</FieldLabel>
-                <NativeSelect
-                  id="assign-task-priority"
-                  disabled={isPending || lockSelection}
-                  {...register('priority')}
-                >
-                  <NativeSelectOption value="Normal">Bình thường</NativeSelectOption>
-                  <NativeSelectOption value="Urgent">Khẩn</NativeSelectOption>
-                </NativeSelect>
-                <FieldError>{errors.priority?.message}</FieldError>
-              </Field>
-              <Field data-invalid={Boolean(errors.dueAt)}>
-                <FieldLabel htmlFor="assign-task-due-at">Hạn hoàn thành</FieldLabel>
-                <Input
-                  id="assign-task-due-at"
-                  type="datetime-local"
-                  disabled={isPending || lockSelection}
-                  {...register('dueAt')}
-                />
-                <FieldError>{errors.dueAt?.message}</FieldError>
-              </Field>
-            </div>
+            {!isStockIssue && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field data-invalid={Boolean(errors.priority)}>
+                  <FieldLabel htmlFor="assign-task-priority">Mức ưu tiên</FieldLabel>
+                  <NativeSelect
+                    id="assign-task-priority"
+                    disabled={isPending || lockSelection}
+                    {...register('priority')}
+                  >
+                    <NativeSelectOption value="Normal">Bình thường</NativeSelectOption>
+                    <NativeSelectOption value="Urgent">Khẩn</NativeSelectOption>
+                  </NativeSelect>
+                  <FieldError>{errors.priority?.message}</FieldError>
+                </Field>
+                <Field data-invalid={Boolean(errors.dueAt)}>
+                  <FieldLabel htmlFor="assign-task-due-at">Hạn hoàn thành</FieldLabel>
+                  <Input
+                    id="assign-task-due-at"
+                    type="datetime-local"
+                    disabled={isPending || lockSelection}
+                    {...register('dueAt')}
+                  />
+                  <FieldError>{errors.dueAt?.message}</FieldError>
+                </Field>
+              </div>
+            )}
 
-            {(isReassignment || isTransfer) && (
+            {!isStockIssue && (isReassignment || isTransfer) && (
               <Field data-invalid={Boolean(errors.reason)}>
                 <FieldLabel htmlFor="assign-task-reason">
                   {canUnassign
@@ -272,7 +287,9 @@ export function AssignWarehouseTaskDialog({
               </Button>
               <Button
                 type="button"
-                disabled={isPending || isLoadingStaff || !hasOtherStaff || submitDisabled}
+                disabled={
+                  isPending || isLoadingStaff || isErrorStaff || !hasOtherStaff || submitDisabled
+                }
                 onClick={onSubmit}
               >
                 {isPending ? (
@@ -296,7 +313,7 @@ function StaffOption({
   isSelected,
   disabled,
 }: {
-  readonly person: AssignableWarehouseStaff
+  readonly person: AssignmentStaff
   readonly isCurrent: boolean
   readonly isSelected: boolean
   readonly disabled: boolean
@@ -335,8 +352,11 @@ function StaffOption({
   )
 }
 
-function describeOpenTasks(person: AssignableWarehouseStaff) {
-  const parts = [`${person.openReceivingTasks} nhận`, `${person.openPutAwayTasks} cất`]
+function describeOpenTasks(person: AssignmentStaff) {
+  const parts = [
+    person.openReceivingTasks === undefined ? null : `${person.openReceivingTasks} nhận`,
+    person.openPutAwayTasks === undefined ? null : `${person.openPutAwayTasks} cất`,
+  ].filter((part) => part !== null)
   const optionalCounts = [
     [person.openPickingTasks, 'lấy'],
     [person.openWarehouseTasks, 'việc kho'],

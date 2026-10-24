@@ -67,7 +67,7 @@ export function WarehouseOverviewView({
       ref={workspaceRef}
       value={tab}
       onValueChange={onTabChange}
-      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 [@media(max-height:500px)]:gap-1"
+      className="@container flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3 [@media(max-height:500px)]:gap-1"
       data-slot="warehouse-overview"
     >
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-2">
@@ -137,7 +137,8 @@ export function WarehouseOverviewView({
       ) : null}
       <TabsContent
         value="alerts"
-        className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 [@media(max-height:500px)]:gap-1"
+        data-scrollbar="slim"
+        className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto [@media(max-height:500px)]:gap-1"
       >
         {compact && canShowData && !noWarehouses ? (
           <ToggleGroup
@@ -183,27 +184,25 @@ export function WarehouseOverviewView({
         {canShowData && !noWarehouses ? (
           <div
             className={cn(
-              'grid min-h-0 min-w-0 flex-1 gap-3',
+              'grid min-w-0 flex-1 gap-3',
               compact
-                ? 'grid-cols-1 grid-rows-1'
-                : 'grid-cols-2 grid-rows-[repeat(2,minmax(0,1fr))]'
+                ? 'min-h-fit auto-rows-[minmax(18rem,1fr)] grid-cols-1 @min-[64rem]:grid-cols-2'
+                : 'min-h-0 grid-cols-2 grid-rows-2'
             )}
           >
-            {stockAlertKinds
-              .filter((kind) => !compact || selectedKind === kind)
-              .map((kind) => (
-                <StockAlertPanel
-                  key={kind}
-                  {...panels[kind]}
-                  kind={kind}
-                  expiringDays={expiringDays}
-                  canViewInventory={canViewInventory}
-                  onPageChange={(page) => onPageChange(kind, page)}
-                  onPageSizeChange={(size) => onPageSizeChange(kind, size)}
-                  onExpand={(opener) => onExpand(kind, opener)}
-                  settings={kind === 'expiring' ? settings : undefined}
-                />
-              ))}
+            {stockAlertKinds.map((kind) => (
+              <StockAlertPanel
+                key={kind}
+                {...panels[kind]}
+                kind={kind}
+                expiringDays={expiringDays}
+                canViewInventory={canViewInventory}
+                onPageChange={(page) => onPageChange(kind, page)}
+                onPageSizeChange={(size) => onPageSizeChange(kind, size)}
+                onExpand={(opener) => onExpand(kind, opener)}
+                settings={kind === 'expiring' ? settings : undefined}
+              />
+            ))}
           </div>
         ) : null}
       </TabsContent>

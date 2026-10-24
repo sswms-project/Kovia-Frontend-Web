@@ -11,6 +11,10 @@ export const stockIssueRequestLineSchema = z.object({
 
 export const createStockIssueRequestSchema = z
   .object({
+    stockIssueRequestCode: z
+      .string()
+      .trim()
+      .max(100, 'Mã yêu cầu xuất kho không được vượt quá 100 ký tự.'),
     stockRecipientId: dotNetGuidSchema('Vui lòng chọn đơn vị nhận hàng.'),
     warehouseId: dotNetGuidSchema('Vui lòng chọn kho xuất hàng.'),
     purpose: z.string().trim().max(500, 'Diễn giải không được vượt quá 500 ký tự.'),
@@ -54,6 +58,7 @@ export const recordStockPickingLineSchema = z.object({
   scannedBarcode: z.string().optional(),
   scannedSlotCode: z.string().optional(),
   slotCode: z.string().optional(),
+  slotPath: z.string().optional(),
   lotNumber: z.string().nullable().optional(),
   unitName: z.string(),
   /** Số đơn vị cơ sở trong một đơn vị của dòng; số lượng lấy nhập theo đơn vị này. */
@@ -78,11 +83,11 @@ export const recordStockPickingSchema = z
 
     values.lines.forEach((line, index) => {
       if (line.pickedQuantity > 0) {
-        if (!line.destinationStagingSlotId || !line.scannedStagingSlotCode?.trim())
+        if (!line.destinationStagingSlotId)
           context.addIssue({
             code: 'custom',
-            path: ['lines', index, 'scannedStagingSlotCode'],
-            message: 'Xác nhận đúng mã khu chờ xuất được hướng dẫn.',
+            path: ['lines', index, 'destinationStagingSlotId'],
+            message: 'Chưa xác định điểm chờ xuất hợp lệ. Hãy tải lại phiếu.',
           })
         // The server accepts canonical location labels, rack labels and custom barcodes too.
         if (!line.scannedSlotCode?.trim())

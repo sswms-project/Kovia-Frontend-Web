@@ -57,6 +57,7 @@ import {
   getPutawayEvidenceError,
   getPutawayHeldRows,
   getPutawayPlanDeviation,
+  getPutawayPlanSignature,
   getRequiredScanRows,
   isPutawayDeviationReasonValid,
   type PutawayPlanDeviation,
@@ -88,6 +89,7 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
   const router = useRouter()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [hasUncertainSubmission, setHasUncertainSubmission] = useState(false)
+  const [committedReceiptId, setCommittedReceiptId] = useState<string | null>(null)
   const [evidenceFiles, setEvidenceFiles] = useState<readonly EvidenceFile[]>([])
   const [evidenceError, setEvidenceError] = useState<string | null>(null)
   // Máy chủ là nơi quyết định cuối cùng một lần cất có lấn vào phần đang chừa hay không.
@@ -96,6 +98,13 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
   const [scanSkipped, setScanSkipped] = useState(false)
   const pendingRequest = useRef<{ receiptId: string; request: PutawayRequest } | null>(null)
   const submitting = useRef(false)
+  const savingPlan = useRef(false)
+  const [isSavingPlan, setIsSavingPlan] = useState(false)
+  const [lastSavedPlan, setLastSavedPlan] = useState<{
+    receiptId: string
+    version: string
+    signature: string
+  } | null>(null)
   const meQuery = useMeQuery()
   const receiptQuery = useGoodsReceiptQuery(receiptId)
   const allowedActionsQuery = useInboundAllowedActionsQuery(receiptId)
@@ -112,7 +121,7 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
     receiptQuery.data?.warehouseId ?? '',
     Boolean(receiptQuery.data?.warehouseId)
   )
-  const mutation = usePutawayMutation()
+  const mutation = usePutawayMutation(setCommittedReceiptId)
   const uploadEvidenceMutation = useUploadPutawayEvidenceMutation()
   const cancelMutation = useCancelPutawayTaskMutation()
   const reconcileMutation = useReconcilePutawayCancellationMutation()
@@ -137,18 +146,41 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
   })
   const slots: SlotOption[] = getPutawaySlotOptions(layoutQuery.data ?? [])
   const suggestion = usePutawayFormSuggestions({
+    autoFill:
+      allowedActionsQuery.data?.allowedActions.includes('PlanPutAway') === true &&
+      !layoutQuery.isFetching &&
+      !layoutQuery.isError &&
+      receiptQuery.data?.status === 'Approved',
     receipt: receiptQuery.data,
     form,
     append: fieldArray.append,
     slots,
   })
   const watchedLines = useWatch({ control: form.control, name: 'lines' })
+  const allocationState = getPutawayAllocationState(
+    watchedLines,
+    receiptQuery.data?.items ?? [],
+    slots
+  )
+  const planItems = buildPlanRequestFromAllocations(
+    watchedLines,
+    allocationState.rows.map((row) => row.baseQuantity),
+    receiptQuery.data?.items ?? [],
+    receiptQuery.data?.version ?? ''
+  ).items
+  const savedPlanSignature =
+    lastSavedPlan?.receiptId === receiptId && lastSavedPlan.version === receiptQuery.data?.version
+      ? lastSavedPlan.signature
+      : getPutawayPlanSignature(
+          (receiptQuery.data?.items ?? [])
+            .filter((item) => item.inboundRequestItemId && item.remainingPutAwayQuantity > 0)
+            .map((item) => ({ goodsReceiptItemId: item.id, slots: item.putAwayPlan }))
+        )
+  const hasPlanChanges = getPutawayPlanSignature(planItems) !== savedPlanSignature
   const planDeviation = receiptQuery.data
     ? getPutawayPlanDeviation(
         watchedLines,
-        getPutawayAllocationState(watchedLines, receiptQuery.data.items, slots).rows.map(
-          (row) => row.baseQuantity
-        ),
+        allocationState.rows.map((row) => row.baseQuantity),
         receiptQuery.data.items
       )
     : NO_DEVIATION
@@ -290,7 +322,7 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
   // Quản lý chốt vị trí ngay trên màn này: lưu thành kế hoạch, hệ thống báo cho người đang giữ
   // nhiệm vụ; chưa có ai giữ thì mở luôn hộp giao việc.
   async function savePlanAndNotify(receipt: GoodsReceiptDetail) {
-    if (savePlanMutation.isPending) return
+    if (savingPlan.current || savePlanMutation.isPending || !hasPlanChanges) return
     const lines = form.getValues('lines')
     const allocation = getPutawayAllocationState(lines, receipt.items, slots)
     const overPlanned = receipt.items.find(
@@ -312,8 +344,15 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
       toast.error('Hãy chọn vị trí cho ít nhất một sản phẩm trước khi lưu.')
       return
     }
+    savingPlan.current = true
+    setIsSavingPlan(true)
     try {
       await savePlanMutation.mutateAsync({ receiptId, request })
+      setLastSavedPlan({
+        receiptId,
+        version: receipt.version,
+        signature: getPutawayPlanSignature(request.items),
+      })
       if (receipt.putAwayAssignedToName) {
         toast.success(`Đã lưu vị trí cất và báo cho ${receipt.putAwayAssignedToName}.`)
       } else {
@@ -327,6 +366,9 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
           'Không thể lưu vị trí cất. Dữ liệu có thể đã thay đổi, vui lòng tải lại.'
         )
       )
+    } finally {
+      savingPlan.current = false
+      setIsSavingPlan(false)
     }
   }
 
@@ -421,6 +463,17 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
     }
   }
 
+  if (mutation.isPending || committedReceiptId === receiptId)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+        <p role="status" className="text-primary text-sm font-medium">
+          {committedReceiptId === receiptId
+            ? 'Đã ghi nhận cất hàng. Đang tải chi tiết phiếu…'
+            : 'Đang xác nhận cất hàng. Vui lòng không cất lại hoặc rời màn hình…'}
+        </p>
+        <OperationalLoadingState rows={3} />
+      </div>
+    )
   if (receiptQuery.isLoading || layoutQuery.isLoading) return <OperationalLoadingState rows={8} />
   if (receiptQuery.isError || layoutQuery.isError || !receiptQuery.data)
     return (
@@ -491,7 +544,13 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
           isPlanning
             ? {
                 assigneeName: receipt.putAwayAssignedToName,
-                isSaving: savePlanMutation.isPending,
+                isSaving: isSavingPlan || savePlanMutation.isPending,
+                hasChanges: hasPlanChanges,
+                hasSavedPlan: Boolean(
+                  receipt.putAwayPlanUpdatedAt ||
+                  receipt.items.some((item) => item.putAwayPlan.length > 0) ||
+                  lastSavedPlan?.receiptId === receiptId
+                ),
                 canSavePlan: canPlan,
                 canAssign,
                 onSavePlan: () => void savePlanAndNotify(receipt),

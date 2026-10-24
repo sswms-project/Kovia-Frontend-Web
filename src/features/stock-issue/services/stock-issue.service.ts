@@ -129,6 +129,11 @@ export const stockIssueService = {
       .post<ApiResponse<string>>(API_ENDPOINTS.stockIssueRequests.create, request)
       .then((response) => response.data),
 
+  getNextCode: () =>
+    axiosClient
+      .get<ApiResponse<string>>(API_ENDPOINTS.stockIssueRequests.nextCode)
+      .then((response) => response.data),
+
   updateStockIssueRequest: (request: UpdateStockIssueRequestRequest) =>
     axiosClient
       .put<

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { HubConnectionState } from '@microsoft/signalr'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { getStoredAccessToken } from '@/lib/axios'
@@ -35,8 +36,12 @@ export function NotificationRealtimeProvider({ children }: NotificationRealtimeP
     let restartTimer: ReturnType<typeof setTimeout> | undefined
     const connection = createNotificationHubConnection(() => getStoredAccessToken() ?? '')
 
-    const invalidateNotifications = () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all })
+    const invalidateNotifications = async (cancelRefetch = false) => {
+      const filters = { queryKey: queryKeys.notifications.all }
+      // Explicit cancellation also replaces an initial fetch with no cached data yet.
+      if (cancelRefetch) await queryClient.cancelQueries(filters)
+      await queryClient.invalidateQueries(filters, { cancelRefetch })
+    }
 
     connection.on('NotificationCreated', (payload: unknown) => {
       const result = notificationCreatedEventSchema.safeParse(payload)
@@ -62,7 +67,8 @@ export function NotificationRealtimeProvider({ children }: NotificationRealtimeP
           },
         })
       }
-      void invalidateNotifications()
+      // An in-flight GET may contain the snapshot from before this committed event.
+      void invalidateNotifications(true)
       // Trang đang mở (vd. chi tiết phiếu kiểm kê) tự tải lại thay vì bắt người dùng F5.
       for (const queryKey of getNotificationQueryKeys({
         type: result.data.type,
@@ -88,7 +94,13 @@ export function NotificationRealtimeProvider({ children }: NotificationRealtimeP
     })
 
     const start = async () => {
-      if (disposed || !getStoredAccessToken()) return
+      if (
+        disposed ||
+        isStarting ||
+        connection.state !== HubConnectionState.Disconnected ||
+        !getStoredAccessToken()
+      )
+        return
       isStarting = true
       try {
         await connection.start()
@@ -119,9 +131,27 @@ export function NotificationRealtimeProvider({ children }: NotificationRealtimeP
       }
     })
 
+    const recover = () => {
+      if (disposed || document.hidden || isStarting) return
+      if (connection.state === HubConnectionState.Disconnected) {
+        if (restartTimer) clearTimeout(restartTimer)
+        restartAttempts = 0
+        void start()
+      } else if (connection.state === HubConnectionState.Connected) {
+        // Recover notices missed while the browser was suspended, without replacing a healthy hub.
+        void invalidateNotifications()
+      }
+    }
+    window.addEventListener('online', recover)
+    window.addEventListener('focus', recover)
+    document.addEventListener('visibilitychange', recover)
+
     void start()
     return () => {
       disposed = true
+      window.removeEventListener('online', recover)
+      window.removeEventListener('focus', recover)
+      document.removeEventListener('visibilitychange', recover)
       if (restartTimer) clearTimeout(restartTimer)
       connection.off('NotificationCreated')
       // SignalR throws when stop() interrupts an in-flight negotiation. In

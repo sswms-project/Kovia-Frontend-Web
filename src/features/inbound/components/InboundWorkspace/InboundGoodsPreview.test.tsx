@@ -80,13 +80,18 @@ describe('inbound goods preview', () => {
     render(
       <InboundGoodsPreview
         selected
-        rows={[{ ...row, locations: [], lotNumber: null, expiryDate: null }]}
+        rows={[
+          { ...row, locations: [], lotNumber: null, expiryDate: null, closed: 10, remaining: 20 },
+        ]}
       />
     )
     const cells = within(screen.getAllByRole('row')[1]!).getAllByRole('cell')
-    expect(cells[7]).toHaveTextContent('Theo phiếu nhận hàng')
-    expect(cells[8]).toHaveTextContent('-')
-    expect(cells[9]).toHaveTextContent('-')
+    expect(screen.queryByRole('columnheader', { name: 'Vị trí cất' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Số lô' })).not.toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Đã đóng' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Còn chờ nhận' })).toBeInTheDocument()
+    expect(cells[7]).toHaveTextContent('10')
+    expect(cells[8]).toHaveTextContent('20')
   })
   it('uses the shared footer to page goods and resets when the document key changes', async () => {
     const rows = Array.from({ length: 25 }, (_, index) => ({

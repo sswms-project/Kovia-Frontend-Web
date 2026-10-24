@@ -1,6 +1,7 @@
 import type { ReceiptLineRequest } from './inbound.types'
 
 export interface ReceivingLocation {
+  isSuggested?: boolean
   id: string
   zoneCode: string
   rackCode: string

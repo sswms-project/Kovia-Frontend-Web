@@ -130,8 +130,14 @@ export const inboundService = {
       .then((response) => response.data),
   createReceipt: (request: SaveGoodsReceiptRequest) =>
     axiosClient
-      .post<ApiResponse<string>>(API_ENDPOINTS.goodsReceipts.create, request)
-      .then((response) => response.data),
+      .post<
+        ApiResponse<{ id: string; version: string }>
+      >(API_ENDPOINTS.goodsReceipts.createWithVersion, request)
+      .then(({ data: response }) => ({
+        ...response,
+        data: response.data.id,
+        version: response.data.version,
+      })),
   updateReceipt: (receiptId: string, request: UpdateReceiptInput & { commandId: string }) =>
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.goodsReceipts.update(receiptId), request)

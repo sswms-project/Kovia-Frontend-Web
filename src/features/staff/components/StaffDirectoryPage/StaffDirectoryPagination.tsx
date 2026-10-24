@@ -17,14 +17,10 @@ export function StaffDirectoryPagination({
   onPageChange,
 }: StaffDirectoryPaginationProps) {
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
-  const start = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
-  const end = Math.min(page * pageSize, totalCount)
 
   return (
     <div className="flex min-h-12 items-center justify-between gap-3 border-t px-3 sm:px-4">
-      <p className="text-muted-foreground text-xs">
-        {start}-{end} trên {totalCount}
-      </p>
+      <p className="text-muted-foreground text-xs">Tổng số: {totalCount}</p>
       <div className="flex items-center gap-1">
         <Button
           type="button"

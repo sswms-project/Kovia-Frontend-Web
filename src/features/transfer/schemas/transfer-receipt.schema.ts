@@ -22,6 +22,9 @@ export const transferReceivingLocationSchema = z.object({
   scannedSlotCode: z.string().trim().min(1, 'Xác nhận mã vị trí nhận.').max(200),
 })
 export type TransferReceivingLocationValues = z.infer<typeof transferReceivingLocationSchema>
+export const transferStagingReceivingLocationSchema = transferReceivingLocationSchema.extend({
+  scannedSlotCode: z.string().trim().max(200),
+})
 const dispositionSchema = z.object({
   keepAtReceiving: z.boolean().optional(),
   damagedSlotId: z.string().optional(),

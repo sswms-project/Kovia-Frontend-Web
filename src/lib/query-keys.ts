@@ -278,6 +278,7 @@ export const queryKeys = {
       ['transfers', 'receive-sheet', transferId, shipmentId] as const,
   },
   stockIssueRequests: {
+    nextCode: ['stock-issue-requests', 'next-code'] as const,
     all: ['stock-issue-requests'] as const,
     lists: ['stock-issue-requests', 'list'] as const,
     list: (params: StockIssueRequestListQuery) => ['stock-issue-requests', 'list', params] as const,

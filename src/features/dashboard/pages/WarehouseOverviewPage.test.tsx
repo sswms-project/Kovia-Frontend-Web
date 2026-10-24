@@ -231,8 +231,13 @@ describe('warehouse overview orchestration', () => {
 
   it('lets the user select an urgent group directly from its visible count', async () => {
     render(<WarehouseOverviewPage />)
+    const panel = screen.getByRole('region', { name: 'Hàng hóa quá hạn sử dụng' })
+    const scroll = vi.spyOn(panel, 'scrollIntoView')
     await userEvent.click(screen.getByLabelText(/quá hạn sử dụng.*7/i))
     expect(update).toHaveBeenCalledWith({ alert: 'expired' })
+    expect(scroll).toHaveBeenCalledWith({ block: 'nearest' })
+    expect(screen.getAllByRole('table')).toHaveLength(4)
+    scroll.mockRestore()
   })
 
   it('applies a valid N-day setting through the URL without touching the expired-stock window', async () => {
@@ -260,20 +265,28 @@ describe('warehouse overview orchestration', () => {
     ).toBe(true)
   })
 
-  it('loads all four totals on narrow screens while requesting one row for hidden groups', () => {
+  it('keeps all four fully paginated panels on narrow or short screens', () => {
     render(<WarehouseOverviewPage />)
     expect(screen.getByLabelText(/quá hạn sử dụng.*7/i)).toBeInTheDocument()
     const enabled = alerts.mock.calls.slice(-5).filter((call) => call[1] === true)
     expect(enabled).toHaveLength(4)
-    expect(enabled.filter((call) => call[0].pageSize === 1)).toHaveLength(3)
-    expect(enabled.find((call) => call[0].kind === 'below-minimum')?.[0].pageSize).toBe(10)
+    expect(enabled.every((call) => call[0].pageSize === 10)).toBe(true)
     expect(overview.mock.calls.at(-1)?.[1]).toBe(false)
-    expect(screen.getAllByRole('table')).toHaveLength(1)
+    expect(screen.getAllByRole('table')).toHaveLength(4)
+    const board = screen.getByRole('tabpanel', { name: 'Cảnh báo tồn kho' })
+    expect(board).toHaveClass('overflow-y-auto')
+    expect(board).toHaveAttribute('data-scrollbar', 'slim')
+    expect(
+      screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' }).parentElement
+    ).toHaveClass('min-h-fit', 'auto-rows-[minmax(18rem,1fr)]')
   })
   it('renders four real panels in the wide layout without duplicate mobile tables', () => {
     state.compact = false
     render(<WarehouseOverviewPage />)
     expect(screen.getAllByRole('table')).toHaveLength(4)
+    const grid = screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' }).parentElement
+    expect(grid).toHaveClass('min-h-0', 'grid-cols-2', 'grid-rows-2')
+    expect(grid).not.toHaveClass('min-h-fit')
     expect(screen.queryByRole('group', { name: 'Nhóm cảnh báo' })).not.toBeInTheDocument()
     expect(
       alerts.mock.calls.filter((call) => call[1] === true).every((call) => call[0].pageSize === 10)
@@ -308,26 +321,29 @@ describe('warehouse overview orchestration', () => {
     }
   })
 
-  it('retains the selected page size across compact group switches without loading hidden rows', async () => {
+  it('retains each panel page and page size across zoom layout and group changes', async () => {
     const user = userEvent.setup()
     const view = render(<WarehouseOverviewPage />)
-    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Số dòng mỗi trang' }), { key: 'Enter' })
-    await user.click(screen.getByRole('option', { name: '50' }))
+    const panel = within(screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' }))
+    fireEvent.keyDown(panel.getByRole('combobox', { name: 'Số dòng mỗi trang' }), { key: 'Enter' })
+    await user.click(screen.getByRole('option', { name: '20' }))
+    await user.click(panel.getByRole('button', { name: 'Trang sau' }))
     state.kind = 'expired'
+    state.compact = false
     view.rerender(<WarehouseOverviewPage />)
     expect(
       alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
-        .pageSize
-    ).toBe(1)
+    ).toMatchObject({ pageSize: 20, pageNumber: 2 })
     expect(
       alerts.mock.calls.filter((call) => call[0].kind === 'expired').at(-1)?.[0].pageSize
     ).toBe(10)
     state.kind = 'below-minimum'
+    state.compact = true
     view.rerender(<WarehouseOverviewPage />)
     expect(
       alerts.mock.calls.filter((call) => call[0].kind === 'below-minimum' && call[1]).at(-1)?.[0]
-        .pageSize
-    ).toBe(50)
+    ).toMatchObject({ pageSize: 20, pageNumber: 2 })
+    expect(screen.getAllByRole('table')).toHaveLength(4)
   })
 
   it('refreshes only the requested panel, while the header refreshes all four', async () => {
@@ -347,7 +363,12 @@ describe('warehouse overview orchestration', () => {
   it('keeps dialogs scoped and applies search server-side without changing the preview total', async () => {
     const user = userEvent.setup()
     render(<WarehouseOverviewPage />)
-    await user.click(screen.getByRole('button', { name: 'Xem tất cả' }))
+    await user.click(
+      within(screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' })).getByRole(
+        'button',
+        { name: 'Xem tất cả' }
+      )
+    )
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('Tất cả kho được phép')).toBeInTheDocument()
     await user.type(
@@ -458,7 +479,7 @@ describe('warehouse overview orchestration', () => {
       render(<WarehouseOverviewPage />)
       expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Tải lại tổng quan' }))
-      await waitFor(() => expect(screen.getByText('Hàng QA')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getAllByText('Hàng QA')).toHaveLength(4))
       expect(retryOverview).toHaveBeenCalledOnce()
       expect(meRefresh).toHaveBeenCalledOnce()
     }
@@ -510,7 +531,7 @@ describe('warehouse overview orchestration', () => {
       expect(screen.queryByText('Hàng QA')).not.toBeInTheDocument()
       refresh.mockReturnValue({ isSuccess: true })
       await userEvent.click(reload)
-      await waitFor(() => expect(screen.getByText('Hàng QA')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getAllByText('Hàng QA')).toHaveLength(4))
       expect(meRefresh).toHaveBeenCalledTimes(2)
     }
   )
@@ -541,13 +562,15 @@ describe('warehouse overview orchestration', () => {
   it('shows alerts without granting inventory navigation from a role name', () => {
     state.permissions = [P.DASHBOARD_VIEW]
     render(<WarehouseOverviewPage />)
-    expect(screen.getByText('Hàng QA')).toBeInTheDocument()
+    expect(screen.getAllByText('Hàng QA')).toHaveLength(4)
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
   it('restores the clicked opener even when the browser did not focus it on pointer click', async () => {
     render(<WarehouseOverviewPage />)
-    const opener = screen.getByRole('button', { name: 'Xem tất cả' })
+    const opener = within(
+      screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' })
+    ).getByRole('button', { name: 'Xem tất cả' })
     expect(opener).not.toHaveFocus()
     fireEvent.click(opener)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -557,7 +580,9 @@ describe('warehouse overview orchestration', () => {
 
   it('does not focus a detached opener when losing access closes the dialog', async () => {
     const view = render(<WarehouseOverviewPage />)
-    const opener = screen.getByRole('button', { name: 'Xem tất cả' })
+    const opener = within(
+      screen.getByRole('region', { name: 'Khả dụng dưới mức tối thiểu' })
+    ).getByRole('button', { name: 'Xem tất cả' })
     await userEvent.click(opener)
     const focus = vi.spyOn(opener, 'focus')
     state.denied = true

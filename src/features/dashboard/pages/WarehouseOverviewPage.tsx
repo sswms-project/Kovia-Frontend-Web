@@ -100,8 +100,8 @@ export default function WarehouseOverviewPage() {
     kind,
     warehouseId: location.warehouseId || undefined,
     expiringDays: kind === 'expiring' ? location.expiringDays : undefined,
-    pageNumber: compact && kind !== location.kind ? 1 : pages[kind],
-    pageSize: compact && kind !== location.kind ? 1 : pageSizes[kind],
+    pageNumber: pages[kind],
+    pageSize: pageSizes[kind],
   })
   const below = useStockAlertsQuery(
     request('below-minimum'),
@@ -252,7 +252,12 @@ export default function WarehouseOverviewPage() {
           location.updateLocation({ tab })
         }}
         selectedKind={location.kind}
-        onKindChange={(alert) => location.updateLocation({ alert })}
+        onKindChange={(alert) => {
+          location.updateLocation({ alert })
+          ref.current
+            ?.querySelector<HTMLElement>(`[data-alert-kind="${alert}"]`)
+            ?.scrollIntoView({ block: 'nearest' })
+        }}
         expiringDays={location.expiringDays}
         panels={panels}
         onPageChange={(kind, page) => setPages((current) => ({ ...current, [kind]: page }))}

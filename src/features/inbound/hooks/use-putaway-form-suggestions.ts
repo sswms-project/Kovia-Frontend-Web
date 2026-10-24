@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { inboundService } from '../services/inbound.service'
 import type { UseFieldArrayAppend, UseFormReturn } from 'react-hook-form'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/api-error'
+import { logger } from '@/lib/logger'
 import type { SlotOption } from '../components/PutawayDetailPage'
 import type { PutawayFormValues } from '../schemas/inbound.schema'
 import { getPutawayAllocationState } from '../schemas/putaway-allocation.schema'
@@ -17,6 +20,7 @@ interface UsePutawayFormSuggestionsOptions {
   readonly form: UseFormReturn<PutawayFormValues>
   readonly append: UseFieldArrayAppend<PutawayFormValues, 'lines'>
   readonly slots: readonly SlotOption[]
+  readonly autoFill?: boolean
 }
 
 /** Gợi ý vị trí ngay trên form cất hàng và điền kết quả được chọn vào các dòng phân bổ. */
@@ -25,21 +29,101 @@ export function usePutawayFormSuggestions({
   form,
   append,
   slots,
+  autoFill = false,
 }: UsePutawayFormSuggestionsOptions) {
-  const [response, setResponse] = useState<PutAwaySuggestionsResponse | null>(null)
+  const [response, setResponse] = useState<PutAwaySuggestionsResponse | null>()
   const mutation = usePutawayFormSuggestionsMutation()
+  const filled = useRef('')
+  const automatic = useQuery({
+    queryKey: ['goods-receipts', 'auto-plan-suggestions', receipt?.id, receipt?.version],
+    queryFn: () => inboundService.suggestPutawaySlots(receipt!.id).then((result) => result.data),
+    enabled:
+      autoFill &&
+      !!receipt &&
+      slots.length > 0 &&
+      !receipt.items.some((item) => (item.putAwayPlan?.length ?? 0) > 0) &&
+      !form.getValues('lines').some((line) => line.slotId) &&
+      !form.getFieldState('lines').isDirty,
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  })
+
+  useEffect(() => {
+    if (!automatic.error) return
+    const message = getApiErrorMessage(
+      automatic.error,
+      'Không thể tự điền vị trí. Bạn có thể chọn thủ công hoặc thử gợi ý lại.'
+    )
+    logger.warn(message)
+    toast.error(message)
+  }, [automatic.error])
+
+  useEffect(() => {
+    const key = `${receipt?.id}:${receipt?.version}`
+    if (
+      !autoFill ||
+      !receipt ||
+      !automatic.data ||
+      automatic.isFetching ||
+      filled.current === key ||
+      form.getFieldState('lines').isDirty
+    )
+      return
+    if (form.getValues('lines').some((line) => line.slotId)) return
+    filled.current = key
+    const usable = new Set(slots.filter((slot) => !slot.unavailableReason).map((slot) => slot.id))
+    const next = receipt.items
+      .filter((item) => item.remainingPutAwayQuantity > 0)
+      .flatMap((item) => {
+        const entry = automatic.data.items.find(
+          (candidate) => candidate.goodsReceiptItemId === item.id
+        )
+        const allocations = getSuggestedQuantities(
+          item,
+          entry?.suggestions.filter((value) => usable.has(value.slotId)) ?? []
+        )
+        const remaining = Math.max(
+          0,
+          Math.round(
+            (item.remainingPutAwayQuantity -
+              allocations.reduce((sum, line) => sum + line.quantity, 0)) *
+              100
+          ) / 100
+        )
+        return [
+          ...allocations,
+          ...(remaining > 0 ? [{ slotId: '', quantity: remaining }] : []),
+        ].map(({ slotId, quantity }) => ({
+          goodsReceiptItemId: item.id,
+          slotId,
+          ...(getPutawayRemainingInput(item, quantity) ?? {
+            enteredQuantity: quantity,
+            enteredUnitId: item.baseUnitId,
+          }),
+        }))
+      })
+    // Không bỏ mất dòng chưa có gợi ý hoặc phần số lượng chưa được phân bổ.
+    if (next.some((line) => line.slotId))
+      form.setValue('lines', next, { shouldDirty: true, shouldValidate: true })
+  }, [autoFill, receipt, automatic.data, automatic.isFetching, form, slots])
 
   // Chỉ giữ vị trí có trong danh sách chọn của form để "Dùng vị trí này" luôn điền được.
   const usableSlotIds = new Set(
     slots.filter((slot) => !slot.unavailableReason).map((slot) => slot.id)
   )
-  const suggestions: PutAwaySuggestionsResponse | null = response && {
-    ...response,
-    items: response.items.map((entry) => ({
-      ...entry,
-      suggestions: entry.suggestions.filter((suggestion) => usableSlotIds.has(suggestion.slotId)),
-    })),
-  }
+  const currentResponse = response === undefined ? automatic.data : response
+  const suggestions: PutAwaySuggestionsResponse | null = currentResponse
+    ? {
+        ...currentResponse,
+        items: currentResponse.items.map((entry) => ({
+          ...entry,
+          suggestions: entry.suggestions.filter((suggestion) =>
+            usableSlotIds.has(suggestion.slotId)
+          ),
+        })),
+      }
+    : null
 
   async function suggest() {
     if (!receipt || mutation.isPending) return
@@ -108,7 +192,7 @@ export function usePutawayFormSuggestions({
 
   return {
     suggestions,
-    isSuggesting: mutation.isPending,
+    isSuggesting: mutation.isPending || automatic.isFetching,
     onSuggest: () => void suggest(),
     onApply: apply,
     onApplyBest: applyBest,

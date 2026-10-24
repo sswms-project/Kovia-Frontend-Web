@@ -29,7 +29,7 @@ export default function StockIssueRequestDetailPage({
     )
 
   return (
-    <>
+    <div className="min-w-0 shrink-0 pb-3">
       <StockIssueRequestDetail
         order={order}
         capabilities={workflow.capabilities}
@@ -41,9 +41,9 @@ export default function StockIssueRequestDetailPage({
         onRemovePickDetail={(pickDetailId) =>
           void workflow.removePickDetail(order.id, pickDetailId)
         }
+        pickingPlan={<CrossDockSection key={`${order.id}:${order.version}`} order={order} />}
       />
       <StockIssueWorkflowDialogs workflow={workflow} />
-      <CrossDockSection key={`${order.id}:${order.version}`} order={order} />
-    </>
+    </div>
   )
 }
