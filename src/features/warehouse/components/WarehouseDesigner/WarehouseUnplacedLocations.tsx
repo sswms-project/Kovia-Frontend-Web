@@ -3,6 +3,7 @@ import { OperationalListPanel } from '@/components/operations/OperationalListPan
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { getLayoutLocationLabel } from '../../utils/layout-placement'
 import {
   Sheet,
   SheetContent,
@@ -44,7 +45,7 @@ export function WarehouseUnplacedLocations({
       .map((zone) => ({
         kind: 'zone' as const,
         id: zone.id,
-        path: zone.zoneCode,
+        path: getLayoutLocationLabel(scene, { kind: 'zone', id: zone.id }),
         name: zone.zoneName,
       })),
     ...scene.racks
@@ -57,10 +58,10 @@ export function WarehouseUnplacedLocations({
       .map((rack) => ({
         kind: 'rack' as const,
         id: rack.id,
-        path: `${zones.get(rack.zoneId)?.zoneCode ?? ''} / ${rack.rackCode}`,
+        path: getLayoutLocationLabel(scene, { kind: 'rack', id: rack.id }),
         name: rack.rackName,
       })),
-  ]
+  ].toSorted((first, second) => first.path.localeCompare(second.path, 'vi', { numeric: true }))
   if (!items.length) return null
   const filtered = items.filter((item) =>
     `${item.path} ${item.name}`
@@ -89,8 +90,8 @@ export function WarehouseUnplacedLocations({
         <SheetHeader className="pr-20">
           <SheetTitle>Vị trí chưa sắp xếp</SheetTitle>
           <SheetDescription>
-            Hình trên sơ đồ là vị trí tạm. Chọn đúng mục tại đây để xem hoặc chỉnh; chỉ lưu bố cục
-            các khu/kệ đã chủ động đặt vị trí khi bạn nhấn Lưu.
+            Các khu/kệ này chưa có vị trí trên sơ đồ. Chọn để xem thông tin; dùng “Sắp xếp gợi ý”
+            trong chế độ thiết kế để đặt vào chỗ trống rồi nhấn Lưu.
           </SheetDescription>
         </SheetHeader>
         <SheetClose asChild>

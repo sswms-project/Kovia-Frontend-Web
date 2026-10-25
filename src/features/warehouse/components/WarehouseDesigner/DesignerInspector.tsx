@@ -89,12 +89,14 @@ function ZoneInspector({ zone }: { readonly zone: WarehouseLayoutEditorZone }) {
 
 function RackInspector({
   rack,
+  zone,
   canConfigure,
   isUpdating,
   isDeactivating,
   onNameChange,
 }: {
   readonly rack: WarehouseLayoutEditorRack
+  readonly zone?: WarehouseLayoutEditorZone
   readonly canConfigure: boolean
   readonly isUpdating: boolean
   readonly isDeactivating: boolean
@@ -119,7 +121,7 @@ function RackInspector({
       <dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-1 px-4 pb-3 text-xs">
         <dt className="text-muted-foreground">Khu vực</dt>
         <dd translate="no" className="font-mono">
-          {rack.zoneCode}
+          {zone ? `${zone.zoneCode} · ${zone.zoneName}` : rack.zoneCode}
         </dd>
       </dl>
       {canConfigure ? (
@@ -286,6 +288,7 @@ export function DesignerInspector({
         <RackInspector
           key={`${rack.id}:${rack.rackName}`}
           rack={rack}
+          zone={scene.zones.find((zone) => zone.id === rack.zoneId)}
           canConfigure={canConfigure}
           isUpdating={isUpdatingRack}
           isDeactivating={isDeactivatingRack}

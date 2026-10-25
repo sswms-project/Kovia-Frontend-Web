@@ -6,6 +6,7 @@ import type { WarehouseLayoutEditorScene } from '../../types/warehouse-layout-sc
 import { WarehouseCanvas, type WarehouseCanvasHandle } from './WarehouseCanvas'
 
 const rackEvents = vi.hoisted(() => new Map<string, (event: unknown) => void>())
+const rectStrokes = vi.hoisted(() => new Map<string, string>())
 
 vi.mock('konva', () => ({ default: {} }))
 vi.mock('react-konva', () => {
@@ -19,23 +20,29 @@ vi.mock('react-konva', () => {
       onDragStart,
       onDragMove,
       onDragEnd,
+      onMouseEnter,
     }: {
       children?: ReactNode
       layoutKind?: string
       onDragStart?: (event: unknown) => void
       onDragMove?: (event: unknown) => void
       onDragEnd?: (event: unknown) => void
+      onMouseEnter?: (event: unknown) => void
     }) => {
       if (layoutKind === 'rack') {
         if (onDragStart) rackEvents.set('start', onDragStart)
         if (onDragMove) rackEvents.set('move', onDragMove)
         if (onDragEnd) rackEvents.set('end', onDragEnd)
+        if (onMouseEnter) rackEvents.set('hover', onMouseEnter)
       }
       return <Container>{children}</Container>
     },
     Circle: () => null,
     Line: () => null,
-    Rect: () => null,
+    Rect: ({ name, stroke }: { name?: string; stroke?: string }) => {
+      if (name && stroke) rectStrokes.set(name, stroke)
+      return null
+    },
     Text: () => null,
     Transformer: () => null,
   }
@@ -43,13 +50,83 @@ vi.mock('react-konva', () => {
 const originalScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo')
 afterEach(() => {
   rackEvents.clear()
+  rectStrokes.clear()
   vi.restoreAllMocks()
   if (originalScrollTo) Object.defineProperty(HTMLElement.prototype, 'scrollTo', originalScrollTo)
   else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo')
 })
 
+it('shows the parent zone in hover details and highlights it when selecting a shelf', () => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() })
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    bottom: 600,
+    right: 800,
+    width: 800,
+    height: 600,
+    toJSON: () => ({}),
+  })
+  const scene: WarehouseLayoutEditorScene = {
+    canvas: { width: 1000, height: 600, gridSize: 20 },
+    zones: [
+      {
+        id: 'z',
+        zoneCode: 'K01',
+        zoneName: 'Hàng khô',
+        status: 'Active',
+        x: 0,
+        y: 0,
+        width: 500,
+        height: 300,
+        rotation: 0,
+        zIndex: 0,
+      },
+    ],
+    racks: [
+      {
+        id: 'r',
+        zoneId: 'z',
+        zoneCode: 'K01',
+        rackCode: 'A04',
+        rackName: 'Hàng tiêu dùng',
+        description: null,
+        status: 'Active',
+        x: 20,
+        y: 60,
+        width: 120,
+        height: 40,
+        rotation: 0,
+        zIndex: 1,
+      },
+    ],
+    slots: [],
+    decorations: [],
+  }
+  render(
+    <WarehouseCanvas
+      scene={scene}
+      selection={{ kind: 'rack', id: 'r' }}
+      mode="viewer"
+      canConfigure={false}
+      isGridVisible={false}
+      onGeometryChange={vi.fn()}
+      onSelect={vi.fn()}
+      onZoomChange={vi.fn()}
+      onPaletteDrop={vi.fn()}
+    />
+  )
+  act(() => rackEvents.get('hover')?.({ evt: { clientX: 100, clientY: 100 } }))
+  expect(screen.getByRole('tooltip')).toHaveTextContent(
+    'Khu K01 · Hàng khô → Kệ A04 · Hàng tiêu dùng'
+  )
+  expect(rectStrokes.get('zone:z')).toBe(rectStrokes.get('rack:r'))
+})
+
 it.each(['viewer', 'designer'] as const)(
-  'reveals a rotated offscreen rack repeatedly in %s without changing geometry',
+  'hides queued racks and does not pan to their temporary geometry in %s',
   (mode) => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       x: 0,
@@ -109,19 +186,11 @@ it.each(['viewer', 'designer'] as const)(
     )
     scrollTo.mockClear()
     act(() => ref.current?.revealSelection({ kind: 'rack', id: 'rack' }))
-    expect(scrollTo).toHaveBeenCalledWith(
-      expect.objectContaining({
-        left: expect.any(Number),
-        top: expect.any(Number),
-        behavior: 'instant',
-      })
-    )
-    expect(scrollTo.mock.calls[0]![0].left).toBeGreaterThan(0)
-    expect(scrollTo.mock.calls[0]![0].top).toBeGreaterThan(0)
-    expect(screen.getByRole('application')).toHaveFocus()
+    expect(scrollTo).not.toHaveBeenCalled()
+    expect(rackEvents.has('start')).toBe(false)
     scrollTo.mockClear()
     act(() => ref.current?.revealSelection({ kind: 'rack', id: 'rack' }))
-    expect(scrollTo).toHaveBeenCalledTimes(1)
+    expect(scrollTo).not.toHaveBeenCalled()
     expect(geometryChange).not.toHaveBeenCalled()
     expect(scene.racks[0]?.placementPending).toBe(true)
   }

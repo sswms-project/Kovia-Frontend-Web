@@ -263,8 +263,12 @@ export function RackFormSheet({
   onOpenChange,
   onSubmit,
   conflict,
+  locationPath,
   ...capacityProps
-}: LocationFormSheetProps<RackFormValues> & StorageCapacityFieldsProps) {
+}: LocationFormSheetProps<RackFormValues> &
+  StorageCapacityFieldsProps & {
+    readonly locationPath?: string
+  }) {
   const form = useForm<RackFormValues>({ resolver: zodResolver(rackSchema), defaultValues })
   const { errors, dirtyFields } = form.formState
   const [hasPolicyChoice, setHasPolicyChoice] = useState(false)
@@ -329,6 +333,11 @@ export function RackFormSheet({
             {mode === 'create' ? 'Thêm kệ hàng' : 'Chỉnh sửa kệ hàng'}
           </SheetTitle>
           <SheetDescription>Mã kệ phải duy nhất trong khu vực đang chọn.</SheetDescription>
+          {locationPath ? (
+            <p className="text-sm break-words" aria-label="Vị trí của kệ">
+              {locationPath}
+            </p>
+          ) : null}
         </SheetHeader>
         <FormProvider {...form}>
           <form
