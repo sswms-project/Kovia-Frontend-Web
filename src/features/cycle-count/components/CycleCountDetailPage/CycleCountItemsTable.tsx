@@ -351,16 +351,16 @@ export function CycleCountItemsTable({
         <Tabs
           value={filter}
           onValueChange={(value) => setFilter(parseFilter(value))}
-          className="max-w-full overflow-x-auto"
+          className="max-w-full min-w-0 overflow-x-auto overflow-y-hidden px-1 pt-1 pb-2"
         >
-          <TabsList variant="line">
+          <TabsList variant="line" className="h-auto min-h-8 shrink-0">
             {FILTERS.map((option) => {
               const hasVarianceTab = option.value === 'variance' && counts.variance > 0
               return (
                 <TabsTrigger
                   key={option.value}
                   value={option.value}
-                  className="data-[state=active]:font-semibold"
+                  className="h-8 shrink-0 data-[state=active]:font-semibold max-md:h-11 pointer-coarse:h-11"
                 >
                   {hasVarianceTab ? (
                     <TriangleAlert className="text-destructive" aria-hidden="true" />
@@ -436,22 +436,42 @@ export function CycleCountItemsTable({
       </Item>
       {isMobile ? (
         <>
-          <p className="text-muted-foreground bg-muted/40 flex shrink-0 flex-wrap gap-x-4 gap-y-0.5 border-b px-3 py-2 text-xs">
-            <span>{items.length} dòng</span>
-            <span>
-              Sổ sách <b className="text-foreground tabular-nums">{formatCount(totalSystem)}</b>
-            </span>
-            <span>
-              Kiểm kê <b className="text-foreground tabular-nums">{formatCount(totalCounted)}</b>
-            </span>
-            <span className={cn(totalDamaged > 0 && 'text-destructive')}>
-              Hỏng{' '}
-              <b className="tabular-nums">{totalDamaged > 0 ? formatCount(totalDamaged) : '—'}</b>
-            </span>
-            <span className={cn((totalDifference ?? 0) < 0 && 'text-destructive')}>
-              Lệch <b className="tabular-nums">{formatCountDifference(totalDifference)}</b>
-            </span>
-          </p>
+          <dl
+            aria-label={`Tổng hợp ${items.length} dòng kiểm kê`}
+            className="text-muted-foreground bg-muted/40 grid shrink-0 grid-cols-2 gap-x-4 gap-y-2 border-b px-3 py-3 text-xs"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <dt>Sổ sách</dt>
+              <dd className="text-foreground font-medium tabular-nums">
+                {hasHiddenQuantity ? 'Đã ẩn' : formatCount(totalSystem)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt>Số đếm</dt>
+              <dd className="text-foreground font-medium tabular-nums">
+                {formatCount(totalCounted)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt>Trong đó hỏng</dt>
+              <dd
+                className={cn('font-medium tabular-nums', totalDamaged > 0 && 'text-destructive')}
+              >
+                {formatCount(totalDamaged)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt>Chênh lệch</dt>
+              <dd
+                className={cn(
+                  'font-medium tabular-nums',
+                  (totalDifference ?? 0) < 0 && 'text-destructive'
+                )}
+              >
+                {hasHiddenQuantity ? 'Đã ẩn' : formatCountDifference(totalDifference)}
+              </dd>
+            </div>
+          </dl>
           <CycleCountItemCards
             rows={rowModels}
             isPending={isPending}
@@ -776,9 +796,12 @@ export function CycleCountItemsTable({
         </Table>
       )}
       {canRecord ? (
-        // pr-16 chừa chỗ cho nút chatbot nổi ở góc phải dưới, tránh che nút hành động.
-        <Item size="xs" className="bg-card border-t-border shrink-0 p-3 pr-16">
-          <ItemContent>
+        // Chừa khoảng dưới nút trên điện thoại để chatbot và vùng an toàn không che thao tác.
+        <Item
+          size="xs"
+          className="bg-card border-t-border shrink-0 p-3 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pr-16 md:pb-3"
+        >
+          <ItemContent className="w-full md:w-auto">
             <ItemDescription aria-live="polite">
               {dirtyEntries.length > 0
                 ? `${dirtyEntries.length} dòng chưa lưu. Lưu trước khi hoàn thành kiểm kê.`
@@ -789,17 +812,17 @@ export function CycleCountItemsTable({
                     : 'Mọi thay đổi đã được lưu. Nhập đủ số đếm tất cả dòng để hoàn thành.'}
             </ItemDescription>
           </ItemContent>
-          <ItemActions className="max-sm:w-full max-sm:flex-wrap">
+          <ItemActions className="grid w-full grid-cols-3 gap-2 md:flex md:w-auto md:flex-wrap">
             <Button
               variant="ghost"
-              className="max-sm:h-11 max-sm:flex-1"
+              className="h-11 min-w-0 px-2 md:h-8"
               disabled={dirtyEntries.length === 0 || isPending}
               onClick={discardDrafts}
             >
               <RotateCcw />
               Hoàn tác
             </Button>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="h-11 min-w-0 px-2 md:h-8">
               <Link
                 href={APP_ROUTES.cycleCounts}
                 onClick={(event) => {
@@ -816,6 +839,7 @@ export function CycleCountItemsTable({
             </Button>
             <Button
               variant="outline"
+              className="h-11 min-w-0 px-2 md:h-8"
               disabled={dirtyEntries.length === 0 || isPending}
               onClick={() => void saveAll()}
             >
@@ -825,6 +849,7 @@ export function CycleCountItemsTable({
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
+                  className="col-span-3 h-auto min-h-11 w-full whitespace-normal md:h-8 md:min-h-8 md:w-auto"
                   disabled={
                     !canSubmit || dirtyEntries.length > 0 || incompleteDamageCount > 0 || isPending
                   }
