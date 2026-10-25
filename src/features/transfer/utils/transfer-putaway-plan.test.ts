@@ -21,6 +21,43 @@ const payload = (lines = [{ slotId: SLOT_A, plannedTotal: 6 }]) => ({
   items: [{ itemId: item.id, lines }],
 })
 describe('transfer putaway plan', () => {
+  it('keeps fractional request-derived budgets within base-unit precision', () => {
+    const draft = buildTransferPlanDraft([
+      buildTransferItem({
+        destinationSlotId: SLOT_A,
+        destinationSlotPath: 'Khu A / Kệ A / A01',
+        quantity: 1.2,
+        stoppedQuantity: 0.2,
+        receivedPutAwayLocations: [{ slotId: SLOT_B, path: 'B01', receivedQuantity: 0.3 }],
+      }),
+    ])
+    expect(draft[0]!.lines[1]!.plannedTotal).toBe(0.7)
+  })
+  it('prefills a legacy request destination without duplicating locked putaway or replacing a saved plan', () => {
+    const legacy = buildTransferItem({
+      destinationSlotId: SLOT_A,
+      destinationSlotPath: 'Khu A / Kệ A / A01',
+      quantity: 10,
+      stoppedQuantity: 1,
+      receivedPutAwayLocations: [{ slotId: SLOT_B, path: 'Khu B / B01', receivedQuantity: 2 }],
+    })
+    const draft = buildTransferPlanDraft([legacy])[0]!
+    expect(draft.lines).toEqual([
+      { slotId: SLOT_B, path: 'Khu B / B01', plannedTotal: 2 },
+      { slotId: SLOT_A, path: 'Khu A / Kệ A / A01', plannedTotal: 7 },
+    ])
+    expect(
+      buildTransferPlanDraft([
+        { ...legacy, destinationSlotId: SLOT_B, destinationSlotPath: 'Khu B / B01' },
+      ])[0]!.lines
+    ).toEqual([{ slotId: SLOT_B, path: 'Khu B / B01', plannedTotal: 9 }])
+    expect(
+      buildTransferPlanDraft([{ ...legacy, putAwayPlan: [planLine({ plannedTotal: 4 })] }])[0]!
+        .lines[0]!.plannedTotal
+    ).toBe(4)
+    expect(legacy.putAwayPlan).toBeUndefined()
+    expect(buildTransferPlanDraft([buildTransferItem()])[0]!.lines).toEqual([])
+  })
   it('stores totals rather than remaining and never silently rounds invalid precision', () => {
     expect(planTotalFromRemaining(2, 4)).toBe(6)
     expect(planTotalFromRemaining(0.1, 0.2)).toBe(0.3)

@@ -63,7 +63,7 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 - Keep the header and rows in the same scroll container. The first checkbox column stays pinned on operational lists; search, filters and pagination remain outside the scrolling body.
 
 - Use the shared shadcn `Table` components.
-- Table header cells use `sticky top-0 z-10 bg-card`.
+- Table header cells inherit `sticky top-0 z-10 bg-muted` from the shared `TableHead`. The light product theme resolves `bg-muted` through `--surface-container-low` to `#EAF7E2`; avoid `bg-card` overrides that turn these headers white. Keep the semantic token so dark mode remains legible.
 - Long text is truncated only when the full value remains available through a detail link or tooltip.
 - Mobile layouts may switch to an item list, but the item-list wrapper must use `data-slot="operational-list-body"` so it receives the same flexible scrolling behavior.
 - Empty, loading, and error states must occupy the flexible body area rather than collapsing the panel.

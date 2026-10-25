@@ -2,13 +2,19 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCameraScanStore } from '@/stores/camera-scan.store'
+import { resetScanPreferencesCache } from '@/lib/scan-preferences'
+import { setScanPreferences } from '@/features/transfer/utils/scan-preferences'
 import { CameraScanControl } from './CameraScanControl'
 
-const { startCameraScan, isCameraScanSupported, stop } = vi.hoisted(() => ({
-  startCameraScan: vi.fn(),
-  isCameraScanSupported: vi.fn(),
-  stop: vi.fn(),
-}))
+const { startCameraScan, isCameraScanSupported, stop, playScanFeedback, prepareScanFeedback } =
+  vi.hoisted(() => ({
+    startCameraScan: vi.fn(),
+    isCameraScanSupported: vi.fn(),
+    stop: vi.fn(),
+    playScanFeedback: vi.fn(),
+    prepareScanFeedback: vi.fn(),
+  }))
+vi.mock('@/lib/scan-feedback', () => ({ playScanFeedback, prepareScanFeedback }))
 vi.mock('@/lib/camera-scan', async (original) => ({
   ...(await original<typeof import('@/lib/camera-scan')>()),
   startCameraScan,
@@ -16,6 +22,8 @@ vi.mock('@/lib/camera-scan', async (original) => ({
 }))
 beforeEach(() => {
   vi.clearAllMocks()
+  window.localStorage.removeItem('kovia.transfer.scan-preferences')
+  resetScanPreferencesCache()
   isCameraScanSupported.mockReturnValue(true)
   startCameraScan.mockResolvedValue({ stop })
 })
@@ -33,6 +41,43 @@ async function start(label = 'Hàng nhận') {
 }
 
 describe('mobile-first shared camera', () => {
+  it('unlocks sound on the camera button gesture before permission or decoding', async () => {
+    render(<CameraScanControl label="Hàng nhận" disabled={false} onCode={() => true} />)
+    expect(prepareScanFeedback).not.toHaveBeenCalled()
+    await start()
+    expect(prepareScanFeedback).toHaveBeenCalledOnce()
+    expect(prepareScanFeedback.mock.invocationCallOrder[0]).toBeLessThan(
+      startCameraScan.mock.invocationCallOrder[0]!
+    )
+    expect(playScanFeedback).not.toHaveBeenCalled()
+  })
+
+  it.each([true, false])(
+    'plays the validation result %s rather than assuming every decoded barcode is correct',
+    async (accepted) => {
+      const validate = vi.fn(() => accepted)
+      render(<CameraScanControl label="Hàng nhận" disabled={false} onCode={validate} />)
+      const decode = await start()
+      act(() => decode('CODE'))
+      expect(validate).toHaveBeenCalledWith('CODE')
+      expect(playScanFeedback).toHaveBeenCalledExactlyOnceWith(accepted ? 'success' : 'error')
+      expect(validate.mock.invocationCallOrder[0]).toBeLessThan(
+        playScanFeedback.mock.invocationCallOrder[0]!
+      )
+    }
+  )
+
+  it('respects the device sound preference and can turn it back on without reopening the camera', async () => {
+    setScanPreferences({ feedback: false })
+    render(<CameraScanControl label="Hàng nhận" disabled={false} onCode={() => true} />)
+    const decode = await start()
+    act(() => decode('MUTED'))
+    expect(prepareScanFeedback).not.toHaveBeenCalled()
+    expect(playScanFeedback).not.toHaveBeenCalled()
+    act(() => setScanPreferences({ feedback: true }))
+    act(() => decode('AUDIBLE'))
+    expect(playScanFeedback).toHaveBeenCalledExactlyOnceWith('success')
+  })
   it('requests no permission on mount and has a labelled full-width touch control', async () => {
     const onCode = vi.fn(() => true)
     render(<CameraScanControl label="Hàng nhận" disabled={false} onCode={onCode} />)
@@ -49,6 +94,7 @@ describe('mobile-first shared camera', () => {
     expect(stop).toHaveBeenCalled()
     act(() => decode('LATE'))
     expect(onCode).toHaveBeenCalledTimes(1)
+    expect(playScanFeedback).toHaveBeenCalledExactlyOnceWith('success')
   })
 
   it('switches camera ownership between inputs and ignores the old decoder', async () => {
@@ -70,6 +116,7 @@ describe('mobile-first shared camera', () => {
     })
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledExactlyOnceWith('A01')
+    expect(playScanFeedback).toHaveBeenCalledExactlyOnceWith('success')
   })
 
   it('keeps single-scan camera open for invalid codes, closes only after acceptance', async () => {
@@ -83,6 +130,7 @@ describe('mobile-first shared camera', () => {
       decode('DUPLICATE')
     })
     expect(onCode.mock.calls.map(([code]) => code)).toEqual(['WRONG', 'A01'])
+    expect(playScanFeedback.mock.calls.map(([kind]) => kind)).toEqual(['error', 'success'])
     expect(screen.queryByLabelText('Hình ảnh từ camera')).not.toBeInTheDocument()
     expect(stop).toHaveBeenCalled()
   })
@@ -94,6 +142,7 @@ describe('mobile-first shared camera', () => {
     view.rerender(<CameraScanControl label="Hàng nhận" disabled onCode={onCode} />)
     act(() => decode('LATE'))
     expect(onCode).not.toHaveBeenCalled()
+    expect(playScanFeedback).not.toHaveBeenCalled()
     expect(stop).toHaveBeenCalled()
     view.rerender(<CameraScanControl label="Hàng nhận" disabled={false} onCode={onCode} />)
     expect(startCameraScan).toHaveBeenCalledTimes(1)

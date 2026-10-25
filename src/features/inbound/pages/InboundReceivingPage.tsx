@@ -1,5 +1,7 @@
 'use client'
 
+import { OrderType } from '@/types/api'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 import { getRemainingReceiptQuantity } from '../utils/receipt-units'
@@ -70,6 +72,7 @@ export default function InboundReceivingPage() {
   const [searchText, setSearchText] = useState(() => searchParams.get('search') ?? '')
   const [createdFrom, setCreatedFrom] = useState('')
   const [createdTo, setCreatedTo] = useState('')
+  const [sortDirection, setSortDirection] = useState(OrderType.Descending)
   const [assignmentFilter, setAssignmentFilter] = useState<ReceivingAssignmentFilter>('all')
   const assignment = useAssignWarehouseTask()
   const [page, setPage] = useState(1)
@@ -97,6 +100,7 @@ export default function InboundReceivingPage() {
   )
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const exportFilters = {
+    sortDirection,
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
@@ -429,6 +433,11 @@ export default function InboundReceivingPage() {
         searchText={searchText}
         createdFrom={createdFrom}
         createdTo={createdTo}
+        sortDirection={sortDirection}
+        onSortDirectionChange={(value) => {
+          setSortDirection(value)
+          setPage(1)
+        }}
         isLoading={query.isFetching}
         isFetching={query.isFetching}
         isError={query.isError}

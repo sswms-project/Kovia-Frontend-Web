@@ -20,6 +20,24 @@ describe('outbound request code validation', () => {
       expect(result.stockIssueRequestCode).toBe(code.trim())
     }
   )
+  it.each(['2026-10-25', '2026-10-25T00:00', '2026-10-25T23:59'])(
+    'accepts a valid Vietnam issue date with optional time (%s)',
+    (issueDate) => {
+      expect(
+        createStockIssueRequestSchema.safeParse({ ...values, stockIssueRequestCode: '', issueDate })
+          .success
+      ).toBe(true)
+    }
+  )
+  it.each(['2026-02-30T10:30', '2026-10-25T24:00', '2026-10-25T10:60'])(
+    'rejects invalid issue dates and times (%s)',
+    (issueDate) => {
+      expect(
+        createStockIssueRequestSchema.safeParse({ ...values, stockIssueRequestCode: '', issueDate })
+          .success
+      ).toBe(false)
+    }
+  )
   it('rejects a code beyond the server limit', () => {
     const result = createStockIssueRequestSchema.safeParse({
       ...values,

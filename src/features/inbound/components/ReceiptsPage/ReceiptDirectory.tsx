@@ -1,10 +1,11 @@
+import { OperationalDateSort } from '@/components/operations/OperationalDateSort'
+import type { OrderType } from '@/types/api'
 import type { ReactNode } from 'react'
-import { CalendarRange, Check, Eye, RefreshCw, Search, X } from 'lucide-react'
+import { Check, Eye, RefreshCw, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import type { Route } from 'next'
 import Link from 'next/link'
-import type { DateRange } from 'react-day-picker'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -12,12 +13,11 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
+import { OperationalDateRangeFilter } from '@/components/operations/OperationalDateRangeFilter'
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -27,7 +27,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { dateToIsoDateString, formatDisplayDate, isoDateStringToDate } from '@/lib/date-format'
 import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { GoodsReceiptStatus, GoodsReceiptSummary } from '../../types/inbound.types'
@@ -53,6 +52,8 @@ interface ReceiptDirectoryProps {
   readonly status: GoodsReceiptStatus | ''
   readonly createdFrom: string
   readonly createdTo: string
+  readonly sortDirection: OrderType
+  readonly onSortDirectionChange: (value: OrderType) => void
   readonly isLoading: boolean
   readonly isFetching: boolean
   readonly isError: boolean
@@ -78,6 +79,8 @@ export function ReceiptDirectory({
   status,
   createdFrom,
   createdTo,
+  sortDirection,
+  onSortDirectionChange,
   isLoading,
   isFetching,
   isError,
@@ -124,62 +127,17 @@ export function ReceiptDirectory({
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          {(() => {
-            const hasDate = Boolean(createdFrom || createdTo)
-            const dateRange: DateRange = {
-              from: isoDateStringToDate(createdFrom),
-              to: isoDateStringToDate(createdTo),
-            }
-            const f = dateRange.from ? formatDisplayDate(dateRange.from) : null
-            const t = dateRange.to ? formatDisplayDate(dateRange.to) : null
-            const label = f && t ? `${f} – ${t}` : f ? `Từ ${f}` : t ? `Đến ${t}` : 'Khoảng ngày'
-            return (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={hasDate ? 'default' : 'outline'}
-                    size="sm"
-                    aria-label="Lọc theo khoảng ngày tạo"
-                  >
-                    <CalendarRange aria-hidden="true" />
-                    {label}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="border-b p-3">
-                    <PopoverTitle>Khoảng ngày tạo</PopoverTitle>
-                  </div>
-                  <Calendar
-                    mode="range"
-                    selected={dateRange}
-                    onSelect={(range) => {
-                      onCreatedFromChange(range?.from ? dateToIsoDateString(range.from) : '')
-                      onCreatedToChange(range?.to ? dateToIsoDateString(range.to) : '')
-                    }}
-                    numberOfMonths={1}
-                  />
-                  {hasDate ? (
-                    <div className="border-t p-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          onCreatedFromChange('')
-                          onCreatedToChange('')
-                        }}
-                      >
-                        <X aria-hidden="true" />
-                        Xoá lọc ngày
-                      </Button>
-                    </div>
-                  ) : null}
-                </PopoverContent>
-              </Popover>
-            )
-          })()}
+          <OperationalDateSort value={sortDirection} onChange={onSortDirectionChange} />
+          <OperationalDateRangeFilter
+            label="ngày tạo"
+            withTime
+            from={createdFrom}
+            to={createdTo}
+            onChange={({ from, to }) => {
+              onCreatedFromChange(from)
+              onCreatedToChange(to)
+            }}
+          />
           {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>

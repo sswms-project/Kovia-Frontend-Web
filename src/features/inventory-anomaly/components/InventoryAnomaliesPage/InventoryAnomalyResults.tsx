@@ -71,13 +71,13 @@ export function InventoryAnomalyDesktopTable({ items, onSelect }: InventoryAnoma
       <Table className="min-w-[1080px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card sticky top-0 z-10 w-28">Mức độ</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-40">Thời gian</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-60">Sản phẩm</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-48">Giao dịch</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-40">Người thực hiện</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10">Lý do chính</TableHead>
-            <TableHead className="bg-card sticky top-0 z-10 w-44">Xem xét</TableHead>
+            <TableHead className="sticky top-0 z-10 w-28">Mức độ</TableHead>
+            <TableHead className="sticky top-0 z-10 w-40">Thời gian</TableHead>
+            <TableHead className="sticky top-0 z-10 w-60">Sản phẩm</TableHead>
+            <TableHead className="sticky top-0 z-10 w-48">Giao dịch</TableHead>
+            <TableHead className="sticky top-0 z-10 w-40">Người thực hiện</TableHead>
+            <TableHead className="sticky top-0 z-10">Lý do chính</TableHead>
+            <TableHead className="sticky top-0 z-10 w-44">Xem xét</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

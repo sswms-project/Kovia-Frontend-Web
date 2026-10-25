@@ -47,6 +47,28 @@ const viewer = {
 }
 
 describe('TransferShipmentsPanel destination assignment', () => {
+  it('shows the selected destination and opens the existing plan workspace from the goods row', () => {
+    const openPlan = vi.fn()
+    const props = {
+      transferId: 'transfer',
+      shipments: [shipment],
+      capabilities: {},
+      unitsByItem: {},
+      mode: 'execution' as const,
+      onAssignTask: vi.fn(),
+      onCancelShipment: vi.fn(),
+      onConfirmDeparture: vi.fn(),
+      onReopenPicking: vi.fn(),
+      onResolveEscalation: vi.fn(),
+      planLabels: { 'item-1': 'Khu ZD / Kệ RD / D-01: 10 Cái' },
+    }
+    const { rerender } = render(<TransferShipmentsPanel {...props} onOpenPlan={openPlan} />)
+    const cell = screen.getByRole('cell', { name: /Khu ZD/ })
+    fireEvent.click(within(cell).getByRole('button', { name: 'Xem kế hoạch cất hàng' }))
+    expect(openPlan).toHaveBeenCalledOnce()
+    rerender(<TransferShipmentsPanel {...props} />)
+    expect(screen.queryByRole('button', { name: 'Xem kế hoạch cất hàng' })).not.toBeInTheDocument()
+  })
   it('opens the shared table without a nested bordered panel and retains one primary action', () => {
     render(
       <TransferShipmentsPanel
