@@ -54,6 +54,13 @@ import { DesignerFooter, DesignerToolbar } from './DesignerToolbar'
 import { DesignerToolbox } from './DesignerToolbox'
 import type { WarehouseCanvasHandle } from './WarehouseCanvas'
 import { DesignerRackTools } from './DesignerRackTools'
+import { WarehouseLayoutPlacementNotice } from './WarehouseLayoutPlacementNotice'
+import { WarehousePendingPlacementDialog } from './WarehousePendingPlacementDialog'
+import {
+  getLayoutLocationLabel,
+  getLayoutPlacementError,
+  getUnplacedLayoutObject,
+} from '../../utils/layout-placement'
 import {
   arrangeLayoutRacks,
   canResizeLayoutCanvas,
@@ -178,6 +185,7 @@ export function WarehouseDesignerWorkspace({
   const [isToolboxOpen, setIsToolboxOpen] = useState(false)
   const [isInspectorOpen, setIsInspectorOpen] = useState(false)
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false)
+  const [placementTarget, setPlacementTarget] = useState<WarehouseLayoutSelection | null>(null)
   const [zoneDeactivateTarget, setZoneDeactivateTarget] =
     useState<WarehouseLayoutEditorZone | null>(null)
   const [rackDeactivateTarget, setRackDeactivateTarget] =
@@ -191,6 +199,8 @@ export function WarehouseDesignerWorkspace({
   const isCompact = useLayoutDesignerCompact()
   const setWarehouseDirty = useWarehouseLayoutEditorStore((state) => state.setWarehouseDirty)
   const scene = history.present
+  const pendingObject = placementTarget ? getUnplacedLayoutObject(scene, placementTarget) : null
+  if (placementTarget && !pendingObject) setPlacementTarget(null)
   const isDirty = hasGeneratedGeometry || history.past.length > 0
   const operationsPending = isSaving || isUpdatingRack || isDeactivatingZone || isDeactivatingRack
   const editLocked = !canConfigure || operationsPending
@@ -224,6 +234,7 @@ export function WarehouseDesignerWorkspace({
       setSelection(null)
       setRackSelection({ ids: [], referenceId: null })
       setIsInspectorOpen(false)
+      setPlacementTarget(null)
       return
     }
 
@@ -412,6 +423,10 @@ export function WarehouseDesignerWorkspace({
           ? scene.racks.find((rack) => rack.id === selection.id)
           : scene.decorations.find((decoration) => decoration.clientKey === selection.id)
     if (!object) return
+    if ('placementPending' in object && object.placementPending) {
+      toast.info('Hãy đặt vị trí trên sơ đồ trước khi xoay.')
+      return
+    }
     updateGeometry(selection.kind, selection.id, {
       ...object,
       rotation: (object.rotation + 90) % 360,
@@ -724,6 +739,13 @@ export function WarehouseDesignerWorkspace({
     selection && !gestureActive && !operationsPending ? (
       <DesignerContextToolbar
         selection={selection}
+        onPlacePending={
+          getUnplacedLayoutObject(scene, selection)
+            ? () => {
+                if (canMutate()) setPlacementTarget(selection)
+              }
+            : undefined
+        }
         color={getSelectedObjectColor()}
         canConfigure={!mutationBlocked && isSelectionEditable(scene, selection)}
         canCreateRack={
@@ -802,6 +824,38 @@ export function WarehouseDesignerWorkspace({
         onClose={closeDesigner}
       />
 
+      {placementTarget && pendingObject ? (
+        <WarehousePendingPlacementDialog
+          key={`${placementTarget.kind}:${placementTarget.id}`}
+          initialGeometry={pendingObject}
+          label={getLayoutLocationLabel(scene, placementTarget)}
+          disabled={mutationBlocked}
+          onClose={() => setPlacementTarget(null)}
+          onPlace={(geometry) => {
+            if (!canMutate()) return 'Chưa thể bố trí trong lúc thao tác khác đang xử lý.'
+            const error = getLayoutPlacementError(scene, placementTarget, geometry)
+            if (error) return error
+            dispatch({ type: 'place-pending', selection: placementTarget, geometry })
+            setPlacementTarget(null)
+            return null
+          }}
+        />
+      ) : null}
+
+      <WarehouseLayoutPlacementNotice
+        scene={scene}
+        canSuggest={!mutationBlocked}
+        onSelect={handleSelectionChange}
+        onSuggest={
+          canConfigure
+            ? () => {
+                if (!canMutate()) return
+                dispatch({ type: 'suggest-placement' })
+                toast.info('Chỉ đặt khu/kệ còn chỗ trống. Kiểm tra rồi Lưu; có thể Hoàn tác gợi ý.')
+              }
+            : undefined
+        }
+      />
       {!canConfigure ? (
         <Alert className="border-x-0 border-t-0">
           <Info aria-hidden="true" />

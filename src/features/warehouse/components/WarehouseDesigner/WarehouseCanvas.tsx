@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useRackCanvasGestures } from '../../hooks/use-rack-canvas-gestures'
 import { rackGroupBounds, selectedLayoutRacks } from '../../utils/layout-rack-operations'
+import { getLayoutLocationLabel } from '../../utils/layout-placement'
 import type { RackEditingControls } from './rack-editing.types'
 import type {
   WarehouseLayoutDecorationType,
@@ -502,7 +503,25 @@ export function WarehouseCanvas({
     () => new Set(scene.zones.filter((zone) => zone.status === 'Active').map((zone) => zone.id)),
     [scene.zones]
   )
-  const visibleRacks = useMemo(() => scene.racks, [scene.racks])
+  const visibleRacks = useMemo(
+    () =>
+      scene.racks.filter(
+        (rack) =>
+          !rack.placementPending &&
+          !scene.zones.find((zone) => zone.id === rack.zoneId)?.placementPending
+      ),
+    [scene.racks, scene.zones]
+  )
+  const selectedRackId =
+    selection?.kind === 'rack'
+      ? selection.id
+      : selection?.kind === 'slot'
+        ? scene.slots.find((slot) => slot.id === selection.id)?.rackId
+        : rackEditing?.referenceId
+  const selectedZoneId =
+    selection?.kind === 'zone'
+      ? selection.id
+      : scene.racks.find((rack) => rack.id === selectedRackId)?.zoneId
   const effectiveBounds = useMemo(
     () => ({
       minX: -LAYOUT_DECORATION_MARGIN,
@@ -572,7 +591,7 @@ export function WarehouseCanvas({
           : nextSelection.kind === 'rack'
             ? scene.racks.find((rack) => rack.id === nextSelection.id)
             : undefined
-      if (!object || !size.width || !size.height) return
+      if (!object || object.placementPending || !size.width || !size.height) return
       const bounds = getLayoutGeometryBounds(object)
       isFitMode.current = false
       pendingCenter.current = {
@@ -707,7 +726,10 @@ export function WarehouseCanvas({
     return lines
   }, [effectiveBounds, isGridVisible, scene.canvas.gridSize, size, viewport])
   const sortedZones = useMemo(
-    () => scene.zones.toSorted((first, second) => first.zIndex - second.zIndex),
+    () =>
+      scene.zones
+        .filter((zone) => !zone.placementPending)
+        .toSorted((first, second) => first.zIndex - second.zIndex),
     [scene.zones]
   )
   const sortedRacks = useMemo(
@@ -859,6 +881,7 @@ export function WarehouseCanvas({
       isSelected(selection, target, object.id) ||
       (isRack && Boolean(rackEditing?.ids.includes(object.id)))
     const isZone = !isRack
+    const parentHighlighted = isZone && object.id === selectedZoneId
     const rack = isRack ? object : null
     const usesRackGestures = Boolean(rackEditing && rack && !rack.placementPending)
     const isEditableRack = Boolean(
@@ -923,7 +946,7 @@ export function WarehouseCanvas({
               })
         }
         onMouseEnter={(event) =>
-          showHoverInfo(event, code, isRack ? object.rackName : object.zoneName)
+          showHoverInfo(event, code, getLayoutLocationLabel(scene, { kind: target, id: object.id }))
         }
         onMouseLeave={() => setHoverInfo(null)}
         onClick={(event) => {
@@ -967,7 +990,7 @@ export function WarehouseCanvas({
           height={object.height}
           fill={objectFill}
           stroke={
-            selected
+            selected || parentHighlighted
               ? selectionStroke
               : object.status === 'Inactive'
                 ? canvasPalette.destructive
@@ -976,7 +999,7 @@ export function WarehouseCanvas({
                   : canvasPalette.foreground
           }
           strokeWidth={
-            selected
+            selected || parentHighlighted
               ? (rackEditing?.referenceId === object.id ? 2.5 : mode === 'viewer' ? 1.5 : 1.25) /
                 viewport.scale
               : 1 / viewport.scale
@@ -1432,7 +1455,7 @@ export function WarehouseCanvas({
       {hoverInfo && !toolsVisible && !rackGestures.marquee ? (
         <div
           role="tooltip"
-          className="bg-popover text-popover-foreground pointer-events-none fixed z-50 max-h-28 max-w-56 overflow-y-auto rounded-md border px-3 py-2 text-xs shadow-sm"
+          className="bg-popover text-popover-foreground pointer-events-none fixed z-50 max-w-56 rounded-md border px-3 py-2 text-xs break-words shadow-sm"
           style={{ left: hoverInfo.left, top: hoverInfo.top }}
         >
           <p>

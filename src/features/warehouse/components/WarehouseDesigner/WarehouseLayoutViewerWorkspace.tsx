@@ -42,6 +42,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getLayoutLocationLabel } from '../../utils/layout-placement'
+import { WarehouseLayoutPlacementNotice } from './WarehouseLayoutPlacementNotice'
 import { cn } from '@/lib/utils'
 import { useInventoryQuery } from '@/features/inventory/hooks/use-inventory'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -123,7 +125,6 @@ export function WarehouseLayoutViewerWorkspace({
 }: WarehouseLayoutViewerWorkspaceProps) {
   const isCompact = useLayoutDesignerCompact()
   const canvasRef = useRef<WarehouseCanvasHandle>(null)
-  const pendingUnplacedSelection = useRef<WarehouseLayoutSelection | null>(null)
   const [selection, setSelection] = useState<WarehouseLayoutSelection | null>(null)
   const [zoomPercent, setZoomPercent] = useState(100)
   const [isLocationSheetOpen, setIsLocationSheetOpen] = useState(false)
@@ -168,12 +169,7 @@ export function WarehouseLayoutViewerWorkspace({
       onSelect={handleSelectionChange}
       onSelectUnplaced={(nextSelection) => {
         handleSelectionChange(nextSelection)
-        if (isCompact) {
-          pendingUnplacedSelection.current = nextSelection
-          setIsLocationSheetOpen(false)
-        } else {
-          canvasRef.current?.revealSelection(nextSelection)
-        }
+        if (isCompact) setIsLocationSheetOpen(true)
       }}
     />
   )
@@ -247,6 +243,9 @@ export function WarehouseLayoutViewerWorkspace({
       </div>
       {selectedLocation ? (
         <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 px-3 pb-2 text-xs">
+          <p className="w-full font-medium break-words" aria-label="Đường dẫn vị trí">
+            {selection ? getLayoutLocationLabel(scene, selection) : null}
+          </p>
           <span>
             Mã vị trí:{' '}
             <strong translate="no" className="font-mono">
@@ -440,6 +439,14 @@ export function WarehouseLayoutViewerWorkspace({
         </ViewerIconButton>
       </header>
 
+      <WarehouseLayoutPlacementNotice
+        scene={scene}
+        onSelect={(nextSelection) => {
+          handleSelectionChange(nextSelection)
+          canvasRef.current?.revealSelection(nextSelection)
+          if (isCompact) setIsLocationSheetOpen(true)
+        }}
+      />
       <div className="flex min-h-0 flex-1">
         {isCompact ? (
           <div className="relative min-h-0 min-w-0 flex-1">
@@ -522,17 +529,7 @@ export function WarehouseLayoutViewerWorkspace({
       </footer>
 
       <Sheet open={isLocationSheetOpen} onOpenChange={setIsLocationSheetOpen}>
-        <SheetContent
-          side="left"
-          className="w-[min(92vw,28rem)] gap-0 p-0 sm:max-w-md"
-          onCloseAutoFocus={(event) => {
-            const nextSelection = pendingUnplacedSelection.current
-            if (!nextSelection) return
-            event.preventDefault()
-            pendingUnplacedSelection.current = null
-            canvasRef.current?.revealSelection(nextSelection)
-          }}
-        >
+        <SheetContent side="left" className="w-[min(92vw,28rem)] gap-0 p-0 sm:max-w-md">
           <SheetHeader className="sr-only">
             <SheetTitle>Vị trí và hàng hóa</SheetTitle>
             <SheetDescription>Chọn vị trí và xem hàng hóa trong kho.</SheetDescription>

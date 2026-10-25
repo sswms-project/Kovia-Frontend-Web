@@ -285,7 +285,7 @@ export function InboundRequestForm({
                 </Field>
                 <DatePickerField
                   id="expectedDate"
-                  label="Ngày nhận dự kiến"
+                  label="Ngày nhận hàng dự kiến"
                   required
                   error={errors.expectedDate?.message}
                   disablePastDates={disablePastDates}
