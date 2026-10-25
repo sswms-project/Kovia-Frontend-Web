@@ -1,5 +1,7 @@
 'use client'
 
+import type { OrderType } from '@/types/api'
+
 import type { ReactNode } from 'react'
 import {
   OperationalEmptyState,
@@ -30,6 +32,8 @@ interface InboundRequestDirectoryProps {
   readonly status: InboundRequestStatus | ''
   readonly createdFrom: string
   readonly createdTo: string
+  readonly sortDirection: OrderType
+  readonly onSortDirectionChange: (value: OrderType) => void
   readonly statusCounts: readonly InboundRequestStatusCount[]
   readonly isLoading: boolean
   readonly isStatsError: boolean
@@ -76,6 +80,8 @@ export function InboundRequestDirectory({
   status,
   createdFrom,
   createdTo,
+  sortDirection,
+  onSortDirectionChange,
   statusCounts,
   isLoading,
   isStatsError,
@@ -183,6 +189,8 @@ export function InboundRequestDirectory({
               status={status}
               createdFrom={createdFrom}
               createdTo={createdTo}
+              sortDirection={sortDirection}
+              onSortDirectionChange={onSortDirectionChange}
               isFetching={isFetching}
               onSearchChange={onSearchChange}
               onStatusChange={onStatusChange}

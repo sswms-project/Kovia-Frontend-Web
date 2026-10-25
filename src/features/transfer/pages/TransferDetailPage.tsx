@@ -372,7 +372,10 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                                   (line) =>
                                     `${line.path}: ${formatQuantity(line.plannedTotal)} ${item.baseUnitName ?? ''}`
                                 )
-                                .join(' · '),
+                                .join(' · ') ||
+                                (item.destinationSlotId && item.destinationSlotPath
+                                  ? `Gợi ý từ yêu cầu: ${item.destinationSlotPath} (chưa lưu kế hoạch)`
+                                  : ''),
                             ])
                           )}
                           onOpenPlan={

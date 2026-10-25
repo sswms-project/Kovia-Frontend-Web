@@ -1,5 +1,6 @@
 import { formatOperationalDate } from '@/features/inbound-request/utils/inbound-request-format'
 import type { GoodsReceiptDetail } from '../../types/inbound.types'
+import { OperationalDocumentInfo } from '@/components/operations/OperationalDocumentInfo'
 
 interface ReceiptOverviewProps {
   readonly receipt: GoodsReceiptDetail
@@ -7,13 +8,20 @@ interface ReceiptOverviewProps {
 
 export function ReceiptOverview({ receipt }: ReceiptOverviewProps) {
   return (
-    <section className="bg-card shrink-0 border" aria-labelledby="receipt-overview-heading">
-      <div className="border-b p-4">
-        <h2 id="receipt-overview-heading" className="text-sm font-semibold">
-          Tổng quan phiếu nhận hàng
-        </h2>
-      </div>
-      <dl className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <OperationalDocumentInfo
+      documentId={receipt.id}
+      headingId="receipt-overview-heading"
+      summary={`${receipt.inboundRequestCode} · ${receipt.warehouseName}`}
+      summaryContent={
+        receipt.rejectionReason ? (
+          <div className="mt-3 border-t pt-3">
+            <p className="text-destructive text-xs font-medium">Yêu cầu chỉnh sửa</p>
+            <p className="mt-1 text-xs break-words">{receipt.rejectionReason}</p>
+          </div>
+        ) : undefined
+      }
+    >
+      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {receipt.keptAtReceiving && (
           <Metadata
             label="Hướng xử lý hàng đạt"
@@ -35,7 +43,7 @@ export function ReceiptOverview({ receipt }: ReceiptOverviewProps) {
           <Metadata label="Người duyệt" value={receipt.approvedByName} />
         ) : null}
       </dl>
-      <div className="space-y-2 border-t p-4 text-sm">
+      <div className="mt-3 space-y-2 border-t pt-3 text-sm">
         <p>
           {receipt.status === 'Approved'
             ? 'Đã duyệt kết quả kiểm; phần đạt còn chờ cất, phần hỏng đã nhập cần được cách biệt.'
@@ -51,13 +59,7 @@ export function ReceiptOverview({ receipt }: ReceiptOverviewProps) {
           <p key={file.id}>Bằng chứng từ chối: {file.fileName}</p>
         ))}
       </div>
-      {receipt.rejectionReason ? (
-        <div className="border-t p-4">
-          <p className="text-destructive text-xs font-medium">Yêu cầu chỉnh sửa</p>
-          <p className="mt-1 text-xs">{receipt.rejectionReason}</p>
-        </div>
-      ) : null}
-    </section>
+    </OperationalDocumentInfo>
   )
 }
 

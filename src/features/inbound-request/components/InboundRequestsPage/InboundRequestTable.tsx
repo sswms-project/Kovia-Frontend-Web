@@ -57,14 +57,12 @@ export function InboundRequestTableSkeleton() {
       <Table className="min-w-[960px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card w-12 p-0 text-center">
+            <TableHead className="w-12 p-0 text-center">
               <Skeleton className="size-4" />
             </TableHead>
             {['Mã yêu cầu', 'Nguồn hàng · Kho nhận', 'Trạng thái', 'Tiến độ', 'Thời gian', ''].map(
               (heading) => (
-                <TableHead key={heading} className="bg-card">
-                  {heading}
-                </TableHead>
+                <TableHead key={heading}>{heading}</TableHead>
               )
             )}
           </TableRow>
@@ -134,7 +132,7 @@ export function InboundRequestTable({
       <Table className="min-w-[960px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card w-12 p-0 text-center">
+            <TableHead className="w-12 p-0 text-center">
               <Checkbox
                 className="mx-auto"
                 aria-label="Chọn tất cả yêu cầu nhập kho trên trang"
@@ -153,12 +151,12 @@ export function InboundRequestTable({
                 }
               />
             </TableHead>
-            <TableHead className="bg-card w-52">Mã yêu cầu</TableHead>
-            <TableHead className="bg-card">Nguồn hàng · Kho nhận</TableHead>
-            <TableHead className="bg-card w-36">Trạng thái</TableHead>
-            <TableHead className="bg-card w-44">Tiến độ nhận</TableHead>
-            <TableHead className="bg-card w-44">Thời gian</TableHead>
-            <TableHead className="bg-card w-16">
+            <TableHead className="w-52">Mã yêu cầu</TableHead>
+            <TableHead>Nguồn hàng · Kho nhận</TableHead>
+            <TableHead className="w-36">Trạng thái</TableHead>
+            <TableHead className="w-44">Tiến độ nhận</TableHead>
+            <TableHead className="w-44">Thời gian</TableHead>
+            <TableHead className="w-16">
               <span className="sr-only">Thao tác</span>
             </TableHead>
           </TableRow>

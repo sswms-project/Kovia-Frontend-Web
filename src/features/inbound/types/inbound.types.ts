@@ -1,3 +1,4 @@
+import type { OrderType } from '@/types/api'
 import type {
   LifecycleEvent,
   PagedResponse,
@@ -29,6 +30,7 @@ export type WarehouseTaskExecutionStatus = 'Queued' | 'InProgress' | 'Paused' | 
 export type WarehouseTaskPriority = 'Normal' | 'Urgent'
 
 export interface InboundListQuery {
+  sortDirection?: OrderType
   pageNumber: number
   pageSize: number
   searchTerm?: string
@@ -40,6 +42,7 @@ export interface InboundListQuery {
 }
 
 export interface ReceivingTaskQuery {
+  sortDirection?: OrderType
   pageNumber: number
   pageSize: number
   searchTerm?: string
@@ -53,6 +56,7 @@ export interface ReceivingTaskQuery {
 }
 
 export interface PutawayTaskQuery {
+  sortDirection?: OrderType
   pageNumber: number
   pageSize: number
   searchTerm?: string

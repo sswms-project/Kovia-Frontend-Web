@@ -1,9 +1,10 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
@@ -14,6 +15,7 @@ import {
 } from '@/components/operations/OperationalState'
 import { useWarehouseLayoutQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { logger } from '@/lib/logger'
+import { queryKeys } from '@/lib/query-keys'
 import { getApiErrorCode, getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
@@ -72,6 +74,16 @@ const EMPTY_ALLOCATION = {
 
 const NO_DEVIATION: PutawayPlanDeviation = { offPlanRows: new Set<number>(), requiresReason: false }
 
+function isPutawayFinished(receipt: GoodsReceiptDetail): boolean {
+  if (receipt.status === 'Cancelled' || receipt.putAwayTaskExecutionStatus === 'Cancelled')
+    return false
+  return (
+    receipt.putAwayTaskExecutionStatus === 'Completed' ||
+    (receipt.status === 'Completed' &&
+      receipt.items.every((item) => item.remainingPutAwayQuantity <= 0))
+  )
+}
+
 interface EvidenceFile {
   readonly id: string
   readonly fileName: string
@@ -87,6 +99,8 @@ function buildInitialAllocations(receipt: GoodsReceiptDetail): PutawayFormValues
 
 export default function InboundPutawayDetailPage({ receiptId }: { readonly receiptId: string }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const completionTarget = useRef<string | null>(null)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [hasUncertainSubmission, setHasUncertainSubmission] = useState(false)
   const [committedReceiptId, setCommittedReceiptId] = useState<string | null>(null)
@@ -106,6 +120,19 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
     signature: string
   } | null>(null)
   const meQuery = useMeQuery()
+  const canViewRequest = meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_VIEW) === true
+  const openCompletedReceipt = useCallback(
+    (receipt: GoodsReceiptDetail) => {
+      const target =
+        canViewRequest && receipt.inboundRequestId
+          ? APP_ROUTES.inboundRequestDetail(receipt.inboundRequestId)
+          : APP_ROUTES.goodsReceiptDetail(receipt.id)
+      if (completionTarget.current === target) return
+      completionTarget.current = target
+      router.replace(target as Route)
+    },
+    [canViewRequest, router]
+  )
   const receiptQuery = useGoodsReceiptQuery(receiptId)
   const allowedActionsQuery = useInboundAllowedActionsQuery(receiptId)
   const damageIsolation = useReceiptDamageIsolation(
@@ -198,6 +225,32 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
     scanReasonNeeded
 
   useEffect(() => {
+    const receipt = receiptQuery.data
+    if (
+      !receipt ||
+      receipt.id !== receiptId ||
+      receiptQuery.isError ||
+      receiptQuery.isFetching ||
+      meQuery.isLoading ||
+      mutation.isPending ||
+      hasUncertainSubmission ||
+      submitting.current ||
+      pendingRequest.current
+    )
+      return
+    if (isPutawayFinished(receipt)) openCompletedReceipt(receipt)
+  }, [
+    receiptQuery.data,
+    receiptQuery.isError,
+    receiptQuery.isFetching,
+    receiptId,
+    meQuery.isLoading,
+    mutation.isPending,
+    hasUncertainSubmission,
+    openCompletedReceipt,
+  ])
+
+  useEffect(() => {
     if (!hasUncertainSubmission && !mutation.isPending) return
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
@@ -280,7 +333,13 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
       pendingRequest.current = null
       setHasUncertainSubmission(false)
       toast.success('Đã ghi nhận cất hàng vào vị trí lưu trữ.')
-      router.push(APP_ROUTES.goodsReceiptDetail(command.receiptId) as Route)
+      const refreshedReceipt =
+        queryClient.getQueryData<GoodsReceiptDetail>(
+          queryKeys.goodsReceipts.detail(command.receiptId)
+        ) ?? (receipt.id === command.receiptId ? receipt : undefined)
+      if (refreshedReceipt && isPutawayFinished(refreshedReceipt))
+        openCompletedReceipt(refreshedReceipt)
+      else router.push(APP_ROUTES.goodsReceiptDetail(command.receiptId) as Route)
     } catch (error) {
       logger.warn(getApiErrorMessage(error))
       const rejected =
@@ -468,8 +527,22 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
         <p role="status" className="text-primary text-sm font-medium">
           {committedReceiptId === receiptId
-            ? 'Đã ghi nhận cất hàng. Đang tải chi tiết phiếu…'
+            ? 'Đã ghi nhận cất hàng. Đang mở trang chi tiết…'
             : 'Đang xác nhận cất hàng. Vui lòng không cất lại hoặc rời màn hình…'}
+        </p>
+        <OperationalLoadingState rows={3} />
+      </div>
+    )
+  if (
+    !hasUncertainSubmission &&
+    !receiptQuery.isError &&
+    receiptQuery.data?.id === receiptId &&
+    isPutawayFinished(receiptQuery.data)
+  )
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+        <p role="status" className="text-primary text-sm font-medium">
+          Đã hoàn tất cất hàng. Đang mở trang chi tiết…
         </p>
         <OperationalLoadingState rows={3} />
       </div>

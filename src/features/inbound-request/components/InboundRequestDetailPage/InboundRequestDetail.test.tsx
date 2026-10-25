@@ -7,6 +7,7 @@ import type {
 } from '../../types/inbound-request.types'
 import { InboundRequestDetail } from './InboundRequestDetail'
 import { InboundRequestLines } from './InboundRequestLines'
+import { InboundRequestOverview } from './InboundRequestOverview'
 
 function request(overrides: Partial<InboundRequestDetailType> = {}): InboundRequestDetailType {
   return {
@@ -66,6 +67,46 @@ function renderDetail(
   )
   return handlers
 }
+
+describe('inbound document information disclosure', () => {
+  it('keeps progress and correction instructions visible while the shared toggle hides metadata', async () => {
+    const user = userEvent.setup()
+    render(
+      <InboundRequestOverview request={request({ rejectionReason: 'Kiểm tra lại đơn vị nhập' })} />
+    )
+    const toggle = screen.getByRole('button', { name: 'Thông tin phiếu' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Người tạo')).toBeVisible()
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Người tạo')).not.toBeInTheDocument()
+    expect(screen.getByText('Nhà cung cấp A → Kho A')).toBeVisible()
+    expect(screen.getByText('Tiến độ nhận')).toBeVisible()
+    expect(screen.getByText('Kiểm tra lại đơn vị nhập')).toBeVisible()
+    await user.keyboard('{Enter}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Người tạo')).toBeVisible()
+  })
+
+  it('preserves collapse on refresh and resets for another inbound request', async () => {
+    const user = userEvent.setup()
+    const value = request()
+    const view = render(<InboundRequestOverview request={value} />)
+    await user.click(screen.getByRole('button', { name: 'Thông tin phiếu' }))
+    view.rerender(
+      <InboundRequestOverview request={{ ...value, createdByName: 'Người tạo cập nhật' }} />
+    )
+    expect(screen.getByRole('button', { name: 'Thông tin phiếu' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    view.rerender(<InboundRequestOverview request={{ ...value, id: 'other-request' }} />)
+    expect(screen.getByRole('button', { name: 'Thông tin phiếu' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+  })
+})
 
 describe('InboundRequestDetail supplier email actions', () => {
   it('lets the warehouse manager open assignment when the server permits it', async () => {

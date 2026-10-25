@@ -1,16 +1,16 @@
 'use client'
 
+import { OperationalDateSort } from '@/components/operations/OperationalDateSort'
+import type { OrderType } from '@/types/api'
+
 import type { ReactNode } from 'react'
-import { CalendarRange, RefreshCw, Search, X } from 'lucide-react'
-import type { DateRange } from 'react-day-picker'
+import { RefreshCw, Search } from 'lucide-react'
+import { OperationalDateRangeFilter } from '@/components/operations/OperationalDateRangeFilter'
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { dateToIsoDateString, formatDisplayDate, isoDateStringToDate } from '@/lib/date-format'
 import { INBOUND_REQUEST_STATUS_LABELS } from '../../utils/inbound-request-format'
 import type { InboundRequestStatus } from '../../types/inbound-request.types'
 
@@ -19,6 +19,8 @@ interface InboundRequestFiltersProps {
   readonly status: InboundRequestStatus | ''
   readonly createdFrom: string
   readonly createdTo: string
+  readonly sortDirection: OrderType
+  readonly onSortDirectionChange: (value: OrderType) => void
   readonly isFetching: boolean
   readonly onSearchChange: (value: string) => void
   readonly onStatusChange: (value: InboundRequestStatus | '') => void
@@ -33,6 +35,8 @@ export function InboundRequestFilters({
   status,
   createdFrom,
   createdTo,
+  sortDirection,
+  onSortDirectionChange,
   isFetching,
   onSearchChange,
   onStatusChange,
@@ -41,27 +45,6 @@ export function InboundRequestFilters({
   onRetry,
   exportAction,
 }: InboundRequestFiltersProps) {
-  const hasDateFilter = Boolean(createdFrom || createdTo)
-
-  const dateRange: DateRange = {
-    from: isoDateStringToDate(createdFrom),
-    to: isoDateStringToDate(createdTo),
-  }
-
-  function handleDateRangeSelect(range: DateRange | undefined) {
-    onCreatedFromChange(range?.from ? dateToIsoDateString(range.from) : '')
-    onCreatedToChange(range?.to ? dateToIsoDateString(range.to) : '')
-  }
-
-  function buildDateLabel() {
-    const from = dateRange.from ? formatDisplayDate(dateRange.from) : null
-    const to = dateRange.to ? formatDisplayDate(dateRange.to) : null
-    if (from && to) return `${from} – ${to}`
-    if (from) return `Từ ${from}`
-    if (to) return `Đến ${to}`
-    return 'Khoảng ngày'
-  }
-
   return (
     <div className="flex flex-wrap items-center gap-2">
       <InputGroup className="min-w-0 flex-1 basis-full sm:w-72 sm:flex-none sm:basis-auto">
@@ -90,47 +73,17 @@ export function InboundRequestFilters({
         ))}
       </NativeSelect>
 
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant={hasDateFilter ? 'default' : 'outline'}
-            size="sm"
-            aria-label="Lọc theo khoảng ngày tạo"
-          >
-            <CalendarRange aria-hidden="true" />
-            {buildDateLabel()}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <div className="border-b p-3">
-            <PopoverTitle>Khoảng ngày tạo</PopoverTitle>
-          </div>
-          <Calendar
-            mode="range"
-            selected={dateRange}
-            onSelect={handleDateRangeSelect}
-            numberOfMonths={1}
-          />
-          {hasDateFilter ? (
-            <div className="border-t p-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="w-full"
-                onClick={() => {
-                  onCreatedFromChange('')
-                  onCreatedToChange('')
-                }}
-              >
-                <X aria-hidden="true" />
-                Xoá lọc ngày
-              </Button>
-            </div>
-          ) : null}
-        </PopoverContent>
-      </Popover>
+      <OperationalDateSort value={sortDirection} onChange={onSortDirectionChange} />
+      <OperationalDateRangeFilter
+        label="ngày tạo"
+        withTime
+        from={createdFrom}
+        to={createdTo}
+        onChange={({ from, to }) => {
+          onCreatedFromChange(from)
+          onCreatedToChange(to)
+        }}
+      />
 
       {exportAction}
       <Tooltip>

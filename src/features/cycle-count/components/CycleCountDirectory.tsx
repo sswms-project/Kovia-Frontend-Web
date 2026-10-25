@@ -265,16 +265,16 @@ export function CycleCountDirectory(props: Props) {
           >
             <TableHeader>
               <TableRow>
-                <TableHead className="bg-card sticky top-0 z-10">Số phiếu / Kho</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Mục đích</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Phụ trách</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Lịch kiểm kê</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Kiểm kê đến ngày</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Tiến độ</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10 text-right">Lệch</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Trạng thái</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Xử lý chênh lệch</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10 w-14">
+                <TableHead className="sticky top-0 z-10">Số phiếu / Kho</TableHead>
+                <TableHead className="sticky top-0 z-10">Mục đích</TableHead>
+                <TableHead className="sticky top-0 z-10">Phụ trách</TableHead>
+                <TableHead className="sticky top-0 z-10">Lịch kiểm kê</TableHead>
+                <TableHead className="sticky top-0 z-10">Kiểm kê đến ngày</TableHead>
+                <TableHead className="sticky top-0 z-10">Tiến độ</TableHead>
+                <TableHead className="sticky top-0 z-10 text-right">Lệch</TableHead>
+                <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                <TableHead className="sticky top-0 z-10">Xử lý chênh lệch</TableHead>
+                <TableHead className="sticky top-0 z-10 w-14">
                   <span className="sr-only">Xem chi tiết</span>
                 </TableHead>
               </TableRow>

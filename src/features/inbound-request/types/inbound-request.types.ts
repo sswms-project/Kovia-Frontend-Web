@@ -1,3 +1,4 @@
+import type { OrderType } from '@/types/api'
 export const INBOUND_REQUEST_STATUS = {
   Draft: 'Draft',
   PendingApproval: 'PendingApproval',
@@ -47,6 +48,7 @@ export interface LookupQuery {
 }
 
 export interface InboundRequestListQuery {
+  sortDirection?: OrderType
   pageNumber: number
   pageSize: number
   searchTerm?: string
