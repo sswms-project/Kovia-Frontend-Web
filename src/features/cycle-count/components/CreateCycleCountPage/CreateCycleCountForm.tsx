@@ -13,6 +13,8 @@ import { CycleCountScopePanel } from './CycleCountScopePanel'
 import type { CycleCountFormApi, SelectOption, StockSelection, SubmitMode } from './types'
 
 interface CreateCycleCountFormProps {
+  readonly onCodeChange?: () => void
+  readonly codeSuggestionStatus?: 'loading' | 'error' | 'ready'
   readonly form: CycleCountFormApi
   readonly warehouses: readonly SelectOption[]
   readonly zones: readonly SelectOption[]
@@ -39,6 +41,8 @@ interface CreateCycleCountFormProps {
 }
 
 export function CreateCycleCountForm({
+  onCodeChange,
+  codeSuggestionStatus,
   form,
   warehouses,
   zones,
@@ -177,6 +181,8 @@ export function CreateCycleCountForm({
           />
         </div>
         <CycleCountInfoPanel
+          onCodeChange={onCodeChange}
+          codeSuggestionStatus={codeSuggestionStatus}
           form={form}
           staff={staff}
           hasWarehouse={Boolean(form.watch('warehouseId'))}

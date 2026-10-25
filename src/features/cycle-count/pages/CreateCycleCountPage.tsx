@@ -1,6 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
+import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
@@ -20,6 +22,7 @@ import { APP_ROUTES } from '@/routes/app-routes'
 import { CreateCycleCountForm, type SubmitMode } from '../components/CreateCycleCountPage'
 import {
   useCreateCycleCountMutation,
+  useNextCycleCountCodeQuery,
   useCycleCountAssignableStaffQuery,
 } from '../hooks/use-cycle-count'
 import {
@@ -28,6 +31,10 @@ import {
 } from '../schemas/cycle-count.schema'
 
 export default function CreateCycleCountPage() {
+  const instanceId = useId()
+  const [codeSession, setCodeSession] = useState(0)
+  const sessionKey = `${instanceId}:${codeSession}`
+  const nextCode = useNextCycleCountCodeQuery(sessionKey)
   const [inventoryPage, setInventoryPage] = useState(1)
   const [inventoryPageSize, setInventoryPageSize] = useState(50)
   const [searchTerm, setSearchTerm] = useState('')
@@ -40,6 +47,7 @@ export default function CreateCycleCountPage() {
   const form = useForm<CreateCycleCountFormValues>({
     resolver: zodResolver(createCycleCountSchema),
     defaultValues: {
+      code: '',
       warehouseId: '',
       zoneId: '',
       scheduledDate: '',
@@ -50,6 +58,15 @@ export default function CreateCycleCountPage() {
       purpose: '',
       dueDate: '',
     },
+  })
+  const codeSuggestion = useCodeSuggestion({
+    active: true,
+    sessionKey,
+    suggestedCode: nextCode.data,
+    isFetching: nextCode.isFetching,
+    isError: nextCode.isError,
+    getCurrentCode: () => form.getValues('code') ?? '',
+    applyCode: (code) => form.setValue('code', code),
   })
   const warehouseId = useWatch({ control: form.control, name: 'warehouseId' })
   const zoneId = useWatch({ control: form.control, name: 'zoneId' })
@@ -140,6 +157,7 @@ export default function CreateCycleCountPage() {
   async function submit(values: CreateCycleCountFormValues, mode: SubmitMode) {
     try {
       const response = await mutation.mutateAsync({
+        code: values.code?.trim() || undefined,
         warehouseId: values.warehouseId,
         zoneId: values.zoneId || null,
         scheduledDate: new Date(values.scheduledDate).toISOString(),
@@ -154,20 +172,24 @@ export default function CreateCycleCountPage() {
       })
       toast.success('Đã tạo phiếu kiểm kê.')
       if (mode === 'saveAndAdd') {
-        form.reset({ ...values, items: [], purpose: '', dueDate: '' })
+        form.reset({ ...values, code: '', items: [], purpose: '', dueDate: '' })
+        codeSuggestion.resetSession()
+        setCodeSession((current) => current + 1)
         setInventoryPage(1)
         return
       }
       router.push(APP_ROUTES.cycleCountDetail(response.data))
     } catch (error) {
       logger.error(error)
-      toast.error(error instanceof Error ? error.message : 'Không thể tạo phiếu kiểm kê.')
+      toast.error(getApiErrorMessage(error, 'Không thể tạo phiếu kiểm kê.'))
     }
   }
 
   return (
     <CreateCycleCountForm
       form={form}
+      onCodeChange={codeSuggestion.markEdited}
+      codeSuggestionStatus={nextCode.isFetching ? 'loading' : nextCode.isError ? 'error' : 'ready'}
       warehouses={warehouseOptions}
       zones={zoneOptions}
       racks={rackOptions}

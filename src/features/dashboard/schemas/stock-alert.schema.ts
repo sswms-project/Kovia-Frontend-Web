@@ -49,10 +49,27 @@ export const stockExpiryAlertsSchema = stockAlertPageSchema.extend({
     })
   ),
 })
+export type StockThresholdAlerts = z.infer<typeof stockThresholdAlertsSchema>
 export type StockAlerts =
   | z.infer<typeof stockThresholdAlertsSchema>
   | z.infer<typeof stockExpiryAlertsSchema>
 export type StockAlertRow = StockAlerts['items'][number]
+
+export const stockExpiryDistributionSchema = z.object({
+  generatedAt: z.iso.datetime({ offset: true }),
+  appliedWarehouseIds: z.array(z.guid()),
+  evaluationDate: z.iso.date(),
+  timeBasis: z.literal('UTC'),
+  expiringDays: z.number().int().min(1).max(365),
+  days: z.array(
+    z.object({
+      daysToExpiry: z.number().int().nonnegative(),
+      lotCount: z.number().int().positive(),
+    })
+  ),
+  totalCount: z.number().int().nonnegative(),
+})
+export type StockExpiryDistribution = z.infer<typeof stockExpiryDistributionSchema>
 
 export const expiryDaysSchema = z.object({
   days: z

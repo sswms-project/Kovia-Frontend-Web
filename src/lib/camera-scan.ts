@@ -39,6 +39,9 @@ interface CameraScanOptions {
 /** Giữ camera trước một mã thì ZXing đọc lại nhiều lần mỗi giây; bỏ qua mã trùng trong khoảng này. */
 export const REPEAT_GUARD_MS = 1500
 
+/** Cho phép đưa từng kiện cùng mã qua camera, vẫn bỏ qua các khung hình đọc trùng. */
+export const EACH_UNIT_REPEAT_GUARD_MS = 600
+
 /**
  * Bật camera sau và đọc mã vạch/QR. Mặc định dừng sau mã đầu tiên (hộp thoại camera riêng); chế độ liên tục
  * giữ camera chạy để quét nhiều mã liên tiếp. Thư viện giải mã chỉ tải khi người dùng bật camera nên không làm

@@ -149,7 +149,7 @@ export function StockIssueRequestForm({
           onSave()
         }}
       >
-        <Card>
+        <Card className="border-foreground border ring-0">
           <CardHeader>
             <CardTitle>Thông tin xuất kho</CardTitle>
           </CardHeader>
@@ -285,7 +285,7 @@ export function StockIssueRequestForm({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-foreground border ring-0">
           <CardHeader>
             <CardTitle>Sản phẩm xuất kho</CardTitle>
             <CardAction>
@@ -355,7 +355,7 @@ export function StockIssueRequestForm({
           </CardFooter>
         </Card>
 
-        <Card>
+        <Card className="border-foreground border ring-0">
           <CardHeader>
             <CardTitle>Ghi chú{isEditing ? '' : ' và đính kèm'}</CardTitle>
           </CardHeader>

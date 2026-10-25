@@ -1,5 +1,6 @@
 import type { InventoryStock } from '@/features/inventory/types/inventory.types'
 import type { CycleCountItemInput } from '../components/CreateCycleCountPage/types'
+import { formatInventoryLocation } from '@/features/inventory/utils/inventory-format'
 
 type StockScope = Pick<InventoryStock, 'productId' | 'slotId' | 'lotId' | 'qualityStatus'>
 
@@ -17,9 +18,16 @@ export function toCycleCountItemInput(stock: InventoryStock): CycleCountItemInpu
 }
 
 export function formatStockLocation(
-  stock: Pick<InventoryStock, 'slotCode' | 'rackCode' | 'isSystemDefaultSlot'>
+  stock: Pick<InventoryStock, 'slotCode' | 'rackCode' | 'isSystemDefaultSlot'> & {
+    readonly zoneCode?: string | null
+    readonly zoneName?: string | null
+    readonly rackName?: string | null
+  }
 ): string {
-  // Ô mặc định của hệ thống không có mã ô riêng nên phải hiển thị theo kệ.
-  if (stock.isSystemDefaultSlot && stock.rackCode) return `Kệ ${stock.rackCode}`
-  return stock.slotCode || '—'
+  const location = formatInventoryLocation({
+    ...stock,
+    zoneCode: [stock.zoneCode, stock.zoneName].filter(Boolean).join(' · ') || null,
+    rackCode: [stock.rackCode, stock.rackName].filter(Boolean).join(' · ') || null,
+  })
+  return location || '—'
 }

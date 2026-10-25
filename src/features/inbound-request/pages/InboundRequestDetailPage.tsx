@@ -5,7 +5,7 @@ import {
   OperationalErrorState,
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
-import { logger } from '@/lib/logger'
+import { getApiErrorMessage, logApiError } from '@/lib/api-error'
 import { InboundRequestDetail } from '../components/InboundRequestDetailPage'
 import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
 import { useAssignWarehouseTask } from '@/features/inbound/hooks/use-assign-warehouse-task'
@@ -124,8 +124,10 @@ export default function InboundRequestDetailPage({
       )
       return true
     } catch (error) {
-      logger.error(error)
-      toast.error('Không thể cập nhật yêu cầu nhập kho. Vui lòng thử lại.')
+      logApiError(error)
+      toast.error(
+        getApiErrorMessage(error, 'Không thể cập nhật yêu cầu nhập kho. Vui lòng thử lại.')
+      )
       return false
     }
   }

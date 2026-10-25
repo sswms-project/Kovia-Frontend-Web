@@ -26,6 +26,10 @@ import type {
 } from '../types/cycle-count.types'
 
 export const cycleCountService = {
+  getNextCode: () =>
+    axiosClient
+      .get<ApiResponse<string>>(API_ENDPOINTS.cycleCounts.nextCode)
+      .then((response) => response.data),
   getCycleCounts: (params: CycleCountListQuery) =>
     axiosClient
       .get<ApiResponse<CycleCountListResponse>>(API_ENDPOINTS.cycleCounts.list, { params })

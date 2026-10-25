@@ -15,6 +15,7 @@ import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDial
 import { Button } from '@/components/ui/button'
 import type { LookupOption } from '@/features/inbound-request/components/InboundRequestFormPage'
 import { StockRecipientFormDialog } from '@/features/stock-recipient/components/StockRecipientsPage'
+import { getPutawayBaseQuantity } from '@/features/inbound/utils/putaway-units'
 import {
   useCreateStockRecipientMutation,
   useNextStockRecipientCodeQuery,
@@ -301,6 +302,35 @@ export default function StockIssueRequestFormPage({
   }
 
   async function save(values: CreateStockIssueRequestFormValues, addAnother: boolean) {
+    for (const [index, line] of values.lines.entries()) {
+      const product = productsById[line.productId]
+      const selected = product?.units.find(
+        (unit) => unit.unitId === (line.unitId || product.unitId)
+      )
+      const base = product?.units.find(
+        (unit) => unit.unitId === product.unitId && unit.conversionFactor === 1
+      )
+      const fallback = {
+        unitId: '',
+        unitName: '',
+        unitCode: '',
+        quantityPrecision: 6,
+        conversionFactor: 1,
+      }
+      if (
+        getPutawayBaseQuantity(
+          line.quantity,
+          selected ? { ...selected, unitCode: '' } : fallback,
+          base ? { ...base, unitCode: '' } : fallback
+        ) === null
+      ) {
+        form.setError(`lines.${index}.quantity`, {
+          message:
+            'Số lượng quy đổi phải lưu chính xác với tối đa 2 chữ số thập phân. Không tự làm tròn.',
+        })
+        return
+      }
+    }
     const request = {
       stockRecipientId: values.stockRecipientId,
       warehouseId: values.warehouseId,

@@ -18,7 +18,10 @@ vi.mock('@/lib/camera-scan', async (importOriginal) => ({
   startCameraScan,
   isCameraScanSupported,
 }))
-vi.mock('../../utils/scan-feedback', () => ({ playScanFeedback: vi.fn() }))
+vi.mock('../../utils/scan-feedback', () => ({
+  playScanFeedback: vi.fn(),
+  prepareScanFeedback: vi.fn(),
+}))
 // Exercise the real dialog without Next.js's asynchronous chunk loader in jsdom.
 vi.mock('next/dynamic', async () => {
   const { CameraScanDialog } = await import('./CameraScanDialog')

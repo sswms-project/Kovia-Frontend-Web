@@ -95,6 +95,7 @@ export type ProductListItem = Omit<
 }
 
 export interface ProductListQuery {
+  managedWarehousesOnly?: boolean
   pageNumber?: number
   pageSize?: number
   searchTerm?: string

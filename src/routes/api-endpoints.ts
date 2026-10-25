@@ -3,6 +3,7 @@ export const API_ENDPOINTS = {
   dashboard: {
     stockThresholdAlerts: '/dashboard/stock-alerts/thresholds',
     stockExpiryAlerts: '/dashboard/stock-alerts/expiry',
+    stockExpiryDistribution: '/dashboard/stock-alerts/expiry-distribution',
     overview: '/dashboard/overview',
     activity: '/dashboard/activity',
     warehouses: '/dashboard/warehouses',
@@ -193,6 +194,7 @@ export const API_ENDPOINTS = {
     history: '/inventory/history',
   },
   cycleCounts: {
+    nextCode: '/cycle-counts/next-code',
     list: '/cycle-counts',
     create: '/cycle-counts',
     detail: (cycleCountId: string) => `/cycle-counts/${cycleCountId}`,

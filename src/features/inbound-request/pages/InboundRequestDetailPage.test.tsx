@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import InboundRequestDetailPage from './InboundRequestDetailPage'
+import { toast } from 'sonner'
 
 const fixture = vi.hoisted(() => ({
   detail: {
@@ -9,13 +10,16 @@ const fixture = vi.hoisted(() => ({
     warehouseId: 'warehouse-a',
     warehouseName: 'Kho A',
     inboundRequestCode: 'NK-A',
+    version: 'AQ==',
     receivingAssignedTo: null as string | null,
   },
   actions: ['AssignReceivingTask'],
   target: null as { id: string } | null,
   open: vi.fn(),
   submit: vi.fn(),
+  reconcile: vi.fn(),
 }))
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }))
 vi.mock('../hooks/use-inbound-requests', () => ({
   useInboundRequestQuery: () => ({ data: fixture.detail }),
   useInboundRequestAllowedActionsQuery: () => ({ data: { allowedActions: fixture.actions } }),
@@ -29,6 +33,7 @@ vi.mock('../hooks/use-inbound-requests', () => ({
       'useSubmitInboundRequestMutation',
     ].map((name) => [name, () => ({ isPending: false })])
   ),
+  useReconcileInboundRequestMutation: () => ({ isPending: false, mutateAsync: fixture.reconcile }),
 }))
 vi.mock('@/features/inbound/hooks/use-assign-warehouse-task', () => ({
   useAssignWarehouseTask: () => ({
@@ -38,8 +43,19 @@ vi.mock('@/features/inbound/hooks/use-assign-warehouse-task', () => ({
   }),
 }))
 vi.mock('../components/InboundRequestDetailPage', () => ({
-  InboundRequestDetail: ({ onAssignReceiving }: { onAssignReceiving: () => void }) => (
-    <button onClick={onAssignReceiving}>Open assignment</button>
+  InboundRequestDetail: ({
+    onAssignReceiving,
+    onReconcile,
+  }: {
+    onAssignReceiving: () => void
+    onReconcile: (action: 'CloseRemaining', reason: string) => Promise<boolean>
+  }) => (
+    <>
+      <button onClick={onAssignReceiving}>Open assignment</button>
+      <button onClick={() => void onReconcile('CloseRemaining', 'Không nhận bù')}>
+        Close remaining
+      </button>
+    </>
   ),
 }))
 vi.mock('@/features/inbound/components/TaskAssignment', () => ({
@@ -60,6 +76,25 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 describe('inbound detail assignment wiring', () => {
+  it('shows the actual API refusal instead of masking the reason when closing', async () => {
+    fixture.reconcile.mockRejectedValueOnce({
+      statusCode: 409,
+      message: 'Còn phiếu nhận hàng đang xử lý.',
+    })
+    render(<InboundRequestDetailPage inboundRequestId="request-a" />)
+    await userEvent.click(screen.getByText('Close remaining'))
+    expect(fixture.reconcile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inboundRequestId: 'request-a',
+        action: 'closeRemaining',
+        expectedVersion: 'AQ==',
+        reason: 'Không nhận bù',
+      })
+    )
+    expect(toast.error).toHaveBeenCalledWith('Còn phiếu nhận hàng đang xử lý.')
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
   it('opens the existing assignment form scoped to the exact request and warehouse', async () => {
     render(<InboundRequestDetailPage inboundRequestId="request-a" />)
     await userEvent.click(screen.getByText('Open assignment'))
