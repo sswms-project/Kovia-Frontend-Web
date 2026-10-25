@@ -256,12 +256,18 @@ export const API_ENDPOINTS = {
       `/inbound-requests/${inboundRequestId}/approve-and-send`,
     sendToSupplier: (inboundRequestId: string) =>
       `/inbound-requests/${inboundRequestId}/send-to-supplier`,
+    acceptSupplierProposedDate: (inboundRequestId: string) =>
+      `/inbound-requests/${inboundRequestId}/accept-supplier-proposed-date`,
     reject: (inboundRequestId: string) => `/inbound-requests/${inboundRequestId}/reject`,
     cancel: (inboundRequestId: string) => `/inbound-requests/${inboundRequestId}/cancel`,
     closeRemaining: (inboundRequestId: string) =>
       `/inbound-requests/${inboundRequestId}/close-remaining`,
     allowedActions: (inboundRequestId: string) =>
       `/inbound-requests/${inboundRequestId}/allowed-actions`,
+  },
+  supplierResponses: {
+    preview: (token: string) => `/public/supplier-responses/${encodeURIComponent(token)}`,
+    respond: (token: string) => `/public/supplier-responses/${encodeURIComponent(token)}/respond`,
   },
   goodsReceipts: {
     createWithVersion: '/goods-receipts/with-version',

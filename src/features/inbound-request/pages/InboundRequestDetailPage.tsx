@@ -10,6 +10,7 @@ import { InboundRequestDetail } from '../components/InboundRequestDetailPage'
 import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
 import { useAssignWarehouseTask } from '@/features/inbound/hooks/use-assign-warehouse-task'
 import {
+  useAcceptSupplierProposedDateMutation,
   useApproveAndSendInboundRequestMutation,
   useApproveInboundRequestMutation,
   useInboundRequestAllowedActionsQuery,
@@ -51,6 +52,7 @@ export default function InboundRequestDetailPage({
   const approveMutation = useApproveInboundRequestMutation()
   const approveAndSendMutation = useApproveAndSendInboundRequestMutation()
   const sendToSupplierMutation = useSendInboundRequestToSupplierMutation()
+  const acceptProposedDateMutation = useAcceptSupplierProposedDateMutation()
   const rejectMutation = useRejectInboundRequestMutation()
   const reconcileMutation = useReconcileInboundRequestMutation()
 
@@ -83,6 +85,14 @@ export default function InboundRequestDetailPage({
           : await sendToSupplierMutation.mutateAsync(inboundRequestId)
         notifyDispatch(response.data, approvedNow)
         return approvedNow || response.data.sent
+      }
+      if (action === INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate) {
+        await acceptProposedDateMutation.mutateAsync({
+          inboundRequestId,
+          expectedVersion: expectedVersion ?? '',
+        })
+        toast.success('Đã chấp nhận ngày giao và báo cho nhà cung cấp.')
+        return true
       }
       if (action === INBOUND_REQUEST_ACTION.Submit)
         await submitMutation.mutateAsync(inboundRequestId)
@@ -156,6 +166,7 @@ export default function InboundRequestDetailPage({
           approveMutation.isPending ||
           approveAndSendMutation.isPending ||
           sendToSupplierMutation.isPending ||
+          acceptProposedDateMutation.isPending ||
           rejectMutation.isPending ||
           reconcileMutation.isPending
         }
@@ -167,6 +178,9 @@ export default function InboundRequestDetailPage({
           runAction(INBOUND_REQUEST_ACTION.ApproveAndSend, undefined, acknowledged)
         }
         onSendToSupplier={() => runAction(INBOUND_REQUEST_ACTION.SendToSupplier)}
+        onAcceptSupplierProposedDate={() =>
+          runAction(INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate)
+        }
         onReject={(reason, acknowledged) =>
           runAction(INBOUND_REQUEST_ACTION.Reject, reason, acknowledged)
         }

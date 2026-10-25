@@ -26,6 +26,7 @@ export const APP_ROUTES = {
   invitations: {
     accept: '/invitations/accept',
   },
+  supplierResponse: '/supplier-response',
   dashboardByRole: {
     tenant: '/dashboard/tenant',
     manager: '/dashboard/manager',

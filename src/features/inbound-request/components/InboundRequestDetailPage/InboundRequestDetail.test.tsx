@@ -51,6 +51,7 @@ function renderDetail(
     onApprove: vi.fn().mockResolvedValue(true),
     onApproveAndSend: vi.fn().mockResolvedValue(true),
     onSendToSupplier: vi.fn().mockResolvedValue(true),
+    onAcceptSupplierProposedDate: vi.fn().mockResolvedValue(true),
     onReject: vi.fn().mockResolvedValue(true),
     onReconcile: vi.fn().mockResolvedValue(true),
     onAssignReceiving: vi.fn(),
@@ -225,5 +226,43 @@ describe('InboundRequestDetail supplier email actions', () => {
 
     expect(screen.getByRole('button', { name: /Gửi lại mail/ })).toBeEnabled()
     expect(screen.queryByRole('button', { name: /Gửi mail nhà cung cấp/ })).not.toBeInTheDocument()
+  })
+
+  it('shows the supplier proposal and accepts the proposed date after confirmation', async () => {
+    const handlers = renderDetail(
+      request({
+        status: 'Approved',
+        supplierEmailSentAt: '2026-09-30T01:00:00Z',
+        supplierEmailSentTo: 'ncc@example.com',
+        supplierResponse: 'ProposedNewDate',
+        supplierRespondedAt: '2026-10-01T01:00:00Z',
+        supplierProposedDate: '2026-10-10T00:00:00Z',
+        supplierResponseNote: 'Kẹt xe tải',
+      }),
+      ['AcceptSupplierProposedDate']
+    )
+
+    expect(screen.getByText(/Nhà cung cấp đề xuất giao ngày/)).toBeInTheDocument()
+    expect(screen.getByText('Kẹt xe tải')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Chấp nhận ngày đề xuất' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận' }))
+
+    expect(handlers.onAcceptSupplierProposedDate).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the supplier rejection reason', () => {
+    renderDetail(
+      request({
+        status: 'Approved',
+        supplierEmailSentAt: '2026-09-30T01:00:00Z',
+        supplierResponse: 'Rejected',
+        supplierResponseNote: 'Hết hàng',
+      }),
+      []
+    )
+
+    expect(screen.getByText('Nhà cung cấp từ chối đơn')).toBeInTheDocument()
+    expect(screen.getByText('Hết hàng')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Chấp nhận ngày đề xuất' })).not.toBeInTheDocument()
   })
 })
