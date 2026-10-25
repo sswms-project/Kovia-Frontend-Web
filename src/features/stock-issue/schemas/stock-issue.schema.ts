@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { isOperationalDateTimeInput } from '@/lib/operational-date-time'
 import { GOODS_RETURN_REQUEST_ITEM_CONDITIONS } from '../types/stock-issue.types'
 
 export const stockIssueRequestLineSchema = z.object({
@@ -19,7 +20,9 @@ export const createStockIssueRequestSchema = z
     warehouseId: dotNetGuidSchema('Vui lòng chọn kho xuất hàng.'),
     purpose: z.string().trim().max(500, 'Diễn giải không được vượt quá 500 ký tự.'),
     referenceCode: z.string().trim().max(100, 'Tham chiếu không được vượt quá 100 ký tự.'),
-    issueDate: z.string(),
+    issueDate: z.string().refine((value) => !value || isOperationalDateTimeInput(value), {
+      message: 'Ngày và giờ xuất không hợp lệ.',
+    }),
     note: z.string().trim().max(1000, 'Ghi chú không được vượt quá 1000 ký tự.'),
     lines: z
       .array(stockIssueRequestLineSchema)

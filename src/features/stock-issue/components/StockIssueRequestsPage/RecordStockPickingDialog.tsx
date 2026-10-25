@@ -102,7 +102,7 @@ export function RecordStockPickingDialog({
           <DialogTitle>Lấy hàng xuất kho · {order?.stockIssueRequestCode}</DialogTitle>
           <DialogDescription>
             {order?.warehouseName} → {order?.recipientName}. Quét vị trí nguồn → mã hàng → số lượng.
-            Đưa hàng tới điểm chờ xuất; không cần quét đích.
+            Đưa hàng tới điểm chờ xuất.
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(20rem,1fr)] lg:overflow-hidden">

@@ -118,6 +118,7 @@ export interface StockIssueRequestSummary {
   purpose: string | null
   referenceCode: string | null
   issueDate: string | null
+  issueTime?: string | null
   note: string | null
   recipientName: string
   recipientPhone: string
@@ -217,6 +218,7 @@ export interface CreateStockIssueRequestRequest {
   purpose?: string | null
   referenceCode?: string | null
   issueDate?: string | null
+  issueTime?: string | null
   note?: string | null
 }
 
