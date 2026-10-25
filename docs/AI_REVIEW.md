@@ -1,5 +1,15 @@
 # AI Review Handoff
 
+## 2026-10-25 — Fix mixed-item automatic putaway planning
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- Medium from the preceding working-branch review is RESOLVED. isDirty still means unsaved content (including the request destination prefill), so Save and unsaved-change protection keep working. A synchronous ref separately tracks the need to preserve user edits/reloaded drafts. Automatic rules may now seed untouched unplanned items despite unsaved request prefills, while saved plans and request destinations retain precedence. Explicit edits/apply/reset-plan choices stop automatic replacement immediately; reopening resets that guard. Reload keeps the draft protected for review; a saved rebase releases it.
+- Seed updates use the existing suggestion/budget builder and mark unsaved state without pretending they were user edits. No new effect, API, UI primitive, permission, schema or backend change. Actual putaway lower bounds, base units, version/conflict/unknown-result handling and explicit-save semantics remain intact. GitNexus impact LOW:one direct TransferPutAwayPage consumer/one flow.
+- Real React hook regressions reproduce the mixed-item failure before the fix (2 failures/10 passes) and pass afterward (12/12). Added cases cover mixed request/saved/blank/already-putaway items, a readonly viewer, synchronous user-edit protection, close/reopen and post-reload review protection. Opening, seeding and editing never call the mocked save API. Full transfer regression535 passed,0 failed/skipped; scoped ESLint/Prettier and whitespace checks passed. Production build verification is recorded below after completion.
+- No deployed data/API, service startup, migration or protected configuration changes. Prior work and historical review evidence preserved.
+- Final verification:isolated production Webpack build passed, including TypeScript and74 static pages (outputs/transfer-plan-seeding-fix-build-20261025.log). Self-review checked the single direct page consumer and the shared editor's save/reload/explicit-suggestion lifecycle; no remaining regression identified in this fix. Prepared for the user's requested commit; no push or deployment.
+
 ## 2026-10-25 — Working branch review after commit
 
 State: APPROVED_FINAL (no Blocker/High identified; Medium finding below remains open). Role: implementer self-review, not independent review.
