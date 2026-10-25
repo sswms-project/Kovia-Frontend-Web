@@ -1,5 +1,38 @@
 # AI Review Handoff
 
+## 2026-10-25 — Newest/oldest creation-date sort for all inbound tabs
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- Each of the four inbound list pages now defaults to OrderType.Descending and exposes the same OperationalDateSort native select: "Mới nhất trước" / "Cũ nhất trước", with an accessible creation-date label. Reuse the existing shared API enum and NativeSelect primitive. Date-time/status/search filters remain applied while sort changes reset page1; request-page checkbox selection is cleared on sort changes.
+- Pass sortDirection through typed queries to the existing services/query keys and export filters; no sorting of the current page in JavaScript. The paired BE change sorts CreatedAt/Id before pagination, replacing receipt/request-code ordering. Query types add only an optional property. GitNexus marked those shared type files CRITICAL because of33/42 file consumers; this was disclosed before editing and direct query/service/export usages were checked. List/page component impact was LOW.
+- Validation:272 inbound/inbound-request tests passed; final24 focused tests passed, including a real native-selector interaction and receiving-page query wiring from page2 to page1 while preserving the selected Vietnam date-time bounds. Existing selection/bulk-action tests remain applicable. Changed-source ESLint, whitespace and final isolated production Webpack build including TypeScript/74 static pages passed. Authenticated deploy/physical-phone visual acceptance remains manual.
+- No service startup, business API traffic, deployed DB access/write, migration, seed, commit or push. Preserve preceding date-time filter, cancel-border and detail-spacing edits. Backend must be released with the new optional sort parameter for oldest-first to work; a frontend-only rollout cannot change the old server ordering.
+
+## 2026-10-25 — Shared inbound date-time range filtering
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- All four inbound list tabs now compose OperationalDateRangeFilter with opt-in time controls instead of separate copied calendar popovers. Selecting a date defaults its time to the current Vietnam minute; entered times remain editable. Today reads the current Vietnam date/time at click time. Applied whole-day values and explicit midnight are preserved when reopening; clearing hours restores whole-day filtering.
+- Date-time edits stay local until Apply, reversed same-day ranges are blocked, Escape/outside dismissal discards unapplied edits and clear removes both bounds. Shared Calendar/Input/Field/Button/Popover remain in use; popup height/width are constrained to available mobile space and controls remain touch accessible. Date-only callers (including outbound) retain immediate selection and their existing date formatting.
+- Start/end conversion now accepts optional THH:mm, uses +07:00 and includes the selected end minute. Date-only API strings are unchanged for inbound and transfer callers. GitNexus flagged these shared conversion helpers CRITICAL (five direct page consumers including TransferPage), disclosed before edits; the four affected list components each have LOW direct impact. Backend query contracts already use DateTimeOffset; no BE/model/migration changes were required.
+- Broader inbound/inbound-request/transfer/stock-issue suite915 passed,0 failed/skipped. After final time-handling refinements, all12 focused picker/boundary tests passed. Six date-time UI cases also passed under Pacific/Kiritimati and America/Los_Angeles (the unchanged date-only case was intentionally excluded from those timezone runs). Scoped ESLint, whitespace and final isolated production Webpack build including TypeScript/74 static pages passed. Physical-phone and authenticated deployed-page acceptance remain manual.
+- No service startup, business API request, deployed DB access/write, migration, seed, commit or push. Existing detail cancel-border/bottom-spacing edits and local AGENTS.md/CLAUDE.md/output files preserved.
+
+## 2026-10-25 — Inbound request detail bottom spacing
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- Add12px bottom padding to the detail content wrapper so the final processing-history card has breathing room at the scroll end. The shared workspace scroll/layout and history content remain unchanged; spacing applies to mobile and desktop.
+- GitNexus impact LOW: two direct callers and one detail-page flow. Scoped ESLint and whitespace checks passed. CSS-only change; no new behavior tests, service startup, API/DB traffic, commit or push. The preceding local cancel-button border change is retained.
+
+## 2026-10-25 — Inbound request cancel button border
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- The detail header's existing "Hủy yêu cầu" destructive button now has an explicit semantic destructive border instead of the shared button's transparent border. Shared Button variants, action permissions, confirmation and cancellation behavior are unchanged.
+- GitNexus impact LOW: two direct callers (detail page and test helper), one page flow. Scoped ESLint and whitespace checks passed. Visual-only one-class change; no new behavior tests, application startup, API/DB traffic, commit or push.
+
 ## 2026-10-25 — Expected arrival date terminology
 
 State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.

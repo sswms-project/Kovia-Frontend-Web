@@ -78,6 +78,8 @@ function directoryProps(): ComponentProps<typeof InboundRequestDirectory> {
     status: '',
     createdFrom: '',
     createdTo: '',
+    sortDirection: 1,
+    onSortDirectionChange: vi.fn(),
     statusCounts: [],
     isLoading: false,
     isStatsError: false,
