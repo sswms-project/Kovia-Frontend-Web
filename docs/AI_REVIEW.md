@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## 2026-10-25 — Expected arrival date terminology
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- The inbound request form now labels ExpectedDate "Ngày nhận hàng dự kiến" to distinguish expected arrival from a receiving/putaway task deadline. Shared date field, validation, serialized value and submission behavior are unchanged.
+- Existing form component tests2 passed and scoped ESLint passed. The preceding layout fixes retain their238-test and production-build evidence below. The Backend PR independently fixes the reported Manager submit500 by awaiting warehouse access before reading request lines on the same scoped DbContext.
+- No migration, service startup, business API request or deployed DB write. Local AGENTS.md/CLAUDE.md and outputs remain excluded. Delivery includes the previously committed2D layout feature and its separately committed R2 fixes.
+
 ## 2026-10-25 — 2D layout findings fixed (R2)
 
 State: READY_FOR_FINAL_REVIEW. Role: user-assigned implementer with self-verification; not independent review. All three findings from the R1 review of a65ce6c are FIXED by this round; R1 is retained as historical evidence.
