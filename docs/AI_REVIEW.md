@@ -1,5 +1,14 @@
 # AI Review Handoff
 
+## 2026-10-25 — Pre-PR integration and final check of mixed-item fix
+
+State: APPROVED_FINAL for dev integration based on implementer self-review/local verification; not independent review or production deployment approval.
+
+- Integrate origin/dev66700a1 into the existing screen/huytv branch. Merge-tree603392414dbd0319e0fceb453e35833cb54778df exactly matches the pre-integration source tree; this sync adds ancestry and no application source changes. Protected AGENTS.md/CLAUDE.md and untracked outputs are excluded.
+- Final targeted review confirms the preceding Medium finding is RESOLVED:unsaved destination prefills no longer block rules for other untouched items, while manual changes, saved plans, actual putaway and reload-for-review drafts remain protected.12 real-hook tests pass, including mixed-item permission/reopen/reload cases; no live write is triggered by seeding. Prior conflict/double-click tests remain green.
+- Applicable exact-source verification:535 transfer plus697 warehouse/cycle-count/inbound/stock-issue/shared UI tests passed (1,232 total,0 failures/skips); scoped lint/format and production Webpack/TypeScript build with74 static pages passed. No source changes since those runs; only this integration note was added. Physical camera/audio and authenticated deployed sessions were not tested.
+- Eligible to open a feature-to-dev PR with BE inbound sorting, outbound optional time and transfer-plan changes. BE includes AddStockIssueTime; migration application/deployment coordination remains separate. No API/DB/startup/deployment action or force push; user will merge.
+
 ## 2026-10-25 — Fix mixed-item automatic putaway planning
 
 State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
