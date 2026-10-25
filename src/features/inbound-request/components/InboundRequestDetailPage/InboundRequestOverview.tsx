@@ -1,5 +1,8 @@
 import { Progress } from '@/components/ui/progress'
-import type { InboundRequestDetail } from '../../types/inbound-request.types'
+import type {
+  InboundRequestDetail,
+  SupplierResponseDecision,
+} from '../../types/inbound-request.types'
 import {
   formatOperationalDate,
   formatOperationalDateTime,
@@ -64,6 +67,9 @@ export function InboundRequestOverview({ request }: { readonly request: InboundR
               value={`${request.supplierEmailSentTo ?? ''} · ${formatOperationalDateTime(request.supplierEmailSentAt)}${request.supplierEmailSentByName ? ` · ${request.supplierEmailSentByName}` : ''}`}
             />
           ) : null}
+          {request.supplierEmailSentAt ? (
+            <Metadata label="Phản hồi nhà cung cấp" value={getSupplierResponseSummary(request)} />
+          ) : null}
           {request.sourceReference ? (
             <Metadata label="Mã tham chiếu" value={request.sourceReference} />
           ) : null}
@@ -77,6 +83,7 @@ export function InboundRequestOverview({ request }: { readonly request: InboundR
             <Progress value={progress} />
           </div>
         </dl>
+        <SupplierResponseNotice request={request} />
         {request.rejectionReason ? (
           <div className="border-t px-4 py-3">
             <p className="text-destructive text-xs font-medium">Yêu cầu chỉnh sửa</p>
@@ -86,6 +93,52 @@ export function InboundRequestOverview({ request }: { readonly request: InboundR
       </section>
     </>
   )
+}
+
+const SUPPLIER_RESPONSE_LABELS: Record<SupplierResponseDecision, string> = {
+  Confirmed: 'Đã xác nhận',
+  Rejected: 'Đã từ chối',
+  ProposedNewDate: 'Đề xuất ngày giao khác',
+}
+
+function getSupplierResponseSummary(request: InboundRequestDetail) {
+  if (!request.supplierResponse) return 'Chưa phản hồi'
+  const label =
+    request.supplierResponse === 'Confirmed' && request.supplierProposalAcceptedAt
+      ? 'Đã xác nhận theo ngày đề xuất'
+      : SUPPLIER_RESPONSE_LABELS[request.supplierResponse]
+  return request.supplierRespondedAt
+    ? `${label} · ${formatOperationalDateTime(request.supplierRespondedAt)}`
+    : label
+}
+
+function SupplierResponseNotice({ request }: { readonly request: InboundRequestDetail }) {
+  if (request.supplierResponse === 'Rejected')
+    return (
+      <div className="border-t px-4 py-3" role="note">
+        <p className="text-destructive text-xs font-medium">Nhà cung cấp từ chối đơn</p>
+        <p className="mt-1 text-xs">{request.supplierResponseNote}</p>
+      </div>
+    )
+  if (request.supplierResponse === 'ProposedNewDate')
+    return (
+      <div className="border-t px-4 py-3" role="note">
+        <p className="text-xs font-medium">
+          Nhà cung cấp đề xuất giao ngày {formatOperationalDate(request.supplierProposedDate)}
+        </p>
+        {request.supplierResponseNote ? (
+          <p className="text-muted-foreground mt-1 text-xs">{request.supplierResponseNote}</p>
+        ) : null}
+      </div>
+    )
+  if (request.supplierResponse === 'Confirmed' && request.supplierResponseNote)
+    return (
+      <div className="border-t px-4 py-3" role="note">
+        <p className="text-xs font-medium">Ghi chú của nhà cung cấp</p>
+        <p className="text-muted-foreground mt-1 text-xs">{request.supplierResponseNote}</p>
+      </div>
+    )
+  return null
 }
 
 function Metadata({ label, value }: { readonly label: string; readonly value: string }) {
