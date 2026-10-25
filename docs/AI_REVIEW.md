@@ -1,5 +1,16 @@
 # AI Review Handoff
 
+## 2026-10-25 — Restore inbound camera success/error sound
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- User confirmed Chrome and inbound receiving/putaway. Root cause is a component-path gap: operations/scanning/CameraScanControl forwarded validation results without calling prepareScanFeedback or playScanFeedback. The prior mobile-audio fix wired the separate transfer CameraScanPanel/ScanInput path. There is no desktop-only mute branch in the inspected inbound control.
+- Shared inbound control now prepares audio synchronously in the camera-open click before camera permission/decoding, then plays success/error only after its onCode boolean validation. Stopped, replaced, disabled and single-scan duplicate callbacks remain ignored. The existing device feedback preference is respected; turning it off does not change business validation or camera behavior.
+- Promote the existing audio/preference implementations unchanged into src/lib so shared UI does not depend on the transfer feature. Preserve old transfer import paths as explicit re-exports, storage key/defaults, single context/cache/listener ownership, sound patterns, resume/recreation handling and vibration fallback. Normalized source comparison confirmed both implementations unchanged. Existing transfer/mobile callers and their tests continue through the compatibility exports.
+- GitNexus useScanPreferences impact CRITICAL (five direct consumers/two flows), disclosed before implementation. Newer CameraScanControl/prepareScanFeedback were not indexed; direct caller/source tracing covered quick receive, shared putaway confirmation, putaway scan bar and damage-location input. Staged symbol analysis is limited by those unindexed/moved symbols; direct diff and tests supplement it.
+- Regression proof: four new sound tests failed on the original inbound control while its ten existing camera tests passed. After fixing the missing calls,36 focused camera/audio/preferences/input tests passed; the final wider943 tests across inbound, transfer, outbound, cycle count and shared scanning passed,0 failed/skipped. Tests also prove preference changes through the old transfer API affect the new shared inbound control and stale/duplicate callbacks do not beep. Scoped ESLint, whitespace and isolated production Webpack build including TypeScript/74 static pages passed.
+- Verification used simulated camera callbacks and mocked AudioContext; actual Chrome speaker output/physical mobile audio still requires user testing after rollout. No authenticated business API, camera capture, DB access/write, migration, seed or BE source change in this fix. Prior inbound list/filter/UI changes committed separately as BE0fd169b6/FE44282d7; no push/deployment performed.
+
 ## 2026-10-25 — Newest/oldest creation-date sort for all inbound tabs
 
 State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
