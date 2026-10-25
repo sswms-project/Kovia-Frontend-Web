@@ -1,5 +1,24 @@
 # AI Review Handoff
 
+## 2026-10-25 — 2D layout findings fixed (R2)
+
+State: READY_FOR_FINAL_REVIEW. Role: user-assigned implementer with self-verification; not independent review. All three findings from the R1 review of a65ce6c are FIXED by this round; R1 is retained as historical evidence.
+
+- High / FIXED — Existing queued entities now have an explicit “Đặt lên sơ đồ” action. The shared dialog supports position, drawing size and rotation by touch/keyboard; validates against the latest scene before applying; preserves the queued entity ID, parent and status. Failed placement keeps the input. Manual placement is one undoable history action, separate from explicit versioned save. Read-only/pending operations remain guarded; stale pending targets close instead of silently placing an obsolete entity. Only geometry fields are copied into the entity.
+- Medium / FIXED — Suggesting a queued parent with persisted child racks derives enclosing geometry from those children, preserving every child coordinate. If the enclosing region would conflict or exceed the canvas, leave the parent queued with actionable guidance; manual parent placement must contain its existing children. There is no fallback that relocates the parent away from its children.
+- Medium / FIXED — Persisted inactive geometry remains an obstacle. Suggestions, manual placement validation and displayed overlap warnings account for inactive racks/zones that remain on the diagram. The lifecycle status does not implicitly free a visible footprint.
+- Final validation:238 warehouse/transfer map-picker tests passed,0 failed. Covers the three prior reproductions as permanent regression tests, narrow-zone90degree placement, immutable identities, inactive geometry, blocked/stale/invalid placement, keyboard refusal/retry, compact/desktop workspace wiring, undo/redo and no automatic save. Changed-source ESLint, whitespace check and final isolated production Webpack build including TypeScript/74 static pages passed. Aggregate GitNexus scope MEDIUM/5 expected designer geometry/history flows; new placement helpers are not yet indexed and were traced directly.
+- No Backend source/model/API/migration change, service startup, deployed DB writes, seed, commit, push or deployment. Physical phone/authenticated visual acceptance remains manual; these are component/logic/build checks. Local AGENTS.md/CLAUDE.md and BE appsettings changes preserved.
+
+## 2026-10-25 — 2D layout review R1 of a65ce6c
+
+State: NEEDS_CLAUDE_FIX. Role: same implementer performing the user's requested self-review; not independent review. Production source unchanged during review.
+
+- High / OPEN — WarehouseCanvas.tsx:510 plus WarehouseDesignerWorkspace.tsx:416: queued objects are hidden, rotation of pending objects is blocked, and the queue/tree only selects entities (palette drag data only creates new ones). If the first-fit suggestion cannot place an existing entity, there is no manual placement/resize/rotation path. Reproduction: a100x400 zone has room for the120x40 rack rotated90degrees, but the suggestion keeps it queued; the UI cannot place that existing rack. Provide explicit manual placement for queued IDs, including phone/keyboard interaction, while retaining queued state until placement.
+- Medium / OPEN — layout-placement.ts:178: when a queued zone already has persisted child-rack geometry, those same children are treated as obstacles for placing their own parent. Reproduced with a child at80,100: suggestion places the zone away from the child, then keeps the child unchanged and reports it outside its zone; the resulting parent geometry can be saved. Fit/reconstruct the parent around its existing children or leave it queued with an actionable reason; do not choose a separate free area for that parent.
+- Medium / OPEN — layout-placement.ts:198: suggestions ignore inactive persisted racks/zones, while the canvas still renders them. Reproduced an active queued rack placed at exactly the same coordinates/size as a visible inactive rack; collision warnings also omit the inactive rack. Obstacle eligibility must follow visible footprint semantics, or inactive geometry needs a consistent explicit visibility/removal policy.
+- Verification: all228 existing warehouse/transfer-map tests still passed;3 additional reproductions assert and confirm the defective cases (231 total assertions/tests passed does not mean these cases are correct). Reproduction source preserved in outputs/layout-2d-review-20261025/placement-review.repro.ts; temporarily use a.test.ts suffix in that folder to rerun with Vitest. JSON report at ../outputs/layout-2d-review-regression-20261025.json. No business API, deployed DB, startup, migration, seed, source fix, commit or push.
+
 ## 2026-10-25 — 2D layout queued placement and location recognition
 
 State: READY_FOR_CODEX_REVIEW. Role: assigned implementer with self-verification; not independent review.

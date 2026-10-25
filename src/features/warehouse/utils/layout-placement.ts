@@ -88,14 +88,22 @@ function intersects(first: WarehouseLayoutGeometry, second: WarehouseLayoutGeome
 }
 
 export function getLayoutPlacementIssues(scene: WarehouseLayoutEditorScene) {
-  const zones = scene.zones.filter((zone) => zone.status === 'Active' && !zone.placementPending)
+  const zones = scene.zones.filter((zone) => !zone.placementPending)
   const racks = scene.racks.filter(
     (rack) =>
-      rack.status === 'Active' &&
       !rack.placementPending &&
-      zones.some((zone) => zone.id === rack.zoneId)
+      !scene.zones.find((zone) => zone.id === rack.zoneId)?.placementPending
   )
   const issues: { selection: WarehouseLayoutSelection; message: string }[] = []
+  for (const zone of scene.zones.filter(
+    (item) => item.placementPending && item.status === 'Active'
+  )) {
+    if (scene.racks.some((rack) => rack.zoneId === zone.id && !rack.placementPending))
+      issues.push({
+        selection: { kind: 'zone', id: zone.id },
+        message: 'Khu vực chưa bố trí có kệ đã đặt. Hãy đặt khu bao quanh các kệ hiện có.',
+      })
+  }
   for (const zone of zones) {
     const other = zones.find((item) => item.id !== zone.id && intersects(zone, item))
     if (other)
@@ -105,20 +113,111 @@ export function getLayoutPlacementIssues(scene: WarehouseLayoutEditorScene) {
       })
   }
   for (const rack of racks) {
-    const zone = zones.find((item) => item.id === rack.zoneId)!
+    const zone = zones.find((item) => item.id === rack.zoneId)
     const other = racks.find((item) => item.id !== rack.id && intersects(rack, item))
-    if (other || !contains(zone, rack))
+    if (other || !zone || !contains(zone, rack))
       issues.push({
         selection: { kind: 'rack', id: rack.id },
         message: [
           other ? `Chồng kệ ${other.rackCode} (khu ${other.zoneCode})` : '',
-          !contains(zone, rack) ? 'Vượt ranh giới khu vực' : '',
+          !zone ? 'Chưa xác định khu vực' : !contains(zone, rack) ? 'Vượt ranh giới khu vực' : '',
         ]
           .filter(Boolean)
           .join(' · '),
       })
   }
   return issues
+}
+
+export function getUnplacedLayoutObject(
+  scene: WarehouseLayoutEditorScene,
+  selection: WarehouseLayoutSelection
+) {
+  const object =
+    selection.kind === 'zone'
+      ? scene.zones.find((zone) => zone.id === selection.id)
+      : selection.kind === 'rack'
+        ? scene.racks.find((rack) => rack.id === selection.id)
+        : undefined
+  return object?.placementPending && object.status === 'Active' ? object : null
+}
+
+export function getLayoutPlacementError(
+  scene: WarehouseLayoutEditorScene,
+  selection: WarehouseLayoutSelection,
+  geometry: WarehouseLayoutGeometry
+): string | null {
+  const object = getUnplacedLayoutObject(scene, selection)
+  if (!object) return 'Vị trí không còn chờ bố trí hoặc đã ngừng hoạt động. Hãy chọn lại.'
+  if (
+    ![
+      geometry.x,
+      geometry.y,
+      geometry.width,
+      geometry.height,
+      geometry.rotation,
+      geometry.zIndex,
+    ].every(Number.isFinite) ||
+    geometry.x < 0 ||
+    geometry.y < 0 ||
+    geometry.width < MIN_LAYOUT_OBJECT_SIZE ||
+    geometry.height < MIN_LAYOUT_OBJECT_SIZE ||
+    geometry.rotation < 0 ||
+    geometry.rotation >= 360 ||
+    !Number.isInteger(geometry.zIndex) ||
+    Math.abs(geometry.zIndex) > 1000
+  )
+    return 'Vị trí, kích thước hoặc góc xoay không hợp lệ.'
+  if (!contains({ x: 0, y: 0, ...scene.canvas, rotation: 0, zIndex: 0 }, geometry))
+    return 'Đối tượng phải nằm trong mặt bằng kho.'
+  const zones = scene.zones.filter((zone) => !zone.placementPending && zone.id !== object.id)
+  const racks = scene.racks.filter((rack) => !rack.placementPending && rack.id !== object.id)
+  if (selection.kind === 'rack' && 'zoneId' in object) {
+    const zone = scene.zones.find((zone) => zone.id === object.zoneId)
+    if (!zone || zone.status !== 'Active' || zone.placementPending)
+      return 'Hãy bố trí khu vực của kệ trước.'
+    if (!contains(zone, geometry))
+      return 'Kệ phải nằm trong khu vực của nó. Hãy điều chỉnh vị trí, kích thước hoặc góc xoay.'
+    if (zones.some((item) => item.id !== zone.id && intersects(item, geometry)))
+      return 'Kệ đang chồng lên khu vực khác.'
+    if (racks.some((item) => intersects(item, geometry)))
+      return 'Kệ đang chồng lên một kệ hiện có, kể cả kệ ngừng hoạt động.'
+    if (
+      scene.decorations.some((item) => item.type !== 'DirectionArrow' && intersects(item, geometry))
+    )
+      return 'Kệ đang chồng lên lối đi hoặc khu chức năng.'
+  } else if (selection.kind === 'zone') {
+    if (zones.some((item) => intersects(item, geometry)))
+      return 'Khu vực đang chồng lên một khu vực hiện có.'
+    if (racks.some((item) => item.zoneId !== object.id && intersects(item, geometry)))
+      return 'Khu vực đang chồng lên kệ của khu vực khác.'
+    if (racks.some((item) => item.zoneId === object.id && !contains(geometry, item)))
+      return 'Khu vực phải bao quanh tất cả kệ đã bố trí của nó; các kệ hiện có sẽ được giữ nguyên.'
+  }
+  return null
+}
+
+export function placeUnplacedLayoutObject(
+  scene: WarehouseLayoutEditorScene,
+  selection: WarehouseLayoutSelection,
+  geometry: WarehouseLayoutGeometry
+): WarehouseLayoutEditorScene {
+  if (getLayoutPlacementError(scene, selection, geometry)) return scene
+  const { x, y, width, height, rotation, zIndex } = geometry
+  const placement = { x, y, width, height, rotation, zIndex }
+  if (selection.kind === 'zone')
+    return {
+      ...scene,
+      zones: scene.zones.map((zone) =>
+        zone.id === selection.id ? { ...zone, ...placement, placementPending: false } : zone
+      ),
+    }
+  return {
+    ...scene,
+    racks: scene.racks.map((rack) =>
+      rack.id === selection.id ? { ...rack, ...placement, placementPending: false } : rack
+    ),
+  }
 }
 
 function findSpace(
@@ -169,13 +268,36 @@ export function suggestUnplacedLayout(
   for (const [index, zone] of zones.entries()) {
     if (!zone.placementPending || zone.status !== 'Active') continue
     const margin = Math.max(10, scene.canvas.gridSize)
+    const children = racks.filter((rack) => rack.zoneId === zone.id && !rack.placementPending)
+    if (children.length) {
+      const bounds = children.map(getLayoutGeometryBounds)
+      const x = Math.max(0, Math.min(...bounds.map((item) => item.minX)) - margin)
+      const y = Math.max(0, Math.min(...bounds.map((item) => item.minY)) - Math.max(40, margin))
+      const geometry = {
+        x,
+        y,
+        width: Math.max(...bounds.map((item) => item.maxX)) + margin - x,
+        height: Math.max(...bounds.map((item) => item.maxY)) + margin - y,
+        rotation: 0,
+        zIndex: zone.zIndex,
+      }
+      if (
+        !getLayoutPlacementError(
+          { ...scene, zones, racks },
+          { kind: 'zone', id: zone.id },
+          geometry
+        )
+      )
+        zones[index] = { ...zone, ...geometry, placementPending: false }
+      continue
+    }
     const geometry = findSpace(
       canvas,
       Math.min(zone.width, scene.canvas.width - margin * 2),
       Math.min(zone.height, scene.canvas.height - margin * 2),
       [
-        ...zones.filter((item) => item.status === 'Active' && !item.placementPending),
-        ...racks.filter((item) => item.status === 'Active' && !item.placementPending),
+        ...zones.filter((item) => !item.placementPending),
+        ...racks.filter((item) => !item.placementPending),
         ...decorations,
       ],
       scene.canvas.gridSize,
@@ -195,10 +317,8 @@ export function suggestUnplacedLayout(
       size.width,
       size.height,
       [
-        ...racks.filter((item) => item.status === 'Active' && !item.placementPending),
-        ...zones.filter(
-          (item) => item.id !== zone.id && item.status === 'Active' && !item.placementPending
-        ),
+        ...racks.filter((item) => !item.placementPending),
+        ...zones.filter((item) => item.id !== zone.id && !item.placementPending),
         ...decorations,
       ],
       scene.canvas.gridSize,
