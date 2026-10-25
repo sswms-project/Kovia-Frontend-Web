@@ -1,5 +1,31 @@
 # AI Review Handoff
 
+## 2026-10-25 — Transfer destination and putaway plan continuity
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- Shipment goods ignored the request destination when no saved putAwayPlan existed. Saved plans remain authoritative; older request destinations now appear explicitly as unsaved suggestions with canonical zone/rack/slot paths. An outline button on receive rows opens the existing workspace. Visibility/edit permissions remain unchanged.
+- The existing editor prefills unsaved legacy destinations, preserves actual putaway at every location and assigns only quantity minus stopped minus actual putaway. Base units and the existing fractional precision normalizer are retained. Unsaved prefills enable Save; opening never writes. Automatic suggestions cannot replace the destination; explicit edits/suggestions use the existing versioned API. Workspace description no longer calls every draft a saved plan. No new editor or permission bypass.
+- GitNexus affected FE symbols LOW. Traced schema minimums, source-only masking, empty-plan behavior, unknown-result locks and suggestion effects. Prior receipt-validation/header-border work preserved.
+- Transfer regression plus focused checks cover prefill, saved-plan precedence, locked history, fractional budgets, suggestion preservation, direct save or edit then save, permission denial, conflict recovery and row navigation. Scoped lint/format/whitespace pass; isolated production Webpack build including TypeScript/74 pages passes (before the final description-only copy change). No authenticated browser/deployed business API/DB test, startup, migration, commit or push.
+
+## 2026-10-25 — Refresh transfer receipt quantity errors after corrections
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- User screenshot shows a numeric input and matched total alongside a stale numeric validation message. Current branch already parses controlled text input into numbers and handles blank-to-zero on edited-field blur. An actual-hook integration check confirms that initial number error clears when entering1 and leaving the input; the screenshot's exact deployed cause was not established from source alone.
+- Reproduced an adjacent concrete defect in current code: after requestConfirm triggers the total-mismatch error on goodQuantity, correcting missingQuantity makes the status read matched but leaves the goodQuantity error visible. The new two integration tests produced one pass/one failure on the original component; all13 focused cases pass after the fix.
+- Keep the existing controlled numeric change and, only when entry errors exist, trigger validation for the entries group so the schema's related good/damaged/missing totals and required discrepancy reason remain in sync. No clearErrors shortcut, schema coercion/loosening, defaulting of an untouched count, added effect/subscription, permission change, API call or server update. Initial incomplete rows still block submission; the confirmation step remains required.
+- GitNexus TransferReceiptCountCards LOW (one direct TransferReceiveTaskPage caller/one flow); count hook inspected with LOW impact and left unchanged. New tests use the real count hook/cards/schema, mocked write mutation, and prove no business mutation occurs merely from correcting fields or opening confirmation. Existing decimal-comma, blur/reset, per-lot naming, disabled/read-only and quantity tests remain applicable.
+- Focused13 cases and broad transfer regression526 passed,0 failed/skipped; scoped ESLint/Prettier/whitespace checks and isolated production Webpack build including TypeScript/74 static pages passed. Artifacts:outputs/transfer-receipt-stale-errors-before-20261025.log, transfer-receipt-stale-errors-regression-20261025.json and transfer-receipt-stale-errors-build-20261025.log. No deployed-page/browser/physical-device reproduction, business API, DB operation, migration, commit or push. Prior shipment-header border edit and protected configuration preserved.
+
+## 2026-10-25 — Top border on transfer shipment goods headings
+
+State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.
+
+- Add border-t/border-foreground to the existing TableHeader in TransferShipmentsPanel, separating the shipment goods toggle from the column labels. Reuse the project ink token instead of hard-coded black. This shared shipment table keeps the same border across its existing picking/receiving/putaway modes; no global table/style change.
+- GitNexus impact LOW, no indexed direct callers. Existing five shipment-panel tests and scoped ESLint/whitespace checks passed. Style-only change; no new implementation-mirroring test or full rebuild. No live-page/browser acceptance, API, DB, migration, commit or push.
+
 ## 2026-10-25 — Reuse transfer document-information disclosure for inbound
 
 State: READY_FOR_CODEX_REVIEW. Role: user-assigned implementer with self-verification; not independent review.

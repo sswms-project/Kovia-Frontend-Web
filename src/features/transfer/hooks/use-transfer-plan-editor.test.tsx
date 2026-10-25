@@ -2,7 +2,7 @@ import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildTransfer } from '../utils/transfer-test-fixtures'
 import { buildTransferPlanDraft } from '../utils/transfer-putaway-plan'
-import { SLOT_A } from '../utils/transfer-plan-test-fixtures'
+import { SLOT_A, SLOT_B } from '../utils/transfer-plan-test-fixtures'
 import { useTransferPlanEditor } from './use-transfer-plan-editor'
 
 const mocks = vi.hoisted(() => ({ save: vi.fn(), success: vi.fn() }))
@@ -23,6 +23,73 @@ function setup(canManage = true) {
   return { hook, transfer, draft }
 }
 describe('useTransferPlanEditor', () => {
+  it.each([false, true])(
+    'keeps the request destination when automatic suggestions arrive and saves explicitly (edit=%s)',
+    async (edit) => {
+      const transfer = buildTransfer()
+      transfer.items[0]!.destinationSlotId = SLOT_A
+      transfer.items[0]!.destinationSlotPath = 'Khu A / Kệ A / A01'
+      const hook = renderHook(() => useTransferPlanEditor(transfer, new Map(), true))
+      act(() => hook.result.current.open())
+      expect(hook.result.current.isDirty).toBe(true)
+      act(() =>
+        hook.result.current.seedSuggestions({
+          items: [
+            {
+              itemId: transfer.items[0]!.id,
+              remaining: 10,
+              unallocatedQuantity: 0,
+              suggestions: [
+                {
+                  slotId: SLOT_B,
+                  slotCode: 'B01',
+                  rackCode: 'B',
+                  zoneName: 'B',
+                  path: 'Khu B / B01',
+                  suggestedQuantity: 10,
+                  available: 10,
+                  reason: 'Gợi ý',
+                  warnings: [],
+                },
+              ],
+            },
+          ],
+          isAiAssisted: false,
+          notice: null,
+          summary: null,
+          risks: [],
+        })
+      )
+      expect(hook.result.current.draft[0]!.lines[0]!.slotId).toBe(SLOT_A)
+      expect(mocks.save).not.toHaveBeenCalled()
+      if (edit)
+        act(() =>
+          hook.result.current.change([
+            {
+              itemId: transfer.items[0]!.id,
+              lines: [{ slotId: SLOT_B, path: 'Khu B / B01', plannedTotal: 10 }],
+            },
+          ])
+        )
+      mocks.save.mockResolvedValue(undefined)
+      await act(async () => {
+        await hook.result.current.submit()
+      })
+      expect(mocks.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          request: expect.objectContaining({
+            expectedVersion: transfer.version,
+            items: [
+              {
+                itemId: transfer.items[0]!.id,
+                lines: [{ slotId: edit ? SLOT_B : SLOT_A, plannedTotal: 10 }],
+              },
+            ],
+          }),
+        })
+      )
+    }
+  )
   it('cannot write without capability', async () => {
     const { hook } = setup(false)
     await act(async () => {

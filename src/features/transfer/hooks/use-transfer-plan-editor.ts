@@ -47,7 +47,16 @@ export function useTransferPlanEditor(
       version.current = transfer.version
       setDraft(buildTransferPlanDraft(transfer.items))
       setErrors({})
-      setIsDirty(false)
+      setIsDirty(
+        canManage &&
+          transfer.items.some(
+            (item) =>
+              !item.putAwayPlan?.length &&
+              item.destinationSlotId &&
+              item.destinationSlotPath &&
+              item.quantity > item.stoppedQuantity
+          )
+      )
       setErrorMessage(null)
       setReloadRequired(false)
       setIsOpen(true)
@@ -59,11 +68,12 @@ export function useTransferPlanEditor(
     seedSuggestions: (suggestions: TransferPutAwayPlanSuggestions) => {
       if (!transfer || !canManage || locked.current || !isOpen || isDirty || reloadRequired) return
       const generated = applyTransferPlanSuggestions(draft, transfer.items, suggestions)
-      const next = draft.map((entry) =>
-        (transfer.items.find((item) => item.id === entry.itemId)?.putAwayPlan?.length ?? 0) > 0
+      const next = draft.map((entry) => {
+        const item = transfer.items.find((item) => item.id === entry.itemId)
+        return item?.putAwayPlan?.length || (item?.destinationSlotId && item.destinationSlotPath)
           ? entry
           : (generated.find((item) => item.itemId === entry.itemId) ?? entry)
-      )
+      })
       if (JSON.stringify(next) !== JSON.stringify(draft)) change(next)
     },
     apply: (

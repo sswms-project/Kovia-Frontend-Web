@@ -108,6 +108,11 @@ export function TransferReceiptCountCards({ form, sheet, disabled }: Props) {
                             render={({ field: quantityField }) => (
                               <TransferReceiptQuantityInput
                                 {...quantityField}
+                                onChange={(value) => {
+                                  quantityField.onChange(value)
+                                  // Totals span good/damaged/missing fields; clear stale sibling errors too.
+                                  if (errors) void form.trigger('entries')
+                                }}
                                 id={id}
                                 className="h-11 min-w-0 text-base md:text-xs"
                                 type="text"

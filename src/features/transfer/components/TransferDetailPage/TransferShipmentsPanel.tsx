@@ -214,7 +214,7 @@ export function TransferShipmentsPanel({
                   className="min-w-0"
                 >
                   <Table className={mode === 'pick' ? 'min-w-[860px]' : 'min-w-[960px]'}>
-                    <TableHeader>
+                    <TableHeader className="border-foreground border-t">
                       <TableRow>
                         <TableHead>Mã hàng</TableHead>
                         <TableHead>Tên hàng</TableHead>
@@ -261,6 +261,17 @@ export function TransferShipmentsPanel({
                             {mode === 'receive' ? (
                               <TableCell className="max-w-72 break-words whitespace-normal">
                                 {planLabels[line.itemId] || 'Chưa có kế hoạch'}
+                                {onOpenPlan ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-2 block"
+                                    onClick={onOpenPlan}
+                                  >
+                                    Xem kế hoạch cất hàng
+                                  </Button>
+                                ) : null}
                               </TableCell>
                             ) : null}
                           </TableRow>
