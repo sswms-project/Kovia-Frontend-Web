@@ -1,5 +1,16 @@
 # AI Review Handoff
 
+## 2026-10-25 — 2D layout queued placement and location recognition
+
+State: READY_FOR_CODEX_REVIEW. Role: assigned implementer with self-verification; not independent review.
+
+- Root cause: externally created zones/racks receive fallback coordinates without collision handling; canvas rendered those pending coordinates as physical positions. Canvas now excludes placementPending items (and racks under a queued zone); existing searchable/paginated queue remains available, ordered by the full zone/rack path. Mobile viewer keeps location details open when choosing a queued item rather than panning to fabricated geometry. Rotating an unplaced object no longer silently marks its fallback coordinates as placed.
+- Default rack drawing footprint is now120x40 instead of160x60. Persisted geometry, physical dimensions, capacity, inventory and location identities are unchanged. Queue suggestions place active missing geometry only, avoid existing objects/aisles with grid spacing, stay within the parent zone, and leave overflow queued. One history action provides undo/redo; save remains explicit through the existing versioned save API. First-fit is bounded at4096 candidates per item; this is a placement convenience, not an optimal packing solver.
+- Viewer hover and selected details include zone code/name before rack code/name; selecting a rack/slot highlights its parent zone. Designer inspector and the shared rack details sheet also display parent context. Existing layout problems are reported as selectable warnings without moving existing objects; rotated rectangle collision/containment checks distinguish real collisions from bounding-box overlap.
+- GitNexus: preset LOW/4 direct callers/2 processes; viewer LOW/2 direct callers plus the transfer map picker. Shared RackFormSheet HIGH/2 direct pages/3 processes disclosed before edits; optional display-only prop with no form/save change. Aggregate detect_changes high is confined to designer/viewer, grid/history and the shared sheet paths; unrelated local instructions/output files retained.
+- Final verification:228 tests passed,0 failed, covering warehouse and transfer map picker; includes queue overflow,500 imported racks, aisle avoidance, rotated collisions, undo/redo, explicit-save behavior, mobile queued selection, tooltip/parent outline and full rack-sheet context. Changed-source ESLint, whitespace checks and isolated production Webpack build with TypeScript/74 static pages passed. New test harness initially needed JSDOM dimensions/scrollTo; corrected fixture without changing production behavior.
+- No BE source/model/migration change, application startup, deployed DB writes, migration/seed, commit, push or deployment. Authenticated browser/physical phone visual acceptance remains manual; these are component/logic/build checks. Existing local AGENTS.md/CLAUDE.md/API configuration changes excluded.
+
 ## 2026-10-24 — Cycle-count/catalog findings fixed (R2)
 
 State: READY_FOR_FINAL_REVIEW. Role: assigned implementer, self-verification; not independent review.

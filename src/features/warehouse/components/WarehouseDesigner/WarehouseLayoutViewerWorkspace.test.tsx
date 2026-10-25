@@ -94,6 +94,40 @@ const scene: WarehouseLayoutEditorScene = {
 }
 
 describe('viewer capacity summary', () => {
+  it('shows the full zone name before the shelf in location details', () => {
+    render(
+      <TooltipProvider>
+        <WarehouseLayoutViewerWorkspace
+          warehouseId="warehouse"
+          warehouseName="Kho"
+          canConfigure={false}
+          isClosing={false}
+          onClose={vi.fn()}
+          scene={{
+            ...scene,
+            zones: [
+              {
+                id: 'zone',
+                zoneCode: 'ZA',
+                zoneName: 'Hàng tiêu dùng',
+                status: 'Active',
+                x: 0,
+                y: 0,
+                width: 500,
+                height: 300,
+                rotation: 0,
+                zIndex: 0,
+              },
+            ],
+          }}
+        />
+      </TooltipProvider>
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Chọn kệ canvas' }))
+    expect(screen.getByLabelText('Đường dẫn vị trí')).toHaveTextContent(
+      'Khu ZA · Hàng tiêu dùng → Kệ R01 · Kệ 1'
+    )
+  })
   it.each([
     ['Chọn kệ canvas', 'rackId', 'rack'],
     ['Chọn khu canvas', 'zoneId', 'zone'],

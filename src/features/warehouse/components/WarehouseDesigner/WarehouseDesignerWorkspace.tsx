@@ -54,6 +54,7 @@ import { DesignerFooter, DesignerToolbar } from './DesignerToolbar'
 import { DesignerToolbox } from './DesignerToolbox'
 import type { WarehouseCanvasHandle } from './WarehouseCanvas'
 import { DesignerRackTools } from './DesignerRackTools'
+import { WarehouseLayoutPlacementNotice } from './WarehouseLayoutPlacementNotice'
 import {
   arrangeLayoutRacks,
   canResizeLayoutCanvas,
@@ -412,6 +413,10 @@ export function WarehouseDesignerWorkspace({
           ? scene.racks.find((rack) => rack.id === selection.id)
           : scene.decorations.find((decoration) => decoration.clientKey === selection.id)
     if (!object) return
+    if ('placementPending' in object && object.placementPending) {
+      toast.info('Hãy đặt vị trí trên sơ đồ trước khi xoay.')
+      return
+    }
     updateGeometry(selection.kind, selection.id, {
       ...object,
       rotation: (object.rotation + 90) % 360,
@@ -802,6 +807,20 @@ export function WarehouseDesignerWorkspace({
         onClose={closeDesigner}
       />
 
+      <WarehouseLayoutPlacementNotice
+        scene={scene}
+        canSuggest={!mutationBlocked}
+        onSelect={handleSelectionChange}
+        onSuggest={
+          canConfigure
+            ? () => {
+                if (!canMutate()) return
+                dispatch({ type: 'suggest-placement' })
+                toast.info('Chỉ đặt khu/kệ còn chỗ trống. Kiểm tra rồi Lưu; có thể Hoàn tác gợi ý.')
+              }
+            : undefined
+        }
+      />
       {!canConfigure ? (
         <Alert className="border-x-0 border-t-0">
           <Info aria-hidden="true" />

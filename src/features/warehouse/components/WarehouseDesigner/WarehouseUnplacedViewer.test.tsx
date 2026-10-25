@@ -237,7 +237,7 @@ const scene: WarehouseLayoutEditorScene = {
   ],
 }
 it.each([false, true])(
-  'reveals selection after closing unplaced panels (compact=%s), not on ordinary clicks',
+  'shows queued location details without panning to a fabricated position (compact=%s)',
   async (compact) => {
     mocks.compact = compact
     const user = userEvent.setup()
@@ -257,11 +257,10 @@ it.each([false, true])(
     expect(mocks.reveal).not.toHaveBeenCalled()
     if (compact) await user.click(screen.getByRole('button', { name: 'Vị trí & hàng hóa' }))
     await user.click(screen.getByRole('button', { name: 'Chưa sắp xếp (1)' }))
-    await user.click(screen.getByRole('button', { name: 'Chọn Z / R' }))
-    await waitFor(() =>
-      expect(mocks.reveal).toHaveBeenCalledExactlyOnceWith({ kind: 'rack', id: 'rack' })
-    )
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Chọn Khu Z · Khu → Kệ R · Kệ' }))
+    expect(mocks.reveal).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Đường dẫn vị trí')).toHaveTextContent('Khu Z · Khu → Kệ R · Kệ')
+    if (!compact) expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   }
 )
 
@@ -306,7 +305,7 @@ it.each([false, true])(
     expect(mocks.reveal).not.toHaveBeenCalled()
     if (compact) await user.click(screen.getByRole('button', { name: 'Đối tượng' }))
     await user.click(screen.getByRole('button', { name: 'Chưa sắp xếp (1)' }))
-    screen.getByRole('button', { name: 'Chọn Z / R' }).focus()
+    screen.getByRole('button', { name: 'Chọn Khu Z · Khu → Kệ R · Kệ' }).focus()
     await user.keyboard('{Enter}')
     if (compact) {
       const drawer = document.querySelector('[data-slot="drawer-content"]')!
@@ -331,9 +330,12 @@ it.each([false, true])(
     expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Xoay hình' }))
-    await user.click(screen.getByRole('button', { name: 'Đổ màu' }))
-    await user.click(screen.getAllByRole('button', { name: /^Chọn màu #/ })[0]!)
-    expect(mocks.info).toHaveBeenCalledTimes(1)
+    expect(mocks.info).toHaveBeenLastCalledWith('Hãy đặt vị trí trên sơ đồ trước khi xoay.')
+    expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Sắp xếp gợi ý' }))
+    expect(onSave).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Lưu' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Hoàn tác' }))
+    expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
   }
 )

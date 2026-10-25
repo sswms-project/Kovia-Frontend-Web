@@ -9,7 +9,7 @@ export const MAX_LAYOUT_EXTENT = 100_000
 export const LAYOUT_DECORATION_MARGIN = 120
 
 export function getRackPresetSize() {
-  return { width: 160, height: 60 }
+  return { width: 120, height: 40 }
 }
 
 export interface LayoutBounds {

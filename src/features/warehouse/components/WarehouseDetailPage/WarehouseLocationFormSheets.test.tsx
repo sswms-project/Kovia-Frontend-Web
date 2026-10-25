@@ -322,6 +322,7 @@ describe('location capacity fields', () => {
     const onSubmit = vi.fn().mockResolvedValue(true)
     render(
       <RackFormSheet
+        locationPath="Khu K01 · Hàng khô → Kệ R · Rack"
         open
         mode="update"
         isPending={false}
@@ -330,6 +331,9 @@ describe('location capacity fields', () => {
         onOpenChange={vi.fn()}
         onSubmit={onSubmit}
       />
+    )
+    expect(screen.getByLabelText('Vị trí của kệ')).toHaveTextContent(
+      'Khu K01 · Hàng khô → Kệ R · Rack'
     )
     const mode = screen.getByRole('radio', { name: /Quản lý theo vị trí lưu trữ/ })
     fireEvent.click(mode)

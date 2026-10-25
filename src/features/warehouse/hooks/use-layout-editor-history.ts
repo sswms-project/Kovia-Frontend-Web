@@ -10,6 +10,7 @@ import type {
   WarehouseLayoutRackShape,
 } from '../types/warehouse-layout-scene.types'
 import { normalizeLayoutGeometry } from '../utils/layout-grid'
+import { suggestUnplacedLayout } from '../utils/layout-placement'
 import {
   applyRackPositions,
   canResizeLayoutCanvas,
@@ -25,6 +26,7 @@ export interface LayoutEditorHistoryState {
 }
 
 export type LayoutEditorHistoryAction =
+  | { type: 'suggest-placement' }
   | { type: 'move-racks'; positions: readonly RackPosition[] }
   | {
       type: 'update-geometry'
@@ -192,6 +194,8 @@ export function layoutEditorHistoryReducer(
   state: LayoutEditorHistoryState,
   action: LayoutEditorHistoryAction
 ): LayoutEditorHistoryState {
+  if (action.type === 'suggest-placement')
+    return commitScene(state, suggestUnplacedLayout(state.present))
   if (action.type === 'move-racks')
     return commitScene(state, applyRackPositions(state.present, action.positions))
   if (action.type === 'reset') return createLayoutEditorHistory(action.scene)
