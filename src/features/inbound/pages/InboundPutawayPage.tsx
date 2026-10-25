@@ -1,5 +1,7 @@
 'use client'
 
+import { OrderType } from '@/types/api'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
@@ -39,6 +41,7 @@ export default function InboundPutawayPage() {
   const [searchText, setSearchText] = useState('')
   const [createdFrom, setCreatedFrom] = useState('')
   const [createdTo, setCreatedTo] = useState('')
+  const [sortDirection, setSortDirection] = useState(OrderType.Descending)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [assignmentFilter, setAssignmentFilter] = useState<PutawayAssignmentFilter>('all')
@@ -50,6 +53,7 @@ export default function InboundPutawayPage() {
   const canViewReport = meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_PLAN_PUTAWAY) ?? false
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const exportFilters = {
+    sortDirection,
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
@@ -126,6 +130,11 @@ export default function InboundPutawayPage() {
         searchText={searchText}
         createdFrom={createdFrom}
         createdTo={createdTo}
+        sortDirection={sortDirection}
+        onSortDirectionChange={(value) => {
+          setSortDirection(value)
+          setPage(1)
+        }}
         isLoading={query.isFetching}
         isFetching={query.isFetching}
         isError={query.isError}

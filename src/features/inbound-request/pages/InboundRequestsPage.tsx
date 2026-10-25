@@ -1,5 +1,7 @@
 'use client'
 
+import { OrderType } from '@/types/api'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
@@ -63,6 +65,7 @@ export default function InboundRequestsPage() {
   const [status, setStatus] = useState<InboundRequestStatus | ''>('')
   const [createdFrom, setCreatedFrom] = useState('')
   const [createdTo, setCreatedTo] = useState('')
+  const [sortDirection, setSortDirection] = useState(OrderType.Descending)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [previewId, setPreviewId] = useState('')
@@ -82,6 +85,7 @@ export default function InboundRequestsPage() {
   const isWorkflowPending = isSubmitting || isApproving
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const exportFilters = {
+    sortDirection,
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
@@ -213,6 +217,12 @@ export default function InboundRequestsPage() {
             status={status}
             createdFrom={createdFrom}
             createdTo={createdTo}
+            sortDirection={sortDirection}
+            onSortDirectionChange={(value) => {
+              setSortDirection(value)
+              setPage(1)
+              setSelectedIds([])
+            }}
             statusCounts={query.data?.statusCounts ?? []}
             isLoading={query.isLoading}
             isStatsError={query.isError}

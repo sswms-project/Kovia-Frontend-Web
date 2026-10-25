@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { useTransferCountForm } from '../../hooks/use-transfer-count-form'
 import { Button } from '@/components/ui/button'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
@@ -15,6 +16,30 @@ import {
   RECEIPT_LOT,
 } from '../../utils/transfer-receipt-test-fixtures'
 import { TransferReceiptCountCards } from './TransferReceiptCountCards'
+
+const submit = vi.hoisted(() => vi.fn())
+vi.mock('../../hooks/use-transfer-receipt', () => ({
+  useSubmitTransferReceiptMutation: () => ({ mutateAsync: submit, isPending: false }),
+}))
+const workflowSheet = receiptFixture()
+const singleUnitSheet = {
+  ...workflowSheet,
+  lines: workflowSheet.lines.map((line) => ({
+    ...line,
+    lots: line.lots.map((lot) => ({ ...lot, dispatchedQuantity: 1 })),
+  })),
+}
+function WorkflowHarness({ singleUnit = false }: { singleUnit?: boolean }) {
+  const sheet = singleUnit ? singleUnitSheet : workflowSheet
+  const count = useTransferCountForm(sheet, true)
+  return (
+    <>
+      <TransferReceiptCountCards form={count.form} sheet={sheet} disabled={count.blocked} />
+      <Button onClick={() => void count.requestConfirm()}>Nộp phiếu nhập</Button>
+      {count.confirmOpen ? <p>Đang xác nhận nộp phiếu</p> : null}
+    </>
+  )
+}
 
 function Harness({
   disabled = false,
@@ -69,6 +94,47 @@ function Harness({
 }
 
 describe('Kiểm hàng responsive', () => {
+  it('clears the initial number error after correcting the actual receipt workflow without another submit', async () => {
+    render(<WorkflowHarness singleUnit />)
+    const user = userEvent.setup()
+    const input = await screen.findByRole('textbox', { name: /^SL thực nhận/ })
+    await user.click(screen.getByRole('button', { name: 'Nộp phiếu nhập' }))
+    expect(await screen.findByText('Số lượng phải là số.')).toBeInTheDocument()
+    await user.type(input, '1')
+    await user.tab()
+    await waitFor(() => expect(screen.queryByText('Số lượng phải là số.')).not.toBeInTheDocument())
+    expect(input).toHaveAttribute('aria-invalid', 'false')
+    expect(screen.getByRole('status')).toHaveTextContent('Khớp')
+    expect(submit).not.toHaveBeenCalled()
+  })
+
+  it('rechecks the total and discrepancy reason when the other quantity fields are corrected', async () => {
+    render(<WorkflowHarness />)
+    const user = userEvent.setup()
+    const good = await screen.findByRole('textbox', { name: /^SL thực nhận/ })
+    await user.type(good, '8')
+    await user.click(screen.getByRole('button', { name: 'Nộp phiếu nhập' }))
+    expect(await screen.findByText(/Tổng tốt, hỏng và thiếu/)).toBeInTheDocument()
+    const missing = screen.getByRole('textbox', { name: /^Thiếu/ })
+    await user.clear(missing)
+    await user.type(missing, '2')
+    await waitFor(() =>
+      expect(screen.queryByText(/Tổng tốt, hỏng và thiếu/)).not.toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: 'Nộp phiếu nhập' }))
+    expect(
+      await screen.findByText('Hàng hỏng hoặc thiếu phải kèm nguyên nhân.')
+    ).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText('Nguyên nhân hỏng/thiếu'), 'Lost')
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Hàng hỏng hoặc thiếu phải kèm nguyên nhân.')
+      ).not.toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: 'Nộp phiếu nhập' }))
+    expect(await screen.findByText('Đang xác nhận nộp phiếu')).toBeInTheDocument()
+    expect(submit).not.toHaveBeenCalled()
+  })
   it.each([false, true])('shows an uncounted quantity as blank, disabled=%s', (disabled) => {
     render(<Harness uncounted disabled={disabled} />)
     const input = screen.getByRole('textbox', { name: /^SL thực nhận/ })

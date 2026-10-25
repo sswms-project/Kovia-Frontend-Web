@@ -13,6 +13,10 @@ import { Button } from '@/components/ui/button'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import {
+  toOperationalDateTimeStart,
+  toOperationalDateTimeEnd,
+} from '@/features/inbound-request/utils/inbound-request-format'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
   StockIssueRequestDirectory,
@@ -52,8 +56,8 @@ export default function StockIssueRequestPage() {
     ...(warehouseId ? { warehouseId } : {}),
     ...(debouncedSearchText.trim() ? { searchTerm: debouncedSearchText.trim() } : {}),
     ...(stockRecipientId ? { stockRecipientId } : {}),
-    ...(dateFrom ? { dateFrom } : {}),
-    ...(dateTo ? { dateTo } : {}),
+    ...(dateFrom ? { dateFrom: toOperationalDateTimeStart(dateFrom) } : {}),
+    ...(dateTo ? { dateTo: toOperationalDateTimeEnd(dateTo) } : {}),
     ...(assignedToMe ? { assignedToMe } : {}),
   }
   const ordersQuery = useStockIssueRequestsQuery(exportFilters)

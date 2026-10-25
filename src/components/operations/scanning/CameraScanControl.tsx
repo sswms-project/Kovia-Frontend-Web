@@ -5,6 +5,8 @@ import { useEffect, useId, useRef, useSyncExternalStore } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { isCameraScanSupported } from '@/lib/camera-scan'
+import { playScanFeedback, prepareScanFeedback } from '@/lib/scan-feedback'
+import { useScanPreferences } from '@/lib/scan-preferences'
 import { useCameraScanStore } from '@/stores/camera-scan.store'
 import { InlineCameraScanner } from './InlineCameraScanner'
 
@@ -32,6 +34,7 @@ export function CameraScanControl({
   onCode,
 }: CameraScanControlProps) {
   const id = useId()
+  const [preferences] = useScanPreferences()
   const open = useCameraScanStore((state) => state.activeId === id)
   const stopped = useRef(false)
   const availability = useSyncExternalStore(
@@ -77,7 +80,10 @@ export function CameraScanControl({
           stopped.current = false
           const session = useCameraScanStore.getState()
           if (open) session.close(id)
-          else session.open(id)
+          else {
+            if (preferences.feedback) prepareScanFeedback()
+            session.open(id)
+          }
         }}
       >
         {open ? (
@@ -101,6 +107,7 @@ export function CameraScanControl({
                 )
                   return
                 const accepted = onCode(code)
+                if (preferences.feedback) playScanFeedback(accepted ? 'success' : 'error')
                 if (accepted && mode === 'single') {
                   stopped.current = true
                   useCameraScanStore.getState().close(id)
