@@ -29,6 +29,7 @@ import { InboundRequestRowActions } from './InboundRequestRowActions'
 interface InboundRequestTableProps {
   readonly currentUserId?: string | null
   readonly onOpen?: (item: InboundRequestSummary) => void
+  readonly previewId?: string
   readonly items: readonly InboundRequestSummary[]
   readonly canDelete: boolean
   readonly canDeleteApproved?: boolean
@@ -105,6 +106,7 @@ export function InboundRequestTableSkeleton() {
 }
 
 export function InboundRequestTable({
+  previewId,
   currentUserId,
   onOpen,
   items,
@@ -167,7 +169,10 @@ export function InboundRequestTable({
           {items.map((item) => (
             <TableRow
               key={item.id}
-              {...goodsPreviewInteractions(onOpen ? () => onOpen(item) : undefined, false)}
+              {...goodsPreviewInteractions(
+                onOpen ? () => onOpen(item) : undefined,
+                previewId === item.id
+              )}
             >
               <TableCell data-row-ignore data-preview-ignore className="w-12 p-0 text-center">
                 <Checkbox

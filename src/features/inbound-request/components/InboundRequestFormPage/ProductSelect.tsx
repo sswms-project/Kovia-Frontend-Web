@@ -33,7 +33,7 @@ export function ProductSelect({
         value={form.watch(`lines.${index}.productId`)}
         options={options}
         selectedOption={selectedOption}
-        placeholder="Chọn hoặc tìm sản phẩm"
+        placeholder="Tìm mã hoặc tên sản phẩm"
         emptyMessage="Không tìm thấy sản phẩm phù hợp."
         ariaLabel={`Sản phẩm dòng ${index + 1}`}
         isLoading={isLoading}

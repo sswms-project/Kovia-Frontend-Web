@@ -1,5 +1,7 @@
 'use client'
 
+import { productStockOption } from '@/lib/product-stock-option'
+
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -296,11 +298,18 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
   }, [availabilityQuery.data, detail?.items])
   const productOptions = useMemo<LookupOption[]>(
     () =>
-      (productsQuery.data ?? []).map((product) => ({
-        value: product.productId,
-        label: `${product.sku} - ${product.productName} (tồn ${formatQuantity(product.availableQuantity)} ${product.baseUnitName})`,
-      })),
-    [productsQuery.data]
+      (productsQuery.isError ? [] : (productsQuery.data ?? [])).map((product) =>
+        productStockOption(
+          {
+            id: product.productId,
+            sku: product.sku,
+            productName: product.productName,
+            unitName: product.baseUnitName,
+          },
+          product.availableQuantity
+        )
+      ),
+    [productsQuery.data, productsQuery.isError]
   )
 
   const destinationOptions = useMemo(

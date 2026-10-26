@@ -55,6 +55,10 @@ export function toOperationalDateInputValue(value: string | null | undefined): s
   return year && month && day ? `${year}-${month}-${day}` : ''
 }
 
+export function isPastInboundExpectedDate(value: string, now = new Date()): boolean {
+  return Boolean(value) && value.slice(0, 10) < toOperationalDateInputValue(now.toISOString())
+}
+
 export function toOperationalDateApiValue(value: string): string | null {
   return value ? `${value}T00:00:00.000Z` : null
 }
