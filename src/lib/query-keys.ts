@@ -215,6 +215,7 @@ export const queryKeys = {
     list: (params: InboundRequestListQuery) => ['inbound-requests', 'list', params] as const,
     detail: (id: string) => ['inbound-requests', 'detail', id] as const,
     allowedActions: (id: string) => ['inbound-requests', 'detail', id, 'allowed-actions'] as const,
+    supplierResponse: (token: string) => ['supplier-responses', token] as const,
     products: (params: LookupQuery) => ['products', 'inbound-request-options', params] as const,
   },
   goodsReceipts: {

@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReceiveGoodsDialog, ReceivingTaskDirectory } from '../components/ReceivingPage'
 import InboundReceivingPage from './InboundReceivingPage'
 import { APP_ROUTES } from '@/routes/app-routes'
+import { OrderType } from '@/types/api'
+import { OperationalDateSort } from '@/components/operations/OperationalDateSort'
+import type { ReceivingTaskQuery } from '../types/inbound.types'
 
 vi.mock('@/features/list-export/hooks/use-list-export', () => ({
   useListExport: () => ({ canExport: false, buttonProps: { isPending: false, onExport: vi.fn() } }),
@@ -21,6 +24,7 @@ const fixtures = vi.hoisted(() => {
     create: vi.fn(),
     refreshCreated: vi.fn(),
     nextCodeEnabled: vi.fn(),
+    receivingQuery: vi.fn(),
     toastError: vi.fn(),
     receivingLocations: vi.fn(),
     getReceipt: vi.fn(),
@@ -99,7 +103,10 @@ vi.mock('@/components/operations/UnsavedChangesDialog', () => ({
   UnsavedChangesDialog: () => null,
 }))
 vi.mock('../hooks/use-inbound', () => ({
-  useReceivingTasksQuery: () => ({ data: { items: [fixtures.task], totalCount: 1 } }),
+  useReceivingTasksQuery: (params: ReceivingTaskQuery) => {
+    fixtures.receivingQuery(params)
+    return { data: { items: [fixtures.task], totalCount: 1 } }
+  },
   useGoodsReceiptQuery: () => ({}),
   useCreateGoodsReceiptMutation: () => ({
     mutateAsync: fixtures.create,
@@ -132,7 +139,19 @@ vi.mock('../components/ReceivingPage', () => ({
   InboundDocumentImportDialog: () => null,
   ReceivingTaskStatsCards: () => null,
   ReceivingTaskDirectory: (props: ComponentProps<typeof ReceivingTaskDirectory>) => (
-    <button onClick={() => props.onReceive(fixtures.task)}>Nhập thủ công</button>
+    <>
+      <button onClick={() => props.onReceive(fixtures.task)}>Nhập thủ công</button>
+      <button onClick={() => props.onPageChange(2)}>Trang tiếp</button>
+      <button
+        onClick={() => {
+          props.onCreatedFromChange('2026-10-25T09:00')
+          props.onCreatedToChange('2026-10-25T17:00')
+        }}
+      >
+        Áp dụng giờ lọc
+      </button>
+      <OperationalDateSort value={props.sortDirection} onChange={props.onSortDirectionChange} />
+    </>
   ),
   ReceiveGoodsDialog: (props: ComponentProps<typeof ReceiveGoodsDialog>) => {
     dialog = props
@@ -205,6 +224,33 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('manual receipt code suggestion and persistence', () => {
+  it('defaults to newest and resets pagination on sort changes while preserving the date-time filter', async () => {
+    const user = userEvent.setup()
+    renderReceivingPage()
+    expect(fixtures.receivingQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        pageNumber: 1,
+        sortDirection: OrderType.Descending,
+      })
+    )
+    await user.click(screen.getByRole('button', { name: 'Áp dụng giờ lọc' }))
+    await user.click(screen.getByRole('button', { name: 'Trang tiếp' }))
+    expect(fixtures.receivingQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageNumber: 2 })
+    )
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Sắp xếp theo ngày tạo' }),
+      'Cũ nhất trước'
+    )
+    expect(fixtures.receivingQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        pageNumber: 1,
+        sortDirection: OrderType.Ascending,
+        createdFrom: '2026-10-25T09:00:00+07:00',
+        createdTo: '2026-10-25T17:00:59.999+07:00',
+      })
+    )
+  })
   it('fetches only while open, fills the suggestion and sends normalized code', async () => {
     const user = userEvent.setup()
     const page = renderReceivingPage()

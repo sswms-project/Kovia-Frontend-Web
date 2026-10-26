@@ -23,12 +23,11 @@ import {
   formatOperationalDateTime,
   formatQuantity,
 } from '../../utils/inbound-request-format'
-import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
+import { InboundRequestStatusBadge, SupplierResponseHint } from './InboundRequestStatusBadge'
 import { InboundRequestRowActions } from './InboundRequestRowActions'
 
 interface InboundRequestTableProps {
-  readonly previewId?: string
-  readonly onPreview?: (item: InboundRequestSummary) => void
+  readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canDelete: boolean
   readonly canDeleteApproved?: boolean
@@ -58,14 +57,12 @@ export function InboundRequestTableSkeleton() {
       <Table className="min-w-[960px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card w-12 p-0 text-center">
+            <TableHead className="w-12 p-0 text-center">
               <Skeleton className="size-4" />
             </TableHead>
             {['Mã yêu cầu', 'Nguồn hàng · Kho nhận', 'Trạng thái', 'Tiến độ', 'Thời gian', ''].map(
               (heading) => (
-                <TableHead key={heading} className="bg-card">
-                  {heading}
-                </TableHead>
+                <TableHead key={heading}>{heading}</TableHead>
               )
             )}
           </TableRow>
@@ -107,8 +104,7 @@ export function InboundRequestTableSkeleton() {
 }
 
 export function InboundRequestTable({
-  previewId,
-  onPreview,
+  onOpen,
   items,
   canDelete,
   canDeleteApproved = false,
@@ -136,7 +132,7 @@ export function InboundRequestTable({
       <Table className="min-w-[960px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card w-12 p-0 text-center">
+            <TableHead className="w-12 p-0 text-center">
               <Checkbox
                 className="mx-auto"
                 aria-label="Chọn tất cả yêu cầu nhập kho trên trang"
@@ -155,12 +151,12 @@ export function InboundRequestTable({
                 }
               />
             </TableHead>
-            <TableHead className="bg-card w-52">Mã yêu cầu</TableHead>
-            <TableHead className="bg-card">Nguồn hàng · Kho nhận</TableHead>
-            <TableHead className="bg-card w-36">Trạng thái</TableHead>
-            <TableHead className="bg-card w-44">Tiến độ nhận</TableHead>
-            <TableHead className="bg-card w-44">Thời gian</TableHead>
-            <TableHead className="bg-card w-16">
+            <TableHead className="w-52">Mã yêu cầu</TableHead>
+            <TableHead>Nguồn hàng · Kho nhận</TableHead>
+            <TableHead className="w-36">Trạng thái</TableHead>
+            <TableHead className="w-44">Tiến độ nhận</TableHead>
+            <TableHead className="w-44">Thời gian</TableHead>
+            <TableHead className="w-16">
               <span className="sr-only">Thao tác</span>
             </TableHead>
           </TableRow>
@@ -169,10 +165,7 @@ export function InboundRequestTable({
           {items.map((item) => (
             <TableRow
               key={item.id}
-              {...goodsPreviewInteractions(
-                onPreview ? () => onPreview(item) : undefined,
-                previewId === item.id
-              )}
+              {...goodsPreviewInteractions(onOpen ? () => onOpen(item) : undefined, false)}
             >
               <TableCell data-row-ignore data-preview-ignore className="w-12 p-0 text-center">
                 <Checkbox
@@ -215,7 +208,10 @@ export function InboundRequestTable({
                 />
               </TableCell>
               <TableCell>
-                <InboundRequestStatusBadge status={item.status} />
+                <div className="flex flex-col items-start gap-1">
+                  <InboundRequestStatusBadge status={item.status} />
+                  <SupplierResponseHint item={item} />
+                </div>
               </TableCell>
               <TableCell>
                 <OperationalQuantityProgress

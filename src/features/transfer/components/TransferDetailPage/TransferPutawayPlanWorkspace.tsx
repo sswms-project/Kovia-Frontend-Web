@@ -185,7 +185,7 @@ export function TransferPutawayPlanWorkspace({
         items={savedPlan}
         disabled={disabled}
         onApplyPlan={() => editor.change(buildTransferPlanDraft(transfer.items))}
-        description="Kế hoạch đã lưu của phiếu điều chuyển. Vị trí đã cất được khóa; bạn chỉ chỉnh phần còn lại. Lưu kế hoạch không ghi tăng tồn kho."
+        description="Kế hoạch cất hàng của phiếu điều chuyển. Vị trí đã cất được khóa; bạn chỉ chỉnh phần còn lại. Lưu kế hoạch không ghi tăng tồn kho."
       />
       {editor.errorMessage || suggestionError ? (
         <Alert role="alert">

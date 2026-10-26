@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PutawayForm } from '../components/PutawayDetailPage'
 import type { PutAwayHeldSlot, PutawayRequest } from '../types/inbound.types'
 import InboundPutawayDetailPage from './InboundPutawayDetailPage'
+import { P } from '@/config/permissionCodes'
+import { queryKeys } from '@/lib/query-keys'
+import { APP_ROUTES } from '@/routes/app-routes'
 
 const fixtures = vi.hoisted(() => {
   const itemId = '10000000-0000-4000-8000-000000000001'
@@ -16,9 +19,12 @@ const fixtures = vi.hoisted(() => {
     itemId,
     slotId,
     cartonId,
+    permissions: [] as string[],
     receipt: {
       id: 'receipt',
       receiptCode: 'PN-1',
+      inboundRequestId: 'request',
+      status: 'Approved' as 'Approved' | 'Completed',
       warehouseName: 'Kho 1',
       version: 'v1',
       warehouseId: 'warehouse',
@@ -52,14 +58,17 @@ const fixtures = vi.hoisted(() => {
     upload: vi.fn(),
     refetch: vi.fn(),
     push: vi.fn(),
+    replace: vi.fn(),
   }
 })
 let renderedForm: ComponentProps<typeof PutawayForm>
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: fixtures.push }) }))
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: fixtures.push, replace: fixtures.replace }),
+}))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn() } }))
 vi.mock('@/features/auth/hooks/use-auth', () => ({
-  useMeQuery: () => ({ data: { permissions: [] } }),
+  useMeQuery: () => ({ data: { permissions: fixtures.permissions } }),
 }))
 vi.mock('@/features/warehouse/hooks/use-warehouse', () => ({
   useWarehouseLayoutQuery: () => ({ data: [], refetch: vi.fn() }),
@@ -120,6 +129,9 @@ vi.mock('../components/PutawayDetailPage', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   fixtures.receipt.version = 'v1'
+  fixtures.receipt.status = 'Approved'
+  fixtures.receipt.putAwayTaskExecutionStatus = 'InProgress'
+  fixtures.permissions.length = 0
   fixtures.receipt.items[0]!.remainingPutAwayQuantity = 240
   fixtures.receipt.items[0]!.putAwayPlan = []
   fixtures.heldSlots.length = 0
@@ -138,11 +150,12 @@ function renderPutawayPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
-  return render(<InboundPutawayDetailPage receiptId="receipt" />, {
+  const view = render(<InboundPutawayDetailPage receiptId="receipt" />, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     ),
   })
+  return { ...view, client }
 }
 
 function scanSlot() {
@@ -225,6 +238,86 @@ describe('put-away plan duplicate protection', () => {
 })
 
 describe('put-away command retry safety', () => {
+  it('uses the refreshed server completion state to replace the putaway page with request detail', async () => {
+    fixtures.permissions.push(P.INBOUND_REQUESTS_VIEW)
+    const view = renderPutawayPage()
+    prepareAllocation()
+    fixtures.mutate.mockImplementationOnce(async () => {
+      fixtures.onCommitted?.('receipt')
+      view.client.setQueryData(queryKeys.goodsReceipts.detail('receipt'), {
+        ...fixtures.receipt,
+        status: 'Completed',
+        putAwayTaskExecutionStatus: 'Completed',
+        items: fixtures.receipt.items.map((item) => ({ ...item, remainingPutAwayQuantity: 0 })),
+      })
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() =>
+      expect(fixtures.replace).toHaveBeenCalledExactlyOnceWith(
+        APP_ROUTES.inboundRequestDetail('request')
+      )
+    )
+    expect(fixtures.push).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument()
+  })
+
+  it('redirects a reopened completed receipt without displaying an empty allocation form', async () => {
+    fixtures.permissions.push(P.INBOUND_REQUESTS_VIEW)
+    fixtures.receipt.status = 'Completed'
+    fixtures.receipt.putAwayTaskExecutionStatus = 'Completed'
+    fixtures.receipt.items[0]!.remainingPutAwayQuantity = 0
+    const view = renderPutawayPage()
+    await waitFor(() =>
+      expect(fixtures.replace).toHaveBeenCalledExactlyOnceWith(
+        APP_ROUTES.inboundRequestDetail('request')
+      )
+    )
+    expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument()
+    view.rerender(<InboundPutawayDetailPage receiptId="receipt" />)
+    expect(fixtures.replace).toHaveBeenCalledOnce()
+  })
+
+  it('routes a completed receipt to receipt detail when request view permission is absent', async () => {
+    fixtures.receipt.status = 'Completed'
+    fixtures.receipt.putAwayTaskExecutionStatus = 'Completed'
+    fixtures.receipt.items[0]!.remainingPutAwayQuantity = 0
+    renderPutawayPage()
+    await waitFor(() =>
+      expect(fixtures.replace).toHaveBeenCalledExactlyOnceWith(
+        APP_ROUTES.goodsReceiptDetail('receipt')
+      )
+    )
+    expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument()
+  })
+
+  it('retains putaway for goods kept temporarily at receiving and for unfinished damage work', () => {
+    fixtures.receipt.status = 'Completed'
+    const view = renderPutawayPage()
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument()
+    expect(fixtures.replace).not.toHaveBeenCalled()
+    fixtures.receipt.status = 'Approved'
+    fixtures.receipt.items[0]!.remainingPutAwayQuantity = 0
+    view.rerender(<InboundPutawayDetailPage receiptId="receipt" />)
+    expect(fixtures.replace).not.toHaveBeenCalled()
+  })
+
+  it('does not redirect an uncertain write merely because a refetch reports completion', async () => {
+    fixtures.permissions.push(P.INBOUND_REQUESTS_VIEW)
+    fixtures.mutate.mockRejectedValueOnce({ statusCode: 500, message: 'Response lost' })
+    fixtures.refetch.mockImplementation(async () => {
+      fixtures.receipt.status = 'Completed'
+      fixtures.receipt.putAwayTaskExecutionStatus = 'Completed'
+      fixtures.receipt.items[0]!.remainingPutAwayQuantity = 0
+    })
+    const view = renderPutawayPage()
+    prepareAllocation()
+    await userEvent.click(screen.getByRole('button', { name: 'Submit' }))
+    await waitFor(() => expect(renderedForm.hasUncertainSubmission).toBe(true))
+    view.rerender(<InboundPutawayDetailPage receiptId="receipt" />)
+    expect(fixtures.replace).not.toHaveBeenCalled()
+    expect(fixtures.push).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument()
+  })
   it('replaces the form with committed feedback while refreshed quantities are zero and navigation is pending', async () => {
     const user = userEvent.setup()
     let finishRefresh!: () => void

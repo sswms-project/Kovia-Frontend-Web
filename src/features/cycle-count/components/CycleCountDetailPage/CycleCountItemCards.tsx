@@ -71,7 +71,7 @@ export function CycleCountItemCards({
         const { item } = row
         const location = formatStockLocation(item)
         return (
-          <li key={item.id} className="flex flex-col gap-3 p-3">
+          <li key={item.id} className="flex min-w-0 flex-col gap-4 p-3">
             <div className="flex items-start gap-3">
               {canSelect ? (
                 <Checkbox
@@ -85,8 +85,12 @@ export function CycleCountItemCards({
                 />
               ) : null}
               <div className="min-w-0 flex-1">
-                <p className="leading-snug font-medium">{item.productName}</p>
-                <p className="text-muted-foreground font-mono text-xs">{item.productSku}</p>
+                <p className="text-base leading-snug font-semibold break-words">
+                  {item.productName}
+                </p>
+                <p className="text-muted-foreground mt-1 font-mono text-xs break-all">
+                  {item.productSku}
+                </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <Badge variant={row.state.variant}>{row.state.label}</Badge>
@@ -96,15 +100,17 @@ export function CycleCountItemCards({
               </div>
             </div>
 
-            <dl className="text-muted-foreground grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-              <div>
+            <dl className="text-muted-foreground grid min-w-0 grid-cols-2 gap-x-3 gap-y-3 text-xs">
+              <div className="col-span-2 min-w-0">
                 <dt>Vị trí</dt>
-                <dd className="text-foreground font-mono">{location}</dd>
+                <dd className="text-foreground mt-1 text-sm leading-relaxed font-medium break-words">
+                  {location}
+                </dd>
               </div>
-              <div>
+              <div className="col-span-2 min-w-0">
                 <dt>Lô / HSD</dt>
-                <dd className="text-foreground">
-                  <span className="font-mono">{item.lotNumber ?? 'Theo số lượng'}</span>
+                <dd className="text-foreground mt-1 break-words">
+                  <span className="font-mono">{item.lotNumber ?? 'Không theo lô'}</span>
                   {item.expiryDate ? ` · ${formatCycleCountDay(item.expiryDate)}` : ''}
                 </dd>
               </div>
@@ -122,23 +128,25 @@ export function CycleCountItemCards({
               </div>
             </dl>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="flex flex-col gap-1">
-                <p className="text-muted-foreground text-xs">Sổ sách</p>
-                <p className="flex h-11 items-center justify-end font-mono text-base tabular-nums">
-                  {item.systemQuantity === null ? (
-                    <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-                      <LockKeyhole className="size-3" aria-hidden="true" />
-                      Đã ẩn
-                    </span>
-                  ) : (
-                    formatCount(item.systemQuantity)
-                  )}
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm">
+              <p className="text-muted-foreground">Sổ sách</p>
+              <p className="font-mono font-medium tabular-nums">
+                {item.systemQuantity === null ? (
+                  <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
+                    <LockKeyhole className="size-3" aria-hidden="true" />
+                    Ẩn khi kiểm kê mù
+                  </span>
+                ) : (
+                  <>
+                    {formatCount(item.systemQuantity)} {item.unitName ?? ''}
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="grid min-w-0 grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label htmlFor={`quantity-${item.id}`} className="text-muted-foreground text-xs">
-                  Kiểm kê
+                  Số đếm{item.unitName ? ` (${item.unitName})` : ''}
                 </label>
                 <Input
                   id={`quantity-${item.id}`}
@@ -150,6 +158,7 @@ export function CycleCountItemCards({
                   value={row.quantity}
                   disabled={!row.recordable || isPending}
                   aria-invalid={row.quantityInvalid}
+                  aria-describedby={row.quantityInvalid ? `quantity-error-${item.id}` : undefined}
                   onChange={(event) => onQuantityChange(item.id, event.target.value)}
                 />
               </div>
@@ -169,6 +178,7 @@ export function CycleCountItemCards({
                     value={row.damaged}
                     disabled={isPending || row.quantity === ''}
                     aria-invalid={row.damagedInvalid}
+                    aria-describedby={row.damagedInvalid ? `damaged-error-${item.id}` : undefined}
                     onChange={(event) => onDamagedChange(item.id, event.target.value)}
                   />
                 ) : (
@@ -188,8 +198,13 @@ export function CycleCountItemCards({
               </div>
             </div>
 
+            {row.recordable && row.quantityInvalid ? (
+              <p id={`quantity-error-${item.id}`} role="alert" className="text-destructive text-xs">
+                Số đếm phải từ 0 và có tối đa 2 chữ số thập phân.
+              </p>
+            ) : null}
             {row.recordable && row.damagedInvalid ? (
-              <p role="alert" className="text-destructive text-xs">
+              <p id={`damaged-error-${item.id}`} role="alert" className="text-destructive text-xs">
                 Số hỏng phải từ 0 và không vượt số đếm.
               </p>
             ) : null}
@@ -198,7 +213,7 @@ export function CycleCountItemCards({
               <Button
                 type="button"
                 variant={row.damageIncomplete ? 'destructive' : 'outline'}
-                className="h-11 justify-start"
+                className="h-auto min-h-11 justify-start text-left whitespace-normal"
                 onClick={() => onOpenDamage(item.id)}
               >
                 <ImagePlus aria-hidden="true" />

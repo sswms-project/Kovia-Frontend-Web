@@ -4,9 +4,9 @@ import { cn } from '@/lib/utils'
 import type { StockIssueRequestSummary } from '../../types/stock-issue.types'
 import { formatStockIssueDate, summarizeStockIssueProgress } from '../../utils/stock-issue-format'
 
-function formatIssueDate(value: string | null): string {
+function formatIssueDate(value: string | null, time?: string | null): string {
   const date = value ? isoDateStringToDate(value) : undefined
-  return date ? formatDisplayDate(date) : 'Chưa xác định'
+  return date ? `${formatDisplayDate(date)}${time ? ` ${time.slice(0, 5)}` : ''}` : 'Chưa xác định'
 }
 
 export function StockIssueRequestOverview({ order }: { readonly order: StockIssueRequestSummary }) {
@@ -31,7 +31,7 @@ export function StockIssueRequestOverview({ order }: { readonly order: StockIssu
         />
         <Metadata label="Người nhận" value={order.recipientName} />
         <Metadata label="Điện thoại" value={order.recipientPhone || 'Chưa có'} />
-        <Metadata label="Ngày xuất" value={formatIssueDate(order.issueDate)} />
+        <Metadata label="Ngày xuất" value={formatIssueDate(order.issueDate, order.issueTime)} />
         <Metadata label="Ngày tạo" value={formatStockIssueDate(order.createdAt)} />
         <Metadata label="Mã tham chiếu" value={order.referenceCode ?? 'Không có'} />
         <Metadata label="Người lấy hàng" value={order.assignedStaffName ?? 'Chưa phân công'} />

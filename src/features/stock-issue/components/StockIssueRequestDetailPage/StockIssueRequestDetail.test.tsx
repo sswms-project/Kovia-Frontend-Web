@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import { StockIssueRequestOverview } from './StockIssueRequestOverview'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
@@ -100,6 +101,15 @@ function renderDetail() {
 }
 
 describe('outbound detail layout', () => {
+  it.each([null, '00:00:00', '18:45:30'])(
+    'shows the optional issue time without shifting the business day (%s)',
+    (issueTime) => {
+      render(<StockIssueRequestOverview order={{ ...order, issueTime }} />)
+      expect(
+        screen.getByText(issueTime ? `23/10/2026 ${issueTime.slice(0, 5)}` : '23/10/2026')
+      ).toBeInTheDocument()
+    }
+  )
   it('keeps the plan in the main content before attachments, independently of the audit column', async () => {
     renderDetail()
     const overview = screen.getByRole('region', { name: 'Tổng quan' })

@@ -134,6 +134,7 @@ export function StockIssueRequestFilters({
       </NativeSelect>
 
       <OperationalDateRangeFilter
+        withTime
         from={dateFrom}
         to={dateTo}
         label="ngày tạo"

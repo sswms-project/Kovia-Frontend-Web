@@ -1,5 +1,7 @@
 'use client'
 
+import type { OrderType } from '@/types/api'
+
 import type { ReactNode } from 'react'
 import {
   OperationalEmptyState,
@@ -21,8 +23,7 @@ import { InboundRequestTable, InboundRequestTableSkeleton } from './InboundReque
 import { InboundRequestMobileList } from './InboundRequestMobileList'
 
 interface InboundRequestDirectoryProps {
-  readonly previewId?: string
-  readonly onPreview?: (item: InboundRequestSummary) => void
+  readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly totalCount: number
   readonly page: number
@@ -31,6 +32,8 @@ interface InboundRequestDirectoryProps {
   readonly status: InboundRequestStatus | ''
   readonly createdFrom: string
   readonly createdTo: string
+  readonly sortDirection: OrderType
+  readonly onSortDirectionChange: (value: OrderType) => void
   readonly statusCounts: readonly InboundRequestStatusCount[]
   readonly isLoading: boolean
   readonly isStatsError: boolean
@@ -68,8 +71,7 @@ interface InboundRequestDirectoryProps {
 }
 
 export function InboundRequestDirectory({
-  previewId,
-  onPreview,
+  onOpen,
   items,
   totalCount,
   page,
@@ -78,6 +80,8 @@ export function InboundRequestDirectory({
   status,
   createdFrom,
   createdTo,
+  sortDirection,
+  onSortDirectionChange,
   statusCounts,
   isLoading,
   isStatsError,
@@ -185,6 +189,8 @@ export function InboundRequestDirectory({
               status={status}
               createdFrom={createdFrom}
               createdTo={createdTo}
+              sortDirection={sortDirection}
+              onSortDirectionChange={onSortDirectionChange}
               isFetching={isFetching}
               onSearchChange={onSearchChange}
               onStatusChange={onStatusChange}
@@ -208,8 +214,7 @@ export function InboundRequestDirectory({
           <>
             <div data-slot="operational-list-body" className="md:hidden">
               <InboundRequestMobileList
-                previewId={previewId}
-                onPreview={onPreview}
+                onOpen={onOpen}
                 items={items}
                 canCreate={canCreate}
                 isDuplicating={isDuplicating}
@@ -217,8 +222,7 @@ export function InboundRequestDirectory({
               />
             </div>
             <InboundRequestTable
-              previewId={previewId}
-              onPreview={onPreview}
+              onOpen={onOpen}
               items={items}
               canDelete={canDelete}
               canDeleteApproved={canDeleteApproved}

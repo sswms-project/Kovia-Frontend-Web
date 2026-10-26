@@ -1,5 +1,5 @@
 export { InboundRequestDirectory } from './InboundRequestDirectory'
-export { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
+export { InboundRequestStatusBadge, SupplierResponseHint } from './InboundRequestStatusBadge'
 export { InboundRequestBulkActions } from './InboundRequestBulkActions'
 export { InboundRequestStatusStats } from './InboundRequestStatusStats'
 export { InboundRequestFilters } from './InboundRequestFilters'

@@ -1,3 +1,4 @@
+import type { OrderType } from '@/types/api'
 export const INBOUND_REQUEST_STATUS = {
   Draft: 'Draft',
   PendingApproval: 'PendingApproval',
@@ -22,6 +23,7 @@ export const INBOUND_REQUEST_ACTION = {
   Approve: 'Approve',
   ApproveAndSend: 'ApproveAndSend',
   SendToSupplier: 'SendToSupplier',
+  AcceptSupplierProposedDate: 'AcceptSupplierProposedDate',
   Reject: 'Reject',
   Cancel: 'Cancel',
   CloseRemaining: 'CloseRemaining',
@@ -46,6 +48,7 @@ export interface LookupQuery {
 }
 
 export interface InboundRequestListQuery {
+  sortDirection?: OrderType
   pageNumber: number
   pageSize: number
   searchTerm?: string
@@ -76,6 +79,8 @@ export interface InboundRequestSummary {
   lineCount: number
   orderedQuantity: number
   receivedQuantity: number
+  supplierEmailSentAt?: string | null
+  supplierResponse?: SupplierResponseDecision | null
 }
 
 export interface LifecycleEvent {
@@ -130,9 +135,55 @@ export interface InboundRequestDetail extends Omit<
   supplierEmailSentAt: string | null
   supplierEmailSentTo: string | null
   supplierEmailSentByName: string | null
+  supplierResponse?: SupplierResponseDecision | null
+  supplierRespondedAt?: string | null
+  supplierResponseNote?: string | null
+  supplierProposedDate?: string | null
+  supplierProposalAcceptedAt?: string | null
   version: string
   lines: InboundRequestLine[]
   history: LifecycleEvent[]
+}
+
+export const SUPPLIER_RESPONSE_DECISION = {
+  Confirmed: 'Confirmed',
+  Rejected: 'Rejected',
+  ProposedNewDate: 'ProposedNewDate',
+} as const
+export type SupplierResponseDecision =
+  (typeof SUPPLIER_RESPONSE_DECISION)[keyof typeof SUPPLIER_RESPONSE_DECISION]
+
+/** State of the link a supplier opened from the order email. */
+export type SupplierResponseLinkStatus = 'Open' | 'Responded' | 'Expired' | 'Revoked' | 'Closed'
+
+export interface SupplierInboundResponseLine {
+  sku: string
+  productName: string
+  unit: string
+  quantity: number
+}
+
+export interface SupplierInboundResponsePreview {
+  linkStatus: SupplierResponseLinkStatus
+  expiresAt: string
+  tenantName: string
+  inboundRequestCode: string
+  supplierName: string
+  warehouseName: string | null
+  warehouseAddress: string | null
+  expectedDate: string | null
+  sourceReference: string | null
+  response: SupplierResponseDecision | null
+  respondedAt: string | null
+  responseNote: string | null
+  proposedDate: string | null
+  lines: SupplierInboundResponseLine[]
+}
+
+export interface SupplierInboundResponseRequest {
+  decision: SupplierResponseDecision
+  note: string | null
+  proposedDate: string | null
 }
 
 export interface SupplierEmailDispatch {

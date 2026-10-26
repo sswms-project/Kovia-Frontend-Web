@@ -61,8 +61,7 @@ export function StockIssuePickEntry({
           {line.lotNumber ? ` · Lô ${line.lotNumber}` : ''}
         </p>
         <p className="text-muted-foreground mt-2 text-xs">
-          Đưa tới: {line.stagingPath || 'Chưa xác định điểm chờ xuất'}. Không cần quét tại điểm chờ
-          xuất.
+          Đưa tới: {line.stagingPath || 'Chưa xác định điểm chờ xuất'}.
         </p>
       </header>
       <CameraScanPanel

@@ -30,7 +30,7 @@ import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
-import { dateToIsoDateString } from '@/lib/date-format'
+import { toOperationalDateTimeInput } from '@/lib/operational-date-time'
 import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
@@ -83,6 +83,7 @@ export default function StockIssueRequestFormPage({
   const requestCodeSessionKey = `${codeInstanceId}:request:${requestCodeSession}`
   const hydratedRequestId = useRef<string | null>(null)
   const editingVersion = useRef('')
+  const editingIssueTime = useRef<string | null>(null)
   const [warehouseSearchText, setWarehouseSearchText] = useState('')
   const [recipientSearchText, setRecipientSearchText] = useState('')
   const [productSearch, setProductSearch] = useState<ProductSearchState | null>(null)
@@ -108,7 +109,7 @@ export default function StockIssueRequestFormPage({
       warehouseId: '',
       purpose: '',
       referenceCode: '',
-      issueDate: dateToIsoDateString(new Date()),
+      issueDate: toOperationalDateTimeInput(new Date().toISOString()),
       note: '',
       lines: [{ ...EMPTY_LINE }],
     },
@@ -214,7 +215,9 @@ export default function StockIssueRequestFormPage({
       warehouseId: detail.warehouseId,
       purpose: detail.purpose ?? '',
       referenceCode: detail.referenceCode ?? '',
-      issueDate: detail.issueDate ?? '',
+      issueDate: detail.issueDate
+        ? `${detail.issueDate}${detail.issueTime ? `T${detail.issueTime.slice(0, 5)}` : ''}`
+        : '',
       note: detail.note ?? '',
       lines: detail.items.map((item) => ({
         productId: item.productId,
@@ -225,6 +228,7 @@ export default function StockIssueRequestFormPage({
     })
     hydratedRequestId.current = detail.id
     editingVersion.current = detail.version ?? ''
+    editingIssueTime.current = detail.issueTime ?? null
   }, [detailQuery.data, form])
 
   useEffect(() => {
@@ -331,12 +335,18 @@ export default function StockIssueRequestFormPage({
         return
       }
     }
+    const [issueDate, issueTime] = values.issueDate.split('T')
     const request = {
       stockRecipientId: values.stockRecipientId,
       warehouseId: values.warehouseId,
       purpose: values.purpose || null,
       referenceCode: values.referenceCode || null,
-      issueDate: values.issueDate || null,
+      issueDate: issueDate || null,
+      issueTime: issueTime
+        ? editingIssueTime.current?.slice(0, 5) === issueTime
+          ? editingIssueTime.current
+          : `${issueTime}:00`
+        : null,
       note: values.note || null,
       items: values.lines.map((line) => ({
         productId: line.productId,

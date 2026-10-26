@@ -51,6 +51,24 @@ describe('DatePickerField', () => {
     expect(screen.getByRole('button', { name: 'Ngày hàng về' })).toHaveFocus()
   })
 
+  it.each(['2026-10-20', '2026-10-20T08:15'])(
+    'defaults newly selected dates to the current Vietnam time and preserves an entered time (%s)',
+    async (value) => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-10-24T18:05:00Z'))
+      const onChange = vi.fn()
+      render(
+        <DatePickerField id="issue" label="Ngày xuất" withTime value={value} onChange={onChange} />
+      )
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'Ngày xuất' }))
+      await user.click(screen.getByRole('button', { name: /21 tháng 10/ }))
+      expect(onChange).toHaveBeenCalledWith(
+        value.includes('T') ? '2026-10-21T08:15' : '2026-10-21T01:05'
+      )
+    }
+  )
+
   it('constrains the scrollable popup to the space available around its trigger', async () => {
     const user = userEvent.setup()
     render(<DateTimeHarness />)

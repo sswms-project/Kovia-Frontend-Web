@@ -25,6 +25,7 @@ vi.mock('../hooks/use-inbound-requests', () => ({
   useInboundRequestAllowedActionsQuery: () => ({ data: { allowedActions: fixture.actions } }),
   ...Object.fromEntries(
     [
+      'useAcceptSupplierProposedDateMutation',
       'useApproveAndSendInboundRequestMutation',
       'useApproveInboundRequestMutation',
       'useRejectInboundRequestMutation',

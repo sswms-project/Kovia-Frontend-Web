@@ -103,9 +103,14 @@ export function DatePickerField({
             selected={selectedDate}
             defaultMonth={selectedDate}
             disabled={disablePastDates ? { before: today } : undefined}
-            onSelect={(date) =>
-              onChange(date ? `${toDateInputValue(date)}${time ? `T${time}` : ''}` : '')
-            }
+            onSelect={(date) => {
+              const selectedTime = withTime
+                ? time || toOperationalDateTimeInput(new Date().toISOString()).split('T')[1]
+                : ''
+              onChange(
+                date ? `${toDateInputValue(date)}${selectedTime ? `T${selectedTime}` : ''}` : ''
+              )
+            }}
             locale={vi}
           />
           {withTime ? (

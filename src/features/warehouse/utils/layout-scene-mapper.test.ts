@@ -219,8 +219,8 @@ describe('layout scene mapper', () => {
     })
 
     expect(mapped.editorScene.racks[0]).toMatchObject({
-      width: 160,
-      height: 60,
+      width: 120,
+      height: 40,
       layoutShape: 'Standard',
     })
   })

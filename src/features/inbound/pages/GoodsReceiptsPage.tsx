@@ -1,5 +1,7 @@
 'use client'
 
+import { OrderType } from '@/types/api'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
@@ -41,6 +43,7 @@ export default function GoodsReceiptsPage() {
   const [status, setStatus] = useState<GoodsReceiptStatus | ''>('')
   const [createdFrom, setCreatedFrom] = useState('')
   const [createdTo, setCreatedTo] = useState('')
+  const [sortDirection, setSortDirection] = useState(OrderType.Descending)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [approvalTarget, setApprovalTarget] = useState<GoodsReceiptSummary | null>(null)
@@ -50,6 +53,7 @@ export default function GoodsReceiptsPage() {
   const allowedActionsQuery = useInboundAllowedActionsQuery(approvalTarget?.id ?? '')
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const exportFilters = {
+    sortDirection,
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
@@ -131,6 +135,11 @@ export default function GoodsReceiptsPage() {
           status={status}
           createdFrom={createdFrom}
           createdTo={createdTo}
+          sortDirection={sortDirection}
+          onSortDirectionChange={(value) => {
+            setSortDirection(value)
+            setPage(1)
+          }}
           isLoading={query.isFetching}
           isFetching={query.isFetching}
           isError={query.isError}

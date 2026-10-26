@@ -230,6 +230,7 @@ export function StockIssueRequestForm({
                 <DatePickerField
                   id="stock-issue-date"
                   label="Ngày xuất"
+                  withTime
                   error={errors.issueDate?.message}
                   value={watch('issueDate')}
                   onChange={(value) =>

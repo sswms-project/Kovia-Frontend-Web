@@ -20,6 +20,7 @@ interface DesignerContextToolbarProps {
   readonly removeDisabledReason?: string
   readonly removeLabel: string
   readonly onOpenDetails: () => void
+  readonly onPlacePending?: () => void
   readonly onCreateRack: () => void
   readonly onColorChange: (color: string | null) => void
   readonly onRotate: () => void
@@ -76,6 +77,7 @@ export function DesignerContextToolbar({
   removeDisabledReason,
   removeLabel,
   onOpenDetails,
+  onPlacePending,
   onCreateRack,
   onColorChange,
   onRotate,
@@ -86,6 +88,11 @@ export function DesignerContextToolbar({
 
   return (
     <div className="bg-popover text-popover-foreground flex max-w-[calc(100vw-2rem)] items-stretch overflow-x-auto rounded-md border shadow-lg">
+      {onPlacePending ? (
+        <ContextAction label="Đặt lên sơ đồ" disabled={!canConfigure} onClick={onPlacePending}>
+          <MapPin aria-hidden="true" />
+        </ContextAction>
+      ) : null}
       {selection.kind === 'zone' ? (
         <>
           <ContextAction label="Khai báo kệ" disabled={!canCreateRack} onClick={onCreateRack}>

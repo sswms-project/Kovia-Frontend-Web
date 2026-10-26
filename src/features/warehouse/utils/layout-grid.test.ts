@@ -104,7 +104,7 @@ describe('constrainLayoutGeometryToCanvas', () => {
 })
 
 describe('getRackPresetSize', () => {
-  it('uses the same 160×60 initial footprint for every rack style', () => {
-    expect(getRackPresetSize()).toEqual({ width: 160, height: 60 })
+  it('uses the same compact 120×40 initial footprint for every rack style', () => {
+    expect(getRackPresetSize()).toEqual({ width: 120, height: 40 })
   })
 })
