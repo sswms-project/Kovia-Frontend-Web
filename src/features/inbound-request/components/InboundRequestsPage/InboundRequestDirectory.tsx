@@ -24,8 +24,7 @@ import { InboundRequestMobileList } from './InboundRequestMobileList'
 
 interface InboundRequestDirectoryProps {
   readonly currentUserId?: string | null
-  readonly previewId?: string
-  readonly onPreview?: (item: InboundRequestSummary) => void
+  readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly totalCount: number
   readonly page: number
@@ -74,8 +73,7 @@ interface InboundRequestDirectoryProps {
 
 export function InboundRequestDirectory({
   currentUserId,
-  previewId,
-  onPreview,
+  onOpen,
   items,
   totalCount,
   page,
@@ -217,8 +215,7 @@ export function InboundRequestDirectory({
           <>
             <div data-slot="operational-list-body" className="md:hidden">
               <InboundRequestMobileList
-                previewId={previewId}
-                onPreview={onPreview}
+                onOpen={onOpen}
                 items={items}
                 canCreate={canCreate}
                 isDuplicating={isDuplicating}
@@ -227,8 +224,7 @@ export function InboundRequestDirectory({
             </div>
             <InboundRequestTable
               currentUserId={currentUserId}
-              previewId={previewId}
-              onPreview={onPreview}
+              onOpen={onOpen}
               items={items}
               canDelete={canDelete}
               canDeleteApproved={canDeleteApproved}

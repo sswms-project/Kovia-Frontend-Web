@@ -20,11 +20,16 @@ const fixture = vi.hoisted(() => ({
   reconcile: vi.fn(),
 }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }))
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}))
 vi.mock('../hooks/use-inbound-requests', () => ({
   useInboundRequestQuery: () => ({ data: fixture.detail }),
   useInboundRequestAllowedActionsQuery: () => ({ data: { allowedActions: fixture.actions } }),
   ...Object.fromEntries(
     [
+      'useAcceptSupplierProposedDateMutation',
+      'useDeleteInboundRequestMutation',
       'useApproveAndSendInboundRequestMutation',
       'useApproveInboundRequestMutation',
       'useRejectInboundRequestMutation',

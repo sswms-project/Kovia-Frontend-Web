@@ -23,13 +23,12 @@ import {
   formatOperationalDateTime,
   formatQuantity,
 } from '../../utils/inbound-request-format'
-import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
+import { InboundRequestStatusBadge, SupplierResponseHint } from './InboundRequestStatusBadge'
 import { InboundRequestRowActions } from './InboundRequestRowActions'
 
 interface InboundRequestTableProps {
   readonly currentUserId?: string | null
-  readonly previewId?: string
-  readonly onPreview?: (item: InboundRequestSummary) => void
+  readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canDelete: boolean
   readonly canDeleteApproved?: boolean
@@ -107,8 +106,7 @@ export function InboundRequestTableSkeleton() {
 
 export function InboundRequestTable({
   currentUserId,
-  previewId,
-  onPreview,
+  onOpen,
   items,
   canDelete,
   canDeleteApproved = false,
@@ -169,10 +167,7 @@ export function InboundRequestTable({
           {items.map((item) => (
             <TableRow
               key={item.id}
-              {...goodsPreviewInteractions(
-                onPreview ? () => onPreview(item) : undefined,
-                previewId === item.id
-              )}
+              {...goodsPreviewInteractions(onOpen ? () => onOpen(item) : undefined, false)}
             >
               <TableCell data-row-ignore data-preview-ignore className="w-12 p-0 text-center">
                 <Checkbox
@@ -215,7 +210,10 @@ export function InboundRequestTable({
                 />
               </TableCell>
               <TableCell>
-                <InboundRequestStatusBadge status={item.status} />
+                <div className="flex flex-col items-start gap-1">
+                  <InboundRequestStatusBadge status={item.status} />
+                  <SupplierResponseHint item={item} />
+                </div>
               </TableCell>
               <TableCell>
                 <OperationalQuantityProgress

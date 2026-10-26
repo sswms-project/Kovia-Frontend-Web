@@ -15,6 +15,8 @@ import type {
   InboundRequestListQuery,
   SaveInboundRequestRequest,
   SupplierEmailDispatch,
+  SupplierInboundResponsePreview,
+  SupplierInboundResponseRequest,
   SupplierOption,
 } from '../types/inbound-request.types'
 
@@ -265,6 +267,51 @@ export function useSendInboundRequestToSupplierMutation() {
   return useMutation<ApiResponse<SupplierEmailDispatch>, ApiErrorResponse, string>({
     mutationFn: inboundRequestService.sendInboundRequestToSupplier,
     onSuccess: (_, inboundRequestId) => invalidate(inboundRequestId),
+    onError: (error) => logger.error(error),
+  })
+}
+
+interface AcceptSupplierProposedDateVariables {
+  inboundRequestId: string
+  expectedVersion: string
+}
+
+export function useAcceptSupplierProposedDateMutation() {
+  const invalidate = useInvalidateInboundRequests()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, AcceptSupplierProposedDateVariables>({
+    mutationFn: ({ inboundRequestId, expectedVersion }) =>
+      inboundRequestService.acceptSupplierProposedDate(inboundRequestId, {
+        expectedVersion,
+        selfApprovalAcknowledged: false,
+      }),
+    onSuccess: (_, { inboundRequestId }) => invalidate(inboundRequestId),
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useSupplierResponsePreviewQuery(token: string) {
+  return useQuery<SupplierInboundResponsePreview, ApiErrorResponse>({
+    queryKey: queryKeys.inboundRequests.supplierResponse(token),
+    queryFn: () =>
+      inboundRequestService.getSupplierResponsePreview(token).then((response) => response.data),
+    enabled: Boolean(token),
+    retry: false,
+  })
+}
+
+interface RespondAsSupplierVariables {
+  token: string
+  request: SupplierInboundResponseRequest
+}
+
+export function useRespondAsSupplierMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, RespondAsSupplierVariables>({
+    mutationFn: ({ token, request }) => inboundRequestService.respondAsSupplier(token, request),
+    onSettled: (_, __, { token }) =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.inboundRequests.supplierResponse(token),
+      }),
     onError: (error) => logger.error(error),
   })
 }

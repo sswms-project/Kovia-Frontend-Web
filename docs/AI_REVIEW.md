@@ -2478,3 +2478,9 @@ READY_FOR_CODEX_REVIEW (implementer self-verification).
 - Fixed four Dashboard ResponsiveContainers starting with Recharts default -1 dimensions by providing initialDimension 320x200, matching the existing shared ChartContainer pattern. ResizeObserver still measures actual responsive dimensions. No data, API, chart calculation, or layout-height change.
 - GitNexus: WarehouseActivityChart HIGH (three direct callers, one Dashboard process); warned before editing. Three alert chart functions LOW (one direct caller each).
 - Validation: scoped ESLint passed; Dashboard component/page tests 39 passed across two files. Existing mocks do not verify real browser ResizeObserver behavior; browser refresh remains a verification limit. FE3000 and BE7070 listeners verified; preview migration/seed/background-job restrictions preserved.
+
+## 2026-10-26 — Synchronize screen/huytv with origin/dev b2fb8d1
+
+- User-authorized non-rewriting merge. Resolved four inbound UI conflicts: retained incoming supplier response indicators/accept-date action/direct list navigation, plus creator-scoped draft actions, withdrawal/delete actions and content-bound versions for bulk deletion.
+- Updated stale test setup for the router/delete hook and replaced the legacy approved-delete expectation with the confirmed draft-only deletion policy; production authorization was not relaxed.
+- Final focused inbound/supplier response tests 38 passed across five files. TypeScript production config check passed; scoped lint/format checked separately. No live API/data writes, migrations or dependency changes. Existing protected AGENTS.md/CLAUDE.md edits and untracked outputs remain local; preview runtime not restarted.

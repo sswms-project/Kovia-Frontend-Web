@@ -14,6 +14,8 @@ import type {
   SaveInboundRequestRequest,
   CreateInboundRequestRequest,
   SupplierEmailDispatch,
+  SupplierInboundResponsePreview,
+  SupplierInboundResponseRequest,
   SupplierOption,
 } from '../types/inbound-request.types'
 
@@ -109,6 +111,22 @@ export const inboundRequestService = {
       .post<
         ApiResponse<SupplierEmailDispatch>
       >(API_ENDPOINTS.inboundRequests.approveAndSend(inboundRequestId), request)
+      .then((response) => response.data),
+  acceptSupplierProposedDate: (inboundRequestId: string, request: InboundDecisionRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.inboundRequests.acceptSupplierProposedDate(inboundRequestId), request)
+      .then((response) => response.data),
+  getSupplierResponsePreview: (token: string) =>
+    axiosClient
+      .get<
+        ApiResponse<SupplierInboundResponsePreview>
+      >(API_ENDPOINTS.supplierResponses.preview(token))
+      .then((response) => response.data),
+  respondAsSupplier: (token: string, request: SupplierInboundResponseRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.supplierResponses.respond(token), request)
       .then((response) => response.data),
   sendInboundRequestToSupplier: (inboundRequestId: string) =>
     axiosClient

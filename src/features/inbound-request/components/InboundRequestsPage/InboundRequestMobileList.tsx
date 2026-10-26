@@ -12,11 +12,10 @@ import {
   formatQuantity,
 } from '../../utils/inbound-request-format'
 import { inboundSourceLabels } from '../../schemas/inbound-request.schema'
-import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
+import { InboundRequestStatusBadge, SupplierResponseHint } from './InboundRequestStatusBadge'
 
 interface InboundRequestMobileListProps {
-  readonly previewId?: string
-  readonly onPreview?: (item: InboundRequestSummary) => void
+  readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canCreate: boolean
   readonly isDuplicating: boolean
@@ -24,8 +23,7 @@ interface InboundRequestMobileListProps {
 }
 
 export function InboundRequestMobileList({
-  previewId,
-  onPreview,
+  onOpen,
   items,
   canCreate,
   isDuplicating,
@@ -37,8 +35,8 @@ export function InboundRequestMobileList({
         <Item
           key={item.id}
           {...goodsPreviewInteractions(
-            onPreview ? () => onPreview(item) : undefined,
-            previewId === item.id,
+            onOpen ? () => onOpen(item) : undefined,
+            false,
             'border-b last:border-b-0'
           )}
         >
@@ -52,6 +50,7 @@ export function InboundRequestMobileList({
                 {item.inboundRequestCode}
               </Link>
               <InboundRequestStatusBadge status={item.status} />
+              <SupplierResponseHint item={item} />
               {canCreate ? (
                 <Button
                   type="button"
