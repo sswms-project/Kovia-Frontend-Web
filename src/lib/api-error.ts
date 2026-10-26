@@ -17,6 +17,25 @@ const flattenFieldErrors = (errors: Record<string, string[]>): string =>
     .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
     .join(' | ')
 
+export type ErrorKind = 'forbidden' | 'unauthorized' | 'notFound' | 'network' | 'server' | 'unknown'
+
+/**
+ * Phân loại lỗi để ErrorState chọn nội dung. Interceptor axios đã chuẩn hóa mọi lỗi thành ApiErrorResponse;
+ * lỗi không có response (mất mạng, timeout) bị gán 500 nên chỉ phân biệt được qua thông điệp của axios.
+ */
+export function getErrorKind(error: unknown): { kind: ErrorKind; status?: number } {
+  if (!isApiErrorResponse(error)) return { kind: 'unknown' }
+  const status = error.statusCode
+  if (status >= 500 && /network error|timeout|econn/i.test(error.message)) {
+    return { kind: 'network' }
+  }
+  if (status === 401) return { kind: 'unauthorized', status }
+  if (status === 403) return { kind: 'forbidden', status }
+  if (status === 404) return { kind: 'notFound', status }
+  if (status >= 500) return { kind: 'server', status }
+  return { kind: 'unknown', status }
+}
+
 /** Stable machine-readable error code returned through the API error envelope. */
 export function getApiErrorCode(error: unknown): string | undefined {
   if (!isApiErrorResponse(error)) return undefined
