@@ -56,11 +56,25 @@ describe('getSlotMetricLabel', () => {
       buildSlot({ requiresCapacityConfiguration: true, capacity: 10 }),
       0
     )
-    expect(label).toEqual({ band: null, primary: 'Chưa cấu hình', secondary: null })
+    expect(label).toEqual({
+      band: null,
+      primary: 'Chưa cấu hình',
+      compact: '!',
+      secondary: null,
+    })
   })
 
-  it('has no capacity label when the slot has no measurable capacity', () => {
-    expect(getSlotMetricLabel('capacity', buildSlot({ capacityType: 'None' }), 0)).toBeNull()
+  it('labels a slot without a capacity limit instead of leaving it blank', () => {
+    expect(getSlotMetricLabel('capacity', buildSlot({ capacityType: 'None' }), 0)).toEqual({
+      band: null,
+      primary: 'Không giới hạn',
+      compact: '∞',
+      secondary: null,
+    })
+  })
+
+  it('has no capacity label when the API did not report a capacity type', () => {
+    expect(getSlotMetricLabel('capacity', buildSlot({}), 0)).toBeNull()
   })
 
   it('shows nothing when the metric is off', () => {
@@ -101,14 +115,28 @@ describe('getRackMetricLabel', () => {
     })
   })
 
-  it('skips slot-level racks whose slots use different units', () => {
+  it('shows a dash for slot-level racks whose slots use different units', () => {
     const slots = [
       buildSlot({ ...quantityCapacity, capacity: 10, capacityUsed: 5 }),
       buildSlot({ ...quantityCapacity, capacityUnitId: 'unit-kg', capacity: 10, capacityUsed: 5 }),
     ]
     expect(
-      getRackMetricLabel('capacity', buildRack({ storageMode: 'SlotLevel' }), slots, 0)
-    ).toBeNull()
+      getRackMetricLabel('capacity', buildRack({ storageMode: 'SlotLevel' }), slots, 0)?.primary
+    ).toBe('—')
+  })
+
+  it('labels racks without a capacity limit, rack-level or slot-level', () => {
+    const unlimitedRack = buildRack({ capacityType: 'None' })
+    expect(getRackMetricLabel('capacity', unlimitedRack, [], 0)?.compact).toBe('∞')
+    const slotRack = buildRack({ storageMode: 'SlotLevel' })
+    const unlimitedSlots = [
+      buildSlot({ capacityType: 'None' }),
+      buildSlot({ capacityType: 'None' }),
+    ]
+    expect(getRackMetricLabel('capacity', slotRack, unlimitedSlots, 0)?.primary).toBe(
+      'Không giới hạn'
+    )
+    expect(getRackMetricLabel('capacity', slotRack, [], 0)?.primary).toBe('—')
   })
 
   it('reports on-hand stock and SKU count for the stock metric', () => {
@@ -116,6 +144,7 @@ describe('getRackMetricLabel', () => {
     expect(getRackMetricLabel('stock', rack, [], 12)).toEqual({
       band: 'high',
       primary: '12',
+      compact: '12',
       secondary: '3 mã hàng',
     })
   })
@@ -144,11 +173,16 @@ describe('getRackLabelMode', () => {
 
 describe('getRackHeaderScreenHeight', () => {
   it.each([
-    [200, 120, true, 30],
-    [200, 120, false, 18],
-    [149, 120, true, 18],
-    [200, 89, true, 18],
-  ])('uses %ipx x %ipx (secondary line: %s) -> %ipx header', (width, height, secondary, header) => {
-    expect(getRackHeaderScreenHeight(width, height, secondary)).toBe(header)
-  })
+    [200, 120, true, true, 30],
+    [200, 120, false, true, 18],
+    [99, 120, true, true, 18],
+    [200, 89, true, true, 18],
+    [125, 41, true, false, 30],
+    [125, 35, true, false, 18],
+  ])(
+    'uses %ipx x %ipx (secondary: %s, slots: %s) -> %ipx header',
+    (width, height, secondary, hasSlots, header) => {
+      expect(getRackHeaderScreenHeight(width, height, secondary, hasSlots)).toBe(header)
+    }
+  )
 })
