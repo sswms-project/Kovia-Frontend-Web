@@ -931,7 +931,8 @@ export function WarehouseCanvas({
         ? getRackHeaderScreenHeight(
             rack.width * viewport.scale,
             rack.height * viewport.scale,
-            metricLabel?.secondary != null
+            metricLabel?.secondary != null,
+            rackSlots.length > 0
           )
         : null
     const showHeaderSecondary = headerScreenHeight === RACK_HEADER_TWO_LINE_SCREEN_HEIGHT
@@ -948,7 +949,8 @@ export function WarehouseCanvas({
       mode === 'viewer'
         ? object.status === 'Inactive'
           ? canvasPalette.errorContainer
-          : selected
+          : // Kệ đang hiện số liệu giữ màu công suất khi được chọn; chỉ đổi viền để vẫn đọc được số.
+            selected && (isZone || !metricLabel)
             ? canvasPalette.selectionFill
             : isZone
               ? canvasPalette.accent
@@ -964,7 +966,13 @@ export function WarehouseCanvas({
       ? getReadableCanvasColor(object.color, canvasPalette)
       : canvasPalette.foreground
     const selectionStroke = mode === 'viewer' ? canvasPalette.viewerSelected : canvasPalette.primary
-    const checkBadgeSize = Math.min(22 / viewport.scale, object.width * 0.45, object.height * 0.45)
+    // Huy hiệu của kệ có dải tiêu đề phải nằm gọn trong dải để không che số.
+    const checkBadgeSize = Math.min(
+      22 / viewport.scale,
+      object.width * 0.45,
+      object.height * 0.45,
+      labelMode === 'header' ? metricHeaderHeight - 4 / viewport.scale : Infinity
+    )
     const checkBadgeInset = Math.min(
       4 / viewport.scale,
       Math.max(0, (Math.min(object.width, object.height) - checkBadgeSize) / 2)
@@ -1146,6 +1154,7 @@ export function WarehouseCanvas({
               labelMode,
               headerHeight: metricHeaderHeight,
               showSecondary: showHeaderSecondary,
+              rightInset: selected ? checkBadgeSize + checkBadgeInset * 2 : 0,
               fill: objectFill,
               slotCellsReadable,
               scale: viewport.scale,
@@ -1552,7 +1561,8 @@ export function WarehouseCanvas({
 const SLOT_GRID_GAP = 3
 const RACK_HEADER_HEIGHT = 42
 const METRIC_FONT_SCREEN_PX = 11
-const FLOATING_LABEL_CODE_MIN_SCREEN_WIDTH = 70
+/** Chiều rộng ước lượng của một ký tự đậm, theo cỡ chữ; đủ để chọn bản nhãn vừa chỗ. */
+const TEXT_WIDTH_PER_FONT_SIZE = 0.72
 
 interface RackSlotGrid {
   readonly columns: number
@@ -1623,6 +1633,7 @@ function renderRackMetricLabel({
   labelMode,
   headerHeight,
   showSecondary,
+  rightInset,
   fill,
   slotCellsReadable,
   scale,
@@ -1633,6 +1644,8 @@ function renderRackMetricLabel({
   readonly labelMode: RackLabelMode
   readonly headerHeight: number
   readonly showSecondary: boolean
+  /** Chừa chỗ bên phải dải cho huy hiệu của kệ đang chọn. */
+  readonly rightInset: number
   readonly fill: string
   readonly slotCellsReadable: boolean
   readonly scale: number
@@ -1644,15 +1657,17 @@ function renderRackMetricLabel({
   const fontSize = METRIC_FONT_SCREEN_PX / scale
   const padding = (isHeader ? 3 : 6) / scale
   const lineHeight = fontSize * (isHeader ? 1.15 : 1.25)
+  const estimateWidth = (value: string) => value.length * fontSize * TEXT_WIDTH_PER_FONT_SIZE
 
   if (!isHeader) {
     // Kệ quá nhỏ hoặc bị xoay không có chỗ cho dải tiêu đề: nổi nhãn ở giữa kệ.
     const horizontalExtent = rack.rotation % 180 === 0 ? rack.width : rack.height
+    const availableWidth = horizontalExtent - padding * 2
     const text =
-      rack.width * scale >= FLOATING_LABEL_CODE_MIN_SCREEN_WIDTH
-        ? `${rack.rackCode}  ${label.primary}`
-        : label.primary
-    const pillWidth = Math.min(horizontalExtent, text.length * fontSize * 0.62 + padding * 2)
+      [`${rack.rackCode}  ${label.primary}`, label.primary].find(
+        (candidate) => estimateWidth(candidate) <= availableWidth
+      ) ?? label.compact
+    const pillWidth = Math.min(horizontalExtent, estimateWidth(text) + padding * 2)
     return (
       <Group x={rack.width / 2} y={rack.height / 2} rotation={-rack.rotation} listening={false}>
         {slotCellsReadable ? (
@@ -1684,6 +1699,13 @@ function renderRackMetricLabel({
     )
   }
 
+  // Số liệu được ưu tiên chỗ: dùng bản đầy đủ nếu vừa trong 60% dải, không thì bản ngắn; mã kệ lấy phần còn lại.
+  const availableWidth = rack.width - padding * 2 - rightInset
+  const valueText =
+    estimateWidth(label.primary) <= availableWidth * 0.6 ? label.primary : label.compact
+  const valueWidth = estimateWidth(valueText) + padding * 2
+  const codeWidth = Math.max(availableWidth - valueWidth - padding * 2, 0)
+
   return (
     <Group listening={false}>
       {slotCellsReadable ? (
@@ -1697,7 +1719,7 @@ function renderRackMetricLabel({
       <Text
         x={padding}
         y={padding}
-        width={(rack.width - padding * 2) * 0.5}
+        width={codeWidth}
         text={rack.rackCode}
         fontSize={fontSize}
         fontStyle="bold"
@@ -1706,16 +1728,15 @@ function renderRackMetricLabel({
         ellipsis
       />
       <Text
-        x={rack.width / 2}
+        x={rack.width - padding - rightInset - valueWidth}
         y={padding}
-        width={rack.width / 2 - padding}
+        width={valueWidth}
         align="right"
-        text={label.primary}
+        text={valueText}
         fontSize={fontSize}
         fontStyle="bold"
         fill={foreground}
         wrap="none"
-        ellipsis
       />
       {showSecondary ? (
         <Text
