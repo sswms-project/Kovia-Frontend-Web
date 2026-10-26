@@ -57,7 +57,9 @@ import type {
   WarehouseLayoutEditorScene,
   WarehouseLayoutSelection,
 } from '../../types/warehouse-layout-scene.types'
+import type { LayoutMetric } from '../../utils/layout-rack-metrics'
 import { DesignerToolbox } from './DesignerToolbox'
+import { LayoutMetricLegend, LayoutMetricToggle } from './WarehouseLayoutMetricControls'
 import { StorageCapacitySummary } from '../WarehouseDetailPage'
 import type { WarehouseCanvasHandle } from './WarehouseCanvas'
 
@@ -127,6 +129,7 @@ export function WarehouseLayoutViewerWorkspace({
   const canvasRef = useRef<WarehouseCanvasHandle>(null)
   const [selection, setSelection] = useState<WarehouseLayoutSelection | null>(null)
   const [zoomPercent, setZoomPercent] = useState(100)
+  const [metric, setMetric] = useState<LayoutMetric>('capacity')
   const [isLocationSheetOpen, setIsLocationSheetOpen] = useState(false)
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -374,6 +377,7 @@ export function WarehouseLayoutViewerWorkspace({
       scene={scene}
       selection={selection}
       mode="viewer"
+      metric={metric}
       canConfigure={false}
       isGridVisible
       onSelect={handleSelectionChange}
@@ -398,23 +402,24 @@ export function WarehouseLayoutViewerWorkspace({
             <p className="text-muted-foreground truncate text-xs">{picker.description}</p>
           ) : null}
         </div>
-        {canConfigure ? (
-          onEdit ? (
-            <Button type="button" size="sm" className="ml-auto" onClick={onEdit}>
-              <PencilRuler data-icon="inline-start" aria-hidden="true" />
-              Sửa
-            </Button>
-          ) : (
-            <Button asChild size="sm" className="ml-auto">
-              <Link replace href={APP_ROUTES.warehouseLayoutDesigner(warehouseId) as Route}>
+        <div className="ml-auto flex items-center gap-3">
+          <LayoutMetricToggle value={metric} onChange={setMetric} />
+          {canConfigure ? (
+            onEdit ? (
+              <Button type="button" size="sm" onClick={onEdit}>
                 <PencilRuler data-icon="inline-start" aria-hidden="true" />
                 Sửa
-              </Link>
-            </Button>
-          )
-        ) : (
-          <span className="ml-auto" />
-        )}
+              </Button>
+            ) : (
+              <Button asChild size="sm">
+                <Link replace href={APP_ROUTES.warehouseLayoutDesigner(warehouseId) as Route}>
+                  <PencilRuler data-icon="inline-start" aria-hidden="true" />
+                  Sửa
+                </Link>
+              </Button>
+            )
+          ) : null}
+        </div>
         <Popover>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -498,7 +503,8 @@ export function WarehouseLayoutViewerWorkspace({
       ) : null}
 
       <footer className="bg-surface-container-lowest flex min-h-11 shrink-0 items-center border-t px-3 py-1.5">
-        <div className="text-muted-foreground flex items-center gap-4 text-xs">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <LayoutMetricLegend metric={metric} />
           <span className="inline-flex items-center gap-1.5">
             <span className="bg-error-container text-destructive border-destructive inline-flex size-7 items-center justify-center rounded-md border">
               <CircleSlash2 className="size-4" aria-hidden="true" />
