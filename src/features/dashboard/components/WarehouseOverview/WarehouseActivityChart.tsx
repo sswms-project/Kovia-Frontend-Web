@@ -155,7 +155,11 @@ export function WarehouseActivityChart({
               role="img"
               aria-label={`Hoạt động trong kỳ: ${received} phiếu nhập hoàn tất và ${issued} phiếu xuất hoàn tất.`}
             >
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                initialDimension={{ width: 320, height: 200 }}
+              >
                 <BarChart data={data.activity} accessibilityLayer>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis

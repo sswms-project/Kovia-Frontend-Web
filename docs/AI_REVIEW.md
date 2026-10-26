@@ -2469,3 +2469,12 @@ READY_FOR_CODEX_REVIEW (implementer fix/self-verification, not independent appro
 - Verification: BE523passed/5SQL race skipped; final focused22passed after deadline/time formatting; FE148passed/15files; scoped ESLint and whitespace clean; final Next.js webpack production build exit0. Source snapshot comparison recorded in task outputs. Existing NuGet advisories remain unrelated.
 - Browser fixtures320/390/1280: longSKU93chars now yields main/body==viewport; back44x44, menuitem44px after animation; desktop columns all visible with long names. Audit body scroll verified(client762/scroll1276), mobile dialog no horizontal overflow. Screenshots/logs outputs/design-fix-\*. Initial fixture-only lotId type error was removed from production validation; no fixture route/proxy bypass is present in the final build source. Preview server4318 and owned browser closed.
 - Spec11.3/11.5/11.6 and design-review fix report updated. No live API/SQL, migration/seed, user FE3000/BE7070 restart, new dependency, permission/schema change, commit/push/PR/deploy. Prior prepared migrations remain unapplied by this task. Real device/authenticated deployed integration and SQL Server races remain acceptance limits.
+
+## 2026-10-26 — Local preview log diagnosis and Dashboard chart initialization
+
+READY_FOR_CODEX_REVIEW (implementer self-verification).
+
+- Confirmed four failed reservation requests in the supplied browser log. Local BE GetReservationsQuery fails with SQL invalid columns IsDeleted/DeletedAt, matching the pending AddDocumentDraftSoftDeletion migration. User explicitly reconfirmed no migration application; missing-schema API failure remains unresolved. No DB writes, migration, seed, or business API calls were performed.
+- Fixed four Dashboard ResponsiveContainers starting with Recharts default -1 dimensions by providing initialDimension 320x200, matching the existing shared ChartContainer pattern. ResizeObserver still measures actual responsive dimensions. No data, API, chart calculation, or layout-height change.
+- GitNexus: WarehouseActivityChart HIGH (three direct callers, one Dashboard process); warned before editing. Three alert chart functions LOW (one direct caller each).
+- Validation: scoped ESLint passed; Dashboard component/page tests 39 passed across two files. Existing mocks do not verify real browser ResizeObserver behavior; browser refresh remains a verification limit. FE3000 and BE7070 listeners verified; preview migration/seed/background-job restrictions preserved.

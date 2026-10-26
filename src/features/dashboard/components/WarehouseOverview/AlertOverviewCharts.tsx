@@ -272,7 +272,11 @@ function BelowMinimumChart({ data }: { readonly data: StockThresholdAlerts }) {
         .map((row) => `${row.name} ${row.percent}%`)
         .join(', ')}.`}
     >
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        initialDimension={{ width: 320, height: 200 }}
+      >
         <BarChart data={rows} layout="vertical" margin={{ left: 4, right: 12 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} />
           <XAxis
@@ -327,7 +331,11 @@ function ExpiryDistributionChart({ data }: { readonly data: StockExpiryDistribut
         .map((bucket) => `${bucket.label} ${bucket.lotCount} lô`)
         .join(', ')}.`}
     >
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        initialDimension={{ width: 320, height: 200 }}
+      >
         <BarChart data={buckets} margin={{ right: 4 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="label" fontSize={11} interval={0} />
@@ -356,7 +364,11 @@ function AnomalyTrendChart({ data }: { readonly data: InventoryAnomalySummary })
         role="img"
         aria-label={`${total} cảnh báo bất thường mới trong 14 ngày gần nhất.`}
       >
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
+          initialDimension={{ width: 320, height: 200 }}
+        >
           <BarChart data={data.newLast14Days} margin={{ right: 4 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="date" tickFormatter={formatDay} fontSize={11} minTickGap={8} />
