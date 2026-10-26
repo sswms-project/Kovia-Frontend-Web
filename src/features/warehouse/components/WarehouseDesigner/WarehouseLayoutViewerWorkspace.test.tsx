@@ -20,9 +20,16 @@ const { inventoryQueryMock } = vi.hoisted(() => ({
 
 vi.mock('next/dynamic', () => ({
   default: () =>
-    function Canvas({ onSelect }: { onSelect: (value: WarehouseLayoutSelection) => void }) {
+    function Canvas({
+      onSelect,
+      metric,
+    }: {
+      onSelect: (value: WarehouseLayoutSelection) => void
+      metric?: string
+    }) {
       return (
         <>
+          <output data-testid="canvas-metric">{metric}</output>
           <button onClick={() => onSelect({ kind: 'rack', id: 'rack' })}>Chọn kệ canvas</button>
           <button onClick={() => onSelect({ kind: 'zone', id: 'zone' })}>Chọn khu canvas</button>
           <button onClick={() => onSelect({ kind: 'slot', id: 'slot' })}>Chọn ô canvas</button>
@@ -391,5 +398,31 @@ describe('viewer capacity summary', () => {
       </TooltipProvider>
     )
     expect(screen.queryByRole('button', { name: 'Cấu hình sức chứa' })).not.toBeInTheDocument()
+  })
+
+  it('draws capacity on the canvas by default and switches metric with its legend', () => {
+    render(
+      <TooltipProvider>
+        <WarehouseLayoutViewerWorkspace
+          warehouseId="warehouse"
+          warehouseName="Kho"
+          scene={scene}
+          canConfigure={false}
+          isClosing={false}
+          onClose={vi.fn()}
+        />
+      </TooltipProvider>
+    )
+    expect(screen.getByTestId('canvas-metric')).toHaveTextContent('capacity')
+    expect(screen.getByText('Dưới 50%')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Tồn thực tế' }))
+    expect(screen.getByTestId('canvas-metric')).toHaveTextContent('stock')
+    expect(screen.getByText('Tồn thấp')).toBeInTheDocument()
+    expect(screen.queryByText('Dưới 50%')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Ẩn số liệu' }))
+    expect(screen.getByTestId('canvas-metric')).toHaveTextContent('off')
+    expect(screen.queryByRole('list', { name: /Chú giải/ })).not.toBeInTheDocument()
   })
 })
