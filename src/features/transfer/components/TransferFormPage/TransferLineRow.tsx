@@ -132,7 +132,7 @@ export function TransferLineRow({
           options={options}
           selectedOption={selectedOption}
           placeholder={
-            hasWarehouses ? 'Chọn hoặc tìm sản phẩm có tồn' : 'Chọn kho nhập và kho xuất trước'
+            hasWarehouses ? 'Tìm mã hoặc tên sản phẩm' : 'Chọn kho nhập và kho xuất trước'
           }
           emptyMessage="Kho xuất không có sản phẩm còn tồn khả dụng phù hợp."
           ariaLabel={`Sản phẩm dòng ${index + 1}`}

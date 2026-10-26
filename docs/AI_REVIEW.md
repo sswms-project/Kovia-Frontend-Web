@@ -2508,3 +2508,55 @@ P31 verification complete: BE focused build/tests 105/105 (exit 0); web focused 
 - User-authorized non-rewriting merge of kept-at-receiving navigation fix. Preserved both review histories; resolved receipt test fixture conflict by retaining incoming removal of duplicate object properties. Existing cycle-count test fix already present.
 - Focused transfer receiving, receipt overview and cycle count table regressions:23 tests passed across three files. TypeScript check run separately. GitNexus staged scope MEDIUM for transfer receive page.
 - Protected local instructions/configuration and untracked outputs preserved. No runtime start, business API calls, migration/seed, push or deployment.
+
+## 2026-10-26 — Reservation location and inbound submit validation UX
+
+READY_FOR_CODEX_REVIEW (implementer self-verification).
+
+- Reservation desktop/mobile labels use shared formatInventoryLocation and optional BE zone/rack metadata; **SYSTEM_DEFAULT** hidden with explicit unknown-rack fallback if older API lacks metadata. Reservation IDs/values untouched.
+- Save-and-submit checks the expected Vietnam calendar date before creating/updating a draft; same-day times remain valid per existing server rule. Past date gets field error/focus. Draft-only saving remains allowed. DatePicker trigger connected to RHF focus.
+- A later server refusal after successful save uses a warning with the real API reason and routes to saved detail, preserving the draft identity. Submit mutation logs expected4xx as warnings; backend date validation retained.
+- Focused tests:25 passed across4files (reservation labels, location formatter, Vietnam midnight/same-day dates and form). Scoped ESLint/TypeScript passed; form/focus follow-up tests run separately. No business API, migration/seed, camera session or deployment. Paired BE metadata required for complete physical labels.
+- main/dev/screen/huytv synchronized by fast-forward before this fix; protected instructions/local outputs retained. No commit/push of this fix requested.
+
+## 2026-10-26 — Product stock descriptions and inventory terminology
+
+READY_FOR_CODEX_REVIEW (implementer self-verification).
+
+- Inbound and transfer reuse LookupCombobox description plus shared productStockOption: SKU - Name, then Tồn khả dụng: quantity/base unit. Incoming stock remains advisory and includes zero-stock products. Existing product catalog search retained; transfer server search accepts lowercase SKU/name.
+- Optional inbound stock query batches visible/selected product IDs, keyed by warehouse/IDs, no placeholder quantities, no automatic retry loop. Permission/loading/no-warehouse/error are explicit messages, never fabricated zero. Stock lookup failure does not join the form's fatal loading/error gate. Transfer source-product query no longer carries prior warehouse data through placeholderData.
+- Renamed reservedQuantity→Đã giữ cho phiếu, holdQuantity→Tạm khóa (desktop/mobile), reservations tab/region→Hàng giữ cho phiếu. Values, route and access rules unchanged. GitNexus shared navigation CRITICAL warning reported before edit; other direct change impacts reviewed.
+- Tests:33 passed across8files, then8 InventoryDirectory tests passed including1new header-label regression (34 unique cases across these files). TypeScript route types regenerated after prior cache cleanup; tsc passed. Scoped lint passed before final minor type/test cleanup; final lint/build tracked separately.
+- Pure UI fixture using real combobox at390/1280px: lowercase SKU/name search, keyboard selection, zero quantity and wrapped long product name; body widths match viewport. Images outputs/product-stock-mobile-20261026.png, product-stock-desktop-20261026.png and product-stock-mobile-long-20261026.png. Fixture browser/server4318 closed; fixture route removed and snapshot proxy restored. No real login, business API or database calls; device camera/real touch/zoom125% not exercised.
+- Isolated build initially used an outdated helper from a preceding commit; synchronized all1653tracked/current source files before final build. This was a verification-snapshot defect; no production validation was removed. New BE endpoint must deploy alongside FE for complete stock descriptions; older BE yields advisory unknown state.
+- Final verification completion:production webpack build exit0 including TypeScript/routes; final scoped ESLint exit0, whitespace check clean. Production source comparison against the isolated build has zero mismatches (tests excluded from this content comparison; final header test ran on primary source). No fixture route/proxy bypass remains in final build input.
+
+## 2026-10-26 — Restore inbound request goods preview
+
+READY_FOR_CODEX_REVIEW (implementer self-verification).
+
+- InboundRequestsPage reuses InboundMasterDetail, InboundGoodsPreview and the existing request-line mapper. Row selection highlights the selected request on desktop/mobile; its code remains a link to full detail. The shared chevron controls expansion and persists preference; selecting a row never forces a collapsed panel open.
+- Fetches detail only for a selected document on the current non-placeholder, non-error list while expanded. Switching documents resets detail pagination. Existing empty/loading/error/retry states and inbound base-unit/requested/received/closed/remaining quantities are reused. Bulk checkboxes/actions and supplier metadata remain independent.
+- Real-browser fixture exposed mobile clipping in the common split layout. OperationalMasterDetail now stacks natural-height list/detail on phones with a 44px disclosure button; desktop resize/collapse behavior is retained. GitNexus HIGH impact (three direct wrapper consumers: inbound/outbound/transfers) reported before this shared edit, with direct consumers inspected.
+- Focused tests:47 passed across five files, including page fetch gating, selected rows, keyboard/link/checkbox interactions, detail rendering, desktop resizing and mobile disclosure/breakpoint transitions for all three composition labels. Scoped ESLint and production-config TypeScript passed. The broad default tsconfig also includes old QA fixtures under tmp/outputs and reports unrelated errors there; those files were not changed.
+- Pure browser fixture at390/1440px: selected request and goods table, mobile natural flow and body width390, desktop split and pagination verified. Screenshots in workspace outputs/inbound-preview-mobile-20261026.png and inbound-preview-desktop-20261026.png. Initial127.0.0.1 dev origin blocked HMR; retried on localhost. A Fast Refresh dependency-length warning occurred during the shared effect edit, absent after fresh reload. Fixture/server4318 closed, fixture route deleted, snapshot proxy restored before final production build. No authenticated integration, touch hardware, business API calls, DB writes, migration or deployment.
+- Final production webpack build completed successfully (exit0), including TypeScript and page generation; workspace outputs/inbound-preview-build-20261026.log. Changed production sources and restored proxy match isolated build inputs; whitespace check clean. No commit/push/deployment requested for this addition.
+
+## 2026-10-26 — Resolve inbound stock lookup URL length finding
+
+READY_FOR_CODEX_REVIEW (assigned implementer; self-verification).
+
+- Resolved Medium/P2: service sends warehouseId and all productIds in one POST JSON body, without query parameters or paramsSerializer. Keeps existing useQuery keys/cache, unknown/error behavior, IDs/quantities/units and permission checks. Requires matching new BE body endpoint, BE deployed before FE. Lookup remains read-only and needs no migration.
+- Added an Axios adapter test of the real service/request serialization with100unique GUIDs, one request, JSON content type and an unchanged response.403 remains an API failure rather than fabricated zero stock. Adapter prevents network calls; no real login/token used.
+- Scoped FE tests13/13 across transport, lookup warehouse-switch/error/permission behavior, option formatting and preview page passed. Scoped ESLint and production-config TypeScript passed; whitespace check clean. Paired isolated BE Release build/regressions49/49 passed. Existing preceding full production-build evidence remains in the prior section; no new UI/build/deployed IIS claim for this transport-only change.
+- GitNexus new service member not yet indexed; parent service impact LOW plus direct search confirms one hook consumer. Plan updated with body contract, remaining device/zoom acceptance and deployment ordering. No business API/DB calls, server startup, migration, commit, push or deployment.
+
+## 2026-10-26 — Resolve PR253 modify/delete conflicts after dev0972c521
+
+READY_FOR_CODEX_REVIEW (assigned integrator; self-verification).
+
+- GitHub had reported PR253 clean at head53bdf863 against dev90a70303. The subsequent dev0972c521 warehouse refactor deletes332 existing test files, causing six modify/delete conflicts with this branch's updated tests.
+- Retained the reviewed branch versions of InboundRequestTable, inbound-request-format, InboundMasterDetail, InventoryDirectory, InventoryReservationDirectory and InventoryWorkspaceNavigation tests. Verified all six are byte-equivalent through Git to pre-merge HEAD; no assertions were dropped or business-source conflict manually overridden. Accepted the rest of incoming dev, including its warehouse refactor and other deletions; did not restore the whole removed test suite.
+- Full currently present suite:67/67 tests in10files passed. The earlier138-test evidence predates dev's removals and is not claimed for this merged tree. Scoped ESLint and whitespace checks passed. GitNexus staged analysis MEDIUM; indexed flows include warehouse designer/directory, supplemented by direct diff inspection for incoming refactors.
+- Production build tracked in workspace outputs/pr253-conflict-build-20261026.log; final result recorded after completion. Local AGENTS.md/CLAUDE.md and outputs kept outside merge commit. No application server, business API, DB write, migration or BE source change. PR283 is already merged by the user; PR253 remains for the user to merge after this branch update.
+- Final production webpack build completed successfully (exit0), including TypeScript and all74pages. Six retained test files remain unchanged from the pre-merge reviewed versions; no unresolved Git entries. Protected local instruction hashes verified before commit.

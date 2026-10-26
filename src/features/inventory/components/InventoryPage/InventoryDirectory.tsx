@@ -375,9 +375,9 @@ function InventoryMobileList({
               </Button>
             ) : null}
             <ItemDescription>
-              Thực tế {formatInventoryQuantity(item.quantityOnHand)} {item.unitName ?? '—'} · Đã đặt
-              trước {formatInventoryQuantity(item.reservedQuantity)} {item.unitName ?? '—'} · Đang
-              giữ {formatInventoryQuantity(item.holdQuantity)} {item.unitName ?? '—'}
+              Thực tế {formatInventoryQuantity(item.quantityOnHand)} {item.unitName ?? '—'} · Đã giữ
+              cho phiếu {formatInventoryQuantity(item.reservedQuantity)} {item.unitName ?? '—'} ·
+              Tạm khóa {formatInventoryQuantity(item.holdQuantity)} {item.unitName ?? '—'}
             </ItemDescription>
           </ItemContent>
         </Item>
@@ -405,8 +405,8 @@ function InventoryDesktopTable({
             <TableHead className="sticky top-0 z-10 w-40">Lô / Trạng thái</TableHead>
             <TableHead className="sticky top-0 z-10 w-24">ĐVT chính</TableHead>
             <TableHead className="sticky top-0 z-10 w-24 text-right">Tồn thực tế</TableHead>
-            <TableHead className="sticky top-0 z-10 w-24 text-right">Đặt trước</TableHead>
-            <TableHead className="sticky top-0 z-10 w-24 text-right">Đang giữ</TableHead>
+            <TableHead className="sticky top-0 z-10 w-36 text-right">Đã giữ cho phiếu</TableHead>
+            <TableHead className="sticky top-0 z-10 w-24 text-right">Tạm khóa</TableHead>
             <TableHead className="sticky top-0 z-10 w-24 text-right">Khả dụng</TableHead>
             <TableHead className="sticky top-0 z-10 w-32">Cập nhật</TableHead>
             {canReportDamaged ? (

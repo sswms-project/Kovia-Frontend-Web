@@ -17,10 +17,16 @@ import { USER_ROLES } from '@/config/roles'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useAssignableStaffQuery } from '@/features/inbound/hooks/use-inbound'
-import { formatApiError, getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error'
+import {
+  formatApiError,
+  getApiErrorMessage,
+  isApiErrorResponse,
+  logApiError,
+} from '@/lib/api-error'
 import { useAuthStore } from '@/stores/auth.store'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { productStockOption } from '@/lib/product-stock-option'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useUnitsQuery } from '@/features/product/hooks/use-products'
 import type {
@@ -35,6 +41,7 @@ import {
   useInboundRequestQuery,
   useInboundRequestUnitConversions,
   useProductOptionsQuery,
+  useInboundProductAvailabilityQuery,
   useSubmitInboundRequestMutation,
   useSupplierOptionsQuery,
   useUpdateInboundRequestMutation,
@@ -52,6 +59,7 @@ import type { LookupOption, ProductSearchState } from '../types/inbound-request.
 import { INBOUND_SOURCE_TYPE, RECORD_STATUS } from '../types/inbound-request.types'
 import {
   mergeLookupOptions,
+  isPastInboundExpectedDate,
   toInboundRequestSaveRequest,
   toOperationalDateInputValue,
 } from '../utils/inbound-request-format'
@@ -148,6 +156,16 @@ export default function InboundRequestFormPage({
     status: RECORD_STATUS.Active,
     ...(debouncedProductSearch ? { searchTerm: debouncedProductSearch } : {}),
   })
+  const availabilityProductIds = [
+    ...new Set([...(productsQuery.data?.items ?? []).map((product) => product.id), ...productIds]),
+  ]
+    .slice(0, 100)
+    .sort()
+  const canViewInventory = meQuery.data?.permissions.includes(P.INVENTORY_VIEW) ?? false
+  const availabilityQuery = useInboundProductAvailabilityQuery(
+    { warehouseId: selectedWarehouseId, productIds: availabilityProductIds },
+    canViewInventory
+  )
   const suppliersQuery = useSupplierOptionsQuery({
     pageNumber: 1,
     pageSize: LOOKUP_PAGE_SIZE,
@@ -223,6 +241,14 @@ export default function InboundRequestFormPage({
   }, [form.formState.isDirty, codeForm.formState.isDirty])
 
   async function save(values: InboundRequestFormValues, shouldSubmit: boolean) {
+    if (shouldSubmit && isPastInboundExpectedDate(values.expectedDate)) {
+      form.setError('expectedDate', {
+        type: 'validate',
+        message: 'Ngày dự kiến đã qua. Vui lòng chọn hôm nay hoặc ngày sau để gửi duyệt.',
+      })
+      form.setFocus('expectedDate')
+      return
+    }
     if (lookupIsLoading || lookupIsError) {
       toast.error('Vui lòng chờ tải thông tin đơn vị tính hoặc thử lại.')
       return
@@ -255,10 +281,13 @@ export default function InboundRequestFormPage({
         try {
           await submitMutation.mutateAsync(savedId)
         } catch (error) {
-          logger.error(error)
-          toast.error(
-            'Yêu cầu nhập kho đã được lưu nháp nhưng chưa gửi duyệt. Bạn có thể thử lại từ trang chi tiết.'
-          )
+          logApiError(error)
+          toast.warning('Đã lưu nháp. Chưa gửi duyệt.', {
+            description: getApiErrorMessage(
+              error,
+              'Vui lòng kiểm tra lại thông tin và gửi duyệt từ trang chi tiết.'
+            ),
+          })
           router.push(APP_ROUTES.inboundRequestDetail(savedId) as Route)
           return
         }
@@ -376,19 +405,35 @@ export default function InboundRequestFormPage({
         ]
       : []
   )
+  const availableByProduct = new Map(
+    (!canViewInventory || !selectedWarehouseId || availabilityQuery.isError
+      ? []
+      : (availabilityQuery.data ?? [])
+    ).map((item) => [item.productId, item.availableQuantity])
+  )
+  const stockMessage = !selectedWarehouseId
+    ? 'Chọn kho nhận để xem tồn'
+    : !canViewInventory
+      ? 'Chưa có quyền xem tồn khả dụng'
+      : availabilityQuery.isFetching
+        ? 'Đang tải tồn khả dụng…'
+        : 'Chưa tải được tồn khả dụng'
   const productOptions = mergeLookupOptions(
-    (productsQuery.data?.items ?? []).map(
-      (product): LookupOption => ({
-        value: product.id,
-        label: `${product.sku} - ${product.productName}`,
-      })
+    (productsQuery.data?.items ?? []).map((product) =>
+      productStockOption(product, availableByProduct.get(product.id), stockMessage)
     ),
-    detail?.lines.map(
-      (line): LookupOption => ({
-        value: line.productId,
-        label: `${line.productSKU} - ${line.productName}`,
-      })
-    ) ?? []
+    (detail?.lines ?? []).map((line) =>
+      productStockOption(
+        {
+          id: line.productId,
+          sku: line.productSKU,
+          productName: line.productName,
+          unitName: line.unitName ?? '',
+        },
+        availableByProduct.get(line.productId),
+        stockMessage
+      )
+    )
   )
   if (isLoading) return <OperationalLoadingState rows={8} />
   if (isError) {

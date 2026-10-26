@@ -7,6 +7,10 @@ import { getCapacityUtilization } from './storage-capacity'
 export type LayoutMetric = 'capacity' | 'stock' | 'off'
 export type LayoutHeatBand = 'empty' | 'low' | 'mid' | 'high' | 'full'
 export type RackLabelMode = 'none' | 'center' | 'header'
+/** Trạng thái hiển thị của kệ/ô: quyết định vẽ thanh mức đầy, khung nét đứt, nền gạch chéo hay dấu vô hạn. */
+export type LayoutStatus = 'measured' | 'empty' | 'unconfigured' | 'unlimited' | 'nodata'
+/** Bộ lọc "Làm nổi": kệ không khớp bị làm mờ. */
+export type LayoutHighlight = 'all' | 'near' | 'empty' | 'todo'
 
 export const LAYOUT_METRIC_LABELS: Record<LayoutMetric, string> = {
   capacity: 'Công suất',
@@ -18,8 +22,8 @@ export const LAYOUT_HEAT_BAND_LABELS: Record<LayoutMetric, Record<LayoutHeatBand
   capacity: {
     empty: 'Trống',
     low: 'Dưới 50%',
-    mid: '50 đến 80%',
-    high: '80 đến 99%',
+    mid: '50 đến 79%',
+    high: 'Gần đầy, từ 80%',
     full: 'Đầy',
   },
   stock: {
@@ -38,8 +42,9 @@ export const RACK_HEADER_MIN_SCREEN_WIDTH = 80
 export const RACK_HEADER_MIN_SCREEN_HEIGHT = 30
 const RACK_HEADER_ONE_LINE_SCREEN_HEIGHT = 18
 export const RACK_HEADER_TWO_LINE_SCREEN_HEIGHT = 30
-const RACK_HEADER_SECONDARY_MIN_SCREEN_WIDTH = 150
-const RACK_HEADER_SECONDARY_MIN_SCREEN_HEIGHT = 90
+const RACK_HEADER_SECONDARY_MIN_SCREEN_WIDTH = 100
+const RACK_HEADER_SECONDARY_MIN_SCREEN_HEIGHT_WITH_SLOTS = 90
+const RACK_HEADER_SECONDARY_MIN_SCREEN_HEIGHT_WITHOUT_SLOTS = 36
 export const SLOT_CELL_MIN_SCREEN_WIDTH = 14
 export const SLOT_CELL_MIN_SCREEN_HEIGHT = 10
 export const SLOT_VALUE_MIN_SCREEN_WIDTH = 26
@@ -52,7 +57,10 @@ const MID_STOCK_RATIO = 0.6
 
 export interface LayoutMetricLabel {
   readonly band: LayoutHeatBand | null
+  readonly status: LayoutStatus
   readonly primary: string
+  /** Bản ngắn dùng khi không đủ chỗ cho `primary` (ví dụ "Chưa cấu hình" trên kệ nhỏ). */
+  readonly compact: string
   readonly secondary: string | null
 }
 
@@ -101,17 +109,45 @@ function getRackCapacityLocation(
   }
 }
 
+const UNLIMITED_CAPACITY_LABEL: LayoutMetricLabel = {
+  band: null,
+  status: 'unlimited',
+  primary: 'Không giới hạn',
+  compact: '∞',
+  secondary: null,
+}
+
+/** Kệ rỗng hoặc các ô khác đơn vị: vẫn cho kệ một nhãn để thấy mã kệ trên sơ đồ. */
+const NO_CAPACITY_DATA_LABEL: LayoutMetricLabel = {
+  band: null,
+  status: 'nodata',
+  primary: '—',
+  compact: '—',
+  secondary: null,
+}
+
 function getCapacityLabel(location: CapacityLocation | null): LayoutMetricLabel | null {
   if (!location) return null
   if (location.requiresCapacityConfiguration) {
-    return { band: null, primary: 'Chưa cấu hình', secondary: null }
+    return {
+      band: null,
+      status: 'unconfigured',
+      primary: 'Chưa cấu hình',
+      compact: '!',
+      secondary: null,
+    }
   }
+  if (location.capacityType === 'None') return UNLIMITED_CAPACITY_LABEL
   const utilization = getCapacityUtilization(location)
   if (!utilization) return null
   const unit = location.capacityUnitSymbol ?? location.capacityUnitName
+  const percent = `${Math.round(utilization.rawPercent)}%`
+  const band = getUtilizationBand(utilization.rawPercent)
   return {
-    band: getUtilizationBand(utilization.rawPercent),
-    primary: `${Math.round(utilization.rawPercent)}%`,
+    band,
+    status: band === 'empty' ? 'empty' : 'measured',
+    primary: percent,
+    compact: percent,
     secondary: `${formatCompactNumber(utilization.used)}/${formatCompactNumber(utilization.maximum)}${unit ? ` ${unit}` : ''}`,
   }
 }
@@ -122,9 +158,13 @@ function getStockLabel(
 ): LayoutMetricLabel {
   const quantity = location.onHandQuantity ?? 0
   const skuCount = location.skuCount ?? 0
+  const formatted = formatCompactNumber(quantity)
+  const band = getStockBand(quantity, maximumQuantity)
   return {
-    band: getStockBand(quantity, maximumQuantity),
-    primary: formatCompactNumber(quantity),
+    band,
+    status: band === 'empty' ? 'empty' : 'measured',
+    primary: formatted,
+    compact: formatted,
     secondary: skuCount > 0 ? `${skuCount} mã hàng` : null,
   }
 }
@@ -137,7 +177,14 @@ export function getRackMetricLabel(
 ): LayoutMetricLabel | null {
   if (metric === 'off') return null
   if (metric === 'stock') return getStockLabel(rack, maximumRackStock)
-  return getCapacityLabel(getRackCapacityLocation(rack, slots))
+  const label = getCapacityLabel(getRackCapacityLocation(rack, slots))
+  if (label) return label
+  // Kệ theo ô mà không ô nào có sức chứa: không có gì để cộng, nên coi là không giới hạn thay vì để trống.
+  const hasOnlyUnlimitedSlots =
+    rack.storageMode === 'SlotLevel' &&
+    slots.length > 0 &&
+    slots.every((slot) => slot.capacityType === 'None')
+  return hasOnlyUnlimitedSlots ? UNLIMITED_CAPACITY_LABEL : NO_CAPACITY_DATA_LABEL
 }
 
 export function getSlotMetricLabel(
@@ -154,15 +201,30 @@ export function getMaximumStock(locations: readonly { readonly onHandQuantity?: 
   return locations.reduce((maximum, location) => Math.max(maximum, location.onHandQuantity ?? 0), 0)
 }
 
+/** Kệ có khớp bộ lọc "Làm nổi" không; kệ không có nhãn (số liệu đang tắt) không bao giờ bị làm mờ. */
+export function matchesLayoutHighlight(
+  label: LayoutMetricLabel | null,
+  highlight: LayoutHighlight
+): boolean {
+  if (highlight === 'all' || !label) return true
+  if (highlight === 'near') return label.band === 'high' || label.band === 'full'
+  if (highlight === 'empty') return label.status === 'empty'
+  return label.status === 'unconfigured'
+}
+
 /** Chiều cao dải tiêu đề tính bằng px trên màn hình: giữ cố định theo zoom để chữ luôn đọc được. */
 export function getRackHeaderScreenHeight(
   screenWidth: number,
   screenHeight: number,
-  hasSecondaryLine: boolean
+  hasSecondaryLine: boolean,
+  hasSlotGrid: boolean
 ) {
+  // Kệ không có ô không cần chừa chỗ cho lưới nên dòng phụ hiện được ở kệ thấp hơn.
+  const minimumHeight = hasSlotGrid
+    ? RACK_HEADER_SECONDARY_MIN_SCREEN_HEIGHT_WITH_SLOTS
+    : RACK_HEADER_SECONDARY_MIN_SCREEN_HEIGHT_WITHOUT_SLOTS
   const hasRoomForSecondary =
-    screenWidth >= RACK_HEADER_SECONDARY_MIN_SCREEN_WIDTH &&
-    screenHeight >= RACK_HEADER_SECONDARY_MIN_SCREEN_HEIGHT
+    screenWidth >= RACK_HEADER_SECONDARY_MIN_SCREEN_WIDTH && screenHeight >= minimumHeight
   return hasSecondaryLine && hasRoomForSecondary
     ? RACK_HEADER_TWO_LINE_SCREEN_HEIGHT
     : RACK_HEADER_ONE_LINE_SCREEN_HEIGHT

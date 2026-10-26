@@ -24,7 +24,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
-import { InboundPageHeader } from '@/features/inbound/components/InboundWorkspace'
+import {
+  InboundPageHeader,
+  InboundMasterDetail,
+  InboundGoodsPreview,
+  INBOUND_DETAIL_STORAGE_KEY,
+} from '@/features/inbound/components/InboundWorkspace'
+import { requestGoodsPreviewRows } from '@/features/inbound/utils/inbound-goods-preview'
+import { useLocalStorage } from '@/hooks/use-local-storage'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { InboundRequestDirectory } from '../components/InboundRequestsPage'
 import {
@@ -33,6 +40,7 @@ import {
   useApproveInboundRequestsMutation,
   useDuplicateInboundRequestMutation,
   useInboundRequestsQuery,
+  useInboundRequestQuery,
   useSubmitInboundRequestsMutation,
   useSubmitInboundRequestMutation,
 } from '../hooks/use-inbound-requests'
@@ -65,6 +73,8 @@ export default function InboundRequestsPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([])
+  const [previewId, setPreviewId] = useState('')
+  const [expanded, setExpanded] = useLocalStorage(INBOUND_DETAIL_STORAGE_KEY, false)
   const [deleteIntent, setDeleteIntent] = useState<DeleteIntent | null>(null)
   const [workflowIntent, setWorkflowIntent] = useState<WorkflowIntent | null>(null)
   const meQuery = useMeQuery()
@@ -88,6 +98,11 @@ export default function InboundRequestsPage() {
     ...(createdTo ? { dateTo: toOperationalDateTimeEnd(createdTo) } : {}),
   }
   const query = useInboundRequestsQuery(exportFilters)
+  const preview =
+    !query.isError && !query.isPlaceholderData
+      ? query.data?.items.find((item) => item.id === previewId)
+      : undefined
+  const previewQuery = useInboundRequestQuery(expanded && preview ? preview.id : '')
   const canCreate = meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_CREATE) ?? false
 
   function confirmDelete() {
@@ -184,103 +199,120 @@ export default function InboundRequestsPage() {
             ) : null
           }
         />
-        <InboundRequestDirectory
-          onOpen={(item) => router.push(APP_ROUTES.inboundRequestDetail(item.id) as Route)}
-          exportAction={
-            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        <InboundMasterDetail
+          expanded={expanded}
+          onExpandedChange={setExpanded}
+          referenceCode={preview?.inboundRequestCode}
+          detail={
+            <InboundGoodsPreview
+              key={preview?.id ?? 'empty'}
+              rows={requestGoodsPreviewRows(previewQuery.data?.lines ?? [])}
+              selected={Boolean(preview)}
+              isLoading={previewQuery.isLoading}
+              isError={previewQuery.isError}
+              onRetry={() => void previewQuery.refetch()}
+            />
           }
-          items={query.data?.items ?? []}
-          totalCount={query.data?.totalCount ?? 0}
-          page={page}
-          pageSize={pageSize}
-          searchText={searchText}
-          status={status}
-          createdFrom={createdFrom}
-          createdTo={createdTo}
-          sortDirection={sortDirection}
-          onSortDirectionChange={(value) => {
-            setSortDirection(value)
-            setPage(1)
-            setSelectedIds([])
-          }}
-          statusCounts={query.data?.statusCounts ?? []}
-          isLoading={query.isLoading}
-          isStatsError={query.isError}
-          isFetching={query.isFetching}
-          isError={query.isError}
-          currentUserId={meQuery.data?.id}
-          canDelete={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_DELETE) ?? false}
-          canDeleteApproved={query.data?.canDeleteApprovedRequests ?? false}
-          canEdit={query.data?.canEditRequests ?? false}
-          canEditApproved={query.data?.canEditApprovedRequests ?? false}
-          canCreate={canCreate}
-          canSubmit={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_SUBMIT) ?? false}
-          canApprove={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_APPROVE) ?? false}
-          isDeleting={deleteMutation.isPending}
-          isSubmitting={isSubmitting}
-          isApproving={isApproving}
-          isDuplicating={duplicateMutation.isPending}
-          selectedIds={selectedIds}
-          isDeletingMany={deleteManyMutation.isPending}
-          onSearchChange={(value) => {
-            setSearchText(value)
-            setPage(1)
-            setSelectedIds([])
-          }}
-          onStatusChange={(value) => {
-            setStatus(value)
-            setPage(1)
-            setSelectedIds([])
-          }}
-          onCreatedFromChange={(value) => {
-            setCreatedFrom(value)
-            setPage(1)
-            setSelectedIds([])
-          }}
-          onCreatedToChange={(value) => {
-            setCreatedTo(value)
-            setPage(1)
-            setSelectedIds([])
-          }}
-          onPageChange={(value) => {
-            setPage(value)
-            setSelectedIds([])
-          }}
-          onPageSizeChange={(value) => {
-            setPageSize(value)
-            setPage(1)
-            setSelectedIds([])
-          }}
-          onRetry={() => void query.refetch()}
-          onSelectionChange={setSelectedIds}
-          onDelete={(item) => setDeleteIntent({ kind: 'single', item })}
-          onSubmit={(item) => setWorkflowIntent({ action: 'submit', ids: [item.id] })}
-          onApprove={(item) => setWorkflowIntent({ action: 'approve', ids: [item.id] })}
-          onDuplicate={(item) =>
-            duplicateMutation.mutate(item.id, {
-              onSuccess: (response) => {
-                toast.success('Đã sao chép yêu cầu nhập kho thành bản nháp.')
-                router.push(APP_ROUTES.inboundRequestDetail(response.data) as Route)
-              },
-              onError: (error) =>
-                toast.error(error.message || 'Không thể sao chép yêu cầu nhập kho.'),
-            })
-          }
-          onDeleteMany={(ids) =>
-            ids.length > 0 &&
-            setDeleteIntent({
-              kind: 'many',
-              ids,
-              expectedVersions: Object.fromEntries(
-                (query.data?.items ?? [])
-                  .filter((item) => ids.includes(item.id))
-                  .map((item) => [item.id, item.version ?? ''])
-              ),
-            })
-          }
-          onSubmitMany={(ids) => ids.length > 0 && setWorkflowIntent({ action: 'submit', ids })}
-          onApproveMany={(ids) => ids.length > 0 && setWorkflowIntent({ action: 'approve', ids })}
-        />
+        >
+          <InboundRequestDirectory
+            previewId={preview?.id}
+            onOpen={(item) => setPreviewId(item.id)}
+            exportAction={
+              listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+            }
+            items={query.data?.items ?? []}
+            totalCount={query.data?.totalCount ?? 0}
+            page={page}
+            pageSize={pageSize}
+            searchText={searchText}
+            status={status}
+            createdFrom={createdFrom}
+            createdTo={createdTo}
+            sortDirection={sortDirection}
+            onSortDirectionChange={(value) => {
+              setSortDirection(value)
+              setPage(1)
+              setSelectedIds([])
+            }}
+            statusCounts={query.data?.statusCounts ?? []}
+            isLoading={query.isLoading}
+            isStatsError={query.isError}
+            isFetching={query.isFetching}
+            isError={query.isError}
+            currentUserId={meQuery.data?.id}
+            canDelete={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_DELETE) ?? false}
+            canDeleteApproved={query.data?.canDeleteApprovedRequests ?? false}
+            canEdit={query.data?.canEditRequests ?? false}
+            canEditApproved={query.data?.canEditApprovedRequests ?? false}
+            canCreate={canCreate}
+            canSubmit={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_SUBMIT) ?? false}
+            canApprove={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_APPROVE) ?? false}
+            isDeleting={deleteMutation.isPending}
+            isSubmitting={isSubmitting}
+            isApproving={isApproving}
+            isDuplicating={duplicateMutation.isPending}
+            selectedIds={selectedIds}
+            isDeletingMany={deleteManyMutation.isPending}
+            onSearchChange={(value) => {
+              setSearchText(value)
+              setPage(1)
+              setSelectedIds([])
+            }}
+            onStatusChange={(value) => {
+              setStatus(value)
+              setPage(1)
+              setSelectedIds([])
+            }}
+            onCreatedFromChange={(value) => {
+              setCreatedFrom(value)
+              setPage(1)
+              setSelectedIds([])
+            }}
+            onCreatedToChange={(value) => {
+              setCreatedTo(value)
+              setPage(1)
+              setSelectedIds([])
+            }}
+            onPageChange={(value) => {
+              setPage(value)
+              setSelectedIds([])
+            }}
+            onPageSizeChange={(value) => {
+              setPageSize(value)
+              setPage(1)
+              setSelectedIds([])
+            }}
+            onRetry={() => void query.refetch()}
+            onSelectionChange={setSelectedIds}
+            onDelete={(item) => setDeleteIntent({ kind: 'single', item })}
+            onSubmit={(item) => setWorkflowIntent({ action: 'submit', ids: [item.id] })}
+            onApprove={(item) => setWorkflowIntent({ action: 'approve', ids: [item.id] })}
+            onDuplicate={(item) =>
+              duplicateMutation.mutate(item.id, {
+                onSuccess: (response) => {
+                  toast.success('Đã sao chép yêu cầu nhập kho thành bản nháp.')
+                  router.push(APP_ROUTES.inboundRequestDetail(response.data) as Route)
+                },
+                onError: (error) =>
+                  toast.error(error.message || 'Không thể sao chép yêu cầu nhập kho.'),
+              })
+            }
+            onDeleteMany={(ids) =>
+              ids.length > 0 &&
+              setDeleteIntent({
+                kind: 'many',
+                ids,
+                expectedVersions: Object.fromEntries(
+                  (query.data?.items ?? [])
+                    .filter((item) => ids.includes(item.id))
+                    .map((item) => [item.id, item.version ?? ''])
+                ),
+              })
+            }
+            onSubmitMany={(ids) => ids.length > 0 && setWorkflowIntent({ action: 'submit', ids })}
+            onApproveMany={(ids) => ids.length > 0 && setWorkflowIntent({ action: 'approve', ids })}
+          />
+        </InboundMasterDetail>
       </div>
       <AlertDialog
         open={deleteIntent !== null}

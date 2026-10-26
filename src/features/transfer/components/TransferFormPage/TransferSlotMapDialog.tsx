@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WarehouseLayoutViewerWorkspace } from '@/features/warehouse/components/WarehouseDesigner'
+import { useLayoutViewerInventory } from '@/features/warehouse/hooks/use-layout-viewer-inventory'
 import { useWarehouseLayoutSceneQuery } from '@/features/warehouse/hooks/use-warehouse-layout-scene'
 import type {
   WarehouseLayoutSelection,
@@ -67,6 +68,7 @@ function TransferSlotMapBody({
   onConfirm,
 }: TransferSlotMapBodyProps) {
   const sceneQuery = useWarehouseLayoutSceneQuery(warehouseId)
+  const inventoryState = useLayoutViewerInventory(warehouseId)
   const scene = useMemo(
     () => (sceneQuery.data ? mapWarehouseLayoutScene(sceneQuery.data).editorScene : null),
     [sceneQuery.data]
@@ -112,6 +114,7 @@ function TransferSlotMapBody({
           warehouseId={warehouseId}
           warehouseName=""
           title={title}
+          inventoryState={inventoryState}
           scene={scene}
           canConfigure={false}
           isClosing={isClosing}

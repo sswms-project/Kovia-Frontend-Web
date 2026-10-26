@@ -9,7 +9,7 @@ const views = [
   ['availability', 'Tồn kho khả dụng'],
   ['adjustments', 'Điều chỉnh'],
   ['movements', 'Lịch sử biến động'],
-  ['reservations', 'Tồn đang giữ'],
+  ['reservations', 'Hàng giữ cho phiếu'],
   ['damage-cases', 'Hàng hỏng'],
   ['opening-stocks', 'Tồn đầu'],
   ['abc', 'Phân loại ABC'],

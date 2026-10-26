@@ -241,6 +241,7 @@ export const API_ENDPOINTS = {
     reactivate: (supplierId: string) => `/suppliers/${supplierId}/reactivate`,
   },
   inboundRequests: {
+    productAvailability: '/inbound-requests/product-availability',
     nextCode: '/inbound-requests/next-code',
     updateCode: (id: string) => `/inbound-requests/${id}/code`,
     list: '/inbound-requests',

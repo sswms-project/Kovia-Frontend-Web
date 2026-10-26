@@ -99,6 +99,20 @@ function directoryProps(): ComponentProps<typeof InboundRequestDirectory> {
 }
 
 describe('inbound row navigation and bulk checkboxes', () => {
+  it('highlights only the document being previewed on desktop and mobile', () => {
+    render(<InboundRequestDirectory {...directoryProps()} onOpen={vi.fn()} previewId={draft.id} />)
+    expect(screen.getByRole('row', { name: /IR-001/ })).toHaveAttribute('data-state', 'selected')
+    expect(screen.getByRole('row', { name: /IR-002/ })).not.toHaveAttribute(
+      'data-state',
+      'selected'
+    )
+    const links = screen.getAllByRole('link', { name: 'IR-001' })
+    expect(links).toHaveLength(2)
+    for (const link of links) {
+      expect(link).toHaveAttribute('href', '/inbound-requests/draft')
+      expect(link.closest('[tabindex="0"]')).toHaveAttribute('data-state', 'selected')
+    }
+  })
   it('opens the request from any plain cell and from the keyboard', async () => {
     const options = props()
     const onOpen = vi.fn()
