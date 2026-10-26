@@ -45,10 +45,26 @@ export function TransferRequestDecisionPanel({
         <AlertTitle>Kho xuất đã từ chối yêu cầu</AlertTitle>
         <AlertDescription>
           {transfer.rejectionReason || 'Xem lịch sử xử lý của phiếu.'}
+          {canWithdraw ? (
+            <Button variant="outline" disabled={disabled} onClick={onWithdraw}>
+              Thu hồi để sửa
+            </Button>
+          ) : null}
         </AlertDescription>
       </Alert>
     )
-  if (transfer.status !== 'PendingSourceAcceptance') return null
+  if (transfer.status !== 'PendingSourceAcceptance')
+    return canWithdraw ? (
+      <Alert className="shrink-0">
+        <AlertTitle>Yêu cầu chưa bắt đầu thực hiện</AlertTitle>
+        <AlertDescription>
+          Thu hồi để sửa sẽ hủy hiệu lực chấp nhận và nhả lượng hàng đang giữ của yêu cầu.
+          <Button variant="outline" disabled={disabled} onClick={onWithdraw}>
+            Thu hồi để sửa
+          </Button>
+        </AlertDescription>
+      </Alert>
+    ) : null
   return (
     <Alert className="shrink-0" role="status">
       <AlertTitle>

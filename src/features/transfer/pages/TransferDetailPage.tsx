@@ -8,6 +8,7 @@ import {
   MessageSquareWarning,
   PencilLine,
   MoreHorizontal,
+  Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -55,6 +56,7 @@ import {
 import { TransferStatusBadge } from '../components/TransfersPage'
 import { useTransferAllocationActions } from '../hooks/use-transfer-allocation-actions'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
+import { useDeleteTransferDraft } from '../hooks/use-delete-transfer-draft'
 import { useTransferRequestActions } from '../hooks/use-transfer-request-actions'
 import { useTransferRequestDecision } from '../hooks/use-transfer-request-decision'
 import { useTransferResolutionActions } from '../hooks/use-transfer-resolution-actions'
@@ -95,6 +97,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   const { viewer } = useTransferViewer()
   const detailQuery = useTransferQuery(transferId)
   const transfer = detailQuery.data
+  const deleteDraft = useDeleteTransferDraft(transfer)
   useTransferRealtime({ transferId })
 
   const requestActions = useTransferRequestActions(transfer)
@@ -190,12 +193,22 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         {transfer ? (
           <div className="flex flex-wrap gap-2">
             {capabilities.canEditDraft ? (
-              <Button asChild size="sm" variant="outline">
-                <Link href={APP_ROUTES.transferEdit(transfer.id)}>
-                  <PencilLine aria-hidden="true" />
-                  Soạn tiếp nháp
-                </Link>
-              </Button>
+              <>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={APP_ROUTES.transferEdit(transfer.id)}>
+                    <PencilLine aria-hidden="true" />
+                    Soạn tiếp nháp
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={deleteDraft.dialog.isPending || detailQuery.isFetching}
+                  onClick={deleteDraft.open}
+                >
+                  <Trash2 /> Xóa nháp
+                </Button>
+              </>
             ) : null}
             {capabilities.canEdit ||
             capabilities.canGiveFeedback ||
@@ -633,6 +646,13 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         onSubmit={(values) => void requestDecision.submit(values.reason)}
       />
       <TransferConfirmDialog
+        {...deleteDraft.dialog}
+        title="Xóa nháp điều chuyển?"
+        description="Nháp chưa thực hiện sẽ được ẩn khỏi danh sách. Nội dung và lịch sử vẫn được giữ để tra cứu."
+        confirmLabel="Xóa nháp"
+        pendingLabel="Đang xóa…"
+      />
+      <TransferConfirmDialog
         open={
           (requestDecision.kind === 'accept' || requestDecision.kind === 'withdraw') &&
           !requestDecision.uncertain
@@ -644,7 +664,7 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
         }
         description={
           requestDecision.kind === 'withdraw'
-            ? 'Yêu cầu sẽ không còn chờ kho xuất xác nhận. Bạn có thể sửa nội dung và gửi lại.'
+            ? 'Yêu cầu trở về Nháp, quyết định chấp nhận cũ hết hiệu lực và lượng giữ riêng của phiếu được nhả. Sau khi sửa, bạn cần gửi lại.'
             : 'Hệ thống kiểm tra lại tồn và giữ chỗ toàn bộ hàng yêu cầu. Bạn có thể chuẩn bị xuất sau.'
         }
         confirmLabel={requestDecision.kind === 'withdraw' ? 'Thu hồi yêu cầu' : 'Chấp nhận'}

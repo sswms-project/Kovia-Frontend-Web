@@ -164,6 +164,7 @@ export interface CycleCountDamageEvidence {
 }
 
 export interface CycleCountDetail {
+  version?: string | null
   id: string
   warehouseId: string
   warehouseName: string

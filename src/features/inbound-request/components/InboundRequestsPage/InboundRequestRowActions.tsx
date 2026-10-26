@@ -16,6 +16,7 @@ import {
 } from '../../types/inbound-request.types'
 
 interface InboundRequestRowActionsProps {
+  readonly currentUserId?: string | null
   readonly item: InboundRequestSummary
   readonly canCreate: boolean
   readonly canSubmit: boolean
@@ -35,14 +36,13 @@ interface InboundRequestRowActionsProps {
 }
 
 export function InboundRequestRowActions({
+  currentUserId,
   item,
   canCreate,
   canSubmit,
   canApprove,
   canDelete,
-  canDeleteApproved = false,
   canEdit = false,
-  canEditApproved = false,
   isSubmitting,
   isApproving,
   isDeleting,
@@ -56,12 +56,8 @@ export function InboundRequestRowActions({
   const isPendingApproval = item.status === INBOUND_REQUEST_STATUS.PendingApproval
   const showSubmit = canSubmit && isDraft
   const showApprove = canApprove && isPendingApproval
-  const showDelete =
-    canDelete &&
-    (isDraft ||
-      (canDeleteApproved &&
-        item.status === INBOUND_REQUEST_STATUS.Approved &&
-        item.receivedQuantity === 0))
+  const canChangeOwn = canCreate && currentUserId === item.createdBy
+  const showDelete = (canDelete || canChangeOwn) && isDraft
 
   return (
     <DropdownMenu>
@@ -85,7 +81,7 @@ export function InboundRequestRowActions({
             Xem chi tiết
           </Link>
         </DropdownMenuItem>
-        {(canEdit && isDraft) || canEditApproved ? (
+        {(canEdit || canChangeOwn) && isDraft ? (
           <DropdownMenuItem asChild>
             <Link href={APP_ROUTES.inboundRequestEdit(item.id) as Route}>
               <Pencil aria-hidden="true" />

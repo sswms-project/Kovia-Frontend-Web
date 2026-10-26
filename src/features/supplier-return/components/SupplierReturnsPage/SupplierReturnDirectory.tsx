@@ -1,5 +1,9 @@
 'use client'
 
+import Link from 'next/link'
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
+
 import { Plus, Search } from 'lucide-react'
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
@@ -39,6 +43,7 @@ interface Option {
 }
 
 interface SupplierReturnDirectoryProps {
+  readonly detailHref?: (id: string) => string
   readonly items: readonly SupplierReturnSummary[]
   readonly totalCount: number
   readonly page: number
@@ -70,6 +75,7 @@ interface SupplierReturnDirectoryProps {
 }
 
 export function SupplierReturnDirectory({
+  detailHref = APP_ROUTES.supplierReturnDetail,
   items,
   totalCount,
   page,
@@ -215,7 +221,12 @@ export function SupplierReturnDirectory({
                   >
                     <ItemContent className="min-w-0">
                       <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
-                        <span className="font-mono">{item.code}</span>
+                        <Link
+                          className="font-mono underline-offset-4 hover:underline"
+                          href={detailHref(item.id) as Route}
+                        >
+                          {item.code}
+                        </Link>
                         <SupplierReturnStatusBadge status={item.status} />
                       </ItemTitle>
                       <ItemDescription>
@@ -245,7 +256,14 @@ export function SupplierReturnDirectory({
               <TableBody>
                 {items.map((item) => (
                   <ClickableTableRow key={item.id} onActivate={() => onInspect(item)}>
-                    <TableCell className="font-mono">{item.code}</TableCell>
+                    <TableCell className="font-mono">
+                      <Link
+                        className="underline-offset-4 hover:underline"
+                        href={detailHref(item.id) as Route}
+                      >
+                        {item.code}
+                      </Link>
+                    </TableCell>
                     <TableCell>{item.supplierName}</TableCell>
                     <TableCell>{item.warehouseName}</TableCell>
                     <TableCell className="text-right">{item.lineCount}</TableCell>

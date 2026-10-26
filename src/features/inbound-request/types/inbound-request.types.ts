@@ -18,6 +18,8 @@ export type InboundRequestStatus = (typeof INBOUND_REQUEST_STATUSES)[number]
 export const INBOUND_REQUEST_ACTION = {
   AssignReceivingTask: 'AssignReceivingTask',
   Update: 'Update',
+  Withdraw: 'Withdraw',
+  Delete: 'Delete',
   UpdateCode: 'UpdateCode',
   Submit: 'Submit',
   Approve: 'Approve',
@@ -61,6 +63,7 @@ export interface InboundRequestListQuery {
 }
 
 export interface InboundRequestSummary {
+  version?: string
   id: string
   inboundRequestCode: string
   warehouseId: string | null

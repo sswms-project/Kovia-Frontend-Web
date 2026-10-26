@@ -1,5 +1,9 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
+
 import { toast } from 'sonner'
 import {
   OperationalErrorState,
@@ -19,6 +23,7 @@ import {
   useReconcileInboundRequestMutation,
   useSendInboundRequestToSupplierMutation,
   useSubmitInboundRequestMutation,
+  useDeleteInboundRequestMutation,
 } from '../hooks/use-inbound-requests'
 import {
   INBOUND_REQUEST_ACTION,
@@ -45,6 +50,8 @@ export default function InboundRequestDetailPage({
 }: {
   readonly inboundRequestId: string
 }) {
+  const router = useRouter()
+  const deleteMutation = useDeleteInboundRequestMutation()
   const detailQuery = useInboundRequestQuery(inboundRequestId)
   const assignment = useAssignWarehouseTask()
   const actionsQuery = useInboundRequestAllowedActionsQuery(inboundRequestId)
@@ -59,10 +66,11 @@ export default function InboundRequestDetailPage({
   async function runAction(
     action: InboundRequestAction,
     reason?: string,
-    selfApprovalAcknowledged = false
+    selfApprovalAcknowledged = false,
+    intentVersion?: string | null
   ) {
     try {
-      const expectedVersion = detailQuery.data?.version
+      const expectedVersion = intentVersion ?? detailQuery.data?.version
       if (
         action !== INBOUND_REQUEST_ACTION.Submit &&
         action !== INBOUND_REQUEST_ACTION.SendToSupplier &&
@@ -85,6 +93,27 @@ export default function InboundRequestDetailPage({
           : await sendToSupplierMutation.mutateAsync(inboundRequestId)
         notifyDispatch(response.data, approvedNow)
         return approvedNow || response.data.sent
+      }
+      if (action === INBOUND_REQUEST_ACTION.Delete) {
+        await deleteMutation.mutateAsync({
+          id: inboundRequestId,
+          expectedVersion: expectedVersion ?? '',
+        })
+        toast.success('Đã xóa nháp và giữ lại lịch sử xử lý.')
+        router.replace(APP_ROUTES.inboundRequests as Route)
+        return true
+      }
+      if (action === INBOUND_REQUEST_ACTION.Withdraw) {
+        if (!reason) return false
+        await reconcileMutation.mutateAsync({
+          inboundRequestId,
+          action: 'withdraw',
+          reason,
+          expectedVersion: expectedVersion ?? '',
+        })
+        toast.success('Đã thu hồi về Nháp. Hãy sửa rồi gửi duyệt lại.')
+        router.push(APP_ROUTES.inboundRequestEdit(inboundRequestId) as Route)
+        return true
       }
       if (action === INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate) {
         await acceptProposedDateMutation.mutateAsync({
@@ -162,6 +191,7 @@ export default function InboundRequestDetailPage({
         selfApprovalRequired={actionsQuery.data?.selfApprovalRequired ?? false}
         isPending={
           assignment.isPending ||
+          deleteMutation.isPending ||
           submitMutation.isPending ||
           approveMutation.isPending ||
           approveAndSendMutation.isPending ||
@@ -184,7 +214,7 @@ export default function InboundRequestDetailPage({
         onReject={(reason, acknowledged) =>
           runAction(INBOUND_REQUEST_ACTION.Reject, reason, acknowledged)
         }
-        onReconcile={(action, reason) => runAction(action, reason)}
+        onReconcile={(action, reason, version) => runAction(action, reason, false, version)}
         onAssignReceiving={() => {
           const request = detailQuery.data
           if (

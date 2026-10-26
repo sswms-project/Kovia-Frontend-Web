@@ -14,6 +14,7 @@ import {
   toSaveDraftRequest,
   toUpdateTransferRequest,
   transferToFormValues,
+  matchesSavedTransferDraft,
 } from '../utils/transfer-form'
 import {
   useSaveTransferDraftMutation,
@@ -26,7 +27,7 @@ interface UseTransferFormActionsOptions {
   readonly transferId?: string
   readonly detail: TransferDetail | undefined
   readonly form: UseFormReturn<TransferRequestFormValues>
-  readonly refetchDetail: () => Promise<{ data?: TransferDetail }>
+  readonly refetchDetail: () => Promise<{ data?: TransferDetail; isError?: boolean }>
   /** Gọi khi người dùng chấp nhận dữ liệu mới của server (tải lại) hoặc bỏ qua cảnh báo thay đổi. */
   readonly dismissRealtime: () => void
 }
@@ -43,7 +44,8 @@ export function useTransferFormActions({
   const router = useRouter()
   const hydratedId = useRef<string | null>(null)
   const draftIdRef = useRef<string | null>(null)
-  const savedDraftOnceRef = useRef(false)
+  const draftVersionRef = useRef<string | null>(null)
+  const unreviewedDraft = useRef(false)
   const actionLock = useRef(false)
   const uncertain = useRef(false)
   const [unknownResult, setUnknownResult] = useState(false)
@@ -66,6 +68,7 @@ export function useTransferFormActions({
     if (!detail || hydratedId.current === detail.id) return
     hydratedId.current = detail.id
     draftIdRef.current = detail.status === 'Draft' ? detail.id : null
+    draftVersionRef.current = detail.version
     form.reset(transferToFormValues(detail))
   }, [detail, form])
 
@@ -82,25 +85,56 @@ export function useTransferFormActions({
 
   async function saveDraft(values: TransferRequestFormValues): Promise<string | null> {
     const expectedVersion =
-      mode === 'draft' && !savedDraftOnceRef.current ? (detail?.version ?? null) : null
+      draftVersionRef.current ?? (mode === 'draft' ? (detail?.version ?? null) : null)
+    if (draftIdRef.current && !expectedVersion)
+      throw new Error('Thiếu phiên bản nháp. Vui lòng tải lại trước khi lưu.')
+    const request = toSaveDraftRequest(values, expectedVersion, detail)
     const response = await saveDraftMutation.mutateAsync({
       transferId: draftIdRef.current,
-      request: toSaveDraftRequest(values, expectedVersion, detail),
+      request,
     })
     draftIdRef.current = response.data
-    savedDraftOnceRef.current = true
+    draftVersionRef.current = null
+    const refreshed = await transferService.getTransfer(response.data)
+    if (!refreshed.data.version)
+      throw new Error('Không tải được phiên bản nháp vừa lưu. Vui lòng tải lại phiếu.')
+    if (!matchesSavedTransferDraft(request, refreshed.data)) {
+      unreviewedDraft.current = true
+      throw {
+        statusCode: 409,
+        message:
+          'Nội dung phiếu đã thay đổi sau khi lưu. Vui lòng tải lại và kiểm tra trước khi tiếp tục.',
+      }
+    }
+    draftVersionRef.current = refreshed.data.version
     return response.data
   }
 
   async function reload() {
     if (uncertain.current || actionLock.current) return
+    if (!transferId && draftIdRef.current) {
+      router.replace(APP_ROUTES.transferEdit(draftIdRef.current))
+      return
+    }
     const refreshed = await refetchDetail()
-    if (refreshed.data) form.reset(transferToFormValues(refreshed.data))
+    if (refreshed.isError || !refreshed.data) {
+      toast.error('Chưa tải được nội dung mới. Vui lòng thử tải lại trước khi tiếp tục.')
+      return
+    }
+    if (refreshed.data) {
+      form.reset(transferToFormValues(refreshed.data))
+      draftVersionRef.current = refreshed.data.version
+      unreviewedDraft.current = false
+    }
     dismissRealtime()
     setHasConflict(false)
   }
 
   function dismissChange() {
+    if (unreviewedDraft.current) {
+      toast.error('Cần tải lại và kiểm tra nội dung đã thay đổi trước khi tiếp tục.')
+      return
+    }
     dismissRealtime()
     setHasConflict(false)
   }
@@ -124,7 +158,7 @@ export function useTransferFormActions({
   }
 
   async function handleSaveDraft(values: TransferRequestFormValues) {
-    if (actionLock.current || uncertain.current) return
+    if (actionLock.current || uncertain.current || unreviewedDraft.current) return
     actionLock.current = true
     setActionPending(true)
     try {
@@ -143,7 +177,7 @@ export function useTransferFormActions({
   }
 
   async function handleSubmitRequest(values: TransferRequestFormValues) {
-    if (actionLock.current || uncertain.current) return
+    if (actionLock.current || uncertain.current || unreviewedDraft.current) return
     actionLock.current = true
     setActionPending(true)
     let draftId: string | null = null
@@ -152,7 +186,7 @@ export function useTransferFormActions({
       if (!draftId) return
       await submitDraftMutation.mutateAsync({
         transferId: draftId,
-        request: { expectedVersion: null },
+        request: { expectedVersion: draftVersionRef.current },
       })
       form.reset(values)
       setIsConfirmOpen(false)

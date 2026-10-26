@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Ban, CheckCircle2, FileDown, Play, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Ban, CheckCircle2, FileDown, Play, RotateCcw, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { CycleCountDetail } from '../../types/cycle-count.types'
@@ -48,6 +48,13 @@ export function CycleCountDetailHeader({
       <CycleCountStatusBadge status={detail.status} />
       <CycleCountPriorityBadge priority={detail.priority} status={detail.status} />
       <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto max-sm:[&>button]:h-11 max-sm:[&>button]:flex-1">
+        {allowedActions.includes('Update') ? (
+          <Button asChild variant="outline">
+            <Link href={APP_ROUTES.cycleCountEdit(detail.id)}>
+              <Pencil /> Sửa phiếu
+            </Link>
+          </Button>
+        ) : null}
         <Button variant="outline" disabled={isPending} onClick={() => void onExport()}>
           <FileDown />
           Xuất Excel

@@ -2405,6 +2405,86 @@ State: READY_FOR_CODEX_REVIEW. Role: implementer; not independent review.
 - Post-merge adjacent regression:121files/801tests passed (dashboard, supplier return, stock issue, transfer, inbound request); source TypeScript and diff checks passed. No API/data writes or service restart. GitNexus incoming scope HIGH because shared stock-issue workflow has multiple consumers; impacted feature tests covered.
 - BEdev lacks counterpart fixes8f975d21,1ff3ad48,25bd412d (still on separate fix branches). Existing supplier-return BE response has no version/self-approval permission, so new FE self-approval cannot be assumed usable; precision enforcement is not yet aligned at the BE trust boundary. Recorded for coordination, not silently fixed or merged from extra branches. Local integration tests are not live cross-service acceptance evidence.
 
+## 2026-10-26 — Return detail routes and creator editing — READY_FOR_CODEX_REVIEW
+
+- Implementer self-review, not an independent review. Customer/supplier returns now open dedicated full-page detail routes in shared layout; desktop tables/mobile cards, collapsible history, notification deep links and old supplier ?id= redirects are covered. Back links preserve list filters/page. Shared controls keep destructive/reason confirmations explicit.
+- Reused existing create forms for creator edits; actions respect BE allowed-actions. Draft soft-delete, withdraw/resubmit, outbound Pending edits and cycle Scheduled/Queued edits follow server capability. Edit/confirmation versions are captured when opened; background refresh cannot silently replace user content/version. Duplicate clicks are locked. Transfer repeated draft saves refresh the returned version before another save/submit.
+- New and adjacent regression: 94 tests in 11 files passed; scoped ESLint, whitespace checks and isolated Next production build passed. Two existing test fixtures were corrected for valid status/complete DTO typing to unblock TypeScript without changing product behavior.
+- Browser QA used mock-only preview, no auth/business API: 390px mobile, desktop and 125% zoom. Return pages did not overflow the viewport; long product/location labels and expanded history were checked. Preview route/proxy changes existed only in isolated snapshot and were removed/restored before final production build.
+- GitNexus final detect_changes marks the broad feature scope CRITICAL; affected pages/mutations/notification invalidation paths were inspected. Real BE/DB acceptance and SQL concurrency remain pending until separately authorized schema deployment. BE migration 20261025164909_AddDocumentDraftSoftDeletion is prepared, not applied; FE behavior requires the coordinated BE release.
+- Protected AGENTS.md/CLAUDE.md/local outputs edits preserved. No commit, push, PR, deployed data writes or service restart in this task. See workspace outputs/ke-hoach-tra-hang-va-chinh-sua-phieu-20261025.md for scope and limits.
+
+## 2026-10-26 — Creator editing / returns review round 1 — NEEDS_CLAUDE_FIX
+
+Implementer self-review, review-only; no source edits. Three actionable findings reproduced in isolated FE tests:
+
+- R1 High: use-transfer-form-actions.ts94–97 reads an arbitrary newer GET version after save without reconciling returned content. Concurrent creator tabs can submit unseen changes or overwrite them on the next save. Bind version to the saved response or reject changed contents.
+- R2 High: use-create-goods-return.ts90–93 filters out existing draft lines when another return exhausted their current budget. Saving another line silently omits/deletes the hidden original line. Preserve saved lines and show budget conflicts instead.
+- R3 Medium: CreateCycleCountPage.tsx222–225 rebuilds dueAt from dueDate when editing unrelated fields, clearing a separately configured deadline or changing it to end-of-day. Preserve unchanged deadline snapshot values.
+  Review probes: 3 expected safety assertions failed and10 previous tests passed, using snapshot-only mocks; no business API/SQL. Full evidence at workspace outputs/review-tra-hang-chinh-sua-phieu-20261026.md. No commit/push/migration. Await implementation fixes before final review.
+
+## 2026-10-26 — R1/R2/R3 implementation fixes — READY_FOR_FINAL_REVIEW
+
+- R1 fixed: accept a refreshed draft version only after comparing all submitted metadata/warehouse/date/line/unit/location contents, accounting for server trim/defaults and .NET timestamp precision. Detect a different Draft or published state as conflict; keep local form, block further writes/dismissal, and require explicit successful reload. A failed reload with cached data does not unlock the form; a new draft navigates to its edit route when the user chooses reload. API contracts unchanged.
+- R2 fixed: preserve every saved customer-return draft line, including exhausted or missing source picks. Quantity validation blocks saving above current budget; UI explains that the user must reduce quantity or enter0 to remove a line. Legacy null source mapping is refused with an explanation instead of silently dropping that line.
+- R3 fixed: retain exact original dueDate/dueAt when the displayed deadline is unchanged. Display a standalone dueAt date during editing; intentional deadline changes use Vietnam operational end-of-day instead of browser-local timezone.
+- Verification:135 regression tests/13files passed, including51 focused cases/4files; scoped ESLint and whitespace checks pass. Previous production build after fixes passed; final snapshot build completion is recorded in workspace outputs/returns-spec-fix-fe-build.log. All9 fix source/test files verified byte-identical to snapshot. Review evidence and per-finding fix details retained in outputs/review-tra-hang-chinh-sua-phieu-20261026.md at workspace root.
+- Fix pass by assigned implementer, not independent approval. No commit/push, business API/SQL writes, service restart or migration. Existing protected local instructions/config preserved.
+
+Final verification completed: Next.js production build passed on the final matching snapshot;135tests/13files and scoped lint/whitespace passed. State remains READY_FOR_FINAL_REVIEW; no independent approval or deployment implied.
+
+## 2026-10-26 — Post-implementation spec review (documentation/acceptance only)
+
+Four Medium spec findings recorded: stale implementation/proposed-policy wording; immutable-code wording conflicts with intentional draft code editing; deleted-document content lookup has no defined authorized path; edit-content audit acceptance lacks explicit old/new business fields (several handlers log only state→same-state). Details and source evidence: workspace outputs/review-spec-tra-hang-chinh-sua-phieu-20261026.md. Original spec and source unchanged. This is not a new full code review or release approval; previous READY_FOR_FINAL_REVIEW record retained, migration remains unapplied.
+
+## 2026-10-26 — Spec reconciled against implemented source
+
+Updated workspace outputs/ke-hoach-tra-hang-va-chinh-sua-phieu-20261025.md, including six-workflow action/evidence matrix and explicit incomplete acceptance criteria. Resolved stale status/proposal wording and clarified intentional code edits versus automatic identity preservation. Deleted-document content access and detailed edit audit remain implementation gaps; historical codes after rename and secondary-action menu layout also have explicit limits. No source/runtime/database edits, no migration or release approval; no test rerun for Markdown-only updates. Previous code validation remains258BE/135FE; it does not certify these open criteria.
+
+## 2026-10-26 — Spec completion and source reconciliation
+
+READY_FOR_CODEX_REVIEW (implementer self-verification; no independent approval).
+
+- Completed authorized read-only archive content routes for four soft-deleted document types. Requires AuditLog View + business View + tenant + Manage warehouse (transfer destination). Audit Logs supplies the entry link. Reused document layout, mobile cards/desktop table and retained history; no restore/edit actions. Catalog names are current labels, not invented historical snapshots.
+- Added explicit whitelisted before/after content snapshots for six workflows, including added transfer lines; audit presentation converts schema1 into field/line changes. Original versions retained for correlation; no whole entity/command serialization or contact email/phone snapshot.
+- Prepared immutable DocumentCodeClaims, tenant/type/normalized-code unique constraint and same-document ownership. Async SaveChanges overloads cover creation/renames, sync document writes fail closed; concurrent index conflict maps to409. Unchanged operational codes do not add lookup overhead. Prepared additive migration20261026013653_AddDocumentCodeClaims, including current-code bootstrap and recoverable inbound rename history. Unlogged/expired old codes cannot be reconstructed; current pre-existing ownership is retained.
+- Return cancel/delete moved into shared secondary action menu; existing confirmation/reason checks retained.
+- Expanded regression identified old tests expecting request edits after shipment execution; revised to assert rejection and unchanged quantities. Fixed fixture stale contexts/versions and SQLite bool defaults. Snapshot-only fixture safety guard expanded to verified TransferReadOptimization InMemory stores.
+- Final verification: BE build0errors,502passed/5SQL Server race cases skipped; FE137passed/13changed test files plus focused39passed, scoped ESLint and production Next.js webpack build passed. EF metadata-only model drift check clean; generated/reviewed outputs/document-code-claims.sql (CREATE/INSERT only, not applied). Logs under workspace outputs/document-completion-\*. Existing NuGet System.Security.Cryptography.Pkcs advisories remain; no unrelated dependency upgrade.
+- Updated workspace spec section11 with evidence and remaining release gates. Both prepared migrations20261025164909_AddDocumentDraftSoftDeletion and20261026013653_AddDocumentCodeClaims remain UNAPPLIED by this task; live database pending status not queried. No API startup, live business request, SQL write, seed, restart, commit, push, PR or deploy. Preserve db71143 protections and explicit migration authorization requirement.
+- Current pass used source review and component tests; no new live browser/device or deployed integration test. Prior fixture visual results apply to earlier return detail layout only. SQL Server races and integration after authorized migration still need acceptance.
+
+## 2026-10-26 — Frontend design review of creator editing/returns/archive
+
+REVIEWED_NEEDS_FIXES (review-only, no source changes). Followed FE AGENTS/.rules and design/table guidelines; applied web-design-guidelines, shadcn and React best-practices. Findings: P2 mobile longSKU overflow; P2 supplier return stock picker uses raw slotCode/system sentinel without zone; P2 edit audit presentation exposes raw reference IDs/numeric enums and dense joined lines; P3 mobile back/menu touch targets32px/30.4px. Small archive back-link accessible-label mismatch also noted. Full evidence and limits: workspace outputs/review-design-tra-hang-chinh-sua-phieu-20261026.md. Browser used isolated pure fixtures320/390/1280 with ordinary/long data and dropdown/archive; no deployed/authenticated test or database/API writes. Existing builds/tests remain evidence for code correctness only, not design approval.
+
+## 2026-10-26 — Fix frontend design findings for returns/editing/archive
+
+READY_FOR_CODEX_REVIEW (implementer fix/self-verification, not independent approval).
+
+- Fixed long SKU/name/location overflow on mobile cards and field values; desktop text columns now wrap so remaining columns stay visible. Reused existing design tokens/primitives and shared document frame.
+- Supplier return picker and new line labels now use the same full inventory-location formatter as edit hydration; system rack slot names are hidden without altering inventory IDs or quantities.
+- Read-side document audit references now batch-resolve business codes/names, units and full zone/rack/slot with explicit tenant filters after audit page authorization. JSON remains unchanged; UI uses current catalog labels with an explanation, localized enums and Vietnam dates, one changed field per comparison. Missing catalog references have a visible fallback. No database query was added to save handlers.
+- Mobile/coarse-pointer back controls/menu items use44px touch targets; archive back link has its correct Audit Logs accessible label. Desktop density retained.
+- Verification: BE523passed/5SQL race skipped; final focused22passed after deadline/time formatting; FE148passed/15files; scoped ESLint and whitespace clean; final Next.js webpack production build exit0. Source snapshot comparison recorded in task outputs. Existing NuGet advisories remain unrelated.
+- Browser fixtures320/390/1280: longSKU93chars now yields main/body==viewport; back44x44, menuitem44px after animation; desktop columns all visible with long names. Audit body scroll verified(client762/scroll1276), mobile dialog no horizontal overflow. Screenshots/logs outputs/design-fix-\*. Initial fixture-only lotId type error was removed from production validation; no fixture route/proxy bypass is present in the final build source. Preview server4318 and owned browser closed.
+- Spec11.3/11.5/11.6 and design-review fix report updated. No live API/SQL, migration/seed, user FE3000/BE7070 restart, new dependency, permission/schema change, commit/push/PR/deploy. Prior prepared migrations remain unapplied by this task. Real device/authenticated deployed integration and SQL Server races remain acceptance limits.
+
+## 2026-10-26 — Local preview log diagnosis and Dashboard chart initialization
+
+READY_FOR_CODEX_REVIEW (implementer self-verification).
+
+- Confirmed four failed reservation requests in the supplied browser log. Local BE GetReservationsQuery fails with SQL invalid columns IsDeleted/DeletedAt, matching the pending AddDocumentDraftSoftDeletion migration. User explicitly reconfirmed no migration application; missing-schema API failure remains unresolved. No DB writes, migration, seed, or business API calls were performed.
+- Fixed four Dashboard ResponsiveContainers starting with Recharts default -1 dimensions by providing initialDimension 320x200, matching the existing shared ChartContainer pattern. ResizeObserver still measures actual responsive dimensions. No data, API, chart calculation, or layout-height change.
+- GitNexus: WarehouseActivityChart HIGH (three direct callers, one Dashboard process); warned before editing. Three alert chart functions LOW (one direct caller each).
+- Validation: scoped ESLint passed; Dashboard component/page tests 39 passed across two files. Existing mocks do not verify real browser ResizeObserver behavior; browser refresh remains a verification limit. FE3000 and BE7070 listeners verified; preview migration/seed/background-job restrictions preserved.
+
+## 2026-10-26 — Synchronize screen/huytv with origin/dev b2fb8d1
+
+- User-authorized non-rewriting merge. Resolved four inbound UI conflicts: retained incoming supplier response indicators/accept-date action/direct list navigation, plus creator-scoped draft actions, withdrawal/delete actions and content-bound versions for bulk deletion.
+- Updated stale test setup for the router/delete hook and replaced the legacy approved-delete expectation with the confirmed draft-only deletion policy; production authorization was not relaxed.
+- Final focused inbound/supplier response tests 38 passed across five files. TypeScript production config check passed; scoped lint/format checked separately. No live API/data writes, migrations or dependency changes. Existing protected AGENTS.md/CLAUDE.md edits and untracked outputs remain local; preview runtime not restarted.
+
 ## 2026-10-25 — P26 transfer keep-at-receiving (Codex implementation/self-review)
 
 State: READY_FOR_CODEX_REVIEW. User explicitly approved BE/web alignment with the already confirmed cross-docking decision. Branch fix/transfer-keep-at-receiving from freshly fetched dev; no delivery authorized.
@@ -2422,3 +2502,9 @@ Codex integration/self-review. User requested conflict resolution against dev af
 Validation evidence and exact post-merge counts are recorded in workspace outputs/workflow/modules/mobile-rollout/p31\*. Tests are focused, not a full suite; no API startup, migration/seed, live browser or SQL business writes during this sync. Incoming supplier email/time migrations remain unapplied by this task. Historical live evidence P26-P29 is prior-baseline evidence, not a new-live-test claim after merging dev. Primary unrelated checkout edits remain intact. No promotion/merge into dev or main, deployment, or Jira change.
 
 P31 verification complete: BE focused build/tests 105/105 (exit 0); web focused 9 files/85 tests passed across the initial successful 5 files/49 tests and retry 4 files/36 tests (exit 0). Initial web run had two worker-start timeouts, both retried successfully; pnpm sandbox network retries failed before execution, final elevated runs passed. Web typecheck and scoped ESLint passed (exit 0). Integration fixes only correct incoming-dev test fixtures: CycleCount Counting status and a fully typed GoodsReceiptDetail. Own contribution diff against origin/dev passes whitespace checks; the staged incoming-dev SQL retains its pre-existing EOF blank-line warning. GitNexus compare against dev reports BE high/9 flows and web medium/1 flow without partial/truncated response; receiving, permission, assignment and replay paths are covered by scoped tests. Broad all-change graph includes incoming dev and does not establish full regression coverage. BE index refresh hit native-worker startup failure; prior graph reused with that limitation, supplemented by source diff/tests. Web refreshed graph has process enumeration caps; no absent-flow safety claim. No full-suite, production build or post-merge live API/UI/DB claim.
+
+## 2026-10-26 — Sync screen/huytv with origin/dev 094001b
+
+- User-authorized non-rewriting merge of kept-at-receiving navigation fix. Preserved both review histories; resolved receipt test fixture conflict by retaining incoming removal of duplicate object properties. Existing cycle-count test fix already present.
+- Focused transfer receiving, receipt overview and cycle count table regressions:23 tests passed across three files. TypeScript check run separately. GitNexus staged scope MEDIUM for transfer receive page.
+- Protected local instructions/configuration and untracked outputs preserved. No runtime start, business API calls, migration/seed, push or deployment.

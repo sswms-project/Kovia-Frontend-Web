@@ -70,6 +70,12 @@ const validateStagingPoints = <TData extends { stagingPoints?: unknown }>(
 }
 
 export const transferService = {
+  deleteDraft: (id: string, expectedVersion: string) =>
+    axiosClient
+      .delete<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.deleteDraft(id), { params: { expectedVersion } })
+      .then((response) => response.data),
   getAssignmentSnapshot: (transferId: string, shipmentId: string, warehouseId: string) =>
     axiosClient
       .get<

@@ -82,6 +82,7 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   const capabilities = useMemo<StockIssueCapabilities>(() => {
     const granted = permissions ?? []
     return {
+      currentUserId: meQuery.data?.id ?? null,
       canCreate: granted.includes(P.STOCK_ISSUE_REQUESTS_CREATE),
       canAssignPicker: granted.includes(P.STOCK_ISSUE_REQUESTS_ASSIGN_PICKER),
       canPick: granted.includes(P.STOCK_ISSUE_REQUESTS_PICK),
@@ -89,7 +90,7 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
       canDispatch: granted.includes(P.STOCK_ISSUE_REQUESTS_DISPATCH),
       canCancel: granted.includes(P.STOCK_ISSUE_REQUESTS_CANCEL),
     }
-  }, [permissions])
+  }, [permissions, meQuery.data?.id])
 
   const pickerWarehouseId = releasingOrder?.warehouseId ?? contextWarehouseId
   const canLoadPickers = capabilities.canAssignPicker && Boolean(pickerWarehouseId)

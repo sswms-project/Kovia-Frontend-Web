@@ -26,6 +26,16 @@ import type {
 } from '../types/cycle-count.types'
 
 export const cycleCountService = {
+  updateCycleCount: (
+    cycleCountId: string,
+    expectedVersion: string,
+    request: CreateCycleCountRequest
+  ) =>
+    axiosClient
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.cycleCounts.detail(cycleCountId), { expectedVersion, request })
+      .then((response) => response.data),
   getNextCode: () =>
     axiosClient
       .get<ApiResponse<string>>(API_ENDPOINTS.cycleCounts.nextCode)
