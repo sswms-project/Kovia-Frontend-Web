@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { ArrowRight, MapPinned, PencilRuler, RefreshCw, TriangleAlert } from 'lucide-react'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
@@ -17,8 +18,17 @@ import {
 } from '@/components/ui/table'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
+import { WarehouseDesignerSkeleton } from '../components/WarehouseLayoutDirectoryPage'
+import { useWarehouseLayoutPrefetch } from '../hooks/use-prefetch-warehouse-layout'
 import { useWarehousesQuery } from '../hooks/use-warehouse'
-import { WarehouseDesignerPage } from './WarehouseDesignerPage'
+
+// Konva and the canvas only load when a layout is opened (or prefetched on hover).
+const WarehouseDesignerPage = dynamic(
+  () => import('./WarehouseDesignerPage').then((module) => module.WarehouseDesignerPage),
+  { ssr: false, loading: () => <WarehouseDesignerSkeleton /> }
+)
+// Same specifier as the dynamic import above, so hover prefetch warms the chunk it renders.
+const preloadWarehouseDesigner = () => void import('./WarehouseDesignerPage')
 
 type OpenLayout = {
   readonly warehouseId: string
@@ -34,6 +44,7 @@ export default function WarehouseLayoutDirectoryPage() {
     skip: (page - 1) * pageSize,
     needTotalCount: true,
   })
+  const getPrefetchHandlers = useWarehouseLayoutPrefetch(preloadWarehouseDesigner)
   const meQuery = useMeQuery()
   const canConfigure = meQuery.data?.permissions.includes(P.WAREHOUSES_CONFIGURE_LAYOUT) ?? false
   const warehouses = warehousesQuery.data?.items ?? []
@@ -140,6 +151,7 @@ export default function WarehouseLayoutDirectoryPage() {
                               type="button"
                               size="sm"
                               variant="outline"
+                              {...getPrefetchHandlers(warehouse.id)}
                               onClick={() =>
                                 setOpenLayout({ warehouseId: warehouse.id, mode: 'viewer' })
                               }
@@ -151,6 +163,7 @@ export default function WarehouseLayoutDirectoryPage() {
                               <Button
                                 type="button"
                                 size="sm"
+                                {...getPrefetchHandlers(warehouse.id)}
                                 onClick={() =>
                                   setOpenLayout({ warehouseId: warehouse.id, mode: 'designer' })
                                 }
@@ -180,6 +193,7 @@ export default function WarehouseLayoutDirectoryPage() {
                     <Button
                       type="button"
                       size="sm"
+                      {...getPrefetchHandlers(warehouse.id)}
                       onClick={() => setOpenLayout({ warehouseId: warehouse.id, mode: 'viewer' })}
                     >
                       Mở sơ đồ
@@ -208,6 +222,7 @@ export default function WarehouseLayoutDirectoryPage() {
       {openLayout ? (
         <WarehouseDesignerPage
           warehouseId={openLayout.warehouseId}
+          warehouseSummary={warehouses.find((warehouse) => warehouse.id === openLayout.warehouseId)}
           viewOnly={openLayout.mode === 'viewer'}
           onClose={() => setOpenLayout(null)}
           onEdit={() =>

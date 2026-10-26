@@ -1,3 +1,5 @@
-export { WarehouseDesignerWorkspace } from './WarehouseDesignerWorkspace'
-export { WarehouseLayoutViewerWorkspace } from './WarehouseLayoutViewerWorkspace'
-export { DesignerRackTools } from './DesignerRackTools'
+export { WarehouseDesignerWorkspace } from './Workspace'
+export type { WarehouseLayoutCreatedPlacement, WarehouseLayoutDropPosition } from './Workspace'
+export { WarehouseLayoutViewerWorkspace } from './Viewer'
+export type { WarehouseLayoutPicker } from './Viewer'
+export { DesignerRackTools } from './Toolbar'

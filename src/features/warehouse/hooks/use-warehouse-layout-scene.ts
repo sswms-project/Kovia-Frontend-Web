@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
@@ -13,11 +13,17 @@ interface SaveWarehouseLayoutSceneVariables {
   request: SaveWarehouseLayoutSceneRequest
 }
 
-export function useWarehouseLayoutSceneQuery(warehouseId: string) {
-  return useQuery<WarehouseLayoutSceneResponse, ApiErrorResponse>({
+export function warehouseLayoutSceneQueryOptions(warehouseId: string) {
+  return queryOptions<WarehouseLayoutSceneResponse, ApiErrorResponse>({
     queryKey: queryKeys.warehouses.layoutScene(warehouseId),
     queryFn: () =>
       warehouseLayoutSceneService.getScene(warehouseId).then((response) => response.data),
+  })
+}
+
+export function useWarehouseLayoutSceneQuery(warehouseId: string) {
+  return useQuery({
+    ...warehouseLayoutSceneQueryOptions(warehouseId),
     enabled: Boolean(warehouseId),
   })
 }
