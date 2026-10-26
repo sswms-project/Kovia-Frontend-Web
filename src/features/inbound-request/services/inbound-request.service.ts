@@ -14,6 +14,8 @@ import type {
   SaveInboundRequestRequest,
   CreateInboundRequestRequest,
   SupplierEmailDispatch,
+  SupplierInboundResponsePreview,
+  SupplierInboundResponseRequest,
   SupplierOption,
 } from '../types/inbound-request.types'
 
@@ -69,13 +71,24 @@ export const inboundRequestService = {
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.inboundRequests.update(inboundRequestId), request)
       .then((response) => response.data),
-  deleteInboundRequest: (inboundRequestId: string) =>
+  withdrawInboundRequest: (id: string, request: InboundReconciliationRequest) =>
     axiosClient
-      .delete<ApiResponse<unknown>>(API_ENDPOINTS.inboundRequests.delete(inboundRequestId))
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.inboundRequests.withdraw(id), request)
       .then((response) => response.data),
-  deleteInboundRequests: (ids: readonly string[]) =>
+  deleteInboundRequest: (inboundRequestId: string, expectedVersion: string) =>
     axiosClient
-      .delete<ApiResponse<unknown>>(API_ENDPOINTS.inboundRequests.deleteMany, { data: { ids } })
+      .delete<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.inboundRequests.delete(inboundRequestId), { params: { expectedVersion } })
+      .then((response) => response.data),
+  deleteInboundRequests: (
+    ids: readonly string[],
+    expectedVersions: Readonly<Record<string, string>>
+  ) =>
+    axiosClient
+      .delete<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.inboundRequests.deleteMany, { data: { ids, expectedVersions } })
       .then((response) => response.data),
   submitInboundRequest: (inboundRequestId: string) =>
     axiosClient
@@ -98,6 +111,22 @@ export const inboundRequestService = {
       .post<
         ApiResponse<SupplierEmailDispatch>
       >(API_ENDPOINTS.inboundRequests.approveAndSend(inboundRequestId), request)
+      .then((response) => response.data),
+  acceptSupplierProposedDate: (inboundRequestId: string, request: InboundDecisionRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.inboundRequests.acceptSupplierProposedDate(inboundRequestId), request)
+      .then((response) => response.data),
+  getSupplierResponsePreview: (token: string) =>
+    axiosClient
+      .get<
+        ApiResponse<SupplierInboundResponsePreview>
+      >(API_ENDPOINTS.supplierResponses.preview(token))
+      .then((response) => response.data),
+  respondAsSupplier: (token: string, request: SupplierInboundResponseRequest) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.supplierResponses.respond(token), request)
       .then((response) => response.data),
   sendInboundRequestToSupplier: (inboundRequestId: string) =>
     axiosClient

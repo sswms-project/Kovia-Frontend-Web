@@ -340,10 +340,18 @@ export function useApproveGoodsReturnRequestMutation() {
   return useMutation<
     ApiResponse<unknown>,
     ApiErrorResponse,
-    { goodsReturnRequestId: string; selfApprovalAcknowledged?: boolean }
+    {
+      goodsReturnRequestId: string
+      selfApprovalAcknowledged?: boolean
+      expectedVersion?: string | null
+    }
   >({
-    mutationFn: ({ goodsReturnRequestId, selfApprovalAcknowledged }) =>
-      stockIssueService.approveGoodsReturnRequest(goodsReturnRequestId, selfApprovalAcknowledged),
+    mutationFn: ({ goodsReturnRequestId, selfApprovalAcknowledged, expectedVersion }) =>
+      stockIssueService.approveGoodsReturnRequest(
+        goodsReturnRequestId,
+        selfApprovalAcknowledged,
+        expectedVersion
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.goodsReturnRequests.all })
       void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })

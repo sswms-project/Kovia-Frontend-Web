@@ -12,12 +12,13 @@ import type {
   SupplierReturnReasonRequest,
 } from '../types/supplier-return.types'
 
-export function useSupplierReturnsQuery(params: SupplierReturnListQuery) {
+export function useSupplierReturnsQuery(params: SupplierReturnListQuery, enabled = true) {
   return useQuery<SupplierReturnListResponse, ApiErrorResponse>({
     queryKey: queryKeys.supplierReturns.list(params),
     queryFn: () =>
       supplierReturnService.getSupplierReturns(params).then((response) => response.data),
     placeholderData: (previousData) => previousData,
+    enabled,
   })
 }
 

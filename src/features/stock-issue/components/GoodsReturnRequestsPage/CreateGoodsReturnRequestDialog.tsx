@@ -24,6 +24,7 @@ import {
 } from '../../utils/goods-return-suggestion'
 
 export function CreateGoodsReturnRequestDialog({
+  isEditing = false,
   order,
   form,
   isPending,
@@ -35,6 +36,7 @@ export function CreateGoodsReturnRequestDialog({
   onOpenChange,
   onSubmit,
 }: {
+  readonly isEditing?: boolean
   readonly order: StockIssueRequestSummary | null
   readonly form: UseFormReturn<CreateGoodsReturnRequestFormValues>
   readonly isPending: boolean
@@ -50,7 +52,9 @@ export function CreateGoodsReturnRequestDialog({
     <Dialog open={Boolean(order)} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Tạo yêu cầu trả hàng</DialogTitle>
+          <DialogTitle>
+            {isEditing ? 'Sửa nháp khách trả hàng' : 'Tạo yêu cầu trả hàng'}
+          </DialogTitle>
           <DialogDescription>
             Số lượng tối đa đã trừ các yêu cầu trả hàng chưa bị từ chối.
           </DialogDescription>
@@ -91,6 +95,12 @@ export function CreateGoodsReturnRequestDialog({
                     <p className="text-muted-foreground text-xs">
                       Có thể trả: {allowableByPickDetail[line.stockIssuePickDetailId] ?? 0}
                     </p>
+                    {isEditing && line.quantity > line.returnableQuantity ? (
+                      <p className="text-destructive text-xs" role="status">
+                        Dòng đã lưu hiện vượt lượng còn được trả. Giảm số lượng hoặc nhập 0 để bỏ
+                        dòng.
+                      </p>
+                    ) : null}
                   </div>
                   <Field data-invalid={Boolean(form.formState.errors.lines?.[index]?.quantity)}>
                     <FieldLabel htmlFor={`return-quantity-${index}`}>Số lượng</FieldLabel>
@@ -172,7 +182,7 @@ export function CreateGoodsReturnRequestDialog({
               </Button>
               <Button type="submit" disabled={isPending}>
                 {isPending ? <Spinner data-icon="inline-start" /> : null}
-                Tạo yêu cầu trả hàng
+                {isEditing ? 'Lưu nháp' : 'Tạo yêu cầu trả hàng'}
               </Button>
             </DialogFooter>
           </form>

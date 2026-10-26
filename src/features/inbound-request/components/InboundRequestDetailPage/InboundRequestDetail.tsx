@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Check, Edit3, Mail, Send, UserPlus, X } from 'lucide-react'
+import { ArrowLeft, CalendarCheck, Check, Edit3, Mail, Send, UserPlus, X } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -33,11 +33,33 @@ import type {
   InboundRequestDetail as InboundRequestDetailType,
 } from '../../types/inbound-request.types'
 import { INBOUND_REQUEST_ACTION } from '../../types/inbound-request.types'
-import { InboundRequestStatusBadge } from '../InboundRequestsPage'
+import { InboundRequestStatusBadge, SupplierResponseHint } from '../InboundRequestsPage'
 import { InboundRequestOverview } from './InboundRequestOverview'
 import { InboundRequestLines } from './InboundRequestLines'
+import { formatOperationalDate } from '../../utils/inbound-request-format'
 
 const MISSING_SUPPLIER_EMAIL_HINT_ID = 'inbound-request-missing-supplier-email'
+const RECONCILIATION_COPY = {
+  Cancel: {
+    title: 'Hủy yêu cầu nhập kho',
+    description: 'Chỉ hủy được khi chưa phát sinh nhận hàng. Yêu cầu và lịch sử vẫn được lưu.',
+  },
+  CloseRemaining: {
+    title: 'Đóng số lượng nhập còn lại',
+    description:
+      'Phần đã nhận và tồn kho hiện có không thay đổi. Hệ thống chỉ đóng phần sẽ không giao tiếp.',
+  },
+  Withdraw: {
+    title: 'Thu hồi yêu cầu để sửa',
+    description:
+      'Yêu cầu sẽ trở về Nháp, quyết định duyệt cũ hết hiệu lực. Sau khi sửa cần gửi duyệt lại.',
+  },
+  Delete: {
+    title: 'Xóa yêu cầu Nháp',
+    description:
+      'Nháp sẽ ẩn khỏi danh sách thông thường; nội dung và lịch sử vẫn được lưu để tra cứu.',
+  },
+} as const
 
 interface InboundRequestDetailProps {
   readonly inboundRequest: InboundRequestDetailType
@@ -49,10 +71,16 @@ interface InboundRequestDetailProps {
   readonly onApprove: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onApproveAndSend: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onSendToSupplier: () => Promise<boolean>
+  readonly onAcceptSupplierProposedDate: () => Promise<boolean>
   readonly onReject: (reason: string, selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onReconcile: (
-    action: typeof INBOUND_REQUEST_ACTION.Cancel | typeof INBOUND_REQUEST_ACTION.CloseRemaining,
-    reason: string
+    action:
+      | typeof INBOUND_REQUEST_ACTION.Cancel
+      | typeof INBOUND_REQUEST_ACTION.CloseRemaining
+      | typeof INBOUND_REQUEST_ACTION.Withdraw
+      | typeof INBOUND_REQUEST_ACTION.Delete,
+    reason: string,
+    expectedVersion?: string | null
   ) => Promise<boolean>
 }
 
@@ -69,16 +97,25 @@ const INBOUND_REQUEST_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = 
   ResendToSupplier: 'Gửi lại mail cho nhà cung cấp',
   ReturnWarehouseTask: 'Trả nhiệm vụ nhận hàng về hàng đợi',
   SendToSupplier: 'Gửi mail cho nhà cung cấp',
+  SupplierConfirm: 'Nhà cung cấp xác nhận đơn',
+  SupplierReject: 'Nhà cung cấp từ chối đơn',
+  SupplierProposeDate: 'Nhà cung cấp đề xuất ngày giao khác',
+  AcceptSupplierProposedDate: 'Chấp nhận ngày giao nhà cung cấp đề xuất',
   StartWarehouseTask: 'Bắt đầu nhiệm vụ nhận hàng',
   Submit: 'Gửi yêu cầu duyệt',
   UnassignReceivingTask: 'Hủy giao nhiệm vụ nhận hàng',
   Update: 'Cập nhật yêu cầu',
+  Withdraw: 'Thu hồi yêu cầu để sửa',
   UpdateInboundRequestCode: 'Đổi mã yêu cầu nhập kho',
 }
 
 const INBOUND_REQUEST_HISTORY_REASON_LABELS: Readonly<Record<string, string>> = {
   ResendToSupplier: 'Người nhận',
   SendToSupplier: 'Người nhận',
+  SupplierConfirm: 'Chi tiết',
+  SupplierReject: 'Chi tiết',
+  SupplierProposeDate: 'Chi tiết',
+  AcceptSupplierProposedDate: 'Thay đổi',
 }
 export function InboundRequestDetail({
   inboundRequest,
@@ -89,6 +126,7 @@ export function InboundRequestDetail({
   onApprove,
   onApproveAndSend,
   onSendToSupplier,
+  onAcceptSupplierProposedDate,
   onReject,
   onReconcile,
   onAssignReceiving,
@@ -99,8 +137,15 @@ export function InboundRequestDetail({
   const [reasonError, setReasonError] = useState('')
   const [selfApprovalAcknowledged, setSelfApprovalAcknowledged] = useState(false)
   const [reconciliationAction, setReconciliationAction] = useState<
-    typeof INBOUND_REQUEST_ACTION.Cancel | typeof INBOUND_REQUEST_ACTION.CloseRemaining | null
+    | typeof INBOUND_REQUEST_ACTION.Cancel
+    | typeof INBOUND_REQUEST_ACTION.CloseRemaining
+    | typeof INBOUND_REQUEST_ACTION.Withdraw
+    | typeof INBOUND_REQUEST_ACTION.Delete
+    | null
   >(null)
+  const [reconciliationVersion, setReconciliationVersion] = useState<string | null>(null)
+  const reconciliationCopy =
+    RECONCILIATION_COPY[reconciliationAction ?? INBOUND_REQUEST_ACTION.Cancel]
   async function confirmAction() {
     if (!confirmationAction) return
     const handlers: Partial<Record<InboundRequestAction, () => Promise<boolean>>> = {
@@ -108,6 +153,7 @@ export function InboundRequestDetail({
       [INBOUND_REQUEST_ACTION.Approve]: () => onApprove(selfApprovalAcknowledged),
       [INBOUND_REQUEST_ACTION.ApproveAndSend]: () => onApproveAndSend(selfApprovalAcknowledged),
       [INBOUND_REQUEST_ACTION.SendToSupplier]: onSendToSupplier,
+      [INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate]: onAcceptSupplierProposedDate,
     }
     const succeeded = await handlers[confirmationAction]?.()
     if (succeeded) {
@@ -119,7 +165,15 @@ export function InboundRequestDetail({
   const supplierEmail = inboundRequest.supplierEmail
   const canMailSupplier = Boolean(inboundRequest.supplierId)
   const hasSentToSupplier = Boolean(inboundRequest.supplierEmailSentAt)
-  const confirmationCopy = getConfirmationCopy(confirmationAction, supplierEmail)
+  const confirmationCopy = getConfirmationCopy(
+    confirmationAction,
+    supplierEmail,
+    inboundRequest.supplierProposedDate ?? null
+  )
+  const skipsSelfApproval =
+    confirmationAction === INBOUND_REQUEST_ACTION.Submit ||
+    confirmationAction === INBOUND_REQUEST_ACTION.SendToSupplier ||
+    confirmationAction === INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate
   const showMissingEmailHint =
     canMailSupplier &&
     !supplierEmail &&
@@ -148,11 +202,15 @@ export function InboundRequestDetail({
   async function reconcile() {
     if (!reconciliationAction) return
     const normalizedReason = reason.trim()
-    if (!normalizedReason) {
+    if (!normalizedReason && reconciliationAction !== INBOUND_REQUEST_ACTION.Delete) {
       setReasonError('Vui lòng nhập lý do.')
       return
     }
-    const succeeded = await onReconcile(reconciliationAction, normalizedReason)
+    const succeeded = await onReconcile(
+      reconciliationAction,
+      normalizedReason,
+      reconciliationVersion
+    )
     if (succeeded) {
       setReconciliationAction(null)
       setReason('')
@@ -175,6 +233,7 @@ export function InboundRequestDetail({
                 {inboundRequest.inboundRequestCode}
               </h1>
               <InboundRequestStatusBadge status={inboundRequest.status} />
+              <SupplierResponseHint item={inboundRequest} />
             </div>
             <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
               Hàng từ{' '}
@@ -222,6 +281,36 @@ export function InboundRequestDetail({
               Từ chối
             </Button>
           ) : null}
+          {allowedActions.includes(INBOUND_REQUEST_ACTION.Withdraw) ? (
+            <Button
+              variant="outline"
+              disabled={isPending}
+              onClick={() => {
+                setReason('')
+                setReasonError('')
+                setReconciliationVersion(inboundRequest.version)
+                setReconciliationAction(INBOUND_REQUEST_ACTION.Withdraw)
+              }}
+            >
+              <Edit3 aria-hidden="true" />
+              Thu hồi để sửa
+            </Button>
+          ) : null}
+          {allowedActions.includes(INBOUND_REQUEST_ACTION.Delete) ? (
+            <Button
+              variant="outline"
+              disabled={isPending}
+              onClick={() => {
+                setReason('')
+                setReasonError('')
+                setReconciliationVersion(inboundRequest.version)
+                setReconciliationAction(INBOUND_REQUEST_ACTION.Delete)
+              }}
+            >
+              <X aria-hidden="true" />
+              Xóa nháp
+            </Button>
+          ) : null}
           {allowedActions.includes(INBOUND_REQUEST_ACTION.Cancel) ? (
             <Button
               type="button"
@@ -229,6 +318,7 @@ export function InboundRequestDetail({
               className="border-destructive"
               onClick={() => {
                 setReason('')
+                setReconciliationVersion(inboundRequest.version)
                 setReconciliationAction(INBOUND_REQUEST_ACTION.Cancel)
               }}
             >
@@ -242,6 +332,7 @@ export function InboundRequestDetail({
               variant="outline"
               onClick={() => {
                 setReason('')
+                setReconciliationVersion(inboundRequest.version)
                 setReconciliationAction(INBOUND_REQUEST_ACTION.CloseRemaining)
               }}
             >
@@ -267,6 +358,17 @@ export function InboundRequestDetail({
             >
               <Mail aria-hidden="true" />
               Duyệt và gửi mail
+            </Button>
+          ) : null}
+          {allowedActions.includes(INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate) ? (
+            <Button
+              type="button"
+              onClick={() =>
+                setConfirmationAction(INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate)
+              }
+            >
+              <CalendarCheck aria-hidden="true" />
+              Chấp nhận ngày đề xuất
             </Button>
           ) : null}
           {canMailSupplier && allowedActions.includes(INBOUND_REQUEST_ACTION.SendToSupplier) ? (
@@ -337,9 +439,7 @@ export function InboundRequestDetail({
             <AlertDialogTitle>{confirmationCopy.title}</AlertDialogTitle>
             <AlertDialogDescription>{confirmationCopy.description}</AlertDialogDescription>
           </AlertDialogHeader>
-          {selfApprovalRequired &&
-          confirmationAction !== INBOUND_REQUEST_ACTION.Submit &&
-          confirmationAction !== INBOUND_REQUEST_ACTION.SendToSupplier ? (
+          {selfApprovalRequired && !skipsSelfApproval ? (
             <label className="flex items-start gap-3 text-sm">
               <Checkbox
                 checked={selfApprovalAcknowledged}
@@ -353,10 +453,7 @@ export function InboundRequestDetail({
             <AlertDialogAction
               disabled={
                 isPending ||
-                (selfApprovalRequired &&
-                  confirmationAction !== INBOUND_REQUEST_ACTION.Submit &&
-                  confirmationAction !== INBOUND_REQUEST_ACTION.SendToSupplier &&
-                  !selfApprovalAcknowledged)
+                (selfApprovalRequired && !skipsSelfApproval && !selfApprovalAcknowledged)
               }
               onClick={(event) => {
                 event.preventDefault()
@@ -430,6 +527,7 @@ export function InboundRequestDetail({
       <Dialog
         open={Boolean(reconciliationAction)}
         onOpenChange={(open) => {
+          if (isPending) return
           if (!open) {
             setReconciliationAction(null)
             setReason('')
@@ -439,31 +537,25 @@ export function InboundRequestDetail({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {reconciliationAction === INBOUND_REQUEST_ACTION.Cancel
-                ? 'Hủy yêu cầu nhập kho'
-                : 'Đóng số lượng nhập còn lại'}
-            </DialogTitle>
-            <DialogDescription>
-              {reconciliationAction === INBOUND_REQUEST_ACTION.Cancel
-                ? 'Chỉ hủy được khi chưa phát sinh nhận hàng. Yêu cầu và lịch sử vẫn được lưu.'
-                : 'Phần đã nhận và tồn kho hiện có không thay đổi. Hệ thống chỉ đóng phần sẽ không giao tiếp.'}
-            </DialogDescription>
+            <DialogTitle>{reconciliationCopy.title}</DialogTitle>
+            <DialogDescription>{reconciliationCopy.description}</DialogDescription>
           </DialogHeader>
-          <Field data-invalid={Boolean(reasonError)}>
-            <FieldLabel htmlFor="inbound-reconciliation-reason">Lý do</FieldLabel>
-            <Textarea
-              id="inbound-reconciliation-reason"
-              value={reason}
-              maxLength={500}
-              aria-invalid={Boolean(reasonError)}
-              onChange={(event) => {
-                setReason(event.target.value)
-                setReasonError('')
-              }}
-            />
-            <FieldError>{reasonError}</FieldError>
-          </Field>
+          {reconciliationAction !== INBOUND_REQUEST_ACTION.Delete ? (
+            <Field data-invalid={Boolean(reasonError)}>
+              <FieldLabel htmlFor="inbound-reconciliation-reason">Lý do</FieldLabel>
+              <Textarea
+                id="inbound-reconciliation-reason"
+                value={reason}
+                maxLength={500}
+                aria-invalid={Boolean(reasonError)}
+                onChange={(event) => {
+                  setReason(event.target.value)
+                  setReasonError('')
+                }}
+              />
+              <FieldError>{reasonError}</FieldError>
+            </Field>
+          ) : null}
           <DialogFooter>
             <Button
               type="button"
@@ -478,7 +570,10 @@ export function InboundRequestDetail({
               variant={
                 reconciliationAction === INBOUND_REQUEST_ACTION.Cancel ? 'destructive' : 'default'
               }
-              disabled={isPending || !reason.trim()}
+              disabled={
+                isPending ||
+                (reconciliationAction !== INBOUND_REQUEST_ACTION.Delete && !reason.trim())
+              }
               onClick={() => void reconcile()}
             >
               Xác nhận
@@ -490,8 +585,12 @@ export function InboundRequestDetail({
   )
 }
 
-function getConfirmationCopy(action: InboundRequestAction | null, supplierEmail: string | null) {
-  const mailNote = `Email kèm file PDF đơn đặt hàng sẽ được gửi tới ${supplierEmail ?? 'nhà cung cấp'}, đồng thời CC người tạo và người duyệt.`
+function getConfirmationCopy(
+  action: InboundRequestAction | null,
+  supplierEmail: string | null,
+  supplierProposedDate: string | null
+) {
+  const mailNote = `Email kèm file PDF và nút xác nhận đơn sẽ được gửi tới ${supplierEmail ?? 'nhà cung cấp'}, đồng thời CC người tạo và người duyệt. Liên kết trong email gửi trước (nếu có) sẽ hết hiệu lực.`
   switch (action) {
     case INBOUND_REQUEST_ACTION.Approve:
       return {
@@ -507,6 +606,11 @@ function getConfirmationCopy(action: InboundRequestAction | null, supplierEmail:
       return {
         title: 'Gửi mail cho nhà cung cấp?',
         description: mailNote,
+      }
+    case INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate:
+      return {
+        title: 'Chấp nhận ngày giao nhà cung cấp đề xuất?',
+        description: `Ngày nhận hàng dự kiến sẽ đổi thành ${formatOperationalDate(supplierProposedDate)} và nhà cung cấp sẽ nhận email thông báo.`,
       }
     default:
       return {

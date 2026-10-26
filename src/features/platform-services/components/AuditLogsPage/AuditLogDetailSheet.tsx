@@ -6,7 +6,12 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import type { AuditLogItem } from '../../types/platform-services.types'
-import { formatPlatformDateTime } from '../../utils/platform-services-format'
+import {
+  formatPlatformDateTime,
+  getArchivedDocumentHref,
+} from '../../utils/platform-services-format'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 
 interface AuditLogDetailSheetProps {
   readonly log: AuditLogItem | null
@@ -14,6 +19,10 @@ interface AuditLogDetailSheetProps {
 }
 
 export function AuditLogDetailSheet({ log, onOpenChange }: AuditLogDetailSheetProps) {
+  const archivedHref = log ? getArchivedDocumentHref(log) : null
+  const hasDocumentChanges = Boolean(
+    log?.oldValue?.startsWith('{"SchemaVersion":1,"DocumentType":')
+  )
   return (
     <Sheet open={log !== null} onOpenChange={onOpenChange}>
       <SheetContent
@@ -27,6 +36,11 @@ export function AuditLogDetailSheet({ log, onOpenChange }: AuditLogDetailSheetPr
               <SheetDescription>{formatPlatformDateTime(log.createdAt)}</SheetDescription>
             </SheetHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain p-6">
+              {archivedHref ? (
+                <Button asChild variant="outline">
+                  <Link href={archivedHref}>Xem nội dung phiếu đã xóa</Link>
+                </Button>
+              ) : null}
               <section className="bg-muted rounded-lg border p-4" aria-label="Hoạt động">
                 <p className="text-muted-foreground text-xs">Thao tác</p>
                 <p className="mt-1 text-base font-semibold wrap-anywhere">{log.actionLabel}</p>
@@ -55,6 +69,12 @@ export function AuditLogDetailSheet({ log, onOpenChange }: AuditLogDetailSheetPr
                   <h3 id="audit-changes-title" className="mb-2 text-sm font-semibold">
                     Nội dung thay đổi
                   </h3>
+                  {hasDocumentChanges ? (
+                    <p className="text-muted-foreground mb-3 text-xs">
+                      Tên hàng, đơn vị và vị trí tra theo danh mục hiện tại; giá trị trước/sau giữ
+                      theo lần sửa.
+                    </p>
+                  ) : null}
                   <div className="divide-y overflow-hidden rounded-lg border">
                     {log.changes.map((change, index) => (
                       <div key={`${change.label}-${index}`} className="flex flex-col gap-3 p-4">

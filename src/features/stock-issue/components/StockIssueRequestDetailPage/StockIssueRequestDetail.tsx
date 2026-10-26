@@ -38,6 +38,8 @@ import { StockIssueRequestOverview } from './StockIssueRequestOverview'
 import { StockIssueAuditCard } from './StockIssueAuditCard'
 
 interface StockIssueRequestDetailProps {
+  readonly editingActions?: ReactNode
+  readonly canEdit?: boolean
   readonly order: StockIssueRequestSummary
   readonly capabilities: StockIssueCapabilities
   readonly handlers: StockIssueRowActionHandlers
@@ -50,6 +52,8 @@ interface StockIssueRequestDetailProps {
 }
 
 export function StockIssueRequestDetail({
+  editingActions,
+  canEdit = false,
   order,
   capabilities,
   handlers,
@@ -92,7 +96,8 @@ export function StockIssueRequestDetail({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {capabilities.canCreate && canEditStockIssueRequest(order.status) ? (
+          {editingActions}
+          {canEdit && canEditStockIssueRequest(order.status) ? (
             <Button asChild variant="outline">
               <Link href={APP_ROUTES.stockIssueRequestEdit(order.id) as Route}>
                 <Edit3 aria-hidden="true" />

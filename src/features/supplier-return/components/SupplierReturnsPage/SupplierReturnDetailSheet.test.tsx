@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { P } from '@/config/permissionCodes'
 import type { SupplierReturnStatus } from '../../types/supplier-return.types'
 import { buildSupplierReturn } from './fixtures'
-import { SupplierReturnDetailSheet } from './SupplierReturnDetailSheet'
+import { SupplierReturnDetail } from './SupplierReturnDetail'
 
 function renderSheet(
   status: SupplierReturnStatus,
@@ -13,7 +13,7 @@ function renderSheet(
   onApprove = vi.fn()
 ) {
   return render(
-    <SupplierReturnDetailSheet
+    <SupplierReturnDetail
       item={buildSupplierReturn({ status, version: 'AQ==' })}
       isLoading={false}
       isError={false}
@@ -22,7 +22,8 @@ function renderSheet(
       canDispatch={permissions.includes(P.SUPPLIER_RETURNS_DISPATCH)}
       currentUserId={currentUserId}
       onRetry={vi.fn()}
-      onOpenChange={vi.fn()}
+      listHref="/supplier-returns"
+      isPending={false}
       onApprove={onApprove}
       onReject={vi.fn()}
       onCancel={vi.fn()}
@@ -54,11 +55,13 @@ describe('SupplierReturnDetailSheet actions', () => {
     expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({ version: 'AQ==' }), true)
     expect(button).toBeDisabled()
   })
-  it('shows approve, reject and cancel for approvers on a pending return', () => {
+  it('shows approve and reject, with cancel in the secondary menu', async () => {
     renderSheet('Pending', [P.SUPPLIER_RETURNS_VIEW, P.SUPPLIER_RETURNS_APPROVE])
     expect(queryButton(/^Duyệt$/)).toBeInTheDocument()
     expect(queryButton(/Từ chối/)).toBeInTheDocument()
-    expect(queryButton(/Huỷ phiếu/)).toBeInTheDocument()
+    expect(queryButton(/Huỷ phiếu/)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Thao tác khác/ }))
+    expect(screen.getByRole('menuitem', { name: /Huỷ phiếu/ })).toBeInTheDocument()
     expect(queryButton(/Xác nhận đã giao/)).not.toBeInTheDocument()
   })
 
@@ -69,9 +72,10 @@ describe('SupplierReturnDetailSheet actions', () => {
     expect(queryButton(/Huỷ phiếu/)).not.toBeInTheDocument()
   })
 
-  it('lets the creator cancel without the approve permission', () => {
+  it('lets the creator cancel through the menu without the approve permission', async () => {
     renderSheet('Pending', [P.SUPPLIER_RETURNS_VIEW], 'user-creator')
-    expect(queryButton(/Huỷ phiếu/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Thao tác khác/ }))
+    expect(screen.getByRole('menuitem', { name: /Huỷ phiếu/ })).toBeInTheDocument()
     expect(queryButton(/^Duyệt$/)).not.toBeInTheDocument()
   })
 

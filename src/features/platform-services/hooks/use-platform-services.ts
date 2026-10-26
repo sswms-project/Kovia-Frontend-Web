@@ -5,6 +5,15 @@ import { queryKeys } from '@/lib/query-keys'
 import { platformServicesService } from '../services/platform-services.service'
 import type { AuditLogQuery, NotificationQuery } from '../types/platform-services.types'
 
+export function useArchivedDocumentQuery(documentType: string, id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['archived-document', documentType, id],
+    queryFn: () => platformServicesService.getArchivedDocument(documentType, id),
+    enabled,
+    retry: false,
+  })
+}
+
 export function useNotificationsQuery(params: NotificationQuery) {
   return useQuery({
     queryKey: queryKeys.notifications.list(params),

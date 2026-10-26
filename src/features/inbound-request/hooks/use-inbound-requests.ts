@@ -15,6 +15,8 @@ import type {
   InboundRequestListQuery,
   SaveInboundRequestRequest,
   SupplierEmailDispatch,
+  SupplierInboundResponsePreview,
+  SupplierInboundResponseRequest,
   SupplierOption,
 } from '../types/inbound-request.types'
 
@@ -38,7 +40,7 @@ interface ApproveInboundRequestVariables {
 
 interface ReconcileInboundRequestVariables {
   inboundRequestId: string
-  action: 'cancel' | 'closeRemaining'
+  action: 'cancel' | 'closeRemaining' | 'withdraw'
   reason: string
   expectedVersion: string
 }
@@ -183,17 +185,27 @@ export function useUpdateInboundRequestMutation() {
 
 export function useDeleteInboundRequestMutation() {
   const invalidate = useInvalidateInboundRequests()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
-    mutationFn: inboundRequestService.deleteInboundRequest,
-    onSuccess: (_, inboundRequestId) => invalidate(inboundRequestId),
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    { id: string; expectedVersion: string }
+  >({
+    mutationFn: ({ id, expectedVersion }) =>
+      inboundRequestService.deleteInboundRequest(id, expectedVersion),
+    onSuccess: (_, variables) => invalidate(variables.id),
     onError: (error) => logger.error(error),
   })
 }
 
 export function useDeleteInboundRequestsMutation() {
   const invalidate = useInvalidateInboundRequests()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, readonly string[]>({
-    mutationFn: inboundRequestService.deleteInboundRequests,
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    { ids: readonly string[]; expectedVersions: Readonly<Record<string, string>> }
+  >({
+    mutationFn: ({ ids, expectedVersions }) =>
+      inboundRequestService.deleteInboundRequests(ids, expectedVersions),
     onSuccess: () => invalidate(),
     onError: (error) => logger.error(error),
   })
@@ -259,6 +271,51 @@ export function useSendInboundRequestToSupplierMutation() {
   })
 }
 
+interface AcceptSupplierProposedDateVariables {
+  inboundRequestId: string
+  expectedVersion: string
+}
+
+export function useAcceptSupplierProposedDateMutation() {
+  const invalidate = useInvalidateInboundRequests()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, AcceptSupplierProposedDateVariables>({
+    mutationFn: ({ inboundRequestId, expectedVersion }) =>
+      inboundRequestService.acceptSupplierProposedDate(inboundRequestId, {
+        expectedVersion,
+        selfApprovalAcknowledged: false,
+      }),
+    onSuccess: (_, { inboundRequestId }) => invalidate(inboundRequestId),
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useSupplierResponsePreviewQuery(token: string) {
+  return useQuery<SupplierInboundResponsePreview, ApiErrorResponse>({
+    queryKey: queryKeys.inboundRequests.supplierResponse(token),
+    queryFn: () =>
+      inboundRequestService.getSupplierResponsePreview(token).then((response) => response.data),
+    enabled: Boolean(token),
+    retry: false,
+  })
+}
+
+interface RespondAsSupplierVariables {
+  token: string
+  request: SupplierInboundResponseRequest
+}
+
+export function useRespondAsSupplierMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, RespondAsSupplierVariables>({
+    mutationFn: ({ token, request }) => inboundRequestService.respondAsSupplier(token, request),
+    onSettled: (_, __, { token }) =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.inboundRequests.supplierResponse(token),
+      }),
+    onError: (error) => logger.error(error),
+  })
+}
+
 export function useRejectInboundRequestMutation() {
   const invalidate = useInvalidateInboundRequests()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, RejectInboundRequestVariables>({
@@ -277,6 +334,8 @@ export function useReconcileInboundRequestMutation() {
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, ReconcileInboundRequestVariables>({
     mutationFn: ({ inboundRequestId, action, reason, expectedVersion }) => {
       const request = { reason, expectedVersion, commandId: crypto.randomUUID() }
+      if (action === 'withdraw')
+        return inboundRequestService.withdrawInboundRequest(inboundRequestId, request)
       return action === 'cancel'
         ? inboundRequestService.cancelInboundRequest(inboundRequestId, request)
         : inboundRequestService.closeRemainingInboundQuantity(inboundRequestId, request)

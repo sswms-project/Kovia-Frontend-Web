@@ -1,6 +1,6 @@
 export * from './GoodsReturnRequestDirectory'
 export * from './GoodsReturnRequestStatusBadge'
-export * from './GoodsReturnRequestDetailSheet'
+export * from './GoodsReturnRequestDetail'
 export * from './RejectGoodsReturnRequestDialog'
 export * from './RestockReturnDialog'
 export * from './CreateGoodsReturnRequestDialog'

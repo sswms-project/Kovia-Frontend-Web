@@ -26,6 +26,7 @@ export const APP_ROUTES = {
   invitations: {
     accept: '/invitations/accept',
   },
+  supplierResponse: '/supplier-response',
   dashboardByRole: {
     tenant: '/dashboard/tenant',
     manager: '/dashboard/manager',
@@ -72,6 +73,8 @@ export const APP_ROUTES = {
   inventoryForecast: '/inventory/forecast', // Legacy URL redirects to reports/forecast.
   cycleCounts: '/inventory/cycle-counts',
   cycleCountCreate: '/inventory/cycle-counts/new',
+  cycleCountEdit: (cycleCountId: string): Route =>
+    `/inventory/cycle-counts/${cycleCountId}/edit` as Route,
   cycleCountDetail: (cycleCountId: string): Route =>
     `/inventory/cycle-counts/${cycleCountId}` as Route,
   stockAdjustments: '/inventory/stock-adjustments',
@@ -105,7 +108,9 @@ export const APP_ROUTES = {
   stockIssueRequestPrint: (stockIssueRequestId: string) =>
     `/stock-issue-requests/${stockIssueRequestId}/print`,
   goodsReturnRequests: '/goods-return-requests',
+  goodsReturnRequestDetail: (id: string) => `/goods-return-requests/${id}`,
   supplierReturns: '/supplier-returns',
+  supplierReturnDetail: (id: string) => `/supplier-returns/${id}`,
   stockRecipients: '/stock-recipients',
   stockRecipientImport: '/stock-recipients/import' as Route,
   stockRecipientDetail: (stockRecipientId: string): Route =>
@@ -127,6 +132,8 @@ export const APP_ROUTES = {
   profile: '/profile',
   notifications: '/notifications',
   auditLogs: '/audit-logs',
+  archivedDocument: (documentType: string, id: string) =>
+    `/audit-logs/documents/${encodeURIComponent(documentType)}/${encodeURIComponent(id)}` as Route,
   settings: {
     security: '/settings/security',
     accessControl: '/settings/access-control',

@@ -2,9 +2,10 @@ import { act, renderHook } from '@testing-library/react'
 import { useForm } from 'react-hook-form'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TransferRequestFormValues } from '../schemas/transfer-request.schema'
-import { emptyTransferForm } from '../utils/transfer-form'
+import { emptyTransferForm, transferToFormValues } from '../utils/transfer-form'
 import { useTransferFormActions } from './use-transfer-form-actions'
-import { buildTransfer } from '../utils/transfer-test-fixtures'
+import { buildTransfer, buildTransferItem } from '../utils/transfer-test-fixtures'
+import type { SaveTransferDraftRequest } from '../types/transfer.types'
 
 const mock = vi.hoisted(() => ({
   save: vi.fn(),
@@ -39,11 +40,33 @@ function setup() {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   mock.save.mockResolvedValue({ data: 'draft-id' })
   mock.submit.mockResolvedValue({})
-  mock.read.mockResolvedValue({ data: buildTransfer() })
+  mock.read.mockImplementation(async () => ({ data: matchingSavedDraft() }))
 })
+
+function matchingSavedDraft(version = 'v1') {
+  const request = mock.save.mock.calls.at(-1)?.[0].request as SaveTransferDraftRequest
+  return buildTransfer({
+    ...request,
+    id: 'draft-id',
+    status: 'Draft',
+    version,
+    transferCode: request.transferCode || 'DC-GENERATED',
+    requesterName: request.requesterName ?? null,
+    requestingDepartment: request.requestingDepartment ?? null,
+    items: request.items.map((line) =>
+      buildTransferItem({
+        ...line,
+        unitId: line.unitId || 'base-unit',
+        baseUnitId: 'base-unit',
+        requestedQuantity: line.quantity,
+        quantity: line.quantity,
+      })
+    ),
+  })
+}
 
 describe('Transfer creation lifecycle', () => {
   it('blocks all resends after an unknown create result, without losing entered values', async () => {
@@ -77,7 +100,9 @@ describe('Transfer creation lifecycle', () => {
 
   it('keeps the unknown-result block if the explicit status read fails', async () => {
     mock.submit.mockRejectedValueOnce(new Error('Network Error'))
-    mock.read.mockRejectedValueOnce(new Error('Network Error'))
+    mock.read
+      .mockImplementationOnce(async () => ({ data: matchingSavedDraft() }))
+      .mockRejectedValueOnce(new Error('Network Error'))
     const { result } = setup()
     await act(() => result.current.submitRequest(emptyTransferForm()))
     await act(() => result.current.checkResult())
@@ -145,5 +170,72 @@ describe('Transfer creation lifecycle', () => {
     expect(mock.save.mock.calls[1]?.[0].transferId).toBe('draft-id')
     expect(mock.submit).toHaveBeenCalledTimes(2)
     expect(mock.push).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses the newly saved version for the next save and submission', async () => {
+    mock.read.mockImplementation(async () => ({ data: matchingSavedDraft('Ag==') }))
+    const { result } = setup()
+    await act(() => result.current.saveDraft(emptyTransferForm()))
+    await act(() => result.current.submitRequest(emptyTransferForm()))
+    expect(mock.save.mock.calls[1]?.[0].request.expectedVersion).toBe('Ag==')
+    expect(mock.submit).toHaveBeenCalledWith({
+      transferId: 'draft-id',
+      request: { expectedVersion: 'Ag==' },
+    })
+  })
+
+  it('does not adopt a version for unseen changes or retry writes until explicitly reloaded', async () => {
+    mock.read.mockImplementationOnce(async () => ({
+      data: { ...matchingSavedDraft('other-tab-version'), note: 'Another tab changed this' },
+    }))
+    const { result } = setup()
+    await act(() => result.current.submitRequest(emptyTransferForm()))
+    expect(result.current.hasConflict).toBe(true)
+    expect(result.current.unknownResult).toBe(false)
+    expect(mock.submit).not.toHaveBeenCalled()
+    act(() => result.current.dismissChange())
+    expect(result.current.hasConflict).toBe(true)
+    await act(() => result.current.saveDraft(emptyTransferForm()))
+    await act(() => result.current.submitRequest(emptyTransferForm()))
+    expect(mock.save).toHaveBeenCalledTimes(1)
+    await act(() => result.current.reload())
+    expect(mock.replace).toHaveBeenCalledWith('/transfers/draft-id/edit')
+  })
+
+  it('resumes an existing draft only after loading the other tab contents into the form', async () => {
+    const original = buildTransfer({ id: 'draft-id', status: 'Draft', version: 'original' })
+    const changed = { ...original, note: 'Other tab note', version: 'other-tab-version' }
+    mock.read.mockResolvedValueOnce({ data: changed })
+    const refetchDetail = vi
+      .fn()
+      .mockResolvedValueOnce({ data: original, isError: true })
+      .mockResolvedValueOnce({ data: changed })
+    const hook = renderHook(() => {
+      const form = useForm<TransferRequestFormValues>({ defaultValues: emptyTransferForm() })
+      return {
+        form,
+        actions: useTransferFormActions({
+          mode: 'draft',
+          transferId: original.id,
+          detail: original,
+          form,
+          refetchDetail,
+          dismissRealtime: vi.fn(),
+        }),
+      }
+    })
+    await act(() => hook.result.current.actions.submitRequest(transferToFormValues(original)))
+    expect(mock.submit).not.toHaveBeenCalled()
+    expect(hook.result.current.form.getValues('note')).toBe('')
+    await act(() => hook.result.current.actions.reload())
+    expect(hook.result.current.actions.hasConflict).toBe(true)
+    expect(hook.result.current.form.getValues('note')).toBe('')
+    await act(() => hook.result.current.actions.submitRequest(transferToFormValues(original)))
+    expect(mock.save).toHaveBeenCalledTimes(1)
+    await act(() => hook.result.current.actions.reload())
+    expect(hook.result.current.form.getValues('note')).toBe('Other tab note')
+    await act(() => hook.result.current.actions.submitRequest(hook.result.current.form.getValues()))
+    expect(mock.save.mock.calls[1]?.[0].request.expectedVersion).toBe('other-tab-version')
+    expect(mock.submit).toHaveBeenCalledTimes(1)
   })
 })

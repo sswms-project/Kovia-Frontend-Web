@@ -28,11 +28,13 @@ function Harness({
   stockPage = 1,
   stockPageCount = 1,
   onStockPageChange = vi.fn(),
+  availableStocks = stocks,
 }: {
   readonly onSubmit: (values: CreateSupplierReturnFormValues) => void
   readonly stockPage?: number
   readonly stockPageCount?: number
   readonly onStockPageChange?: (page: number) => void
+  readonly availableStocks?: typeof stocks
 }) {
   const form = useForm<CreateSupplierReturnFormValues>({
     resolver: zodResolver(createSupplierReturnSchema),
@@ -50,7 +52,7 @@ function Harness({
       form={form}
       warehouses={[{ id: 'warehouse-1', label: 'Kho trung tâm' }]}
       suppliers={[{ id: 'supplier-1', label: 'Nhà cung cấp A' }]}
-      stocks={stocks}
+      stocks={availableStocks}
       stockSearch=""
       isStocksLoading={false}
       isPending={false}
@@ -73,6 +75,23 @@ async function addStock(slotCode: string) {
 }
 
 describe('CreateSupplierReturnDialog', () => {
+  it('shows full rack location in both stock choices and added lines without a system slot name', async () => {
+    const stock = buildStock({
+      slotCode: '__SYSTEM_DEFAULT__',
+      zoneCode: 'K01',
+      rackCode: 'A04',
+      isSystemDefaultSlot: true,
+    })
+    render(<Harness onSubmit={vi.fn()} availableStocks={[stock]} />)
+    const picker = screen.getByLabelText(/Chọn vị trí tồn/)
+    expect(
+      within(picker).getByRole('option', { name: /Khu vực K01 \/ Kệ A04/ })
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/__SYSTEM_DEFAULT__/)).not.toBeInTheDocument()
+    await addStock('Kệ A04')
+    expect(screen.getByText(/SKU.*Khu vực K01 \/ Kệ A04/)).toBeInTheDocument()
+    expect(screen.queryByText(/__SYSTEM_DEFAULT__/)).not.toBeInTheDocument()
+  })
   it('searches stock by product name or SKU only', () => {
     render(<Harness onSubmit={vi.fn()} />)
     const search = screen.getByLabelText('Tìm hàng tồn')

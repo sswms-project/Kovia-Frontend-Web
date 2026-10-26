@@ -99,10 +99,10 @@ function directoryProps(): ComponentProps<typeof InboundRequestDirectory> {
 }
 
 describe('inbound row navigation and bulk checkboxes', () => {
-  it('previews plain cells while keeping code navigation and keyboard selection independent', async () => {
+  it('opens the request from any plain cell and from the keyboard', async () => {
     const options = props()
-    const onPreview = vi.fn()
-    render(<InboundRequestTable {...options} onPreview={onPreview} previewId="draft" />)
+    const onOpen = vi.fn()
+    render(<InboundRequestTable {...options} onOpen={onOpen} />)
     const row = screen.getByRole('row', { name: /IR-001/ })
     expect(within(row).getAllByRole('link')).toHaveLength(1)
     const code = within(row).getByRole('link', { name: 'IR-001' })
@@ -113,22 +113,20 @@ describe('inbound row navigation and bulk checkboxes', () => {
     await userEvent.setup().click(code)
     expect(push).not.toHaveBeenCalled()
     await userEvent.setup().click(within(row).getByText(/Kho kiểm thử/))
-    expect(onPreview).toHaveBeenCalledExactlyOnceWith(draft)
-    expect(push).not.toHaveBeenCalled()
-    expect(row).toHaveAttribute('data-state', 'selected')
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(draft)
     fireEvent.keyDown(row, { key: 'Enter' })
-    expect(onPreview).toHaveBeenCalledTimes(2)
+    expect(onOpen).toHaveBeenCalledTimes(2)
   })
   it('keeps checkbox, its cell and action controls independent from row navigation', async () => {
     const options = props()
-    const onPreview = vi.fn()
-    render(<InboundRequestTable {...options} onPreview={onPreview} />)
+    const onOpen = vi.fn()
+    render(<InboundRequestTable {...options} onOpen={onOpen} />)
     const checkbox = screen.getByRole('checkbox', { name: 'Chọn IR-001' })
     await userEvent.setup().click(checkbox)
     expect(options.onSelectionChange).toHaveBeenCalledExactlyOnceWith(['draft'])
     expect(push).not.toHaveBeenCalled()
     fireEvent.click(checkbox.closest('td')!)
-    expect(onPreview).not.toHaveBeenCalled()
+    expect(onOpen).not.toHaveBeenCalled()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Thao tác cho IR-001' }))
     expect(push).not.toHaveBeenCalled()
     await userEvent.setup().click(screen.getByRole('menuitem', { name: 'Sao chép' }))
@@ -224,15 +222,14 @@ describe('inbound row navigation and bulk checkboxes', () => {
       screen.getByRole('checkbox', { name: 'Chọn tất cả yêu cầu nhập kho trên trang' })
     ).toBeDisabled()
   })
-  it('allows the backend-authorized owner to delete draft and approved selections together', async () => {
+  it('does not delete an approved selection together with drafts even with the legacy flag', () => {
     const options = directoryProps()
     render(
       <InboundRequestDirectory {...options} canDeleteApproved selectedIds={['draft', 'approved']} />
     )
     const button = screen.getByRole('button', { name: 'Xóa chứng từ' })
-    expect(button).toBeEnabled()
-    await userEvent.setup().click(button)
-    expect(options.onDeleteMany).toHaveBeenCalledExactlyOnceWith(['draft', 'approved'])
+    expect(button).toBeDisabled()
+    expect(options.onDeleteMany).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Gửi duyệt' })).not.toBeInTheDocument()
     expect(screen.queryByText(/^\d+ đơn$/)).not.toBeInTheDocument()
     expect(screen.getByText('Tổng số:')).toBeInTheDocument()
@@ -247,5 +244,40 @@ describe('inbound row navigation and bulk checkboxes', () => {
       />
     )
     expect(screen.getByRole('button', { name: 'Xóa chứng từ' })).toBeDisabled()
+  })
+})
+
+describe('supplier email response in the list', () => {
+  it('shows the supplier answer under the approved status', () => {
+    render(
+      <InboundRequestTable
+        {...props()}
+        items={[
+          {
+            ...approved,
+            supplierEmailSentAt: '2026-10-25T12:40:00Z',
+            supplierResponse: 'Confirmed',
+          },
+          {
+            ...approved,
+            id: 'waiting',
+            inboundRequestCode: 'IR-003',
+            supplierEmailSentAt: '2026-10-25T12:40:00Z',
+            supplierResponse: null,
+          },
+        ]}
+      />
+    )
+    expect(
+      within(screen.getByRole('row', { name: /IR-002/ })).getByText('NCC đã xác nhận')
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('row', { name: /IR-003/ })).getByText('Chờ NCC phản hồi')
+    ).toBeInTheDocument()
+  })
+
+  it('shows nothing when the order was never emailed', () => {
+    render(<InboundRequestTable {...props()} />)
+    expect(screen.queryByText(/NCC/)).not.toBeInTheDocument()
   })
 })
