@@ -9,6 +9,7 @@ const movementLabels: Record<string, string> = {
   [STOCK_MOVEMENT_TYPES.transferIn]: 'Điều chuyển đến',
   [STOCK_MOVEMENT_TYPES.adjustment]: 'Điều chỉnh',
   [STOCK_MOVEMENT_TYPES.returnIn]: 'Nhập hàng trả lại',
+  [STOCK_MOVEMENT_TYPES.returnOut]: 'Trả nhà cung cấp',
   [STOCK_MOVEMENT_TYPES.scrap]: 'Loại bỏ',
   [STOCK_MOVEMENT_TYPES.opening]: 'Tồn đầu kỳ',
   [STOCK_MOVEMENT_TYPES.reclassification]: 'Phân loại lại',
@@ -43,6 +44,8 @@ export function formatStockMovementReference(value: string): string {
     DamageCase: 'Phiếu hàng hỏng',
     GoodsReturnRequestItem: 'Phiếu trả hàng',
     GoodsReturnRequest: 'Phiếu trả hàng',
+    SupplierReturnItem: 'Phiếu trả NCC',
+    SupplierReturnRequest: 'Phiếu trả NCC',
     PutAwayCorrection: 'Phiếu sửa vị trí cất hàng',
     WarehouseTaskExecution: 'Công việc kho',
   }

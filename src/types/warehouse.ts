@@ -53,6 +53,8 @@ export interface RackResponse extends WarehousePhysicalDetailsResponse, StorageC
 }
 
 export interface ZoneResponse extends WarehousePhysicalDetailsResponse {
+  isDefaultReceivingPoint?: boolean
+  isDefaultOutboundStagingPoint?: boolean
   id: string
   zoneCode: string
   zoneName: string

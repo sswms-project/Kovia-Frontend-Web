@@ -15,7 +15,7 @@ import {
   SlidersHorizontal,
   TriangleAlert,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
   AlertDialog,
@@ -48,10 +48,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
-import {
-  CYCLE_COUNT_NOTE_MAX_LENGTH,
-  recordCycleCountItemSchema,
-} from '../../schemas/cycle-count.schema'
+import { CYCLE_COUNT_NOTE_MAX_LENGTH, parseCountQuantity } from '../../schemas/cycle-count.schema'
 import type { CycleCountDetail, CycleCountItem } from '../../types/cycle-count.types'
 import {
   CYCLE_COUNT_QUALITY_LABELS,
@@ -73,6 +70,7 @@ import type {
   CycleCountItemRowModel,
   CycleCountRecordEntry,
 } from './types'
+import { getCycleCountDraftKey, useCycleCountDrafts } from './use-cycle-count-drafts'
 
 const FILTERS: ReadonlyArray<{ readonly value: CycleCountItemFilter; readonly label: string }> = [
   { value: 'all', label: 'Tất cả' },
@@ -130,14 +128,25 @@ export function CycleCountItemsTable({
 }: CycleCountItemsTableProps) {
   const [filter, setFilter] = useState<CycleCountItemFilter>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [drafts, setDrafts] = useState<Record<string, string>>({})
-  const [damagedDrafts, setDamagedDrafts] = useState<Record<string, string>>({})
-  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
-  const [damageDrafts, setDamageDrafts] = useState<Record<string, CycleCountDamageDraft>>({})
   const [damageDialogItemId, setDamageDialogItemId] = useState<string | null>(null)
   const [isScanOpen, setIsScanOpen] = useState(false)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const canRecord = allowedActions.includes('Record')
+  const {
+    drafts,
+    damagedDrafts,
+    noteDrafts,
+    damageDrafts,
+    setDrafts,
+    setDamagedDrafts,
+    setNoteDrafts,
+    setDamageDrafts,
+    discardDrafts,
+  } = useCycleCountDrafts(
+    canRecord && detail.assignedTo
+      ? getCycleCountDraftKey(detail.id, detail.recountRound, detail.assignedTo)
+      : null
+  )
   const isMobile = useIsMobile()
   const canSelect = allowedActions.includes('RequestRecount')
   const items = detail.items
@@ -170,7 +179,7 @@ export function CycleCountItemsTable({
     ? null
     : items.reduce((sum, item) => sum + (getLiveDifference(item) ?? 0), 0)
   const totalDamaged = items.reduce((sum, item) => sum + (getLiveDamaged(item) ?? 0), 0)
-  const columnCount = canSelect ? 16 : 15
+  const columnCount = canSelect ? 12 : 11
   const mustStart = allowedActions.includes('Start')
   // Cờ Scan do BE trả theo gói dịch vụ; không có thì chỉ nhập tay.
   const canScan = allowedActions.includes('Scan')
@@ -185,7 +194,7 @@ export function CycleCountItemsTable({
   // Tính chênh lệch ngay trên FE theo số đang nhập; server chỉ chốt khi lưu.
   function getLiveCounted(item: CycleCountItem): number | null {
     const draft = getDraft(item)
-    return recordCycleCountItemSchema.safeParse(draft).success ? Number(draft) : null
+    return parseCountQuantity(draft)
   }
 
   function getLiveDifference(item: CycleCountItem): number | null {
@@ -208,7 +217,7 @@ export function CycleCountItemsTable({
   function getLiveDamaged(item: CycleCountItem): number | null {
     const draft = getDamagedDraft(item)
     if (draft === '') return null
-    return recordCycleCountItemSchema.safeParse(draft).success ? Number(draft) : null
+    return parseCountQuantity(draft)
   }
 
   function isDamagedInvalid(item: CycleCountItem): boolean {
@@ -245,7 +254,7 @@ export function CycleCountItemsTable({
   // Chỉ lưu các dòng có số đếm hợp lệ và khác giá trị đã lưu trên server.
   const dirtyEntries: CycleCountRecordEntry[] = items.flatMap((item) => {
     const draft = getDraft(item)
-    if (!isRecordable(item) || !recordCycleCountItemSchema.safeParse(draft).success) return []
+    if (!isRecordable(item) || parseCountQuantity(draft) === null) return []
     if (isDamagedInvalid(item) || isDamageIncomplete(item)) return []
     const note = getNoteDraft(item).trim() || null
     const damagedQuantity = getLiveDamaged(item)
@@ -296,12 +305,14 @@ export function CycleCountItemsTable({
     }))
   }
 
-  function discardDrafts() {
-    setDrafts({})
-    setDamagedDrafts({})
-    setNoteDrafts({})
-    setDamageDrafts({})
-  }
+  // Nháp đã giữ trên máy, nhưng vẫn nhắc trước khi rời trang vì kết quả chưa về server.
+  const hasUnsavedDrafts = dirtyEntries.length > 0
+  useEffect(() => {
+    if (!hasUnsavedDrafts) return
+    const warnBeforeLeave = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener('beforeunload', warnBeforeLeave)
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+  }, [hasUnsavedDrafts])
 
   async function saveAll() {
     if (await onSaveItems(dirtyEntries)) discardDrafts()
@@ -321,7 +332,7 @@ export function CycleCountItemsTable({
       recordable: isRecordable(item),
       selected: selectedItemIds.includes(item.id),
       quantity: draft,
-      quantityInvalid: draft !== '' && !recordCycleCountItemSchema.safeParse(draft).success,
+      quantityInvalid: draft !== '' && parseCountQuantity(draft) === null,
       damaged: getDamagedDraft(item),
       damagedInvalid: isDamagedInvalid(item),
       hasDamage: (getLiveDamaged(item) ?? 0) > 0,
@@ -340,16 +351,16 @@ export function CycleCountItemsTable({
         <Tabs
           value={filter}
           onValueChange={(value) => setFilter(parseFilter(value))}
-          className="max-w-full overflow-x-auto"
+          className="max-w-full min-w-0 overflow-x-auto overflow-y-hidden px-1 pt-1 pb-2"
         >
-          <TabsList variant="line">
+          <TabsList variant="line" className="h-auto min-h-8 shrink-0">
             {FILTERS.map((option) => {
               const hasVarianceTab = option.value === 'variance' && counts.variance > 0
               return (
                 <TabsTrigger
                   key={option.value}
                   value={option.value}
-                  className="data-[state=active]:font-semibold"
+                  className="h-8 shrink-0 data-[state=active]:font-semibold max-md:h-11 pointer-coarse:h-11"
                 >
                   {hasVarianceTab ? (
                     <TriangleAlert className="text-destructive" aria-hidden="true" />
@@ -425,22 +436,42 @@ export function CycleCountItemsTable({
       </Item>
       {isMobile ? (
         <>
-          <p className="text-muted-foreground bg-muted/40 flex shrink-0 flex-wrap gap-x-4 gap-y-0.5 border-b px-3 py-2 text-xs">
-            <span>{items.length} dòng</span>
-            <span>
-              Sổ sách <b className="text-foreground tabular-nums">{formatCount(totalSystem)}</b>
-            </span>
-            <span>
-              Kiểm kê <b className="text-foreground tabular-nums">{formatCount(totalCounted)}</b>
-            </span>
-            <span className={cn(totalDamaged > 0 && 'text-destructive')}>
-              Hỏng{' '}
-              <b className="tabular-nums">{totalDamaged > 0 ? formatCount(totalDamaged) : '—'}</b>
-            </span>
-            <span className={cn((totalDifference ?? 0) < 0 && 'text-destructive')}>
-              Lệch <b className="tabular-nums">{formatCountDifference(totalDifference)}</b>
-            </span>
-          </p>
+          <dl
+            aria-label={`Tổng hợp ${items.length} dòng kiểm kê`}
+            className="text-muted-foreground bg-muted/40 grid shrink-0 grid-cols-2 gap-x-4 gap-y-2 border-b px-3 py-3 text-xs"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <dt>Sổ sách</dt>
+              <dd className="text-foreground font-medium tabular-nums">
+                {hasHiddenQuantity ? 'Đã ẩn' : formatCount(totalSystem)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt>Số đếm</dt>
+              <dd className="text-foreground font-medium tabular-nums">
+                {formatCount(totalCounted)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt>Trong đó hỏng</dt>
+              <dd
+                className={cn('font-medium tabular-nums', totalDamaged > 0 && 'text-destructive')}
+              >
+                {formatCount(totalDamaged)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <dt>Chênh lệch</dt>
+              <dd
+                className={cn(
+                  'font-medium tabular-nums',
+                  (totalDifference ?? 0) < 0 && 'text-destructive'
+                )}
+              >
+                {hasHiddenQuantity ? 'Đã ẩn' : formatCountDifference(totalDifference)}
+              </dd>
+            </div>
+          </dl>
           <CycleCountItemCards
             rows={rowModels}
             isPending={isPending}
@@ -462,59 +493,25 @@ export function CycleCountItemsTable({
           />
         </>
       ) : (
-        <Table
-          aria-label="Dòng kiểm kê"
-          className="[&_td]:border-border [&_th]:border-border min-w-[1200px] [&_td]:border [&_td]:px-1.5 [&_td]:py-0.5 [&_td]:align-middle [&_th]:h-7 [&_th]:border [&_th]:px-1.5 [&_th]:text-center"
-        >
+        <Table aria-label="Dòng kiểm kê" className="min-w-[1280px] text-sm">
           <TableHeader>
             <TableRow>
               {canSelect ? (
-                <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-10">
+                <TableHead className="bg-card w-10">
                   <span className="sr-only">Chọn dòng kiểm đếm lại</span>
                 </TableHead>
               ) : null}
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-10">
-                #
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Mã VTHH
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Tên VTHH
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-                ĐVT
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-                Vị trí
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Lô / HSD
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-                Chất lượng sổ sách
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 w-px">
-                Tình trạng kiểm kê
-              </TableHead>
-              <TableHead colSpan={4} className="bg-muted sticky top-0 z-10 text-center">
-                Số lượng
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10 min-w-48">
-                Ghi chú
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Lịch sử
-              </TableHead>
-              <TableHead rowSpan={2} className="bg-muted sticky top-0 z-10">
-                Xử lý
-              </TableHead>
-            </TableRow>
-            <TableRow>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo sổ sách</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Theo kiểm kê</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Trong đó hỏng</TableHead>
-              <TableHead className="bg-muted sticky top-7 z-10 w-24">Chênh lệch</TableHead>
+              <TableHead className="bg-card w-12">#</TableHead>
+              <TableHead className="bg-card min-w-56">Vật tư · Mã · ĐVT</TableHead>
+              <TableHead className="bg-card w-44">Vị trí · Lô / HSD</TableHead>
+              <TableHead className="bg-card w-40">Tình trạng · Phẩm chất</TableHead>
+              <TableHead className="bg-card w-28 text-right">Theo sổ sách</TableHead>
+              <TableHead className="bg-card w-32 text-right">Theo kiểm kê</TableHead>
+              <TableHead className="bg-card w-36 text-right">Trong đó hỏng</TableHead>
+              <TableHead className="bg-card w-28 text-right">Chênh lệch</TableHead>
+              <TableHead className="bg-card min-w-56">Ghi chú</TableHead>
+              <TableHead className="bg-card w-36">Lịch sử</TableHead>
+              <TableHead className="bg-card w-44">Xử lý</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -548,33 +545,47 @@ export function CycleCountItemsTable({
                     <TableCell className="text-muted-foreground tabular-nums">
                       {rowIndex + 1}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{item.productSku}</TableCell>
-                    <TableCell className="font-medium">{item.productName}</TableCell>
-                    <TableCell className="text-center">{item.unitName ?? '—'}</TableCell>
-                    <TableCell className="text-center font-mono">
-                      {formatStockLocation(item)}
+                    <TableCell className="min-w-0 whitespace-normal">
+                      <p className="font-medium">{item.productName}</p>
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        <span className="font-mono" translate="no">
+                          {item.productSku}
+                        </span>
+                        {item.unitName ? ` · ${item.unitName}` : ''}
+                      </p>
+                    </TableCell>
+                    <TableCell className="min-w-0">
+                      <p className="font-mono font-semibold" translate="no">
+                        {formatStockLocation(item)}
+                      </p>
+                      <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                        <span className="font-mono" translate="no">
+                          {item.lotNumber ?? 'Theo số lượng'}
+                        </span>
+                        {item.expiryDate ? ` · HSD ${formatCycleCountDay(item.expiryDate)}` : ''}
+                      </p>
                     </TableCell>
                     <TableCell>
-                      <p className="font-mono text-xs">{item.lotNumber ?? 'Theo số lượng'}</p>
-                      {item.expiryDate ? (
-                        <p className="text-muted-foreground text-xs">
-                          HSD {formatCycleCountDay(item.expiryDate)}
-                        </p>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={item.qualityStatus === 'Good' ? 'secondary' : 'outline'}>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant={state.variant}>{state.label}</Badge>
+                        {item.countedQuantity !== null && item.countMethod === 'Scanned' ? (
+                          <ScanBarcode
+                            className="text-muted-foreground size-4"
+                            aria-label="Đã quét mã"
+                          />
+                        ) : null}
+                      </div>
+                      <p
+                        className={cn(
+                          'mt-1 text-xs',
+                          item.qualityStatus === 'Good'
+                            ? 'text-muted-foreground'
+                            : 'text-destructive font-medium'
+                        )}
+                      >
+                        Phẩm chất:{' '}
                         {CYCLE_COUNT_QUALITY_LABELS[item.qualityStatus] ?? item.qualityStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={state.variant}>{state.label}</Badge>
-                      {item.countedQuantity !== null && item.countMethod === 'Scanned' ? (
-                        <ScanBarcode
-                          className="text-muted-foreground mx-auto mt-0.5 size-3.5"
-                          aria-label="Đã quét mã"
-                        />
-                      ) : null}
+                      </p>
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {item.systemQuantity === null ? (
@@ -592,15 +603,13 @@ export function CycleCountItemsTable({
                           inputRefs.current[item.id] = element
                         }}
                         aria-label={`Số đếm thực tế của ${item.productName} tại ${formatStockLocation(item)}`}
-                        className="ml-auto block h-6 w-full text-right font-mono"
+                        className="ml-auto block h-9 w-full text-right font-mono"
                         type="number"
                         min="0"
                         step="0.01"
                         value={draft}
                         disabled={!recordable || isPending}
-                        aria-invalid={
-                          draft !== '' && !recordCycleCountItemSchema.safeParse(draft).success
-                        }
+                        aria-invalid={draft !== '' && parseCountQuantity(draft) === null}
                         onChange={(event) =>
                           setDrafts((current) => ({ ...current, [item.id]: event.target.value }))
                         }
@@ -611,10 +620,10 @@ export function CycleCountItemsTable({
                     </TableCell>
                     <TableCell>
                       {recordable ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <Input
                             aria-label={`Số lượng hỏng của ${item.productName} tại ${formatStockLocation(item)}`}
-                            className="ml-auto block h-6 w-full min-w-0 text-right font-mono"
+                            className="ml-auto block h-9 w-full min-w-0 text-right font-mono"
                             type="number"
                             min="0"
                             step="0.01"
@@ -642,7 +651,7 @@ export function CycleCountItemsTable({
                             <Button
                               type="button"
                               variant="outline"
-                              size="icon-xs"
+                              size="icon-sm"
                               className="relative shrink-0"
                               aria-label={
                                 isDamageIncomplete(item)
@@ -685,11 +694,11 @@ export function CycleCountItemsTable({
                     >
                       {formatCountDifference(liveDifference)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-normal">
                       {recordable ? (
                         <Input
                           aria-label={`Ghi chú của ${item.productName} tại ${formatStockLocation(item)}`}
-                          className="h-6 w-full"
+                          className="h-9 w-full"
                           maxLength={CYCLE_COUNT_NOTE_MAX_LENGTH}
                           placeholder="Ghi chú (nếu có)"
                           value={getNoteDraft(item)}
@@ -705,14 +714,14 @@ export function CycleCountItemsTable({
                           }}
                         />
                       ) : (
-                        <span className="text-xs">{item.note ?? '—'}</span>
+                        <span>{item.note ?? '—'}</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-normal">
                       {item.countHistory.length ? (
                         <Collapsible>
                           <CollapsibleTrigger asChild>
-                            <Button variant="link" size="xs" className="h-auto p-0 text-xs">
+                            <Button variant="link" size="sm" className="h-auto p-0">
                               <History aria-hidden="true" />
                               {item.countHistory.length} lần trước
                             </Button>
@@ -733,7 +742,7 @@ export function CycleCountItemsTable({
                           </CollapsibleContent>
                         </Collapsible>
                       ) : (
-                        <span className="text-muted-foreground text-xs">Chưa có</span>
+                        <span className="text-muted-foreground">Chưa có</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -762,7 +771,7 @@ export function CycleCountItemsTable({
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={canSelect ? 9 : 8} className="font-semibold">
+              <TableCell colSpan={canSelect ? 5 : 4} className="font-semibold">
                 Tổng cộng ({items.length} dòng)
               </TableCell>
               <TableCell className="text-right font-mono font-semibold tabular-nums">
@@ -787,9 +796,12 @@ export function CycleCountItemsTable({
         </Table>
       )}
       {canRecord ? (
-        // pr-16 chừa chỗ cho nút chatbot nổi ở góc phải dưới, tránh che nút hành động.
-        <Item size="xs" className="bg-card border-t-border shrink-0 p-3 pr-16">
-          <ItemContent>
+        // Chừa khoảng dưới nút trên điện thoại để chatbot và vùng an toàn không che thao tác.
+        <Item
+          size="xs"
+          className="bg-card border-t-border shrink-0 p-3 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pr-16 md:pb-3"
+        >
+          <ItemContent className="w-full md:w-auto">
             <ItemDescription aria-live="polite">
               {dirtyEntries.length > 0
                 ? `${dirtyEntries.length} dòng chưa lưu. Lưu trước khi hoàn thành kiểm kê.`
@@ -800,17 +812,17 @@ export function CycleCountItemsTable({
                     : 'Mọi thay đổi đã được lưu. Nhập đủ số đếm tất cả dòng để hoàn thành.'}
             </ItemDescription>
           </ItemContent>
-          <ItemActions className="max-sm:w-full max-sm:flex-wrap">
+          <ItemActions className="grid w-full grid-cols-3 gap-2 md:flex md:w-auto md:flex-wrap">
             <Button
               variant="ghost"
-              className="max-sm:h-11 max-sm:flex-1"
+              className="h-11 min-w-0 px-2 md:h-8"
               disabled={dirtyEntries.length === 0 || isPending}
               onClick={discardDrafts}
             >
               <RotateCcw />
               Hoàn tác
             </Button>
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" className="h-11 min-w-0 px-2 md:h-8">
               <Link
                 href={APP_ROUTES.cycleCounts}
                 onClick={(event) => {
@@ -827,6 +839,7 @@ export function CycleCountItemsTable({
             </Button>
             <Button
               variant="outline"
+              className="h-11 min-w-0 px-2 md:h-8"
               disabled={dirtyEntries.length === 0 || isPending}
               onClick={() => void saveAll()}
             >
@@ -836,6 +849,7 @@ export function CycleCountItemsTable({
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
+                  className="col-span-3 h-auto min-h-11 w-full whitespace-normal md:h-8 md:min-h-8 md:w-auto"
                   disabled={
                     !canSubmit || dirtyEntries.length > 0 || incompleteDamageCount > 0 || isPending
                   }

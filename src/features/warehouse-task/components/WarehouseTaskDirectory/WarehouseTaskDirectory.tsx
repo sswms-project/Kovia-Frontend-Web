@@ -63,10 +63,12 @@ interface WarehouseTaskDirectoryProps {
   readonly isFetching: boolean
   readonly isError: boolean
   readonly canManage?: boolean
+  readonly isActionPending?: boolean
   readonly currentUserId?: string
   readonly headerAction?: ReactNode
   readonly onPageSizeChange: (pageSize: number) => void
   readonly onPageChange: (page: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onAction?: (task: MyWarehouseTask, action: 'Start' | 'Pause' | 'Return') => void
   readonly onOpenRelocation?: (task: MyWarehouseTask) => void
@@ -89,6 +91,7 @@ export const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
   Relocation: 'Điều chuyển vị trí',
   TransferPick: 'Lấy hàng điều chuyển',
   TransferReceive: 'Nhận hàng điều chuyển',
+  TransferPutAway: 'Cất hàng điều chuyển',
   Picking: 'Lấy hàng xuất kho',
 }
 
@@ -100,6 +103,7 @@ export const taskTypeIcon: Record<MyWarehouseTask['taskType'], LucideIcon> = {
   Relocation: ArrowLeftRight,
   TransferPick: Truck,
   TransferReceive: PackageOpen,
+  TransferPutAway: PackagePlus,
   Picking: PackageSearch,
 }
 
@@ -130,11 +134,13 @@ export function WarehouseTaskDirectory({
   isFetching,
   isError,
   canManage = false,
+  isActionPending = false,
   currentUserId,
   headerAction,
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   onAction,
   onOpenRelocation,
   onEditSchedule,
@@ -174,6 +180,7 @@ export function WarehouseTaskDirectory({
         {!isInProgress && (
           <Button
             size="sm"
+            disabled={isActionPending}
             onClick={(event) => {
               event.stopPropagation()
               onAction(item, 'Start')
@@ -187,6 +194,7 @@ export function WarehouseTaskDirectory({
           <Button
             size="sm"
             variant="outline"
+            disabled={isActionPending}
             onClick={(event) => {
               event.stopPropagation()
               onAction(item, 'Pause')
@@ -200,6 +208,7 @@ export function WarehouseTaskDirectory({
           <Button
             size="sm"
             variant="ghost"
+            disabled={isActionPending}
             className="text-muted-foreground"
             onClick={(event) => {
               event.stopPropagation()
@@ -239,21 +248,24 @@ export function WarehouseTaskDirectory({
           <h1 className="text-xl font-semibold">{title}</h1>
           <p className="text-muted-foreground text-sm">{description}</p>
         </div>
-        <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+        <div className="flex w-full items-start justify-end gap-2 sm:w-auto sm:items-center">
           {headerAction}
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Tải lại"
-            onClick={onRetry}
-          >
-            <RefreshCw className={isFetching ? 'animate-spin' : undefined} aria-hidden="true" />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Tải lại"
+              onClick={onRetry}
+            >
+              <RefreshCw className={isFetching ? 'animate-spin' : undefined} aria-hidden="true" />
+            </Button>
+          </div>
         </div>
       </div>
       {showStats ? (
-        <dl className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-3 lg:grid-cols-5">
+        <dl className="bg-border grid shrink-0 grid-cols-2 gap-px border sm:grid-cols-3 lg:grid-cols-5 sm:max-lg:[&>:last-child:nth-child(3n+2)]:col-span-2 max-sm:[&>:last-child:nth-child(odd)]:col-span-2">
           <TaskMetric
             index={0}
             icon={statsMode === 'managed' ? UserRoundX : ClipboardList}
@@ -543,9 +555,15 @@ export function getTaskRoute(task: MyWarehouseTask): Route {
   if (task.taskType === 'PutAway') return APP_ROUTES.inboundPutawayDetail(task.id) as Route
   if (task.taskType === 'CycleCount') return APP_ROUTES.cycleCountDetail(task.id)
   if (task.taskType === 'DamagedStock') return APP_ROUTES.stockAdjustmentDetail(task.id)
-  if (task.taskType === 'TransferPick' || task.taskType === 'TransferReceive') {
+  if (
+    task.taskType === 'TransferPick' ||
+    task.taskType === 'TransferReceive' ||
+    task.taskType === 'TransferPutAway'
+  ) {
     if (!task.transferId) return APP_ROUTES.transfers as Route
     if (!task.transferShipmentId) return APP_ROUTES.transferDetail(task.transferId)
+    if (task.taskType === 'TransferPutAway')
+      return APP_ROUTES.transferPutAwayTask(task.transferId, task.transferShipmentId)
     return task.taskType === 'TransferPick'
       ? APP_ROUTES.transferPickTask(task.transferId, task.transferShipmentId)
       : APP_ROUTES.transferReceiveTask(task.transferId, task.transferShipmentId)

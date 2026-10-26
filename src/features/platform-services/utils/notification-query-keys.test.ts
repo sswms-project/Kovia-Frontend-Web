@@ -4,6 +4,19 @@ import { getNotificationQueryKeys } from './platform-services-format'
 const id = '6c4f1d2e-9a3b-4c5d-8e7f-0a1b2c3d4e5f'
 
 describe('getNotificationQueryKeys', () => {
+  it('refreshes the exact assigned outbound request and its list without unrelated inbound data', () => {
+    expect(
+      getNotificationQueryKeys({
+        type: 'TaskAssigned',
+        referenceType: 'StockIssueRequest',
+        referenceId: id,
+      })
+    ).toEqual([
+      ['stock-issue-requests', 'detail', id],
+      ['stock-issue-requests', 'list'],
+      ['warehouse-tasks'],
+    ])
+  })
   it('targets the referenced cycle count plus its lists', () => {
     expect(
       getNotificationQueryKeys({
@@ -36,5 +49,14 @@ describe('getNotificationQueryKeys', () => {
     expect(
       getNotificationQueryKeys({ type: 'CycleCountUpdate', referenceType: null, referenceId: null })
     ).toEqual([['cycle-counts']])
+  })
+  it('refreshes the referenced supplier return, its lists and inventory', () => {
+    expect(
+      getNotificationQueryKeys({
+        type: 'SupplierReturnUpdate',
+        referenceType: 'SupplierReturnRequest',
+        referenceId: id,
+      })
+    ).toEqual([['supplier-returns', 'detail', id], ['supplier-returns', 'list'], ['inventory']])
   })
 })

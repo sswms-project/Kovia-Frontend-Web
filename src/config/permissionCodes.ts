@@ -14,6 +14,9 @@ export const P = {
   // Audit Logs
   AUDIT_LOGS_VIEW: 'audit-logs:view',
 
+  // Shared list export (requires the corresponding list's view permission)
+  LISTS_EXPORT: 'lists:export',
+
   // Cycle Counts
   CYCLE_COUNTS_VIEW: 'cycle-counts:view',
   CYCLE_COUNTS_RECORD: 'cycle-counts:record',
@@ -44,6 +47,15 @@ export const P = {
   // Goods Return Requests
   GOODS_RETURN_REQUESTS_VIEW: 'goods-return-requests:view',
   GOODS_RETURN_REQUESTS_APPROVE: 'goods-return-requests:approve',
+  GOODS_RETURN_REQUESTS_SELF_APPROVE: 'goods-return-requests:self-approve',
+  GOODS_RETURN_REQUESTS_RESTOCK: 'goods-return-requests:restock',
+
+  // Supplier Returns
+  SUPPLIER_RETURNS_VIEW: 'supplier-returns:view',
+  SUPPLIER_RETURNS_CREATE: 'supplier-returns:create',
+  SUPPLIER_RETURNS_APPROVE: 'supplier-returns:approve',
+  SUPPLIER_RETURNS_SELF_APPROVE: 'supplier-returns:self-approve',
+  SUPPLIER_RETURNS_DISPATCH: 'supplier-returns:dispatch',
 
   // Inbound Requests
   INBOUND_REQUESTS_VIEW: 'inbound-requests:view',
@@ -63,6 +75,9 @@ export const P = {
   INVENTORY_RESERVE: 'inventory:reserve',
   INVENTORY_REPORT_DAMAGED: 'inventory:report-damaged',
   INVENTORY_SELF_APPROVE_OPENING_STOCK: 'inventory:self-approve-opening-stock',
+  INVENTORY_ANOMALIES_VIEW: 'inventory-anomalies:view',
+  INVENTORY_ANOMALIES_REVIEW: 'inventory-anomalies:review',
+  INVENTORY_ANOMALIES_SCAN: 'inventory-anomalies:scan',
 
   // Notifications
   NOTIFICATIONS_VIEW: 'notifications:view',
@@ -129,6 +144,7 @@ export const P = {
   STOCK_ISSUE_REQUESTS_RETURN: 'stock-issue-requests:return',
   STOCK_ISSUE_REQUESTS_CANCEL: 'stock-issue-requests:cancel',
   STOCK_ISSUE_REQUESTS_ASSIGN_PICKER: 'stock-issue-requests:assign-picker',
+  STOCK_ISSUE_REQUESTS_SELF_APPROVE: 'stock-issue-requests:self-approve',
 
   // Stock Recipients
   STOCK_RECIPIENTS_VIEW: 'stock-recipients:view',

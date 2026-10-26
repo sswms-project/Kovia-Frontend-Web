@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GoodsReceiptItem } from '../../types/inbound.types'
@@ -101,12 +101,22 @@ describe('receipt units and Vietnamese history', () => {
     expect(screen.getByRole('columnheader', { name: 'SL thực nhận' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'SL cần cất' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'ĐVT' })).toBeInTheDocument()
-    expect(screen.getByText('1 Thùng = 24 Lon')).toBeInTheDocument()
+    const table = within(screen.getByRole('table'))
+    expect(table.getByText('1 Thùng = 24 Lon')).toBeInTheDocument()
     expect(screen.queryByText('Theo PO')).not.toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Vị trí cất' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Số lô' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Hạn sử dụng' })).toBeInTheDocument()
-    expect(screen.getByText('Kệ KE-01 · 96 Lon')).toBeInTheDocument()
+    expect(table.getByText('Kệ KE-01 · 96 Lon')).toBeInTheDocument()
+    expect(screen.queryByText('__SYSTEM_DEFAULT__')).not.toBeInTheDocument()
+  })
+  it('lists the same receipt quantities as cards for phones', () => {
+    render(<ReceiptItemsTable items={[item]} />)
+    const cards = within(screen.getByRole('list', { name: 'Hàng hóa thực nhận' }))
+    expect(cards.getByText('SL thực nhận')).toBeInTheDocument()
+    expect(cards.getByText('SL cần cất')).toBeInTheDocument()
+    expect(cards.getByText('1 Thùng = 24 Lon')).toBeInTheDocument()
+    expect(cards.getByText('Vị trí cất: Kệ KE-01 · 96 Lon')).toBeInTheDocument()
     expect(screen.queryByText('__SYSTEM_DEFAULT__')).not.toBeInTheDocument()
   })
   it('labels historical conversion rather than pretending to know the originally entered unit', () => {

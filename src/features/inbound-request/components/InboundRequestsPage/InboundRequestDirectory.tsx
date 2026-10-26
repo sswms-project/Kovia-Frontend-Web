@@ -1,5 +1,8 @@
 'use client'
 
+import type { OrderType } from '@/types/api'
+
+import type { ReactNode } from 'react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -20,6 +23,7 @@ import { InboundRequestTable, InboundRequestTableSkeleton } from './InboundReque
 import { InboundRequestMobileList } from './InboundRequestMobileList'
 
 interface InboundRequestDirectoryProps {
+  readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly totalCount: number
   readonly page: number
@@ -28,6 +32,8 @@ interface InboundRequestDirectoryProps {
   readonly status: InboundRequestStatus | ''
   readonly createdFrom: string
   readonly createdTo: string
+  readonly sortDirection: OrderType
+  readonly onSortDirectionChange: (value: OrderType) => void
   readonly statusCounts: readonly InboundRequestStatusCount[]
   readonly isLoading: boolean
   readonly isStatsError: boolean
@@ -52,6 +58,7 @@ interface InboundRequestDirectoryProps {
   readonly onCreatedToChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onDelete: (item: InboundRequestSummary) => void
   readonly onSubmit: (item: InboundRequestSummary) => void
@@ -64,6 +71,7 @@ interface InboundRequestDirectoryProps {
 }
 
 export function InboundRequestDirectory({
+  onOpen,
   items,
   totalCount,
   page,
@@ -72,6 +80,8 @@ export function InboundRequestDirectory({
   status,
   createdFrom,
   createdTo,
+  sortDirection,
+  onSortDirectionChange,
   statusCounts,
   isLoading,
   isStatsError,
@@ -97,6 +107,7 @@ export function InboundRequestDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   onDelete,
   onSubmit,
   onApprove,
@@ -173,10 +184,13 @@ export function InboundRequestDirectory({
               </div>
             </div>
             <InboundRequestFilters
+              exportAction={exportAction}
               searchText={searchText}
               status={status}
               createdFrom={createdFrom}
               createdTo={createdTo}
+              sortDirection={sortDirection}
+              onSortDirectionChange={onSortDirectionChange}
               isFetching={isFetching}
               onSearchChange={onSearchChange}
               onStatusChange={onStatusChange}
@@ -200,6 +214,7 @@ export function InboundRequestDirectory({
           <>
             <div data-slot="operational-list-body" className="md:hidden">
               <InboundRequestMobileList
+                onOpen={onOpen}
                 items={items}
                 canCreate={canCreate}
                 isDuplicating={isDuplicating}
@@ -207,6 +222,7 @@ export function InboundRequestDirectory({
               />
             </div>
             <InboundRequestTable
+              onOpen={onOpen}
               items={items}
               canDelete={canDelete}
               canDeleteApproved={canDeleteApproved}

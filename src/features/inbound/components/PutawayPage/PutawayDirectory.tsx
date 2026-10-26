@@ -1,19 +1,19 @@
+import { OperationalDateSort } from '@/components/operations/OperationalDateSort'
+import type { OrderType } from '@/types/api'
+import type { ReactNode } from 'react'
 import {
   ArrowRight,
-  CalendarRange,
   Eye,
   PackageCheck,
   RefreshCw,
   Search,
   UserCheck,
   UserRoundCog,
-  X,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import type { Route } from 'next'
 import Link from 'next/link'
-import type { DateRange } from 'react-day-picker'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -21,11 +21,10 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
+import { OperationalDateRangeFilter } from '@/components/operations/OperationalDateRangeFilter'
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -36,7 +35,6 @@ import {
 } from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { dateToIsoDateString, formatDisplayDate, isoDateStringToDate } from '@/lib/date-format'
 import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
@@ -61,6 +59,8 @@ interface PutawayDirectoryProps {
   readonly searchText: string
   readonly createdFrom: string
   readonly createdTo: string
+  readonly sortDirection: OrderType
+  readonly onSortDirectionChange: (value: OrderType) => void
   readonly isLoading: boolean
   readonly isFetching: boolean
   readonly isError: boolean
@@ -69,6 +69,7 @@ interface PutawayDirectoryProps {
   readonly onCreatedToChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly currentUserId: string | null
   readonly canAssign: boolean
@@ -89,6 +90,8 @@ export function PutawayDirectory({
   searchText,
   createdFrom,
   createdTo,
+  sortDirection,
+  onSortDirectionChange,
   isLoading,
   isFetching,
   isError,
@@ -98,6 +101,7 @@ export function PutawayDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   currentUserId,
   canAssign,
   assignmentFilter,
@@ -173,63 +177,18 @@ export function PutawayDirectory({
               <ToggleGroupItem value="unassigned">Chưa giao</ToggleGroupItem>
             </ToggleGroup>
           )}
-          {(() => {
-            const hasDate = Boolean(createdFrom || createdTo)
-            const dateRange: DateRange = {
-              from: isoDateStringToDate(createdFrom),
-              to: isoDateStringToDate(createdTo),
-            }
-            const f = dateRange.from ? formatDisplayDate(dateRange.from) : null
-            const t = dateRange.to ? formatDisplayDate(dateRange.to) : null
-            const label = f && t ? `${f} – ${t}` : f ? `Từ ${f}` : t ? `Đến ${t}` : 'Khoảng ngày'
-            return (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={hasDate ? 'default' : 'outline'}
-                    size="sm"
-                    aria-label="Lọc theo khoảng ngày tạo"
-                  >
-                    <CalendarRange aria-hidden="true" />
-                    {label}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="border-b p-3">
-                    <PopoverTitle>Khoảng ngày tạo</PopoverTitle>
-                  </div>
-                  <Calendar
-                    mode="range"
-                    selected={dateRange}
-                    onSelect={(range) => {
-                      onCreatedFromChange(range?.from ? dateToIsoDateString(range.from) : '')
-                      onCreatedToChange(range?.to ? dateToIsoDateString(range.to) : '')
-                    }}
-                    numberOfMonths={1}
-                  />
-                  {hasDate ? (
-                    <div className="border-t p-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          onCreatedFromChange('')
-                          onCreatedToChange('')
-                        }}
-                      >
-                        <X aria-hidden="true" />
-                        Xoá lọc ngày
-                      </Button>
-                    </div>
-                  ) : null}
-                </PopoverContent>
-              </Popover>
-            )
-          })()}
-          <InputGroup className="min-w-0 flex-1 sm:w-72">
+          <OperationalDateSort value={sortDirection} onChange={onSortDirectionChange} />
+          <OperationalDateRangeFilter
+            label="ngày tạo"
+            withTime
+            from={createdFrom}
+            to={createdTo}
+            onChange={({ from, to }) => {
+              onCreatedFromChange(from)
+              onCreatedToChange(to)
+            }}
+          />
+          <InputGroup className="min-w-0 flex-1 basis-full sm:w-72 sm:basis-auto">
             <InputGroupAddon>
               <Search aria-hidden="true" />
             </InputGroupAddon>
@@ -240,6 +199,7 @@ export function PutawayDirectory({
               onChange={(event) => onSearchChange(event.target.value)}
             />
           </InputGroup>
+          {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

@@ -20,6 +20,7 @@ export type InventoryEligibilityStatus =
   | 'Quarantine'
 
 export interface InventoryStock {
+  quantityPrecision?: number | null
   id: string
   productId: string
   sku: string
@@ -96,6 +97,7 @@ export const STOCK_MOVEMENT_TYPES = {
   transferIn: 'TransferIn',
   adjustment: 'Adjustment',
   returnIn: 'ReturnIn',
+  returnOut: 'ReturnOut',
   scrap: 'Scrap',
   opening: 'Opening',
   reclassification: 'Reclassification',
@@ -178,7 +180,7 @@ export interface InventoryReservation {
   lotNumber: string | null
   qualityStatus: QualityStatus
   eligibilityStatus: InventoryEligibilityStatus
-  referenceType: 'StockIssueRequestLine' | 'StockIssuePick' | 'StockTransfer'
+  referenceType: 'StockIssueRequestLine' | 'StockIssuePick' | 'StockTransfer' | 'SupplierReturnLine'
   referenceId: string
   referenceCode: string
   reservedQuantity: number
@@ -277,6 +279,7 @@ export interface DamageCase {
   dispositionAt: string | null
   linkedStockIssueRequestId: string | null
   linkedStockAdjustmentId: string | null
+  linkedSupplierReturnId: string | null
   version: string | null
   isQuantityConfirmed: boolean
   resolvedQuantity: number
@@ -311,7 +314,7 @@ export interface DecideDamageCaseDispositionRequest {
   expectedCaseVersion: string
   quantity?: number
   note?: string
-  stockRecipientId?: string
+  supplierId?: string
 }
 
 export interface AddDamageCaseEvidenceRequest {
@@ -347,6 +350,11 @@ export interface OpeningStockLine {
   enteredQuantity: number
   conversionFactorSnapshot: number
   baseQuantity: number
+  lotNumberSnapshot?: string | null
+  manufacturedDateSnapshot?: string | null
+  expiryDateSnapshot?: string | null
+  sourceSheetName?: string | null
+  sourceRowNumber?: number | null
 }
 
 export interface InventoryEvidence {
@@ -379,6 +387,9 @@ export interface OpeningStockRecord {
   createdAt: string
   version: string | null
   lines: OpeningStockLine[]
+  effectiveDate?: string | null
+  isLegacyDate?: boolean
+  requiresV1Client?: boolean
 }
 
 export interface OpeningStockQuery {
@@ -388,6 +399,10 @@ export interface OpeningStockQuery {
   status?: OpeningStockStatus
   dateFrom?: string
   dateTo?: string
+  search?: string
+  effectiveDateFrom?: string
+  effectiveDateTo?: string
+  id?: string
 }
 
 export interface OpeningStockListResponse {
@@ -399,16 +414,22 @@ export interface OpeningStockListResponse {
 }
 
 export interface CreateOpeningStockRequest {
+  code?: string
   warehouseId: string
   evidenceIds: string[]
   commandId: string
+  effectiveDate?: string
+  formVersion?: 1
+  acknowledgePendingLots?: boolean
   lines: Array<{
+    id?: string
     productId: string
     slotId: string
     quantity: number
     enteredUnitId: string
     conversionFactor: number
     lotId?: string
+    newLot?: { lotNumber: string; manufacturedDate: string | null; expiryDate: string | null }
     qualityStatus: QualityStatus
     eligibilityStatus: InventoryEligibilityStatus
   }>
@@ -417,6 +438,9 @@ export interface CreateOpeningStockRequest {
 export interface UpdateOpeningStockRequest {
   id: string
   expectedVersion: string
+  effectiveDate?: string
+  formVersion?: 1
+  acknowledgePendingLots?: boolean
   lines: CreateOpeningStockRequest['lines']
 }
 

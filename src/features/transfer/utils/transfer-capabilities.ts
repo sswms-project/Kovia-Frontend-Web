@@ -25,6 +25,8 @@ export interface TransferWarehouses {
 export type TransferClosingAction = 'cancel' | 'stop' | null
 
 export interface TransferCapabilities {
+  readonly canDecideRequest: boolean
+  readonly canWithdrawRequest: boolean
   readonly canEditDraft: boolean
   readonly canEdit: boolean
   readonly canGiveFeedback: boolean
@@ -40,6 +42,11 @@ export interface TransferCapabilities {
 }
 
 export interface ShipmentCapabilities {
+  readonly canViewPick?: boolean
+  readonly canViewReceive?: boolean
+  readonly canViewPutAway?: boolean
+  readonly canOpenPutAway?: boolean
+  readonly canAssignPutAway?: boolean
   readonly canCancel: boolean
   readonly canOpenPick: boolean
   /** Quản lý kho xuất xác nhận xe đã rời kho (trừ tồn). */
@@ -54,7 +61,19 @@ export interface ShipmentCapabilities {
   readonly canResolveEscalation: boolean
 }
 
+/** Một lối giao việc ở kho nhập; sau khi kiểm nhận xong chỉ còn giao việc cất. */
+export function getDestinationAssignmentKind(
+  shipment: TransferShipment,
+  allowed: ShipmentCapabilities | undefined
+): 'receive' | 'putaway' | null {
+  if (allowed?.canAssignReceive && shipment.receiveTaskId) return 'receive'
+  if (allowed?.canAssignPutAway && shipment.putAwayTaskId) return 'putaway'
+  return null
+}
+
 const NONE: TransferCapabilities = {
+  canDecideRequest: false,
+  canWithdrawRequest: false,
   canEditDraft: false,
   canEdit: false,
   canGiveFeedback: false,
@@ -130,8 +149,17 @@ export function getTransferCapabilities(
     closingAction = 'stop'
 
   return {
+    canDecideRequest:
+      transfer.status === 'PendingSourceAcceptance' &&
+      has(viewer, P.TRANSFERS_DISPATCH) &&
+      manages(viewer, transfer.sourceWarehouseId),
+    canWithdrawRequest:
+      transfer.status === 'PendingSourceAcceptance' &&
+      canCreate &&
+      isCreator &&
+      manages(viewer, transfer.destinationWarehouseId),
     canEditDraft: canCreate && isOwnDraft,
-    canEdit: canCreate && mayChange && isInProgress,
+    canEdit: canCreate && mayChange && isInProgress && !transfer.approvedAt,
     canGiveFeedback:
       isOpen &&
       ((has(viewer, P.TRANSFERS_DISPATCH) && manages(viewer, transfer.sourceWarehouseId)) ||
@@ -165,21 +193,61 @@ export function canChoosePutAwaySlot(item: TransferItem) {
   return item.receivedQuantity === 0 && item.damagedQuantity === 0 && item.missingQuantity === 0
 }
 
+export function canHandleTransferPutAway(
+  viewer: TransferViewer,
+  assigneeId: string | null | undefined,
+  warehouseId: string | undefined
+) {
+  return (
+    has(viewer, P.TRANSFERS_RECEIVE) &&
+    (has(viewer, P.WAREHOUSE_TASKS_ASSIGN) ||
+      (viewer.currentUserId !== null && assigneeId === viewer.currentUserId)) &&
+    manages(viewer, warehouseId)
+  )
+}
+
 export function getShipmentCapabilities(
   viewer: TransferViewer,
-  shipment: Pick<TransferShipment, 'status' | 'lines'>,
+  shipment: Pick<TransferShipment, 'status' | 'lines'> &
+    Partial<Pick<TransferShipment, 'pickAssigneeId' | 'receiveAssigneeId' | 'putAwayAssigneeId'>>,
   warehouses?: TransferWarehouses
 ): ShipmentCapabilities {
   const isPicking = shipment.status === 'Picking'
   const isReady = shipment.status === 'ReadyToDispatch'
   const isReceivable = shipment.status === 'InTransit' || shipment.status === 'Receiving'
+  // BE chỉ cho người được giao việc hoặc người quản lý kho nhập (có quyền giao việc) thao tác nhận và cất.
+  const isAssignedTo = (assigneeId: string | null | undefined) =>
+    viewer.currentUserId !== null && assigneeId === viewer.currentUserId
+  const canManageTasks = has(viewer, P.WAREHOUSE_TASKS_ASSIGN)
   return {
+    canViewPick: has(viewer, P.TRANSFERS_VIEW) && manages(viewer, warehouses?.sourceWarehouseId),
+    canViewReceive:
+      has(viewer, P.TRANSFERS_VIEW) && manages(viewer, warehouses?.destinationWarehouseId),
+    canViewPutAway:
+      has(viewer, P.TRANSFERS_VIEW) && manages(viewer, warehouses?.destinationWarehouseId),
+    canOpenPutAway:
+      shipment.status === 'AwaitingPutAway' &&
+      canHandleTransferPutAway(
+        viewer,
+        shipment.putAwayAssigneeId,
+        warehouses?.destinationWarehouseId
+      ),
+    canAssignPutAway:
+      has(viewer, P.WAREHOUSE_TASKS_ASSIGN) &&
+      has(viewer, P.TRANSFERS_RECEIVE) &&
+      (isReceivable || shipment.status === 'AwaitingPutAway') &&
+      manages(viewer, warehouses?.destinationWarehouseId),
     canCancel:
       has(viewer, P.TRANSFERS_DISPATCH) &&
       isPicking &&
       manages(viewer, warehouses?.sourceWarehouseId),
     canOpenPick:
-      has(viewer, P.TRANSFERS_PICK) && isPicking && manages(viewer, warehouses?.sourceWarehouseId),
+      has(viewer, P.TRANSFERS_PICK) &&
+      isPicking &&
+      (isAssignedTo(shipment.pickAssigneeId) ||
+        has(viewer, P.TRANSFERS_DISPATCH) ||
+        viewer.isTenantOwner) &&
+      manages(viewer, warehouses?.sourceWarehouseId),
     canConfirmDeparture:
       has(viewer, P.TRANSFERS_DISPATCH) &&
       isReady &&
@@ -192,13 +260,16 @@ export function getShipmentCapabilities(
     canOpenReceive:
       has(viewer, P.TRANSFERS_RECEIVE) &&
       isReceivable &&
+      (canManageTasks || isAssignedTo(shipment.receiveAssigneeId)) &&
       manages(viewer, warehouses?.destinationWarehouseId),
     canAssignPick:
       has(viewer, P.WAREHOUSE_TASKS_ASSIGN) &&
+      has(viewer, P.TRANSFERS_DISPATCH) &&
       isPicking &&
       manages(viewer, warehouses?.sourceWarehouseId),
     canAssignReceive:
       has(viewer, P.WAREHOUSE_TASKS_ASSIGN) &&
+      has(viewer, P.TRANSFERS_RECEIVE) &&
       isReceivable &&
       manages(viewer, warehouses?.destinationWarehouseId),
     canResolveEscalation:

@@ -13,17 +13,24 @@ export const warehouseReportService = {
     const response = await axiosClient.get<ApiResponse<unknown>>(API_ENDPOINTS.reports.catalog)
     return reportDefinitionSchema.array().parse(response.data.data)
   },
-  getOptions: async (warehouseId?: string, search?: string) => {
+  getOptions: async (
+    warehouseId?: string,
+    search?: string,
+    categoryId?: string,
+    signal?: AbortSignal
+  ) => {
     const response = await axiosClient.get<ApiResponse<unknown>>(API_ENDPOINTS.reports.options, {
-      params: { warehouseIds: warehouseId ? [warehouseId] : undefined, search },
+      params: { warehouseIds: warehouseId ? [warehouseId] : undefined, search, categoryId },
       paramsSerializer: { indexes: null },
+      signal,
     })
     return reportOptionsSchema.parse(response.data.data)
   },
-  getReport: async (type: string, params: WarehouseReportQuery) => {
+  getReport: async (type: string, params: WarehouseReportQuery, signal?: AbortSignal) => {
     const response = await axiosClient.get<ApiResponse<unknown>>(API_ENDPOINTS.reports.view(type), {
       params,
       paramsSerializer: { indexes: null },
+      signal,
     })
     return reportResponseSchema.parse(response.data.data)
   },

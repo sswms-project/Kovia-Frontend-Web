@@ -1,85 +1,137 @@
 'use client'
 
-import { Camera, CameraOff, PackageCheck } from 'lucide-react'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { StagingPointChoice } from '@/features/warehouse/components/StagingPointChoice'
+import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { PackageCheck } from 'lucide-react'
+import { toast } from 'sonner'
+import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
-  OperationalEmptyState,
   OperationalErrorState,
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { PutawayPlanNotice } from '@/components/operations/putaway'
-import { receiptPlanStates, receiveScanProgress } from '../utils/transfer-receive-plan'
-import { canSeeWarehouse } from '../utils/transfer-capabilities'
-import { P } from '@/config/permissionCodes'
-import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { APP_ROUTES } from '@/routes/app-routes'
+import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import {
-  formatOperationalDate,
-  formatQuantity,
-} from '@/features/inbound-request/utils/inbound-request-format'
-import {
-  InlineCameraScanner,
-  ReceiveEntryCard,
-  ScanPreferencesBar,
+  TransferReceiptCountCards,
   TransferWorkHeader,
+  TransferReceivingDisposition,
+  TransferReceiptHelp,
 } from '../components/TransferWork'
 import {
-  MissingPermissionNotice,
   TransferChangedBanner,
   TransferConfirmDialog,
+  TransferUnsavedChanges,
 } from '../components/TransferShared'
-import { useTransferReceiveSheetQuery } from '../hooks/use-transfer-fulfillment'
-import { useTransferReceivableSlotsQuery } from '../hooks/use-transfers'
-import { useTransferReceiveForm } from '../hooks/use-transfer-receive-form'
+import {
+  useTransferReceiptSheetQuery,
+  useStartTransferReceivingMutation,
+} from '../hooks/use-transfer-receipt'
+import { useTransferCountForm } from '../hooks/use-transfer-count-form'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
-import { isCameraScanSupported } from '../utils/camera-scan'
-import { playScanFeedback } from '../utils/scan-feedback'
-import { useScanPreferences } from '../utils/scan-preferences'
-import { formatTransferLocation } from '../utils/transfer-location'
-import { nextReceiveScanTarget } from '../utils/transfer-receive'
+import { useTransferQuery, useTransferPutAwaySlotsQuery } from '../hooks/use-transfers'
+import {
+  transferReceivingLocationSchema,
+  transferStagingReceivingLocationSchema,
+  type TransferReceivingLocationValues,
+} from '../schemas/transfer-receipt.schema'
+import { getShipmentCapabilities } from '../utils/transfer-capabilities'
+import { newCommandId } from '../utils/transfer-command-id'
+import { describeTransferError } from '../utils/transfer-errors'
+import type { StartTransferReceivingRequest } from '../types/transfer-receipt.types'
+import TransferLegacyReceiveTaskPage from './TransferLegacyReceiveTaskPage'
 
-interface TransferReceiveTaskPageProps {
+interface Props {
   readonly transferId: string
   readonly shipmentId: string
 }
 
-const subscribeNothing = () => () => undefined
-
-export default function TransferReceiveTaskPage({
-  transferId,
-  shipmentId,
-}: TransferReceiveTaskPageProps) {
-  const { viewer } = useTransferViewer()
-  const sheetQuery = useTransferReceiveSheetQuery(transferId, shipmentId)
-  const sheet = sheetQuery.data
-  const realtime = useTransferRealtime({ transferId, autoRefresh: false })
-
-  const isReceivable =
-    sheet?.shipmentStatus === 'InTransit' || sheet?.shipmentStatus === 'Receiving'
-  const hasReceivePermission = viewer.permissions.includes(P.TRANSFERS_RECEIVE)
-  const canAct =
-    hasReceivePermission && isReceivable && canSeeWarehouse(viewer, sheet?.destinationWarehouseId)
-  const receive = useTransferReceiveForm(transferId, shipmentId, sheet, canAct)
-  const [isResetPlanConfirmOpen, setIsResetPlanConfirmOpen] = useState(false)
-  const [isReloading, setIsReloading] = useState(false)
-  const [slotSearch, setSlotSearch] = useState<string | null>(null)
-  const debouncedSlotSearch = useDebouncedValue((slotSearch ?? '').trim(), 300)
-  const receivableSlotsQuery = useTransferReceivableSlotsQuery(
-    {
-      warehouseId: sheet?.destinationWarehouseId ?? '',
-      top: 20,
-      ...(debouncedSlotSearch ? { search: debouncedSlotSearch } : {}),
-    },
-    canAct && slotSearch !== null && Boolean(sheet?.destinationWarehouseId)
+export default function TransferReceiveTaskPage({ transferId, shipmentId }: Props) {
+  const router = useRouter()
+  const { viewer, isReady } = useTransferViewer()
+  const query = useTransferReceiptSheetQuery(transferId, shipmentId)
+  const sheet = query.data
+  const staged = (sheet?.outboundStagingFlowVersion ?? 0) > 0
+  // Older BE versions have no compact context; retain the existing read path for them.
+  const detail = useTransferQuery(sheet && !sheet.execution ? transferId : null)
+  const transfer = detail.data
+  const context = sheet?.execution
+  const warehouses = context ?? transfer
+  const shipment =
+    sheet && context
+      ? {
+          status: sheet.status,
+          lines: [],
+          receiveAssigneeId: context.receiveAssigneeId,
+          putAwayAssigneeId: context.putAwayAssigneeId,
+          putAwayAssigneeName: context.putAwayAssigneeName,
+          receiptFlowVersion: sheet.receiptFlowVersion,
+        }
+      : transfer?.shipments?.find((shipment) => shipment.id === shipmentId)
+  const caps = shipment ? getShipmentCapabilities(viewer, shipment, warehouses) : undefined
+  const mayReceive = Boolean(caps?.canOpenReceive)
+  const count = useTransferCountForm(
+    sheet,
+    mayReceive && sheet?.status === 'Receiving' && [1, 2].includes(sheet.receiptFlowVersion)
   )
+  const realtime = useTransferRealtime({ transferId, autoRefresh: false })
+  const start = useStartTransferReceivingMutation()
+  const startLock = useRef(false)
+  const startIntent = useRef<StartTransferReceivingRequest | null>(null)
+  const startResolved = useRef(false)
+  const [isStartResolved, setIsStartResolved] = useState(false)
+  const [startUncertain, setStartUncertain] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [isReloading, setIsReloading] = useState(false)
   const reloadLock = useRef(false)
-  const values = receive.form.watch('entries')
-  const planStates = sheet ? receiptPlanStates(sheet, values) : []
-  const progress = receiveScanProgress(values)
-  const offPlanCount = planStates.filter((state) => state.isOffPlan).length
-  const totals = values.reduce(
+  const [slotSearch, setSlotSearch] = useState('')
+  const debouncedSlotSearch = useDebouncedValue(slotSearch, 300)
+  const locations = useTransferPutAwaySlotsQuery(
+    { warehouseId: warehouses?.destinationWarehouseId ?? '', search: debouncedSlotSearch, top: 30 },
+    mayReceive &&
+      !!warehouses &&
+      ((!staged && sheet?.status === 'InTransit') || sheet?.status === 'Receiving')
+  )
+  const receivingForm = useForm<TransferReceivingLocationValues>({
+    resolver: zodResolver(
+      staged ? transferStagingReceivingLocationSchema : transferReceivingLocationSchema
+    ),
+    defaultValues: { receivingSlotId: '', scannedSlotCode: '' },
+  })
+  const receivingSlotId = useWatch({ control: receivingForm.control, name: 'receivingSlotId' })
+  const receivingScope = useRef(`${transferId}:${shipmentId}`)
+  useEffect(() => {
+    const scope = `${transferId}:${shipmentId}`
+    if (receivingScope.current !== scope) {
+      receivingScope.current = scope
+      receivingForm.reset({ receivingSlotId: '', scannedSlotCode: '' })
+      startIntent.current = null
+      startResolved.current = false
+    }
+    if (
+      staged &&
+      sheet?.status === 'InTransit' &&
+      sheet.stagingPoints?.suggestedSlotId &&
+      !receivingForm.getFieldState('receivingSlotId').isDirty &&
+      !receivingForm.getValues('receivingSlotId') &&
+      !startIntent.current
+    )
+      receivingForm.setValue('receivingSlotId', sheet.stagingPoints.suggestedSlotId)
+  }, [receivingForm, sheet, staged, transferId, shipmentId])
+  const entries = useWatch({ control: count.form.control, name: 'entries' })
+  const keepAtReceiving = useWatch({ control: count.form.control, name: 'keepAtReceiving' })
+  const totals = entries.reduce(
     (sum, entry) => ({
       good: sum.good + (entry.goodQuantity || 0),
       damaged: sum.damaged + (entry.damagedQuantity || 0),
@@ -88,54 +140,47 @@ export default function TransferReceiveTaskPage({
     { good: 0, damaged: 0, missing: 0 }
   )
 
-  // Camera dùng chung cho cả trang: mã đọc được đi vào khai báo đang chờ quét (vị trí trước, mã hàng sau).
-  const [preferences] = useScanPreferences()
-  const canUseCamera = useSyncExternalStore(subscribeNothing, isCameraScanSupported, () => false)
-  const [cameraOn, setCameraOn] = useState(false)
-  const scanTarget = nextReceiveScanTarget(values)
-  const cameraActive = cameraOn && canAct && !receive.blocked && !isReloading && scanTarget !== null
-  const latest = useRef({ scanTarget, receive, feedback: preferences.feedback })
-  useEffect(() => {
-    latest.current = { scanTarget, receive, feedback: preferences.feedback }
-  })
-  function handleCameraCode(code: string) {
-    const { scanTarget: target, receive: current, feedback } = latest.current
-    if (!target) return
-    const result =
-      target.step === 'slot'
-        ? current.scanSlot(target.index, code)
-        : current.scanProduct(target.index, code)
-    if (!feedback) return
-    void Promise.resolve(result).then((ok) => {
-      if (typeof ok === 'boolean') playScanFeedback(ok ? 'success' : 'error')
-    })
-  }
-  const targetEntry = scanTarget ? values[scanTarget.index] : undefined
-  const targetLine = targetEntry ? receive.lineById.get(targetEntry.lineId) : undefined
-
-  /** Vị trí theo kế hoạch của dòng đứng đầu, sau đó là kết quả tìm trong kho nhập. */
-  function slotOptionsFor(line: NonNullable<typeof sheet>['lines'][number]) {
-    const planned = line.lots.flatMap((lot) =>
-      (lot.plan ?? []).map((plan) => ({ value: plan.slotId, label: plan.path }))
-    )
-    const found = (receivableSlotsQuery.data ?? []).map((slot) => ({
-      value: slot.id,
-      label: slot.path,
-    }))
-    return [...planned, ...found].filter(
-      (option, position, all) => all.findIndex((other) => other.value === option.value) === position
-    )
-  }
-
-  async function reload() {
-    if (reloadLock.current || receive.isReceiving || receive.isFindingSlot) return
+  async function reload(continueToPutAway = false) {
+    if (reloadLock.current || startLock.current || count.isPending) return
     reloadLock.current = true
     setIsReloading(true)
     try {
-      const result = await sheetQuery.refetch()
-      if (result.data && !result.isError) {
-        receive.acceptFresh(result.data)
+      const [fresh, freshDetail] = await Promise.all([
+        query.refetch(),
+        context ? Promise.resolve(null) : detail.refetch(),
+      ])
+      if (fresh.data && !fresh.isError) {
+        count.acceptFresh(fresh.data)
+        const nextContext = fresh.data.execution
+        const nextShipment = nextContext
+          ? {
+              status: fresh.data.status,
+              lines: [],
+              putAwayAssigneeId: nextContext.putAwayAssigneeId,
+            }
+          : freshDetail?.data?.shipments?.find((row) => row.id === shipmentId)
+        if (
+          continueToPutAway &&
+          fresh.data.status === 'AwaitingPutAway' &&
+          !freshDetail?.isError &&
+          nextShipment?.putAwayAssigneeId === viewer.currentUserId &&
+          getShipmentCapabilities(viewer, nextShipment, nextContext ?? freshDetail?.data)
+            .canOpenPutAway
+        ) {
+          router.push(APP_ROUTES.transferPutAwayTask(transferId, shipmentId))
+        }
         realtime.dismiss()
+        if (fresh.data.status !== 'InTransit') {
+          startIntent.current = null
+          setStartUncertain(false)
+          setNotice(null)
+        }
+      } else {
+        setNotice(
+          continueToPutAway
+            ? 'Phiếu đã được ghi nhận nhưng chưa tải được dữ liệu mới. Hãy tải lại, không nộp thêm lần nữa.'
+            : 'Chưa tải được dữ liệu mới. Hãy thử tải lại.'
+        )
       }
     } finally {
       reloadLock.current = false
@@ -143,238 +188,313 @@ export default function TransferReceiveTaskPage({
     }
   }
 
+  async function startReceiving() {
+    if (
+      !mayReceive ||
+      !sheet?.version ||
+      startLock.current ||
+      startResolved.current ||
+      (!startUncertain && sheet.status !== 'InTransit')
+    )
+      return
+    if (
+      !startUncertain &&
+      (!(await receivingForm.trigger()) ||
+        (staged
+          ? !sheet.stagingPoints?.items.some(
+              (point) => point.slotId === receivingForm.getValues('receivingSlotId')
+            )
+          : locations.isError ||
+            locations.isFetching ||
+            !locations.data?.some(
+              (slot) => slot.id === receivingForm.getValues('receivingSlotId')
+            )))
+    )
+      return
+    startLock.current = true
+    const request = startIntent.current ?? {
+      expectedVersion: sheet.version,
+      commandId: newCommandId(),
+      ...receivingForm.getValues(),
+      ...(staged && !receivingForm.getValues('scannedSlotCode')
+        ? { scannedSlotCode: undefined }
+        : {}),
+    }
+    startIntent.current = request
+    let done = false
+    try {
+      await start.mutateAsync({ transferId, shipmentId, request })
+      startIntent.current = null
+      startResolved.current = true
+      setIsStartResolved(true)
+      setStartUncertain(false)
+      done = true
+      toast.success('Đã bắt đầu kiểm hàng.')
+    } catch (error) {
+      const result = describeTransferError(error, 'Không thể bắt đầu nhận hàng.')
+      setNotice(result.message)
+      toast.error(result.message)
+      if (result.kind === 'unknown-result') setStartUncertain(true)
+      else {
+        startIntent.current = null
+        setStartUncertain(false)
+      }
+    } finally {
+      startLock.current = false
+    }
+    if (done) await reload()
+  }
+
+  if (!isReady || query.isLoading || (!context && detail.isLoading))
+    return <OperationalLoadingState rows={4} />
+  if (query.isError || (!context && detail.isError) || !sheet || !warehouses || !shipment)
+    return (
+      <OperationalErrorState
+        title="Không thể tải phiếu nhập điều chuyển"
+        onRetry={() => void reload()}
+      />
+    )
+  if (
+    (shipment.receiptFlowVersion ?? 0) === 0 &&
+    (shipment.status === 'Received' || shipment.status === 'ReceivedWithDiscrepancy')
+  )
+    return <TransferLegacyReceiveTaskPage transferId={transferId} shipmentId={shipmentId} />
+  const busy = count.isPending || start.isPending || isReloading
+  const readOnly = sheet.status !== 'Receiving'
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
-      {sheet ? (
-        <TransferWorkHeader
-          heading="Nhận hàng điều chuyển"
-          transferId={transferId}
-          transferCode={sheet.transferCode}
-          shipmentNumber={sheet.shipmentNumber}
-          shipmentStatus={sheet.shipmentStatus}
-          route={`Nhận tại ${sheet.destinationWarehouseName}`}
-        />
+    <div className="flex min-h-full w-full min-w-0 flex-col gap-3 max-md:[&_a]:min-h-11 pointer-coarse:[&_a]:min-h-11 max-md:[&_button:not([role=checkbox])]:min-h-11 pointer-coarse:[&_button:not([role=checkbox])]:min-h-11">
+      <TransferWorkHeader
+        heading="Phiếu nhập điều chuyển"
+        transferId={transferId}
+        transferCode={sheet.transferCode}
+        shipmentNumber={sheet.shipmentNumber}
+        shipmentStatus={sheet.status}
+        route={'Nhận tại ' + warehouses.destinationWarehouseName}
+      />
+      <TransferReceiptHelp receiptFlowVersion={sheet.receiptFlowVersion} />
+      {sheet.status === 'AwaitingPutAway' ? (
+        <Alert role="status">
+          <AlertDescription>
+            {shipment.putAwayAssigneeId
+              ? `Việc cất hàng được giao cho ${shipment.putAwayAssigneeName || 'nhân viên kho nhập'}.`
+              : 'Đã kiểm nhận. Công việc cất hàng đang chờ quản lý kho nhập phân công.'}
+          </AlertDescription>
+        </Alert>
       ) : null}
       {realtime.hasPendingChange ? (
         <TransferChangedBanner onReload={() => void reload()} onDismiss={realtime.dismiss} />
       ) : null}
-
-      {receive.notice ? (
-        <div role="status" className="bg-card shrink-0 border p-3 text-sm">
-          <p>{receive.notice}</p>
-          {receive.reloadRequired ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-2"
-              disabled={isReloading || receive.isReceiving || receive.isFindingSlot}
-              onClick={() => void reload()}
-            >
-              {isReloading ? 'Đang tải lại…' : 'Tải lại và giữ số lượng đang nhập'}
+      {notice || count.notice ? (
+        <Alert role="status">
+          <AlertDescription>{notice ?? count.notice}</AlertDescription>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button variant="outline" disabled={busy} onClick={() => void reload()}>
+              Tải lại và giữ số lượng đang nhập
             </Button>
-          ) : null}
+            {count.unknownResult ? (
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  void count.retryUnknown().then((done) => {
+                    if (done) void reload(true)
+                  })
+                }
+              >
+                Kiểm tra lại đúng thao tác trước
+              </Button>
+            ) : null}
+          </div>
+        </Alert>
+      ) : null}
+      {sheet.status === 'InTransit' && mayReceive ? (
+        <div className="bg-card grid shrink-0 gap-3 border p-3 sm:grid-cols-2">
+          {staged ? (
+            sheet.stagingPoints ? (
+              <StagingPointChoice
+                id="transfer-receiving-staging"
+                title="Điểm thực tế nhận hàng"
+                points={sheet.stagingPoints}
+                value={receivingSlotId}
+                disabled={busy || startUncertain}
+                onChange={(value) =>
+                  receivingForm.setValue('receivingSlotId', value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+              />
+            ) : (
+              <p role="alert">Chưa tải được điểm chờ nhận. Vui lòng tải lại phiếu.</p>
+            )
+          ) : (
+            <>
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="transfer-slot-search">Tìm mã/vị trí nhận</FieldLabel>
+                <Input
+                  id="transfer-slot-search"
+                  value={slotSearch}
+                  onChange={(event) => setSlotSearch(event.target.value)}
+                  disabled={busy || startUncertain}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="transfer-receiving-location">
+                  Vị trí thực tế nhận hàng
+                </FieldLabel>
+                <NativeSelect
+                  id="transfer-receiving-location"
+                  {...receivingForm.register('receivingSlotId')}
+                  disabled={busy || startUncertain || locations.isFetching || locations.isError}
+                >
+                  <NativeSelectOption value="">Chọn vị trí nhận</NativeSelectOption>
+                  {!locations.isPlaceholderData &&
+                    locations.data?.map((slot) => (
+                      <NativeSelectOption key={slot.id} value={slot.id}>
+                        {slot.path}
+                      </NativeSelectOption>
+                    ))}
+                </NativeSelect>
+                <FieldError>{receivingForm.formState.errors.receivingSlotId?.message}</FieldError>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="transfer-receiving-code">Quét/nhập mã vị trí nhận</FieldLabel>
+                <Input
+                  id="transfer-receiving-code"
+                  maxLength={200}
+                  {...receivingForm.register('scannedSlotCode')}
+                  disabled={busy || startUncertain}
+                />
+                <FieldError>{receivingForm.formState.errors.scannedSlotCode?.message}</FieldError>
+              </Field>
+              {locations.isError && (
+                <p role="alert">Chưa tải được vị trí nhận. Vui lòng tải lại.</p>
+              )}
+            </>
+          )}
+          <Button disabled={busy || isStartResolved} onClick={() => void startReceiving()}>
+            {start.isPending ? <Spinner /> : <PackageCheck />}
+            {startUncertain ? 'Kiểm tra lại thao tác nhận hàng' : 'Bắt đầu nhận hàng'}
+          </Button>
         </div>
       ) : null}
-      <div data-slot="transfer-scroll" className="min-h-0 flex-1 overflow-y-auto">
-        {sheetQuery.isLoading ? (
-          <OperationalLoadingState rows={3} />
-        ) : sheetQuery.isError || !sheet ? (
-          <OperationalErrorState
-            title="Không thể tải phiếu nhận hàng"
-            onRetry={() => void sheetQuery.refetch()}
-          />
-        ) : sheet.lines.length === 0 ? (
-          <OperationalEmptyState
-            title="Đợt này chưa có hàng để nhận"
-            description="Đợt cần được xuất khỏi kho xuất trước khi nhận."
-          />
-        ) : (
-          <form
-            className="grid gap-3 pb-4"
-            aria-busy={receive.isReceiving || isReloading}
-            noValidate
-            onSubmit={(event) => {
-              event.preventDefault()
-              void receive.requestConfirm()
-            }}
-          >
-            {isReceivable && !hasReceivePermission ? (
-              <MissingPermissionNotice action="nhận hàng điều chuyển" />
-            ) : null}
-            {!isReceivable ? (
-              <p className="text-muted-foreground text-sm" role="status">
-                Đợt này không còn ở trạng thái chờ nhận nên chỉ xem được.
-              </p>
-            ) : null}
-            <PutawayPlanNotice
-              disabled={receive.blocked || isReloading || receive.isFindingSlot}
-              onApplyPlan={() => {
-                if (receive.form.formState.isDirty) setIsResetPlanConfirmOpen(true)
-                else receive.applyPlan()
-              }}
-              description="Đã điền sẵn vị trí và số lượng; vẫn cần quét xác nhận. Cất khác kế hoạch cần chọn lý do."
-              items={sheet.lines
-                .filter((line) => line.planMode === 'Planned')
-                .map((line) => ({
-                  id: line.lineId,
-                  label: `${line.sku} · ${line.productName}`,
-                  locations:
-                    line.lots
-                      .flatMap((lot) =>
-                        (lot.plan ?? []).map(
-                          (plan) =>
-                            `${plan.path}: ${formatQuantity(plan.plannedQuantity)} ${line.baseUnitName}`
-                        )
-                      )
-                      .join(' · ') || 'Chưa có vị trí theo kế hoạch',
-                }))}
+      {staged && sheet.status !== 'InTransit' && sheet.receivingSlotId && sheet.stagingPoints && (
+        <StagingPointChoice
+          id="transfer-frozen-receiving"
+          className="bg-card"
+          title="Điểm đã nhận hàng"
+          points={sheet.stagingPoints}
+          value={sheet.receivingSlotId}
+          frozen
+          onChange={() => undefined}
+        />
+      )}
+      {sheet.status === 'Receiving' && sheet.receiptFlowVersion === 2 && (
+        <>
+          <Field className="bg-card shrink-0 border p-3">
+            <FieldLabel htmlFor="transfer-damage-search">
+              Tìm vị trí cách biệt hàng hỏng nếu có
+            </FieldLabel>
+            <Input
+              id="transfer-damage-search"
+              value={slotSearch}
+              onChange={(event) => setSlotSearch(event.target.value)}
+              disabled={busy || count.unknownResult}
             />
-            {canAct ? <ScanPreferencesBar /> : null}
-            {canAct && canUseCamera ? (
-              <div className="grid gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11"
-                  disabled={receive.blocked || isReloading || receive.isFindingSlot}
-                  aria-pressed={cameraOn}
-                  onClick={() => setCameraOn((current) => !current)}
-                >
-                  {cameraOn ? <CameraOff aria-hidden="true" /> : <Camera aria-hidden="true" />}
-                  {cameraOn ? 'Tắt camera quét' : 'Bật camera quét'}
-                </Button>
-                <InlineCameraScanner active={cameraActive} onCode={handleCameraCode} />
-                {cameraOn ? (
-                  <p className="text-muted-foreground text-xs" role="status">
-                    {scanTarget && targetLine
-                      ? `Đang chờ quét ${scanTarget.step === 'slot' ? 'vị trí cất' : 'mã hàng'} cho ${targetLine.sku} (khai báo ${scanTarget.index + 1}).`
-                      : 'Đã quét đủ. Camera tạm dừng; kiểm tra số lượng rồi xác nhận nhận hàng.'}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            {receive.fields.map((field, index) => {
-              const entry = values[index]
-              const line = entry ? receive.lineById.get(entry.lineId) : undefined
-              const lot = line?.lots.find((candidate) => candidate.lotId === (entry?.lotId ?? null))
-              if (!entry || !line) return null
-              return (
-                <ReceiveEntryCard
-                  key={field.id}
-                  index={index}
-                  form={receive.form}
-                  heading={`${line.sku} · ${line.productName}`}
-                  lotLabel={
-                    lot?.lotNumber
-                      ? `Lô ${lot.lotNumber}${lot.expiryDate ? ` · HSD ${formatOperationalDate(lot.expiryDate)}` : ''}`
-                      : 'Không theo lô'
-                  }
-                  dispatchedQuantity={lot?.dispatchedQuantity ?? 0}
-                  baseUnitName={line.baseUnitName}
-                  canRemove={receive.countEntriesOf(index) > 1}
-                  slotLabel={receive.slotPathById[entry.destinationSlotId]}
-                  planState={planStates[index]}
-                  planChanged={receive.changedLines.has(line.lineId)}
-                  planWarnings={
-                    index === values.findIndex((candidate) => candidate.lineId === line.lineId)
-                      ? [...new Set((line.planWarnings ?? []).map((warning) => warning.message))]
-                      : []
-                  }
-                  onSplitExcess={receive.splitExcess}
-                  suggestedSlotId={entry.plannedSlotId || line.suggestedSlotId || undefined}
-                  suggestedSlotLabel={
-                    entry.plannedSlotLabel ||
-                    (line.planMode === 'Planned'
-                      ? 'Chưa có vị trí theo kế hoạch'
-                      : line.suggestedSlotCode
-                        ? formatTransferLocation({
-                            slotCode: line.suggestedSlotCode,
-                            rackCode: line.suggestedRackCode,
-                            zoneCode: line.suggestedZoneCode,
-                            isSystemDefaultSlot: line.suggestedIsSystemDefaultSlot,
-                          })
-                        : undefined)
-                  }
-                  disabled={receive.blocked || isReloading || receive.isFindingSlot}
-                  isFindingSlot={receive.isFindingSlot}
-                  slotOptions={slotOptionsFor(line)}
-                  isLoadingSlots={receivableSlotsQuery.isFetching}
-                  onSearchSlots={setSlotSearch}
-                  onMarkUnreadable={receive.markSlotUnreadable}
-                  onScanSlot={receive.scanSlot}
-                  onScanProduct={receive.scanProduct}
-                  onSplit={receive.splitEntry}
-                  onRemove={receive.removeEntry}
-                />
-              )
-            })}
-          </form>
-        )}
-      </div>
-
-      {canAct && sheet && sheet.lines.length > 0 ? (
-        <footer className="bg-background shrink-0 border-t py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <p className="mb-2 text-sm font-medium tabular-nums" role="status">
-            Đã xác nhận {progress.confirmed}/{progress.required} vị trí cần cất
-            {offPlanCount > 0 ? ` · ${offPlanCount} khai báo khác kế hoạch` : ''}.
-          </p>
-          <p className="mb-2 text-sm tabular-nums" aria-live="polite">
+          </Field>
+          <TransferReceivingDisposition
+            form={count.form}
+            slots={locations.isError || locations.isPlaceholderData ? [] : (locations.data ?? [])}
+            receivingSlotId={sheet.receivingSlotId}
+            disabled={
+              !mayReceive ||
+              busy ||
+              count.unknownResult ||
+              locations.isFetching ||
+              locations.isError
+            }
+          />
+        </>
+      )}
+      {sheet.keptAtReceiving && (
+        <Alert>
+          <AlertTitle>Hàng đạt giữ tại khu nhận</AlertTitle>
+          <AlertDescription>
+            Đã ghi tồn tại điểm nhận và mở khả dụng theo FEFO. Bạn vẫn có thể tiếp tục cất vào kệ,
+            không ghi nhập tồn lần nữa.
+          </AlertDescription>
+          <Button asChild variant="outline" className="mt-3 min-h-11">
+            <Link href={APP_ROUTES.transferPutAwayTask(transferId, shipmentId)}>
+              Mở trang cất hàng
+            </Link>
+          </Button>
+        </Alert>
+      )}
+      {sheet.status === 'Receiving' && !mayReceive ? (
+        <Alert>
+          <AlertDescription>
+            Chỉ người được giao hoặc quản lý kho nhập đủ quyền mới được nộp phiếu. Bạn đang xem dữ
+            liệu.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <OperationalListPanel
+        className="flex-none"
+        aria-label="Đối chiếu hàng điều chuyển"
+        aria-busy={busy}
+      >
+        <TransferReceiptCountCards
+          form={count.form}
+          sheet={sheet}
+          disabled={readOnly || count.blocked || busy}
+        />
+        <footer className="bg-card flex shrink-0 flex-wrap items-center justify-between gap-3 border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <p className="text-sm tabular-nums">
             Tốt {formatQuantity(totals.good)} · Hỏng {formatQuantity(totals.damaged)} · Thiếu{' '}
             {formatQuantity(totals.missing)}
           </p>
-          <Button
-            type="button"
-            className="h-12 w-full text-base"
-            disabled={receive.blocked || isReloading || receive.isFindingSlot}
-            onClick={() => void receive.requestConfirm()}
-          >
-            {receive.isReceiving ? (
-              <Spinner aria-hidden="true" />
-            ) : (
-              <PackageCheck aria-hidden="true" />
-            )}
-            {receive.isReceiving ? 'Đang nhận hàng…' : 'Xác nhận nhận đợt'}
-          </Button>
+          {!readOnly && mayReceive ? (
+            <Button disabled={count.blocked || busy} onClick={() => void count.requestConfirm()}>
+              {count.isPending ? <Spinner /> : null}Nộp phiếu nhập
+            </Button>
+          ) : null}
+          {sheet.status === 'AwaitingPutAway' && caps?.canOpenPutAway ? (
+            <Button asChild>
+              <Link href={APP_ROUTES.transferPutAwayTask(transferId, shipmentId)}>
+                Mở trang cất hàng
+              </Link>
+            </Button>
+          ) : null}
         </footer>
-      ) : null}
-
+      </OperationalListPanel>
       <TransferConfirmDialog
-        open={isResetPlanConfirmOpen}
-        onOpenChange={setIsResetPlanConfirmOpen}
-        title="Điền lại theo kế hoạch?"
+        actionClassName="h-11 md:h-8 pointer-coarse:h-11"
+        open={count.confirmOpen}
+        onOpenChange={count.setConfirmOpen}
+        title="Nộp phiếu kiểm hàng?"
         description={
           <p>
-            Số lượng, vị trí đã quét và ghi chú đang nhập sẽ được thay bằng kế hoạch mới. Chưa có dữ
-            liệu nào được lưu.
+            Tốt {formatQuantity(totals.good)}, hỏng {formatQuantity(totals.damaged)}, thiếu{' '}
+            {formatQuantity(totals.missing)}. Chênh lệch được báo quản lý nhưng không chặn cất hàng.
+            {sheet.receiptFlowVersion === 2
+              ? keepAtReceiving
+                ? 'Thực nhận được ghi vào tồn một lần. Hàng đạt khả dụng tại khu nhận; hàng hỏng Hold ở vị trí riêng đã xác nhận.'
+                : 'Thực nhận được ghi vào tồn một lần; hàng đạt chờ cất, hàng hỏng Hold ở vị trí riêng.'
+              : 'Tồn kho chưa thay đổi ở bước này theo luồng cũ.'}
           </p>
         }
-        confirmLabel="Điền lại theo kế hoạch"
-        pendingLabel="Đang xử lý…"
-        isPending={receive.isReceiving}
-        onConfirm={() => {
-          receive.applyPlan()
-          setIsResetPlanConfirmOpen(false)
-        }}
+        confirmLabel="Nộp phiếu nhập"
+        pendingLabel="Đang nộp…"
+        isPending={count.isPending}
+        onConfirm={() =>
+          void count.confirm().then((done) => {
+            if (done) void reload(true)
+          })
+        }
       />
-      <TransferConfirmDialog
-        open={receive.isConfirmOpen}
-        title="Xác nhận nhận đợt hàng?"
-        description={
-          <p>
-            Nhận tốt <strong>{formatQuantity(totals.good)}</strong>, hỏng{' '}
-            <strong>{formatQuantity(totals.damaged)}</strong>, thiếu{' '}
-            <strong>{formatQuantity(totals.missing)}</strong>. Mỗi đợt chỉ nhận một lần; hàng thiếu
-            đến sau được xử lý ở mục chênh lệch.{' '}
-            {offPlanCount > 0
-              ? `${offPlanCount} khai báo cất khác kế hoạch được lưu kèm lý do.`
-              : ''}
-          </p>
-        }
-        confirmLabel="Xác nhận nhận"
-        pendingLabel="Đang nhận…"
-        isPending={receive.isReceiving}
-        onOpenChange={receive.setIsConfirmOpen}
-        onConfirm={() => void receive.confirm()}
+      <TransferUnsavedChanges
+        dirty={(!readOnly && count.form.formState.isDirty) || count.unknownResult || startUncertain}
+        busy={busy}
       />
     </div>
   )

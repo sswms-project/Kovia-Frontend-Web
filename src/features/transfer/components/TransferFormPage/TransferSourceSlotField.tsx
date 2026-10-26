@@ -9,6 +9,7 @@ import { formatQuantity } from '@/features/inbound-request/utils/inbound-request
 import { useTransferSourceLocationsQuery } from '../../hooks/use-transfers'
 import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
 import { TransferSlotMapDialog } from './TransferSlotMapDialog'
+import { TransferAllocationHelp } from './TransferAllocationHelp'
 
 interface TransferSourceSlotFieldProps {
   readonly index: number
@@ -52,9 +53,12 @@ export function TransferSourceSlotField({
 
   return (
     <Field data-invalid={Boolean(error)}>
-      <FieldLabel className="text-xs lg:sr-only" htmlFor={inputId}>
-        Vị trí đi (không bắt buộc)
-      </FieldLabel>
+      <div className="flex items-center gap-1 lg:hidden">
+        <FieldLabel className="text-xs" htmlFor={inputId}>
+          Vị trí đi (không bắt buộc)
+        </FieldLabel>
+        <TransferAllocationHelp />
+      </div>
       {locked && !slotId ? (
         <span className="text-muted-foreground text-xs lg:pt-2">Hệ thống tự phân bổ</span>
       ) : (
@@ -65,7 +69,7 @@ export function TransferSourceSlotField({
               value={slotId}
               options={options}
               selectedOption={knownOption}
-              placeholder={productId ? 'Tự phân bổ theo FEFO' : 'Chọn sản phẩm trước'}
+              placeholder={productId ? 'Hệ thống tự phân bổ' : 'Chọn sản phẩm trước'}
               emptyMessage="Sản phẩm này không còn tồn ở vị trí nào của kho xuất."
               ariaLabel={`Vị trí đi dòng ${index + 1}`}
               isLoading={query.isFetching}
@@ -105,7 +109,7 @@ export function TransferSourceSlotField({
         open={isMapOpen}
         onOpenChange={setIsMapOpen}
         title="Chọn vị trí đi trên sơ đồ kho xuất"
-        description="Chỉ chọn được các ô còn tồn của sản phẩm này. Hệ thống sẽ lấy ở ô đã chọn trước, phần còn lại theo FEFO."
+        description="Chỉ chọn được các ô còn tồn của sản phẩm này trong kho xuất."
         warehouseId={sourceWarehouseId}
         allowedLocations={allowedLocations}
         onConfirm={({ slotId: pickedSlotId }) =>

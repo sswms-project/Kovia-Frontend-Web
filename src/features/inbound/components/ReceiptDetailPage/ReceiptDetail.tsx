@@ -14,6 +14,7 @@ import {
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -39,7 +40,7 @@ interface ReceiptDetailProps {
   readonly selfApprovalRequired: boolean
   readonly onUpdate: () => void
   readonly onSubmit: () => Promise<boolean>
-  readonly onApprove: () => Promise<boolean>
+  readonly onApprove: (keepAtReceiving?: boolean) => Promise<boolean>
   readonly onReject: (reason: string) => Promise<boolean>
   readonly onAssignPutAway?: () => void
   readonly onPlanPutAway?: () => void
@@ -59,7 +60,15 @@ export function ReceiptDetail({
   onPlanPutAway,
   onDownloadEvidence,
 }: ReceiptDetailProps) {
-  const [confirmationAction, setConfirmationAction] = useState<'Submit' | 'Approve' | null>(null)
+  const [confirmationAction, setConfirmationAction] = useState<
+    'Submit' | 'Approve' | 'ApproveKeep' | null
+  >(null)
+  const [confirmationVersion, setConfirmationVersion] = useState('')
+  const canKeepAtReceiving =
+    (receipt.receivingFlowVersion ?? 0) > 0 &&
+    !!receipt.receivingSlotId &&
+    receipt.items.some((item) => item.usableQuantity > 0) &&
+    receipt.items.every((item) => item.damagedQuantity === 0)
   const [isRejectOpen, setIsRejectOpen] = useState(false)
 
   const hasPutAwayDetails = receipt.items.some((item) => item.putAwayDetails.length > 0)
@@ -73,7 +82,16 @@ export function ReceiptDetail({
 
   async function confirm() {
     if (!confirmationAction) return
-    const succeeded = confirmationAction === 'Submit' ? await onSubmit() : await onApprove()
+    const allowed = confirmationAction === 'Submit' ? 'Submit' : 'Approve'
+    if (receipt.version !== confirmationVersion || !allowedActions.includes(allowed)) {
+      toast.error('Phiếu hoặc quyền đã thay đổi. Vui lòng tải lại và xác nhận lại.')
+      setConfirmationAction(null)
+      return
+    }
+    const succeeded =
+      confirmationAction === 'Submit'
+        ? await onSubmit()
+        : await onApprove(confirmationAction === 'ApproveKeep')
     if (succeeded) setConfirmationAction(null)
   }
 
@@ -108,7 +126,14 @@ export function ReceiptDetail({
               </Button>
             ) : null}
             {allowedActions.includes('Submit') ? (
-              <Button type="button" onClick={() => setConfirmationAction('Submit')}>
+              <Button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setConfirmationVersion(receipt.version)
+                  setConfirmationAction('Submit')
+                }}
+              >
                 <Send aria-hidden="true" />
                 Gửi duyệt
               </Button>
@@ -120,11 +145,31 @@ export function ReceiptDetail({
               </Button>
             ) : null}
             {allowedActions.includes('Approve') ? (
-              <Button type="button" onClick={() => setConfirmationAction('Approve')}>
+              <Button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  setConfirmationVersion(receipt.version)
+                  setConfirmationAction('Approve')
+                }}
+              >
                 <Check aria-hidden="true" />
-                Xác nhận hàng đến
+                Duyệt kiểm hàng
               </Button>
             ) : null}
+            {allowedActions.includes('Approve') && canKeepAtReceiving && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending}
+                onClick={() => {
+                  setConfirmationVersion(receipt.version)
+                  setConfirmationAction('ApproveKeep')
+                }}
+              >
+                Duyệt &amp; giữ tại khu nhận
+              </Button>
+            )}
             {allowedActions.includes('AssignPutAway') && onAssignPutAway ? (
               <Button
                 type="button"
@@ -157,7 +202,7 @@ export function ReceiptDetail({
         </div>
       </header>
 
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 max-md:min-h-fit">
         <ReceiptOverview receipt={receipt} />
 
         {showPutAwayProgress ? (
@@ -181,7 +226,10 @@ export function ReceiptDetail({
           </section>
         ) : null}
 
-        <Tabs defaultValue="items" className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <Tabs
+          defaultValue="items"
+          className="flex min-h-0 min-w-0 flex-1 flex-col max-md:min-h-fit"
+        >
           <TabsList
             variant="line"
             className="w-full shrink-0 justify-start overflow-x-auto overflow-y-hidden"
@@ -196,7 +244,7 @@ export function ReceiptDetail({
             {hasPutAwayDetails ? <TabsTrigger value="putaway">Lịch sử cất hàng</TabsTrigger> : null}
           </TabsList>
 
-          <div className="bg-card min-h-0 min-w-0 flex-1 overflow-hidden border">
+          <div className="bg-card min-h-0 min-w-0 flex-1 overflow-hidden border max-md:min-h-fit">
             <div className="border-b px-4 py-3">
               <p className="text-muted-foreground text-xs">
                 Số lượng hỏng không được đưa vào cất hàng.

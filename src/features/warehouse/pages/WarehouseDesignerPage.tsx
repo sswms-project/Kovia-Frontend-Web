@@ -39,6 +39,7 @@ import {
   useWarehouseQuery,
 } from '../hooks/use-warehouse'
 import type { RackFormValues, SlotFormValues, ZoneFormValues } from '../schemas/warehouse.schema'
+import { getLayoutLocationLabel } from '../utils/layout-placement'
 import type {
   WarehouseLayoutEditorRack,
   WarehouseLayoutEditorScene,
@@ -544,6 +545,10 @@ export function WarehouseDesignerPage({
           open
           mode="update"
           isPending={updateZoneMutation.isPending}
+          stagingDefaults={{
+            receiving: locationEditTarget.location.isDefaultReceivingPoint,
+            outbound: locationEditTarget.location.isDefaultOutboundStagingPoint,
+          }}
           defaultValues={{
             zoneCode: locationEditTarget.location.zoneCode,
             zoneName: locationEditTarget.location.zoneName,
@@ -557,6 +562,10 @@ export function WarehouseDesignerPage({
 
       {locationEditTarget?.kind === 'rack' ? (
         <RackFormSheet
+          locationPath={getLayoutLocationLabel(editorScene, {
+            kind: 'rack',
+            id: locationEditTarget.location.id,
+          })}
           {...capacityFormProps}
           conflict={
             locationConflictTarget === locationEditTarget.location.id

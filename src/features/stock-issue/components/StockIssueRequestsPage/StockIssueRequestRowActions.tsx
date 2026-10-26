@@ -8,7 +8,6 @@ import {
   Send,
   ShieldCheck,
   Truck,
-  Undo2,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Route } from 'next'
@@ -28,7 +27,6 @@ import type {
 } from '../../types/stock-issue.types'
 import {
   canCancelStockIssueRequest,
-  canCreateGoodsReturnRequest,
   canEditStockIssueRequest,
   canRecordStockPicking,
 } from '../../utils/stock-issue-format'
@@ -102,12 +100,6 @@ export function StockIssueRequestRowActions({
           <DropdownMenuItem onSelect={() => handlers.onConfirmDispatch(order)}>
             <Truck aria-hidden="true" />
             Xác nhận hàng rời kho
-          </DropdownMenuItem>
-        ) : null}
-        {capabilities.canReturn && canCreateGoodsReturnRequest(order.status) ? (
-          <DropdownMenuItem onSelect={() => handlers.onCreateGoodsReturnRequest(order)}>
-            <Undo2 aria-hidden="true" />
-            Tạo yêu cầu trả hàng
           </DropdownMenuItem>
         ) : null}
         {canCancelNow ? (

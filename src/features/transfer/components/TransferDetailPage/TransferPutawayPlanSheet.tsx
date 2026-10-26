@@ -1,7 +1,7 @@
 'use client'
 
 import { MapPinned, Plus, Sparkles, Trash2, X } from 'lucide-react'
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { PutawaySuggestionPanel } from '@/components/operations/putaway'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
@@ -65,6 +65,33 @@ export function TransferPutawayPlanSheet({
   const [isReloading, setIsReloading] = useState(false)
   const reloadLock = useRef(false)
   const contentRef = useRef<HTMLDivElement>(null)
+  const historyTraversal = useRef<'idle' | 'restoring' | 'leaving'>('idle')
+  const [leavingByHistory, setLeavingByHistory] = useState(false)
+  // Làm mới trang hoặc đóng tab khi còn nháp chưa lưu phải được hỏi lại; Sheet đã chặn bấm liên kết trong trang.
+  useEffect(() => {
+    if (!editor.isOpen || !editor.isDirty) return
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    // Back/Forward của trình duyệt không đi qua Sheet: trả lại trang hiện tại rồi hỏi trước khi bỏ nháp.
+    const interceptHistory = () => {
+      if (historyTraversal.current !== 'idle') {
+        historyTraversal.current = 'idle'
+        return
+      }
+      historyTraversal.current = 'restoring'
+      window.history.forward()
+      setLeavingByHistory(true)
+      setConfirmClose(true)
+    }
+    window.addEventListener('beforeunload', warnBeforeUnload)
+    window.addEventListener('popstate', interceptHistory)
+    return () => {
+      window.removeEventListener('beforeunload', warnBeforeUnload)
+      window.removeEventListener('popstate', interceptHistory)
+    }
+  }, [editor.isOpen, editor.isDirty])
   const disabled =
     !canManage || editor.isPending || editor.reloadRequired || isReloading || isSuggesting
   const usedSlots = new Map(
@@ -122,7 +149,7 @@ export function TransferPutawayPlanSheet({
         <SheetContent
           ref={contentRef}
           showCloseButton={false}
-          className="data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full animation-duration-300 flex w-full flex-col gap-0 p-0 ease-out motion-reduce:animate-none sm:max-w-2xl"
+          className="data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full animation-duration-300 flex flex-col gap-0 p-0 ease-out data-[side=right]:w-full motion-reduce:animate-none data-[side=right]:sm:max-w-2xl"
           aria-busy={editor.isPending || isReloading}
         >
           <SheetHeader className="shrink-0 border-b p-4">
@@ -435,7 +462,10 @@ export function TransferPutawayPlanSheet({
       />
       <TransferConfirmDialog
         open={confirmClose}
-        onOpenChange={setConfirmClose}
+        onOpenChange={(open) => {
+          setConfirmClose(open)
+          if (!open) setLeavingByHistory(false)
+        }}
         title="Bỏ nội dung đang sửa?"
         description={<p>Kế hoạch chưa lưu sẽ bị bỏ. Dữ liệu đã lưu không thay đổi.</p>}
         confirmLabel="Bỏ thay đổi"
@@ -444,6 +474,11 @@ export function TransferPutawayPlanSheet({
         onConfirm={() => {
           setConfirmClose(false)
           editor.close()
+          if (leavingByHistory) {
+            setLeavingByHistory(false)
+            historyTraversal.current = 'leaving'
+            window.history.back()
+          }
         }}
       />
     </>

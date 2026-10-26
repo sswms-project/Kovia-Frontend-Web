@@ -3,6 +3,8 @@ import { USER_ROLES, type UserRole } from './roles'
 import { P } from './permissionCodes'
 
 export const ROUTE_CAPABILITIES = {
+  [APP_ROUTES.inventoryOpeningStockImport]: P.INVENTORY_RESERVE,
+  [APP_ROUTES.inventoryAnomalies]: P.INVENTORY_ANOMALIES_VIEW,
   [APP_ROUTES.productImport]: P.PRODUCTS_IMPORT,
   [APP_ROUTES.unitImport]: P.UNITS_MANAGE,
   [APP_ROUTES.categoryImport]: P.CATEGORIES_MANAGE,
@@ -80,6 +82,10 @@ const ROUTE_PERMISSIONS: readonly RoutePermission[] = [
   },
   {
     pathPrefix: APP_ROUTES.goodsReturnRequests,
+    allowedRoles: [USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff],
+  },
+  {
+    pathPrefix: APP_ROUTES.supplierReturns,
     allowedRoles: [USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff],
   },
   {

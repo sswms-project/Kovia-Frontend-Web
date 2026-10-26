@@ -1,5 +1,10 @@
 'use client'
 
+import { P } from '@/config/permissionCodes'
+
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useMemo, useState } from 'react'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useProductOptionsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
@@ -45,8 +50,20 @@ export default function InventoryReservationsPage() {
     [productsQuery.data?.items]
   )
 
+  const listExport = useListExport({
+    dataset: 'reservations',
+    filters: params,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.INVENTORY_VIEW,
+    totalCount: reservationsQuery.data?.totalCount ?? 0,
+    isFetching: reservationsQuery.isFetching,
+    isError: reservationsQuery.isError,
+  })
   return (
     <InventoryReservationDirectory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
       permissions={meQuery.data?.permissions ?? []}
       items={reservationsQuery.data?.items ?? []}
       page={page}
@@ -62,7 +79,9 @@ export default function InventoryReservationsPage() {
       isError={reservationsQuery.isError}
       areFiltersLoading={warehousesQuery.isLoading || productsQuery.isLoading}
       areFiltersError={warehousesQuery.isError || productsQuery.isError}
-      activeFilterCount={Number(Boolean(warehouseId)) + Number(Boolean(productId))}
+      activeFilterCount={
+        Number(Boolean(warehouseId)) + Number(Boolean(productId)) + Number(status !== 'Active')
+      }
       onWarehouseChange={(value) => {
         setWarehouseId(value)
         setPage(1)
@@ -83,6 +102,7 @@ export default function InventoryReservationsPage() {
       onResetFilters={() => {
         setWarehouseId('')
         setProductId('')
+        setStatus('Active')
         setPage(1)
       }}
       onRetryFilters={() => void Promise.all([warehousesQuery.refetch(), productsQuery.refetch()])}

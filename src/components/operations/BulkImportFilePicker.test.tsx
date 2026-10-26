@@ -10,6 +10,11 @@ function dropZone() {
 }
 
 describe('shared file picker interactions', () => {
+  it('keeps the upload card from shrinking and clipping its button in a flex workspace', () => {
+    render(<BulkImportFilePicker {...defaults} onFileChange={vi.fn()} />)
+    expect(dropZone()).toHaveClass('shrink-0')
+    expect(dropZone()).toContainElement(screen.getByRole('button', { name: 'Tải tệp lên' }))
+  })
   it('accepts a dropped file without changing caller validation', () => {
     const onFileChange = vi.fn()
     render(<BulkImportFilePicker {...defaults} onFileChange={onFileChange} />)

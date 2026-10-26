@@ -145,6 +145,13 @@ describe('pickScanReducer', () => {
 })
 
 describe('pick quantity', () => {
+  it('rejects fractions for integer units without rounding and preserves fractional units', () => {
+    expect(validatePickQuantity(9.99, 10, 0)).toContain('số nguyên')
+    expect(validatePickQuantity(10.01, 20, 0)).toContain('số nguyên')
+    expect(validatePickQuantity(10, 10, 0)).toBeNull()
+    expect(validatePickQuantity(1.25, 10, 2)).toBeNull()
+    expect(validatePickQuantity(1.25, 10, 1)).toContain('1 chữ số')
+  })
   it('fills in the suggested quantity capped by what is still needed', () => {
     expect(getDefaultPickQuantity(suggestion, { remainingQuantity: 4 })).toBe(4)
     expect(getDefaultPickQuantity(suggestion, { remainingQuantity: 20 })).toBe(6)

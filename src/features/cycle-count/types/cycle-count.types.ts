@@ -112,6 +112,10 @@ export interface CycleCountItemHistory {
 export type CycleCountMethod = 'Manual' | 'Scanned'
 
 export interface CycleCountItem {
+  rackId?: string | null
+  zoneCode?: string | null
+  zoneName?: string | null
+  rackName?: string | null
   id: string
   productId: string
   productName: string
@@ -196,7 +200,19 @@ export interface AllowedActionsResponse {
   denialReasonCode?: string | null
 }
 
+export interface CycleCountRecordItemRequest {
+  itemId: string
+  countedQuantity: number
+  countedDamagedQuantity: number | null
+  note: string | null
+  countMethod: CycleCountMethod
+  scannedBarcode: string | null
+  damageReason: string | null
+  damageEvidenceIds: readonly string[]
+}
+
 export interface CreateCycleCountRequest {
+  code?: string
   warehouseId: string
   zoneId: string | null
   scheduledDate: string

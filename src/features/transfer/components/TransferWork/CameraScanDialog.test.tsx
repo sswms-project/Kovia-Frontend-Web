@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CameraScanDialog } from './CameraScanDialog'
 
 const startCameraScan = vi.fn()
-vi.mock('../../utils/camera-scan', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../utils/camera-scan')>()),
+vi.mock('@/lib/camera-scan', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/camera-scan')>()),
   startCameraScan: (...args: unknown[]) => startCameraScan(...args),
 }))
 

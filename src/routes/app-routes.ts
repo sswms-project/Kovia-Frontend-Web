@@ -26,6 +26,7 @@ export const APP_ROUTES = {
   invitations: {
     accept: '/invitations/accept',
   },
+  supplierResponse: '/supplier-response',
   dashboardByRole: {
     tenant: '/dashboard/tenant',
     manager: '/dashboard/manager',
@@ -65,8 +66,10 @@ export const APP_ROUTES = {
   inventoryReservations: '/inventory/reservations',
   inventoryDamageCases: '/inventory/damage-cases',
   inventoryOpeningStocks: '/inventory/opening-stocks',
+  inventoryOpeningStockImport: '/inventory/opening-stocks/import',
   inventoryAbcClassification: '/inventory/abc-classification',
   inventoryDiscrepancies: '/inventory/discrepancies',
+  inventoryAnomalies: '/inventory/anomalies',
   inventoryForecast: '/inventory/forecast', // Legacy URL redirects to reports/forecast.
   cycleCounts: '/inventory/cycle-counts',
   cycleCountCreate: '/inventory/cycle-counts/new',
@@ -88,6 +91,11 @@ export const APP_ROUTES = {
     `/tasks/transfers/${transferId}/shipments/${shipmentId}/pick` as Route,
   transferReceiveTask: (transferId: string, shipmentId: string): Route =>
     `/tasks/transfers/${transferId}/shipments/${shipmentId}/receive` as Route,
+  transferPutAway: (transferId: string, shipmentId: string): Route =>
+    `/transfers/${transferId}/shipments/${shipmentId}/putaway` as Route,
+  transferPutAwayTask: (transferId: string, shipmentId: string): Route =>
+    `/tasks/transfers/${transferId}/shipments/${shipmentId}/putaway` as Route,
+  transferPlan: (transferId: string): Route => `/transfers/${transferId}/putaway` as Route,
   stockIssueRequests: '/stock-issue-requests',
   stockIssueRequestCreate: '/stock-issue-requests/new',
   stockIssueRequestImport: '/stock-issue-requests/import',
@@ -98,6 +106,7 @@ export const APP_ROUTES = {
   stockIssueRequestPrint: (stockIssueRequestId: string) =>
     `/stock-issue-requests/${stockIssueRequestId}/print`,
   goodsReturnRequests: '/goods-return-requests',
+  supplierReturns: '/supplier-returns',
   stockRecipients: '/stock-recipients',
   stockRecipientImport: '/stock-recipients/import' as Route,
   stockRecipientDetail: (stockRecipientId: string): Route =>

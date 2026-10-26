@@ -4,6 +4,29 @@ import { buildTransfer, buildTransferItem } from './transfer-test-fixtures'
 import { planLine, SLOT_B } from './transfer-plan-test-fixtures'
 
 describe('transferGoodsRows', () => {
+  it.each([
+    [0, 0, 0],
+    [2, 0, 2],
+    [1, 1, 2],
+    [0, 2, 2],
+    [0.5, 1.25, 1.75],
+  ])(
+    'keeps net pick progress after dispatch (%s outstanding + %s shipped)',
+    (picked, shipped, total) => {
+      const detail = buildTransfer({
+        items: [
+          buildTransferItem({
+            pickedQuantity: picked,
+            dispatchedQuantity: shipped,
+            unbatchedQuantity: 0,
+          }),
+        ],
+      })
+      expect(transferGoodsRows(detail)[0]).toMatchObject({ picked: total, unbatched: 0 })
+      expect(detail.items[0]?.pickedQuantity).toBe(picked)
+    }
+  )
+
   it('shows a single plan path or the multiple-location count without falling back to an obsolete legacy slot', () => {
     const item = buildTransferItem({ putAwayPlan: [planLine()], destinationSlotCode: 'OLD' })
     expect(transferGoodsRows(buildTransfer({ items: [item] }))[0]?.destinationSlot).toBe(
@@ -32,6 +55,8 @@ describe('transferGoodsRows', () => {
             conversionFactor: 12,
             quantity: 24,
             dispatchedQuantity: 12,
+            receivedQuantity: 9,
+            damagedQuantity: 2,
           }),
           buildTransferItem({ id: 'i2' }),
         ],
@@ -42,8 +67,13 @@ describe('transferGoodsRows', () => {
       requested: 24,
       dispatched: 12,
       conversion: '1 Thùng = 12 Hộp',
+      conversionFactor: 12,
+      conversionUnit: 'Thùng',
+      receivedGood: 9,
+      receivedPhysical: 11,
     })
     expect(rows[1]?.conversion).toBeNull()
+    expect(rows[1]?.conversionFactor).toBeNull()
   })
 
   it('hides removed lines and tracks the discrepancy state per line', () => {

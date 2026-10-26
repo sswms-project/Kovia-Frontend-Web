@@ -26,10 +26,12 @@ export function useTransferPlanEditor(
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const version = useRef<string | null>(null)
   const locked = useRef(false)
+  const hasUserEdits = useRef(false)
   const mutation = useSetTransferPutAwayPlanMutation()
 
   function change(next: TransferPlanDraftItem[]) {
     if (locked.current || !canManage) return
+    hasUserEdits.current = true
     setDraft(next)
     setIsDirty(true)
     setErrors({})
@@ -44,10 +46,20 @@ export function useTransferPlanEditor(
     isPending: mutation.isPending,
     open: () => {
       if (!transfer || locked.current) return
+      hasUserEdits.current = false
       version.current = transfer.version
       setDraft(buildTransferPlanDraft(transfer.items))
       setErrors({})
-      setIsDirty(false)
+      setIsDirty(
+        canManage &&
+          transfer.items.some(
+            (item) =>
+              !item.putAwayPlan?.length &&
+              item.destinationSlotId &&
+              item.destinationSlotPath &&
+              item.quantity > item.stoppedQuantity
+          )
+      )
       setErrorMessage(null)
       setReloadRequired(false)
       setIsOpen(true)
@@ -56,20 +68,53 @@ export function useTransferPlanEditor(
       if (!locked.current) setIsOpen(false)
     },
     change,
+    seedSuggestions: (suggestions: TransferPutAwayPlanSuggestions) => {
+      // Unsaved request prefills enable Save without blocking rules for untouched items.
+      if (
+        !transfer ||
+        !canManage ||
+        locked.current ||
+        !isOpen ||
+        hasUserEdits.current ||
+        reloadRequired
+      )
+        return
+      const generated = applyTransferPlanSuggestions(draft, transfer.items, suggestions)
+      const next = draft.map((entry) => {
+        const item = transfer.items.find((item) => item.id === entry.itemId)
+        return item?.putAwayPlan?.length || (item?.destinationSlotId && item.destinationSlotPath)
+          ? entry
+          : (generated.find((item) => item.itemId === entry.itemId) ?? entry)
+      })
+      if (JSON.stringify(next) !== JSON.stringify(draft)) {
+        setDraft(next)
+        setIsDirty(true)
+        setErrors({})
+      }
+    },
     apply: (
       suggestions: TransferPutAwayPlanSuggestions,
       only?: { itemId: string; slotId: string }
     ) => {
-      if (transfer) change(applyTransferPlanSuggestions(draft, transfer.items, suggestions, only))
+      if (transfer && isOpen && !reloadRequired)
+        change(applyTransferPlanSuggestions(draft, transfer.items, suggestions, only))
     },
-    rebase: (fresh: TransferDetail) => {
+    rebase: (fresh: TransferDetail, source: 'reload' | 'saved' = 'reload') => {
       if (locked.current) return
+      // A reload preserves the draft for review; late rules must not replace it.
+      hasUserEdits.current = source !== 'saved'
       version.current = fresh.version
-      setDraft(reconcileTransferPlanDraft(draft, fresh.items))
+      setDraft(
+        source === 'saved'
+          ? buildTransferPlanDraft(fresh.items)
+          : reconcileTransferPlanDraft(draft, fresh.items)
+      )
       setErrors({})
       setReloadRequired(false)
       setErrorMessage(
-        'Đã tải kế hoạch mới; số lượng đang sửa được giữ lại. Hãy kiểm tra trước khi lưu.'
+        source === 'saved'
+          ? null
+          : 'Đã tải kế hoạch mới; số lượng đang sửa được giữ lại. Hãy kiểm tra trước khi lưu.'
       )
     },
     submit: async () => {

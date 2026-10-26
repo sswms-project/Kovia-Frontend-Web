@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EACH_UNIT_REPEAT_GUARD_MS } from '@/lib/camera-scan'
 import {
   REPEAT_GUARD_MS,
   describeCameraFailure,
@@ -39,6 +40,37 @@ describe('describeCameraFailure', () => {
 })
 
 describe('startCameraScan', () => {
+  it('counts successive identical units with the shared guard and ignores held frames', async () => {
+    vi.useFakeTimers()
+    let report: ((result: { getText: () => string }) => void) | undefined
+    vi.doMock('@zxing/browser', () => ({
+      BrowserMultiFormatReader: class {
+        async decodeFromConstraints(
+          _constraints: unknown,
+          _video: unknown,
+          callback: typeof report
+        ) {
+          report = callback
+          return { stop: vi.fn() }
+        }
+      },
+    }))
+    const onCode = vi.fn()
+    const handle = await startCameraScan(document.createElement('video'), onCode, vi.fn(), {
+      continuous: true,
+      repeatGuardMs: EACH_UNIT_REPEAT_GUARD_MS,
+    })
+    report?.({ getText: () => 'SKU000005' })
+    vi.advanceTimersByTime(100)
+    report?.({ getText: () => 'SKU000005' })
+    expect(onCode).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(700)
+    report?.({ getText: () => 'SKU000005' })
+    expect(onCode).toHaveBeenCalledTimes(2)
+    handle.stop()
+    vi.useRealTimers()
+  })
+
   it('delivers the first decoded code once, trimmed, and stops the camera', async () => {
     const stop = vi.fn()
     let report: ((result: { getText: () => string } | undefined) => void) | undefined

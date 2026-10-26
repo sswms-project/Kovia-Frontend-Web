@@ -1,10 +1,67 @@
 import { describe, expect, it } from 'vitest'
 import { APP_ROUTES } from '@/routes/app-routes'
+import { notificationCreatedEventSchema } from '../schemas/platform-services.schema'
 import { getNotificationReferenceRoute, notificationActionRoutes } from './platform-services-format'
 
 const id = '11111111-1111-4111-8111-111111111111'
 
 describe('getNotificationReferenceRoute', () => {
+  it.each([null, 'ViewStockIssueRequests', 'UnknownFutureAction'])(
+    'opens the exact outbound request for legacy action %s',
+    (action) => {
+      for (const type of ['TaskAssigned', 'StockIssueRequestUpdate'] as const)
+        expect(
+          getNotificationReferenceRoute({
+            type,
+            referenceType: 'StockIssueRequest',
+            referenceId: id,
+            action,
+          })
+        ).toBe(APP_ROUTES.stockIssueRequestDetail(id))
+    }
+  )
+
+  it.each([null, '', '../other', '00000000-0000-0000-0000-000000000000'])(
+    'does not invent an outbound detail route for invalid reference %s',
+    (referenceId) => {
+      expect(
+        getNotificationReferenceRoute({
+          type: 'TaskAssigned',
+          referenceType: 'StockIssueRequest',
+          referenceId,
+          action: 'ViewStockIssueRequests',
+        })
+      ).toBe(APP_ROUTES.stockIssueRequests)
+      expect(
+        getNotificationReferenceRoute({
+          type: 'TaskAssigned',
+          referenceType: 'StockIssueRequest',
+          referenceId,
+        })
+      ).toBeNull()
+    }
+  )
+  it.each([null, 'ViewInboundRequest', 'ViewMyWarehouseTasks'])(
+    'routes inbound task assignments to tasks, including legacy action %s',
+    (action) => {
+      expect(
+        getNotificationReferenceRoute({
+          type: 'TaskAssigned',
+          referenceType: 'InboundRequest',
+          referenceId: id,
+          action,
+        })
+      ).toBe(APP_ROUTES.myTasks)
+      expect(
+        getNotificationReferenceRoute({
+          type: 'InboundRequestUpdate',
+          referenceType: 'InboundRequest',
+          referenceId: id,
+          action: 'ViewInboundRequest',
+        })
+      ).toBe(APP_ROUTES.inboundRequestDetail(id))
+    }
+  )
   it('routes tenant approval notifications to the subscription page', () => {
     expect(
       getNotificationReferenceRoute({
@@ -110,9 +167,47 @@ describe('getNotificationReferenceRoute', () => {
     ).toBe(APP_ROUTES.myTasks)
   })
 
+  it.each([
+    ['ViewStockTransferPick', 'pick'],
+    ['ViewStockTransferReceive', 'receive'],
+    ['ViewStockTransferPutAway', 'putaway'],
+  ])('opens the correct stage for %s without guessing from notification text', (action, tab) => {
+    const notification = {
+      type: 'TaskAssigned',
+      referenceType: 'StockTransfer',
+      referenceId: id,
+      action,
+    } as const
+    expect(getNotificationReferenceRoute(notification)).toBe(
+      `${APP_ROUTES.transferDetail(id)}?tab=${tab}`
+    )
+    expect(getNotificationReferenceRoute({ ...notification, referenceId: null })).toBeNull()
+  })
+
   it('routes every known action', () => {
     for (const [action, route] of Object.entries(notificationActionRoutes)) {
       expect(route.to(id), action).toBeTruthy()
     }
+  })
+  it('opens the supplier return a notification is about', () => {
+    expect(
+      getNotificationReferenceRoute({
+        type: 'SupplierReturnUpdate',
+        referenceType: 'SupplierReturnRequest',
+        referenceId: id,
+      })
+    ).toBe(`${APP_ROUTES.supplierReturns}?id=${id}`)
+  })
+
+  it('accepts realtime supplier return events', () => {
+    expect(
+      notificationCreatedEventSchema.safeParse({
+        notificationId: id,
+        type: 'SupplierReturnUpdate',
+        createdAt: '2026-10-19T10:00:00+07:00',
+        referenceType: 'SupplierReturnRequest',
+        referenceId: id,
+      }).success
+    ).toBe(true)
   })
 })

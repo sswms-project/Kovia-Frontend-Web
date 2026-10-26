@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
+import type { AssignableWarehouseStaff } from '@/features/inbound/types/inbound.types'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
 import { cycleCountService } from '../services/cycle-count.service'
 import type {
@@ -12,7 +13,6 @@ import type {
   CycleCountListQuery,
   CycleCountEvidence,
   CycleCountListResponse,
-  CycleCountMethod,
   RejectStockAdjustmentRequest,
   RequestRecountRequest,
   StockAdjustment,
@@ -28,6 +28,14 @@ export function useCycleCountsQuery(params: CycleCountListQuery) {
     queryKey: queryKeys.cycleCounts.list(params),
     queryFn: () => cycleCountService.getCycleCounts(params).then((response) => response.data),
     placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useNextCycleCountCodeQuery(sessionKey: string) {
+  return useQuery({
+    queryKey: [...queryKeys.cycleCounts.all, 'next-code', sessionKey],
+    queryFn: () => cycleCountService.getNextCode().then((response) => response.data),
+    staleTime: 0,
   })
 }
 
@@ -78,6 +86,15 @@ export function useInvalidateCycleCount() {
   }
 }
 
+export function useCycleCountAssignableStaffQuery(warehouseId: string) {
+  return useQuery<AssignableWarehouseStaff[], ApiErrorResponse>({
+    queryKey: queryKeys.cycleCounts.assignableStaff(warehouseId),
+    queryFn: () =>
+      cycleCountService.getAssignableStaff(warehouseId).then((response) => response.data),
+    enabled: Boolean(warehouseId),
+  })
+}
+
 export function useCreateCycleCountMutation() {
   const invalidate = useInvalidateCycleCount()
   return useMutation<ApiResponse<string>, ApiErrorResponse, CreateCycleCountRequest>({
@@ -87,24 +104,15 @@ export function useCreateCycleCountMutation() {
   })
 }
 
-// Không invalidate ở đây: trang lưu nhiều dòng tuần tự và invalidate một lần sau cùng.
-export function useRecordCycleCountItemMutation() {
+export function useRecordCycleCountItemsMutation() {
+  const invalidate = useInvalidateCycleCount()
   return useMutation<
     ApiResponse<unknown>,
     ApiErrorResponse,
-    {
-      cycleCountId: string
-      itemId: string
-      countedQuantity: number
-      countedDamagedQuantity: number | null
-      note: string | null
-      countMethod: CycleCountMethod
-      scannedBarcode: string | null
-      damageReason: string | null
-      damageEvidenceIds: readonly string[]
-    }
+    Parameters<typeof cycleCountService.recordCycleCountItems>[0]
   >({
-    mutationFn: cycleCountService.recordCycleCountItem,
+    mutationFn: cycleCountService.recordCycleCountItems,
+    onSuccess: async () => invalidate(),
     onError: (error) => logger.error(error),
   })
 }

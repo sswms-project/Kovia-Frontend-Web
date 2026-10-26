@@ -1,54 +1,70 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
+import { useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
+import { operationalToday } from '@/lib/operational-date-time'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
-import { useProductOptionsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
-import { useProductLotsQuery } from '@/features/product/hooks/use-products'
-import {
-  useWarehouseLocationsQuery,
-  useWarehousesQuery,
-} from '@/features/warehouse/hooks/use-warehouse'
 import { OpeningStockDirectory, type OpeningStockDraftLine } from '../components/OpeningStocksPage'
 import {
-  useCreateOpeningStockMutation,
   useOpeningStockActionMutation,
   useOpeningStocksQuery,
   useUpdateOpeningStockMutation,
-  useUploadInventoryEvidenceMutation,
+  useInventoryWarehouseOptionsQuery,
 } from '../hooks/use-inventory'
 import {
   createOpeningStockSchema,
   type CreateOpeningStockFormValues,
 } from '../schemas/create-opening-stock.schema'
 import type { OpeningStockRecord, OpeningStockStatus } from '../types/inventory.types'
+import { useOpeningStockOptions } from '../hooks/use-opening-stock-options'
+import { useOpeningStockDraft } from '../hooks/use-opening-stock-draft'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import {
+  openingStockErrorMessage,
+  openingStockLocationDescription,
+} from '../utils/opening-stock-import'
 
-export default function OpeningStocksPage() {
+export default function OpeningStocksPage({ recordId }: { readonly recordId?: string }) {
+  const approvalCommands = useRef(new Map<string, string>())
   const meQuery = useMeQuery()
   const [page, setPage] = useState(1)
   const [filterWarehouseId, setFilterWarehouseId] = useState('')
   const [status, setStatus] = useState<OpeningStockStatus | ''>('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const recordsQuery = useOpeningStocksQuery({
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search, 250)
+  const exportFilters = {
     pageNumber: page,
     pageSize: 20,
+    ...(recordId ? { id: recordId } : {}),
+    ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
     ...(filterWarehouseId ? { warehouseId: filterWarehouseId } : {}),
     ...(status ? { status } : {}),
-    ...(dateFrom ? { dateFrom: new Date(`${dateFrom}T00:00:00`).toISOString() } : {}),
-    ...(dateTo ? { dateTo: new Date(`${dateTo}T23:59:59.999`).toISOString() } : {}),
-  })
-  const createMutation = useCreateOpeningStockMutation()
-  const uploadMutation = useUploadInventoryEvidenceMutation()
+    ...(dateFrom ? { effectiveDateFrom: dateFrom } : {}),
+    ...(dateTo ? { effectiveDateTo: dateTo } : {}),
+  }
+  const recordsQuery = useOpeningStocksQuery(exportFilters)
+  const draft = useOpeningStockDraft()
   const actionMutation = useOpeningStockActionMutation()
   const updateMutation = useUpdateOpeningStockMutation()
   const form = useForm<CreateOpeningStockFormValues>({
     resolver: zodResolver(createOpeningStockSchema),
     defaultValues: {
+      code: '',
+      enteredUnitId: '',
       warehouseId: '',
+      effectiveDate: operationalToday(),
+      newLotNumber: '',
+      manufacturedDate: '',
+      expiryDate: '',
+      acknowledgePendingLots: false,
       productId: '',
       slotId: '',
       lotId: '',
@@ -59,73 +75,74 @@ export default function OpeningStocksPage() {
   })
   const warehouseId = useWatch({ control: form.control, name: 'warehouseId' })
   const productId = useWatch({ control: form.control, name: 'productId' })
-  const warehousesQuery = useWarehousesQuery({
-    top: 100,
-    skip: 0,
-    needTotalCount: true,
-    isActive: true,
-  })
-  const productsQuery = useProductOptionsQuery({ pageNumber: 1, pageSize: 100, status: 'Active' })
-  const slotsQuery = useWarehouseLocationsQuery(warehouseId, {
-    top: 200,
-    skip: 0,
-    needTotalCount: true,
-    type: 'Slot',
-    lifecycleStatus: 'Active',
-  })
-  const lotsQuery = useProductLotsQuery(
+  const [productSearch, setProductSearch] = useState('')
+  const [locationSearch, setLocationSearch] = useState('')
+  const [lotSearch, setLotSearch] = useState('')
+  const lookup = useOpeningStockOptions({
+    warehouseId,
     productId,
-    { warehouseId, status: 'Active' },
-    Boolean(productId && warehouseId)
-  )
+    productSearch: useDebouncedValue(productSearch, 250),
+    locationSearch: useDebouncedValue(locationSearch, 250),
+    lotSearch: useDebouncedValue(lotSearch, 250),
+  })
+  const warehousesQuery = useInventoryWarehouseOptionsQuery()
   const warehouseOptions = useMemo(
     () =>
-      (warehousesQuery.data?.items ?? []).map((item) => ({
+      (warehousesQuery.data ?? []).map((item) => ({
         value: item.id,
         label: `${item.warehouseCode} · ${item.warehouseName}`,
       })),
-    [warehousesQuery.data?.items]
+    [warehousesQuery.data]
   )
   const productOptions = useMemo(
     () =>
-      (productsQuery.data?.items ?? []).map((item) => ({
+      (lookup.data?.products ?? []).map((item) => ({
         value: item.id,
         label: `${item.sku} · ${item.productName}`,
         unitId: item.unitId,
         unitName: item.unitName,
+        isLotTracked: item.isLotTracked,
+        units: item.units,
+        quantityPrecision: item.quantityPrecision,
       })),
-    [productsQuery.data?.items]
+    [lookup.data?.products]
   )
   const slotOptions = useMemo(
-    () => (slotsQuery.data?.items ?? []).map((item) => ({ value: item.id, label: item.code })),
-    [slotsQuery.data?.items]
+    () =>
+      (lookup.data?.locations ?? []).map((item) => ({
+        value: item.id,
+        label: item.label,
+        description: openingStockLocationDescription(item),
+      })),
+    [lookup.data?.locations]
   )
   const lotOptions = useMemo(
-    () => (lotsQuery.data ?? []).map((item) => ({ value: item.id, label: item.lotNumber })),
-    [lotsQuery.data]
+    () =>
+      (lookup.data?.lots ?? []).map((item) => ({
+        value: item.id,
+        label: `${item.lotNumber}${item.status === 'Active' ? '' : ' · Hết hạn/bị khóa — chỉ được giữ'}`,
+      })),
+    [lookup.data?.lots]
   )
 
   async function create(values: CreateOpeningStockFormValues, lines: OpeningStockDraftLine[]) {
+    form.clearErrors('root.server')
     try {
-      if (!values.evidenceFile) {
-        form.setError('evidenceFile', { message: 'Tệp bằng chứng là bắt buộc.' })
-        return
-      }
-      const upload = await uploadMutation.mutateAsync({
+      await draft.save({
+        code: values.code,
         warehouseId: values.warehouseId,
         file: values.evidenceFile,
-      })
-      await createMutation.mutateAsync({
-        warehouseId: values.warehouseId,
-        evidenceIds: [upload.data.id],
-        commandId: crypto.randomUUID(),
+        effectiveDate: values.effectiveDate,
+        formVersion: 1,
+        acknowledgePendingLots: values.acknowledgePendingLots,
         lines: lines.map((line) => ({
           productId: line.productId,
           slotId: line.slotId,
           ...(line.lotId ? { lotId: line.lotId } : {}),
+          ...(line.newLot ? { newLot: line.newLot } : {}),
           quantity: line.quantity,
           enteredUnitId: line.enteredUnitId,
-          conversionFactor: 1,
+          conversionFactor: line.conversionFactor,
           qualityStatus: line.qualityStatus,
           eligibilityStatus: line.eligibilityStatus,
         })),
@@ -133,7 +150,9 @@ export default function OpeningStocksPage() {
       form.reset()
       toast.success('Đã tạo chứng từ tồn đầu ở trạng thái nháp.')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không thể tạo chứng từ tồn đầu.')
+      const message = openingStockErrorMessage(error, 'Không thể tạo chứng từ tồn đầu.')
+      form.setError('root.server', { type: 'server', message })
+      toast.error(message)
       throw error
     }
   }
@@ -147,10 +166,16 @@ export default function OpeningStocksPage() {
       await updateMutation.mutateAsync({
         id: item.id,
         expectedVersion: item.version,
+        ...(item.requiresV1Client || !item.isLegacyDate
+          ? { effectiveDate: form.getValues('effectiveDate'), formVersion: 1 as const }
+          : {}),
+        acknowledgePendingLots: form.getValues('acknowledgePendingLots'),
         lines: lines.map((line) => ({
+          ...(line.id ? { id: line.id } : {}),
           productId: line.productId,
           slotId: line.slotId,
           ...(line.lotId ? { lotId: line.lotId } : {}),
+          ...(line.newLot ? { newLot: line.newLot } : {}),
           quantity: line.quantity,
           enteredUnitId: line.enteredUnitId,
           conversionFactor: line.conversionFactor,
@@ -160,7 +185,7 @@ export default function OpeningStocksPage() {
       })
       toast.success('Đã cập nhật các dòng kiểm đếm. Bạn có thể gửi lại để duyệt.')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không thể cập nhật chứng từ tồn đầu.')
+      toast.error(openingStockErrorMessage(error, 'Không thể cập nhật chứng từ tồn đầu.'))
       throw error
     }
   }
@@ -200,14 +225,20 @@ export default function OpeningStocksPage() {
           expectedVersion: item.version,
           reason: reason ?? '',
         })
-      else if (actionName === 'approve')
+      else if (actionName === 'approve') {
+        const key = `${item.id}:${item.version}`
+        const commandId = approvalCommands.current.get(key) ?? crypto.randomUUID()
+        approvalCommands.current.set(key, commandId)
         await actionMutation.mutateAsync({
           action: 'approve',
           id: item.id,
           expectedVersion: item.version,
           selfApprovalAcknowledged,
+          formVersion: 1,
+          commandId,
         })
-      else if (actionName === 'submit')
+        approvalCommands.current.delete(key)
+      } else if (actionName === 'submit')
         await actionMutation.mutateAsync({
           action: 'submit',
           id: item.id,
@@ -217,19 +248,52 @@ export default function OpeningStocksPage() {
         actionName === 'approve' ? 'Đã duyệt và ghi sổ tồn đầu.' : 'Đã cập nhật chứng từ tồn đầu.'
       )
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không thể cập nhật chứng từ tồn đầu.')
+      toast.error(openingStockErrorMessage(error, 'Không thể cập nhật chứng từ tồn đầu.'))
       throw error
     }
   }
 
   const permissions = meQuery.data?.permissions ?? []
+  const listExport = useListExport({
+    dataset: 'opening-stocks',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.INVENTORY_VIEW,
+    totalCount: recordsQuery.data?.totalCount ?? 0,
+    isFetching: recordsQuery.isFetching,
+    isError: recordsQuery.isError,
+    blocked: search !== debouncedSearch,
+  })
   return (
     <OpeningStockDirectory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
+      recordId={recordId}
       permissions={permissions}
+      isCreateUncertain={draft.uncertain}
+      search={search}
+      lookupSearch={{ product: productSearch, location: locationSearch, lot: lotSearch }}
+      onLookupSearch={(kind, value) => {
+        if (kind === 'product') setProductSearch(value)
+        else if (kind === 'location') setLocationSearch(value)
+        else setLotSearch(value)
+      }}
+      lookupError={lookup.isError}
+      onLookupRetry={() => void lookup.refetch()}
+      onSearchChange={(value) => {
+        setSearch(value)
+        setPage(1)
+      }}
       currentUserId={meQuery.data?.id ?? null}
       items={recordsQuery.data?.items ?? []}
       form={form}
       warehouseOptions={warehouseOptions}
+      managedWarehouseOptions={warehouseOptions.filter(
+        (option) =>
+          warehousesQuery.data?.find((warehouse) => warehouse.id === option.value)
+            ?.canManageWarehouse
+      )}
       page={recordsQuery.data?.pageNumber ?? page}
       pageSize={recordsQuery.data?.pageSize ?? 20}
       totalCount={recordsQuery.data?.totalCount ?? 0}
@@ -257,22 +321,17 @@ export default function OpeningStocksPage() {
       productOptions={productOptions}
       slotOptions={slotOptions}
       lotOptions={lotOptions}
-      areOptionsLoading={
-        warehousesQuery.isLoading ||
-        productsQuery.isLoading ||
-        slotsQuery.isLoading ||
-        lotsQuery.isLoading
-      }
+      areOptionsLoading={warehousesQuery.isLoading || lookup.isFetching}
       isLoading={recordsQuery.isLoading}
+      isFetching={recordsQuery.isFetching}
       isError={recordsQuery.isError}
-      isPending={
-        uploadMutation.isPending ||
-        createMutation.isPending ||
-        updateMutation.isPending ||
-        actionMutation.isPending
+      isPending={draft.isPending || updateMutation.isPending || actionMutation.isPending}
+      canCreate={
+        permissions.includes(P.INVENTORY_VIEW) && permissions.includes(P.INVENTORY_RESERVE)
       }
-      canCreate={permissions.includes(P.INVENTORY_RESERVE)}
-      canApprove={permissions.includes(P.STOCK_ADJUSTMENTS_APPROVE)}
+      canApprove={
+        permissions.includes(P.INVENTORY_VIEW) && permissions.includes(P.STOCK_ADJUSTMENTS_APPROVE)
+      }
       canSelfApprove={permissions.includes(P.INVENTORY_SELF_APPROVE_OPENING_STOCK)}
       onRetry={() => void recordsQuery.refetch()}
       onCreate={create}

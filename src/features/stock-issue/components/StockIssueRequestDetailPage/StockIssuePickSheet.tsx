@@ -1,4 +1,5 @@
 import { formatDisplayDate, isoDateStringToDate } from '@/lib/date-format'
+import { formatStockIssueLocation } from '../../utils/stock-issue-location'
 import type { StockIssueRequestSummary } from '../../types/stock-issue.types'
 import {
   formatStockIssueDate,
@@ -7,10 +8,10 @@ import {
 } from '../../utils/stock-issue-format'
 
 interface PickSheetRow {
+  readonly directFromReceiving?: boolean
   readonly key: string
   readonly sortKey: string
   readonly slotCode: string
-  readonly area: string
   readonly sku: string
   readonly productName: string
   readonly lot: string
@@ -29,10 +30,10 @@ function buildRows(order: StockIssueRequestSummary): PickSheetRow[] {
       item.pickLocations.map((location) => ({
         key: `${item.id}:${location.inventoryStockId}`,
         sortKey: `${location.zoneCode}/${location.rackCode}/${location.slotCode}`,
-        slotCode: location.slotCode,
-        area: `${location.zoneCode} / ${location.rackCode}`,
+        slotCode: formatStockIssueLocation(location),
         sku: item.sku,
         productName: item.productName,
+        directFromReceiving: location.directFromReceiving,
         lot: location.lotNumber ? `${location.lotNumber}${expiryText(location.expiryDate)}` : '—',
         quantity: formatStockIssueUnitQuantity(
           location.reservedQuantity / stockIssueItemFactor(item),
@@ -94,7 +95,9 @@ export function StockIssuePickSheet({ order }: { readonly order: StockIssueReque
                   <span className="font-mono font-semibold" translate="no">
                     {row.slotCode}
                   </span>
-                  <span className="text-muted-foreground block text-xs">{row.area}</span>
+                  {row.directFromReceiving && (
+                    <span className="block text-xs font-medium">Đi thẳng khu nhận → khu xuất</span>
+                  )}
                 </td>
                 <td className="py-2 pr-3">
                   {row.productName}

@@ -1,5 +1,6 @@
 import { axiosClient } from '@/lib/axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
+import type { AssignableWarehouseStaff } from '@/features/inbound/types/inbound.types'
 import type { ApiResponse } from '@/types/api'
 import type {
   AllowedActionsResponse,
@@ -10,7 +11,7 @@ import type {
   CycleCountListQuery,
   CycleCountEvidence,
   CycleCountListResponse,
-  CycleCountMethod,
+  CycleCountRecordItemRequest,
   ApproveStockAdjustmentRequest,
   ApproveStockAdjustmentVoucherRequest,
   CreateStockAdjustmentVoucherRequest,
@@ -25,6 +26,10 @@ import type {
 } from '../types/cycle-count.types'
 
 export const cycleCountService = {
+  getNextCode: () =>
+    axiosClient
+      .get<ApiResponse<string>>(API_ENDPOINTS.cycleCounts.nextCode)
+      .then((response) => response.data),
   getCycleCounts: (params: CycleCountListQuery) =>
     axiosClient
       .get<ApiResponse<CycleCountListResponse>>(API_ENDPOINTS.cycleCounts.list, { params })
@@ -39,41 +44,27 @@ export const cycleCountService = {
         ApiResponse<AllowedActionsResponse>
       >(API_ENDPOINTS.cycleCounts.allowedActions(cycleCountId))
       .then((response) => response.data),
+  // Nhân viên kho được giao kiểm kê tại kho, Backend xếp người ít việc nhất lên đầu.
+  getAssignableStaff: (warehouseId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<AssignableWarehouseStaff[]>
+      >(API_ENDPOINTS.cycleCounts.assignableStaff, { params: { warehouseId } })
+      .then((response) => response.data),
   createCycleCount: (request: CreateCycleCountRequest) =>
     axiosClient
       .post<ApiResponse<string>>(API_ENDPOINTS.cycleCounts.create, request)
       .then((response) => response.data),
-  recordCycleCountItem: ({
+  // Lưu mọi dòng đã nhập trong một request và một giao dịch: hoặc lưu hết, hoặc không dòng nào.
+  recordCycleCountItems: ({
     cycleCountId,
-    itemId,
-    countedQuantity,
-    countedDamagedQuantity,
-    note,
-    countMethod,
-    scannedBarcode,
-    damageReason,
-    damageEvidenceIds,
+    items,
   }: {
     cycleCountId: string
-    itemId: string
-    countedQuantity: number
-    countedDamagedQuantity: number | null
-    note: string | null
-    countMethod: CycleCountMethod
-    scannedBarcode: string | null
-    damageReason: string | null
-    damageEvidenceIds: readonly string[]
+    items: readonly CycleCountRecordItemRequest[]
   }) =>
     axiosClient
-      .put<ApiResponse<unknown>>(API_ENDPOINTS.cycleCounts.recordItem(cycleCountId, itemId), {
-        countedQuantity,
-        countedDamagedQuantity,
-        note,
-        countMethod,
-        scannedBarcode,
-        damageReason,
-        damageEvidenceIds,
-      })
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.cycleCounts.recordItems(cycleCountId), { items })
       .then((response) => response.data),
   uploadEvidence: (warehouseId: string, file: File) => {
     const formData = new FormData()

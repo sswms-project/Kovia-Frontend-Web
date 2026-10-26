@@ -45,6 +45,7 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 5. Do not use hard-coded `calc(100vh - ...)` values. They break under browser zoom, different headers, and responsive wrapping.
 6. Do not let `body` or the whole page become the table scroll container.
 7. Pagination must be a direct, non-scrolling child of the list panel.
+8. Below the `md` breakpoint `OperationalListPanel` grows to its content height (`max-md:min-h-fit`) and the workspace scrolls naturally, so the list is never squeezed under stacked toolbars on phones. Do not override this in feature code.
 
 ## Header, toolbar, and filters
 
@@ -53,6 +54,7 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 - Use a filter sheet only when the filter set is too large for the toolbar or contains advanced dependent fields.
 - Changing search, filters, or page size resets the current page to `1`.
 - Toolbar controls must wrap on narrow screens without causing horizontal page overflow.
+- A search field that grows with `flex-1` inside a wrapping toolbar must also take a full row on phones (`basis-full sm:basis-auto`); `min-w-0 flex-1` alone lets it collapse to a few pixels instead of wrapping.
 
 ## Table behavior
 
@@ -61,7 +63,7 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 - Keep the header and rows in the same scroll container. The first checkbox column stays pinned on operational lists; search, filters and pagination remain outside the scrolling body.
 
 - Use the shared shadcn `Table` components.
-- Table header cells use `sticky top-0 z-10 bg-card`.
+- Table header cells inherit `sticky top-0 z-10 bg-muted` from the shared `TableHead`. The light product theme resolves `bg-muted` through `--surface-container-low` to `#EAF7E2`; avoid `bg-card` overrides that turn these headers white. Keep the semantic token so dark mode remains legible.
 - Long text is truncated only when the full value remains available through a detail link or tooltip.
 - Mobile layouts may switch to an item list, but the item-list wrapper must use `data-slot="operational-list-body"` so it receives the same flexible scrolling behavior.
 - Empty, loading, and error states must occupy the flexible body area rather than collapsing the panel.
@@ -69,6 +71,8 @@ Use `OperationalListPanel` from `src/components/operations/OperationalListPanel.
 ## Pagination
 
 - Use `OperationalPagination` for list screens.
+- Dashboard cards can opt into `density="compact"` to reduce footer padding, gaps and select width without changing other lists. Keep auxiliary metadata behind a labelled, keyboard/touch-accessible information popover; preserve page size, total and previous/next navigation. First/last shortcuts may hide on phones in this compact variant only.
+- Its optional `centerContent` slot can show compact read-only metadata between the total and page controls, without adding another footer row. Omitting the slot preserves the existing two-region footer; content must wrap on narrow screens rather than overlap controls.
 - The default choices are `10`, `20`, `30`, and `50` rows per page.
 - `page` and `pageSize` belong to the page/container component and must be sent to paginated APIs.
 - “Select all” applies only to the currently visible page unless the UI explicitly confirms selecting all filtered results.

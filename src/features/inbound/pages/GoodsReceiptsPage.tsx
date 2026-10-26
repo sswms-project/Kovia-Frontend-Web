@@ -1,5 +1,10 @@
 'use client'
 
+import { OrderType } from '@/types/api'
+
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useState } from 'react'
 import { Check, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
@@ -38,6 +43,7 @@ export default function GoodsReceiptsPage() {
   const [status, setStatus] = useState<GoodsReceiptStatus | ''>('')
   const [createdFrom, setCreatedFrom] = useState('')
   const [createdTo, setCreatedTo] = useState('')
+  const [sortDirection, setSortDirection] = useState(OrderType.Descending)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [approvalTarget, setApprovalTarget] = useState<GoodsReceiptSummary | null>(null)
@@ -46,14 +52,16 @@ export default function GoodsReceiptsPage() {
   const approvalDetailQuery = useGoodsReceiptQuery(approvalTarget?.id ?? '')
   const allowedActionsQuery = useInboundAllowedActionsQuery(approvalTarget?.id ?? '')
   const debouncedSearchText = useDebouncedValue(searchText, 350)
-  const query = useGoodsReceiptsQuery({
+  const exportFilters = {
+    sortDirection,
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
     ...(status ? { status } : {}),
     ...(createdFrom ? { dateFrom: toOperationalDateTimeStart(createdFrom) } : {}),
     ...(createdTo ? { dateTo: toOperationalDateTimeEnd(createdTo) } : {}),
-  })
+  }
+  const query = useGoodsReceiptsQuery(exportFilters)
 
   async function approveReceipt() {
     if (!approvalTarget) return
@@ -79,14 +87,24 @@ export default function GoodsReceiptsPage() {
         expectedVersion: approvalDetailQuery.data.version,
         selfApprovalAcknowledged: allowedActionsQuery.data.selfApprovalRequired,
       })
-      toast.success(`Đã xác nhận hàng đến cho phiếu ${approvalTarget.receiptCode}.`)
+      toast.success(`Đã duyệt kết quả kiểm hàng của phiếu ${approvalTarget.receiptCode}.`)
       setApprovalTarget(null)
     } catch (error) {
       logger.error(error)
-      toast.error(getApiErrorMessage(error, 'Không thể xác nhận hàng đến.'))
+      toast.error(getApiErrorMessage(error, 'Không thể duyệt kết quả kiểm hàng.'))
     }
   }
 
+  const listExport = useListExport({
+    dataset: 'goods-receipts',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.GOODS_RECEIPTS_VIEW,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <>
       <div className="flex h-full min-h-0 flex-col gap-4">
@@ -106,6 +124,9 @@ export default function GoodsReceiptsPage() {
           />
         </div>
         <ReceiptDirectory
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
           items={query.data?.items ?? []}
           totalCount={query.data?.totalCount ?? 0}
           page={page}
@@ -114,6 +135,11 @@ export default function GoodsReceiptsPage() {
           status={status}
           createdFrom={createdFrom}
           createdTo={createdTo}
+          sortDirection={sortDirection}
+          onSortDirectionChange={(value) => {
+            setSortDirection(value)
+            setPage(1)
+          }}
           isLoading={query.isFetching}
           isFetching={query.isFetching}
           isError={query.isError}
@@ -150,7 +176,7 @@ export default function GoodsReceiptsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận hàng đã đến kho?</AlertDialogTitle>
+            <AlertDialogTitle>Phê duyệt kết quả kiểm hàng?</AlertDialogTitle>
             <AlertDialogDescription>
               {approvalTarget
                 ? allowedActionsQuery.data?.selfApprovalRequired
@@ -175,7 +201,7 @@ export default function GoodsReceiptsPage() {
               }}
             >
               <Check aria-hidden="true" />
-              {approveMutation.isPending ? 'Đang xác nhận…' : 'Xác nhận hàng đến'}
+              {approveMutation.isPending ? 'Đang phê duyệt…' : 'Duyệt kiểm hàng'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

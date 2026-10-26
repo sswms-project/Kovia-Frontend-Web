@@ -136,6 +136,44 @@ function renderDialog(props: { allowedLocations?: { slotId: string; label: strin
 }
 
 describe('TransferSlotMapDialog', () => {
+  it.each(['slot', 'rack'] as const)(
+    'returns server capacity metadata for a selected %s',
+    (kind) => {
+      const capacity = {
+        capacity: 100,
+        capacityUnitName: 'Thùng',
+        remainingCapacity: 8,
+        requiresCapacityConfiguration: false,
+      }
+      sceneQueryMock.mockReturnValue({
+        data: {
+          ...scene,
+          slots: scene.slots.map((slot) => ({ ...slot, ...capacity })),
+          racks: scene.racks.map((rack) => ({ ...rack, ...capacity })),
+        },
+        isError: false,
+      })
+      const onConfirm = vi.fn()
+      render(
+        <TransferSlotMapDialog
+          open
+          warehouseId="w1"
+          title="Chọn vị trí"
+          description="Chọn vị trí"
+          onOpenChange={vi.fn()}
+          onConfirm={onConfirm}
+        />
+      )
+      fireEvent.click(screen.getByText(kind === 'slot' ? 'Ô A-01' : 'Kệ theo kệ'))
+      fireEvent.click(screen.getByRole('button', { name: 'Chọn' }))
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          slotId: kind === 'slot' ? 'a-01' : 'c-default',
+          capacity,
+        })
+      )
+    }
+  )
   it('cannot confirm until a slot is selected, and a rack asks for a slot inside it', () => {
     renderDialog()
     expect(screen.getByRole('button', { name: 'Chọn' })).toBeDisabled()

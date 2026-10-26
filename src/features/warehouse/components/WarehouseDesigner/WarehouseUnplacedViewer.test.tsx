@@ -8,19 +8,24 @@ import type {
   WarehouseLayoutSelection,
 } from '../../types/warehouse-layout-scene.types'
 import type { WarehouseCanvasHandle } from './WarehouseCanvas'
+import type { RackEditingControls } from './rack-editing.types'
 import { WarehouseLayoutViewerWorkspace } from './WarehouseLayoutViewerWorkspace'
 import { WarehouseDesignerWorkspace } from './WarehouseDesignerWorkspace'
 
-const mocks = vi.hoisted(() => ({ compact: false, reveal: vi.fn(), info: vi.fn() }))
+const mocks = vi.hoisted(() => ({ compact: false, reveal: vi.fn(), info: vi.fn(), nudge: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { info: mocks.info } }))
 vi.mock('next/dynamic', () => ({
   default: () =>
     function Canvas({
       ref,
       onSelect,
+      rackEditing,
+      rackTools,
     }: {
       ref?: React.Ref<WarehouseCanvasHandle>
       onSelect: (selection: WarehouseLayoutSelection) => void
+      rackEditing?: RackEditingControls
+      rackTools?: React.ReactNode
     }) {
       useImperativeHandle(ref, () => ({
         zoomIn: vi.fn(),
@@ -28,8 +33,38 @@ vi.mock('next/dynamic', () => ({
         zoomTo: vi.fn(),
         fit: vi.fn(),
         revealSelection: mocks.reveal,
+        cancelGesture: vi.fn(() => false),
+        nudgeRacks: mocks.nudge,
+        finishNudge: vi.fn(),
+        fitRacks: vi.fn(),
       }))
-      return <button onClick={() => onSelect({ kind: 'rack', id: 'rack' })}>Chọn trực tiếp</button>
+      return (
+        <>
+          {rackTools}
+          <button onClick={() => onSelect({ kind: 'rack', id: 'rack' })}>Chọn trực tiếp</button>
+          {rackEditing ? (
+            <>
+              <button onClick={() => rackEditing.onSelectionChange(['rack', 'rack-b'], 'rack-b')}>
+                Chọn nhóm kiểm thử
+              </button>
+              <button onClick={() => rackEditing.onGestureChange(true)}>
+                Bắt đầu kéo kiểm thử
+              </button>
+              <button
+                onClick={() => {
+                  rackEditing.onGestureChange(false)
+                  rackEditing.onCommit([
+                    { id: 'rack', x: 100.27, y: 120 },
+                    { id: 'rack-b', x: 400.27, y: 120 },
+                  ])
+                }}
+              >
+                Thả kéo kiểm thử
+              </button>
+            </>
+          ) : null}
+        </>
+      )
     },
 }))
 vi.mock('../../hooks/use-layout-designer-compact', () => ({
@@ -52,9 +87,103 @@ const pointerMethods = ['setPointerCapture', 'releasePointerCapture', 'hasPointe
 const originalPointerMethods = pointerMethods.map((method) =>
   Object.getOwnPropertyDescriptor(HTMLElement.prototype, method)
 )
+
+it('guards saving during a group gesture and saves one complete reversible batch', async () => {
+  const user = userEvent.setup()
+  const onSave = vi.fn()
+  const source: WarehouseLayoutEditorScene = {
+    ...scene,
+    racks: [
+      { ...scene.racks[0]!, placementPending: false },
+      { ...scene.racks[0]!, id: 'rack-b', rackCode: 'RB', x: 320, placementPending: false },
+    ],
+    decorations: [
+      {
+        id: 'decoration',
+        clientKey: 'decoration',
+        type: 'Forklift',
+        label: 'Xe nâng',
+        x: 50,
+        y: 50,
+        width: 40,
+        height: 40,
+        rotation: 0,
+        zIndex: 2,
+      },
+    ],
+  }
+  render(
+    <TooltipProvider>
+      <WarehouseDesignerWorkspace
+        warehouseId="w"
+        warehouseName="Kho"
+        sceneVersion={7}
+        resetRevision={0}
+        initialScene={source}
+        hasGeneratedGeometry={false}
+        canConfigure
+        isSaving={false}
+        isUpdatingRack={false}
+        isDeactivatingZone={false}
+        isDeactivatingRack={false}
+        saveError={null}
+        hasConflict={false}
+        placementToApply={null}
+        onPlacementApplied={vi.fn()}
+        onCreateZone={vi.fn()}
+        onCreateRack={vi.fn()}
+        onOpenLocationDetails={vi.fn()}
+        onUpdateRackName={vi.fn()}
+        onDeactivateZone={vi.fn()}
+        onDeactivateRack={vi.fn()}
+        onSave={onSave}
+        onReload={vi.fn()}
+        isClosing={false}
+        onClose={vi.fn()}
+      />
+    </TooltipProvider>
+  )
+  const workspace = screen.getByRole('region', { name: 'Trình thiết kế bố cục kho' })
+  fireEvent.keyDown(workspace, { key: 'a', ctrlKey: true })
+  expect(screen.getByRole('status')).toHaveTextContent('Đã chọn 2 kệ')
+  fireEvent.keyDown(workspace, { key: 'Escape' })
+  expect(screen.queryByRole('group', { name: 'Công cụ chọn và căn kệ' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Chọn nhóm kiểm thử' }))
+  expect(screen.getByRole('status')).toHaveTextContent('Đã chọn 2 kệ')
+  expect(screen.getByRole('group', { name: 'Công cụ chọn và căn kệ' })).toHaveTextContent(
+    'Kệ chuẩn: RB'
+  )
+  expect(screen.queryByRole('button', { name: 'Chọn nhiều kệ' })).not.toBeInTheDocument()
+  fireEvent.keyDown(workspace, { key: 'ArrowRight', repeat: false })
+  expect(mocks.nudge).toHaveBeenLastCalledWith(['rack', 'rack-b'], { x: 20, y: 0 }, false)
+  fireEvent.keyDown(workspace, { key: 'ArrowRight', repeat: true })
+  expect(mocks.nudge).toHaveBeenLastCalledWith(['rack', 'rack-b'], { x: 20, y: 0 }, true)
+  await user.click(screen.getByRole('button', { name: 'Bắt đầu kéo kiểm thử' }))
+  expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Hoàn tác' })).toBeDisabled()
+  expect(onSave).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Thả kéo kiểm thử' }))
+  await user.click(screen.getByRole('button', { name: 'Lưu' }))
+  expect(onSave).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      racks: [
+        expect.objectContaining({ id: 'rack', x: 100.27 }),
+        expect.objectContaining({ id: 'rack-b', x: 400.27 }),
+      ],
+      decorations: source.decorations,
+      slots: source.slots,
+    }),
+    7
+  )
+  await user.click(screen.getByRole('button', { name: 'Hoàn tác' }))
+  expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Làm lại' }))
+  expect(screen.getByRole('button', { name: 'Lưu' })).toBeEnabled()
+})
 afterEach(() => {
   mocks.reveal.mockClear()
   mocks.info.mockClear()
+  mocks.nudge.mockClear()
   mocks.compact = false
   pointerMethods.forEach((method, index) => {
     const original = originalPointerMethods[index]
@@ -70,6 +199,80 @@ beforeEach(() => {
     })
   }
 })
+it.each([false, true])(
+  'places an existing queued rack through the manual form (compact=%s)',
+  async (compact) => {
+    mocks.compact = compact
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    const source: WarehouseLayoutEditorScene = {
+      ...scene,
+      zones: [{ ...scene.zones[0]!, width: 100, height: 400 }],
+      racks: [{ ...scene.racks[0]!, width: 120, height: 40 }],
+    }
+    render(
+      <TooltipProvider>
+        <WarehouseDesignerWorkspace
+          warehouseId="w"
+          warehouseName="Kho"
+          sceneVersion={7}
+          resetRevision={0}
+          initialScene={source}
+          hasGeneratedGeometry={false}
+          canConfigure
+          isSaving={false}
+          isUpdatingRack={false}
+          isDeactivatingZone={false}
+          isDeactivatingRack={false}
+          saveError={null}
+          hasConflict={false}
+          placementToApply={null}
+          onPlacementApplied={vi.fn()}
+          onCreateZone={vi.fn()}
+          onCreateRack={vi.fn()}
+          onOpenLocationDetails={vi.fn()}
+          onUpdateRackName={vi.fn()}
+          onDeactivateZone={vi.fn()}
+          onDeactivateRack={vi.fn()}
+          onSave={onSave}
+          onReload={vi.fn()}
+          isClosing={false}
+          onClose={vi.fn()}
+        />
+      </TooltipProvider>
+    )
+    await user.click(screen.getByRole('button', { name: 'Chọn trực tiếp' }))
+    await user.click(screen.getByRole('button', { name: 'Đặt lên sơ đồ' }))
+    await user.clear(screen.getByLabelText('Vị trí ngang (X)'))
+    await user.type(screen.getByLabelText('Vị trí ngang (X)'), '0')
+    await user.clear(screen.getByLabelText('Vị trí dọc (Y)'))
+    await user.type(screen.getByLabelText('Vị trí dọc (Y)'), '100')
+    await user.clear(screen.getByLabelText('Góc xoay (độ)'))
+    await user.type(screen.getByLabelText('Góc xoay (độ)'), '90')
+    await user.click(screen.getByRole('button', { name: 'Đặt vào bản nháp' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(onSave).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    expect(onSave).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        racks: [
+          expect.objectContaining({
+            id: 'rack',
+            zoneId: 'zone',
+            x: 0,
+            y: 100,
+            rotation: 90,
+            placementPending: false,
+          }),
+        ],
+      }),
+      7
+    )
+    await user.click(screen.getByRole('button', { name: 'Hoàn tác' }))
+    expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
+  }
+)
+
 const scene: WarehouseLayoutEditorScene = {
   canvas: { width: 1200, height: 800, gridSize: 20 },
   slots: [],
@@ -108,7 +311,7 @@ const scene: WarehouseLayoutEditorScene = {
   ],
 }
 it.each([false, true])(
-  'reveals selection after closing unplaced panels (compact=%s), not on ordinary clicks',
+  'shows queued location details without panning to a fabricated position (compact=%s)',
   async (compact) => {
     mocks.compact = compact
     const user = userEvent.setup()
@@ -128,11 +331,10 @@ it.each([false, true])(
     expect(mocks.reveal).not.toHaveBeenCalled()
     if (compact) await user.click(screen.getByRole('button', { name: 'Vị trí & hàng hóa' }))
     await user.click(screen.getByRole('button', { name: 'Chưa sắp xếp (1)' }))
-    await user.click(screen.getByRole('button', { name: 'Chọn Z / R' }))
-    await waitFor(() =>
-      expect(mocks.reveal).toHaveBeenCalledExactlyOnceWith({ kind: 'rack', id: 'rack' })
-    )
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Chọn Khu Z · Khu → Kệ R · Kệ' }))
+    expect(mocks.reveal).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Đường dẫn vị trí')).toHaveTextContent('Khu Z · Khu → Kệ R · Kệ')
+    if (!compact) expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   }
 )
 
@@ -177,7 +379,7 @@ it.each([false, true])(
     expect(mocks.reveal).not.toHaveBeenCalled()
     if (compact) await user.click(screen.getByRole('button', { name: 'Đối tượng' }))
     await user.click(screen.getByRole('button', { name: 'Chưa sắp xếp (1)' }))
-    screen.getByRole('button', { name: 'Chọn Z / R' }).focus()
+    screen.getByRole('button', { name: 'Chọn Khu Z · Khu → Kệ R · Kệ' }).focus()
     await user.keyboard('{Enter}')
     if (compact) {
       const drawer = document.querySelector('[data-slot="drawer-content"]')!
@@ -202,9 +404,12 @@ it.each([false, true])(
     expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Xoay hình' }))
-    await user.click(screen.getByRole('button', { name: 'Đổ màu' }))
-    await user.click(screen.getAllByRole('button', { name: /^Chọn màu #/ })[0]!)
-    expect(mocks.info).toHaveBeenCalledTimes(1)
+    expect(mocks.info).toHaveBeenLastCalledWith('Hãy đặt vị trí trên sơ đồ trước khi xoay.')
+    expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Sắp xếp gợi ý' }))
+    expect(onSave).not.toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Lưu' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Hoàn tác' }))
+    expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
   }
 )

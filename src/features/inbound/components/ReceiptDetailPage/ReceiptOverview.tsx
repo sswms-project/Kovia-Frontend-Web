@@ -1,5 +1,6 @@
 import { formatOperationalDate } from '@/features/inbound-request/utils/inbound-request-format'
 import type { GoodsReceiptDetail } from '../../types/inbound.types'
+import { OperationalDocumentInfo } from '@/components/operations/OperationalDocumentInfo'
 
 interface ReceiptOverviewProps {
   readonly receipt: GoodsReceiptDetail
@@ -7,13 +8,26 @@ interface ReceiptOverviewProps {
 
 export function ReceiptOverview({ receipt }: ReceiptOverviewProps) {
   return (
-    <section className="bg-card shrink-0 border" aria-labelledby="receipt-overview-heading">
-      <div className="border-b p-4">
-        <h2 id="receipt-overview-heading" className="text-sm font-semibold">
-          Tổng quan phiếu nhận hàng
-        </h2>
-      </div>
-      <dl className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <OperationalDocumentInfo
+      documentId={receipt.id}
+      headingId="receipt-overview-heading"
+      summary={`${receipt.inboundRequestCode} · ${receipt.warehouseName}`}
+      summaryContent={
+        receipt.rejectionReason ? (
+          <div className="mt-3 border-t pt-3">
+            <p className="text-destructive text-xs font-medium">Yêu cầu chỉnh sửa</p>
+            <p className="mt-1 text-xs break-words">{receipt.rejectionReason}</p>
+          </div>
+        ) : undefined
+      }
+    >
+      <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {receipt.keptAtReceiving && (
+          <Metadata
+            label="Hướng xử lý hàng đạt"
+            value="Giữ tại vị trí nhận · khả dụng theo FEFO, chưa phải đã cất kệ"
+          />
+        )}
         <Metadata label="Yêu cầu nhập kho" value={receipt.inboundRequestCode} />
         <Metadata label="Kho nhận" value={receipt.warehouseName} />
         <Metadata
@@ -21,20 +35,31 @@ export function ReceiptOverview({ receipt }: ReceiptOverviewProps) {
           value={receipt.receivingAssignedToName ?? receipt.createdByName}
         />
         <Metadata label="Ngày tạo" value={formatOperationalDate(receipt.createdAt)} />
-        {receipt.status === 'Approved' || receipt.status === 'Completed' ? (
+        {!receipt.keptAtReceiving &&
+        (receipt.status === 'Approved' || receipt.status === 'Completed') ? (
           <Metadata label="Người cất hàng" value={receipt.putAwayAssignedToName ?? 'Chưa giao'} />
         ) : null}
         {receipt.approvedByName ? (
           <Metadata label="Người duyệt" value={receipt.approvedByName} />
         ) : null}
       </dl>
-      {receipt.rejectionReason ? (
-        <div className="border-t p-4">
-          <p className="text-destructive text-xs font-medium">Yêu cầu chỉnh sửa</p>
-          <p className="mt-1 text-xs">{receipt.rejectionReason}</p>
-        </div>
-      ) : null}
-    </section>
+      <div className="mt-3 space-y-2 border-t pt-3 text-sm">
+        <p>
+          {receipt.status === 'Approved'
+            ? 'Đã duyệt kết quả kiểm; phần đạt còn chờ cất, phần hỏng đã nhập cần được cách biệt.'
+            : receipt.status === 'Completed' &&
+                receipt.receivingFlowVersion === 1 &&
+                receipt.items.every((item) => item.receivedQuantity === 0)
+              ? 'Đã duyệt biên bản từ chối toàn bộ. Không ghi tồn hoặc tạo việc cất; phần chưa nhận vẫn theo dõi trên yêu cầu nhập.'
+              : receipt.receivingFlowVersion === 1
+                ? 'Kiểm trước nhận: chỉ phần chấp nhận vào tồn. Phần từ chối không làm tăng tồn hoặc tự đóng lượng còn phải nhận.'
+                : 'Phiếu lịch sử giữ nguyên cách ghi nhận trước chuyển đổi.'}
+        </p>
+        {receipt.refusalEvidence?.map((file) => (
+          <p key={file.id}>Bằng chứng từ chối: {file.fileName}</p>
+        ))}
+      </div>
+    </OperationalDocumentInfo>
   )
 }
 

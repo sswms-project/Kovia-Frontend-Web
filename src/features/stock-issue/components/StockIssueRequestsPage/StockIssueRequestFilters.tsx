@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { RefreshCw, Search } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ interface StockIssueRequestFiltersProps {
   readonly onDateFromChange: (value: string) => void
   readonly onDateToChange: (value: string) => void
   readonly onAssignedToMeChange: (value: boolean) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -58,6 +60,7 @@ export function StockIssueRequestFilters({
   onDateToChange,
   onAssignedToMeChange,
   onRetry,
+  exportAction,
 }: StockIssueRequestFiltersProps) {
   const searchInputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -73,7 +76,7 @@ export function StockIssueRequestFilters({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <InputGroup
-        className="min-w-0 flex-1 sm:w-80 sm:flex-none"
+        className="min-w-0 flex-1 basis-full sm:w-80 sm:flex-none sm:basis-auto"
         title="Gõ không dấu, nhiều từ cùng lúc. Tìm theo mã phiếu, mã tham chiếu, người nhận, số điện thoại, kho, tên/SKU/mã vạch sản phẩm."
       >
         <InputGroupAddon>
@@ -131,6 +134,7 @@ export function StockIssueRequestFilters({
       </NativeSelect>
 
       <OperationalDateRangeFilter
+        withTime
         from={dateFrom}
         to={dateTo}
         label="ngày tạo"
@@ -149,6 +153,7 @@ export function StockIssueRequestFilters({
         <FieldLabel htmlFor="stock-issue-request-filter-assigned-to-me">Giao cho tôi</FieldLabel>
       </Field>
 
+      {exportAction}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

@@ -136,6 +136,14 @@ export function ReviewStep({
 
   return (
     <div className="flex flex-col gap-4">
+      <Alert>
+        <AlertTitle>Kiểm hàng trước khi nhận</AlertTitle>
+        <AlertDescription>
+          Số xác nhận gồm hàng đạt và hàng từ chối. Phần hỏng được chuyển thành số từ chối trước
+          nhận khi tạo phiếu nháp; chỉ phần đạt được nhận vào tồn. Bước gửi phiếu yêu cầu xác nhận
+          bên giao giữ hoặc nhận lại hàng từ chối và đính kèm bằng chứng.
+        </AlertDescription>
+      </Alert>
       <div className="grid gap-3 md:grid-cols-2">
         <section className="bg-muted flex flex-col gap-2 border p-3">
           <div className="flex items-center gap-2">

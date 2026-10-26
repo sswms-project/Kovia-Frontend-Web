@@ -1,8 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import type { ReactNode } from 'react'
+import { useId, useRef, useState } from 'react'
+import Link from 'next/link'
+import { BusinessCodeField } from '@/components/forms/BusinessCodeField'
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
+import { DatePickerField } from '@/components/forms/DatePickerField'
+import { operationalToday } from '@/lib/operational-date-time'
+import { OpeningStockApprovalDialog } from '../OpeningStockApprovalDialog'
+import { OpeningStockActions } from './OpeningStockActions'
+import { OpeningStockDetail } from './OpeningStockDetail'
 import type { UseFormReturn } from 'react-hook-form'
-import { PackagePlus, Plus, Trash2 } from 'lucide-react'
+import { Map as MapIcon, PackagePlus, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { TransferSlotMapDialog } from '@/features/transfer/components/TransferFormPage/TransferSlotMapDialog'
+import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -33,17 +44,39 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
-import type { CreateOpeningStockFormValues } from '../../schemas/create-opening-stock.schema'
+import { useImportNavigation } from '@/components/operations/use-import-navigation'
+import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDialog'
+import {
+  openingStockQuantitySchema,
+  type CreateOpeningStockFormValues,
+} from '../../schemas/create-opening-stock.schema'
 import type {
   InventoryFilterOption,
   OpeningStockRecord,
   OpeningStockStatus,
 } from '../../types/inventory.types'
 import { inventoryService } from '../../services/inventory.service'
-import { formatInventoryDate, formatInventoryQuantity } from '../../utils/inventory-format'
+import {
+  formatInventoryDate,
+  formatInventoryQuantity,
+  formatQualityStatus,
+  formatEligibilityStatus,
+} from '../../utils/inventory-format'
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
+import {
+  normalizeOpeningStockLotNumber,
+  openingStockLocationDescription,
+} from '../../utils/opening-stock-import'
 
 interface OpeningStockDirectoryProps {
+  readonly recordId?: string
+  readonly isCreateUncertain: boolean
+  readonly search: string
+  readonly lookupSearch: { product: string; location: string; lot: string }
+  readonly onLookupSearch: (kind: 'product' | 'location' | 'lot', value: string) => void
+  readonly lookupError: boolean
+  readonly onLookupRetry: () => void
+  readonly onSearchChange: (value: string) => void
   readonly permissions: readonly string[]
   readonly currentUserId: string | null
   readonly items: readonly OpeningStockRecord[]
@@ -56,16 +89,30 @@ interface OpeningStockDirectoryProps {
   readonly dateTo: string
   readonly form: UseFormReturn<CreateOpeningStockFormValues>
   readonly warehouseOptions: readonly InventoryFilterOption[]
-  readonly productOptions: readonly (InventoryFilterOption & { unitId: string; unitName: string })[]
-  readonly slotOptions: readonly InventoryFilterOption[]
+  readonly managedWarehouseOptions: readonly InventoryFilterOption[]
+  readonly productOptions: readonly (InventoryFilterOption & {
+    unitId: string
+    unitName: string
+    isLotTracked?: boolean
+    quantityPrecision?: number
+    units?: readonly {
+      unitId: string
+      unitName: string
+      conversionFactor: number
+      quantityPrecision: number
+    }[]
+  })[]
+  readonly slotOptions: readonly (InventoryFilterOption & { description?: string })[]
   readonly lotOptions: readonly InventoryFilterOption[]
   readonly areOptionsLoading: boolean
   readonly isLoading: boolean
+  readonly isFetching: boolean
   readonly isError: boolean
   readonly isPending: boolean
   readonly canCreate: boolean
   readonly canApprove: boolean
   readonly canSelfApprove: boolean
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onPageChange: (page: number) => void
   readonly onFilterWarehouseChange: (value: string) => void
@@ -87,6 +134,8 @@ interface OpeningStockDirectoryProps {
 }
 
 export interface OpeningStockDraftLine {
+  id?: string
+  newLot?: { lotNumber: string; manufacturedDate: string | null; expiryDate: string | null }
   productId: string
   slotId: string
   lotId?: string
@@ -115,7 +164,13 @@ function statusLabel(status: OpeningStockStatus) {
 }
 
 export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
+  const filterId = useId()
+  const saveLock = useRef(false)
+  const [approveItem, setApproveItem] = useState<OpeningStockRecord | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [mapWarehouseId, setMapWarehouseId] = useState<string | null>(null)
+  const restoreMapFocus = useRef(false)
+  const navigation = useImportNavigation(createOpen, props.isPending || props.isCreateUncertain)
   const [reviewItem, setReviewItem] = useState<OpeningStockRecord | null>(null)
   const [decision, setDecision] = useState<'Returned' | 'Rejected' | 'Cancelled' | 'Withdraw'>(
     'Returned'
@@ -124,41 +179,131 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
   const [selfApprovalAcknowledged, setSelfApprovalAcknowledged] = useState(false)
   const [draftLines, setDraftLines] = useState<OpeningStockDraftLine[]>([])
   const [editItem, setEditItem] = useState<OpeningStockRecord | null>(null)
-  const [detailItem, setDetailItem] = useState<OpeningStockRecord | null>(null)
+  const [chosenProduct, setChosenProduct] = useState<
+    OpeningStockDirectoryProps['productOptions'][number] | null
+  >(null)
+  const [chosenSlot, setChosenSlot] = useState<
+    OpeningStockDirectoryProps['slotOptions'][number] | null
+  >(null)
+  const [chosenLot, setChosenLot] = useState<InventoryFilterOption | null>(null)
+  const productId = props.form.watch('productId')
+  const slotId = props.form.watch('slotId')
+  const lotId = props.form.watch('lotId')
+  const productOptions =
+    chosenProduct &&
+    chosenProduct.value === productId &&
+    !props.productOptions.some((option) => option.value === productId)
+      ? [chosenProduct, ...props.productOptions]
+      : props.productOptions
+  const slotOptions =
+    chosenSlot &&
+    chosenSlot.value === slotId &&
+    !props.slotOptions.some((option) => option.value === slotId)
+      ? [chosenSlot, ...props.slotOptions]
+      : props.slotOptions
+  const lotOptions =
+    chosenLot &&
+    chosenLot.value === lotId &&
+    !props.lotOptions.some((option) => option.value === lotId)
+      ? [chosenLot, ...props.lotOptions]
+      : props.lotOptions
+  const selectedSlotDescription = slotOptions.find((option) => option.value === slotId)?.description
+  const selectedProduct = productOptions.find((option) => option.value === productId)
+  const unitOptions =
+    selectedProduct?.units ??
+    (selectedProduct
+      ? [
+          {
+            unitId: selectedProduct.unitId,
+            unitName: selectedProduct.unitName,
+            conversionFactor: 1,
+            quantityPrecision: selectedProduct.quantityPrecision ?? 2,
+          },
+        ]
+      : [])
+  const enteredUnitId = props.form.watch('enteredUnitId')
+  const selectedUnit = enteredUnitId
+    ? unitOptions.find((unit) => unit.unitId === enteredUnitId)
+    : unitOptions[0]
   const errors = props.form.formState.errors
+  function validateLineUnit() {
+    if (!selectedUnit) {
+      props.form.setError(
+        'enteredUnitId',
+        { message: 'Chọn lại đơn vị tính đang hoạt động.' },
+        { shouldFocus: true }
+      )
+      return false
+    }
+    const quantity = openingStockQuantitySchema(selectedUnit.quantityPrecision).safeParse(
+      props.form.getValues('quantity')
+    )
+    if (!quantity.success) {
+      props.form.setError(
+        'quantity',
+        { message: quantity.error.issues[0]?.message },
+        { shouldFocus: true }
+      )
+      return false
+    }
+    return true
+  }
   function toDraftLine(values: CreateOpeningStockFormValues): OpeningStockDraftLine {
-    const selectedProduct = props.productOptions.find((option) => option.value === values.productId)
+    const selectedProduct = productOptions.find((option) => option.value === values.productId)
+    const unit = selectedUnit
     return {
       productId: values.productId,
       slotId: values.slotId,
       ...(values.lotId ? { lotId: values.lotId } : {}),
+      ...(values.newLotNumber
+        ? {
+            newLot: {
+              lotNumber: values.newLotNumber,
+              manufacturedDate: values.manufacturedDate || null,
+              expiryDate: values.expiryDate || null,
+            },
+            lotLabel: values.newLotNumber,
+          }
+        : {}),
       quantity: values.quantity,
-      enteredUnitId: selectedProduct?.unitId ?? '',
-      enteredUnitName: selectedProduct?.unitName ?? '',
-      conversionFactor: 1,
+      enteredUnitId: unit?.unitId ?? '',
+      enteredUnitName: unit?.unitName ?? '',
+      conversionFactor: unit?.conversionFactor ?? 1,
       qualityStatus: values.qualityStatus,
       eligibilityStatus: values.eligibilityStatus,
       productLabel: selectedProduct?.label ?? values.productId,
       slotLabel:
-        props.slotOptions.find((option) => option.value === values.slotId)?.label ?? values.slotId,
+        slotOptions.find((option) => option.value === values.slotId)?.label ?? values.slotId,
       ...(values.lotId
         ? {
             lotLabel:
-              props.lotOptions.find((option) => option.value === values.lotId)?.label ??
-              values.lotId,
+              lotOptions.find((option) => option.value === values.lotId)?.label ?? values.lotId,
           }
         : {}),
     }
   }
   function resetLineFields() {
+    setChosenProduct(null)
+    setChosenSlot(null)
+    setChosenLot(null)
     props.form.setValue('productId', '')
+    props.form.setValue('enteredUnitId', '')
     props.form.setValue('slotId', '')
     props.form.setValue('lotId', '')
+    props.form.setValue('newLotNumber', '')
+    props.form.setValue('manufacturedDate', '')
+    props.form.setValue('expiryDate', '')
     props.form.setValue('quantity', 1)
     props.form.setValue('qualityStatus', 'Good')
     props.form.setValue('eligibilityStatus', 'Available')
+    props.form.setValue('acknowledgePendingLots', false)
   }
   async function addLine() {
+    if (props.areOptionsLoading || props.isPending) return
+    if (draftLines.length >= 200) {
+      props.form.setError('productId', { message: 'Mỗi phiếu tối đa 200 dòng.' })
+      return
+    }
     const valid = await props.form.trigger([
       'productId',
       'slotId',
@@ -166,15 +311,28 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
       'quantity',
       'qualityStatus',
       'eligibilityStatus',
+      'newLotNumber',
+      'manufacturedDate',
+      'expiryDate',
     ])
-    if (!valid) return
+    if (!valid || !validateLineUnit()) return
     const values = props.form.getValues()
     const line = toDraftLine(values)
+    if (
+      productOptions.find((p) => p.value === line.productId)?.isLotTracked &&
+      !line.lotId &&
+      !line.newLot
+    ) {
+      props.form.setError('lotId', { message: 'Hàng theo dõi lô phải chọn hoặc khai báo lô.' })
+      return
+    }
     const duplicate = draftLines.some(
       (item) =>
         item.productId === line.productId &&
         item.slotId === line.slotId &&
         item.lotId === line.lotId &&
+        normalizeOpeningStockLotNumber(item.newLot?.lotNumber ?? '') ===
+          normalizeOpeningStockLotNumber(line.newLot?.lotNumber ?? '') &&
         item.qualityStatus === line.qualityStatus &&
         item.eligibilityStatus === line.eligibilityStatus
     )
@@ -186,12 +344,44 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
     resetLineFields()
   }
   async function create(values: CreateOpeningStockFormValues) {
+    if (!validateLineUnit()) return
     const lines = [...draftLines, toDraftLine(values)]
     await props.onCreate(values, lines)
     setDraftLines([])
     setCreateOpen(false)
   }
-  async function createDraft() {
+  async function saveDraft() {
+    if (props.areOptionsLoading) return
+    const values = props.form.getValues()
+    if (
+      draftLines.length > 0 &&
+      (values.productId ||
+        values.slotId ||
+        values.lotId ||
+        values.newLotNumber ||
+        values.manufacturedDate ||
+        values.expiryDate ||
+        values.quantity !== 1 ||
+        values.qualityStatus !== 'Good' ||
+        values.eligibilityStatus !== 'Available')
+    ) {
+      props.form.setError(
+        'productId',
+        { message: 'Còn một dòng chưa được thêm. Bấm “Thêm dòng và nhập tiếp” trước khi lưu.' },
+        { shouldFocus: true }
+      )
+      return
+    }
+    const valid = await props.form.trigger(
+      editItem?.isLegacyDate ? ['warehouseId'] : ['warehouseId', 'effectiveDate', 'code']
+    )
+    if (!valid) return
+    if (draftLines.some((line) => line.newLot) && !props.form.getValues('acknowledgePendingLots')) {
+      props.form.setError('acknowledgePendingLots', {
+        message: 'Xác nhận thông tin lô mới trước khi lưu.',
+      })
+      return
+    }
     if (editItem) {
       if (draftLines.length === 0) return
       await props.onUpdate(editItem, draftLines)
@@ -204,17 +394,43 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
       await props.form.handleSubmit(create)()
       return
     }
-    const commonFieldsValid = await props.form.trigger(['warehouseId', 'evidenceFile'])
+    const commonFieldsValid = await props.form.trigger([
+      'code',
+      'warehouseId',
+      'effectiveDate',
+      'evidenceFile',
+    ])
     if (!commonFieldsValid) return
     await props.onCreate(props.form.getValues(), draftLines)
     setDraftLines([])
     setCreateOpen(false)
   }
+  async function createDraft() {
+    if (saveLock.current || props.isPending) return
+    saveLock.current = true
+    try {
+      await saveDraft()
+    } catch {
+      /* The page reports the error; keep all unsaved rows in this dialog. */
+    } finally {
+      saveLock.current = false
+    }
+  }
   function openCreate() {
+    setChosenProduct(null)
+    setChosenSlot(null)
+    setChosenLot(null)
     setEditItem(null)
     setDraftLines([])
     props.form.reset({
+      code: '',
+      enteredUnitId: '',
       warehouseId: '',
+      effectiveDate: operationalToday(),
+      newLotNumber: '',
+      manufacturedDate: '',
+      expiryDate: '',
+      acknowledgePendingLots: false,
       productId: '',
       slotId: '',
       lotId: '',
@@ -225,13 +441,26 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
     setCreateOpen(true)
   }
   function openEdit(item: OpeningStockRecord) {
+    setChosenProduct(null)
+    setChosenSlot(null)
+    setChosenLot(null)
     setEditItem(item)
     setDraftLines(
       item.lines.map((line) => ({
+        id: line.id,
+        ...(!line.lotId && line.lotNumberSnapshot
+          ? {
+              newLot: {
+                lotNumber: line.lotNumberSnapshot,
+                manufacturedDate: line.manufacturedDateSnapshot ?? null,
+                expiryDate: line.expiryDateSnapshot ?? null,
+              },
+            }
+          : {}),
         productId: line.productId,
         slotId: line.slotId,
         ...(line.lotId ? { lotId: line.lotId } : {}),
-        quantity: line.quantity,
+        quantity: line.enteredQuantity,
         enteredUnitId: line.enteredUnitId,
         enteredUnitName: line.enteredUnitName,
         conversionFactor: line.conversionFactorSnapshot,
@@ -243,7 +472,14 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
       }))
     )
     props.form.reset({
+      code: item.code,
+      enteredUnitId: '',
       warehouseId: item.warehouseId,
+      effectiveDate: item.effectiveDate ?? operationalToday(),
+      newLotNumber: '',
+      manufacturedDate: '',
+      expiryDate: '',
+      acknowledgePendingLots: false,
       productId: '',
       slotId: '',
       lotId: '',
@@ -270,302 +506,275 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
   }
 
   async function approve(item: OpeningStockRecord) {
-    const isMaker =
-      item.createdByUserId === props.currentUserId || item.submittedByUserId === props.currentUserId
-    if (
-      isMaker &&
-      !window.confirm(
-        'Bạn đang tự phê duyệt chứng từ do chính mình lập hoặc gửi. Xác nhận tiếp tục?'
-      )
-    )
-      return
-    await props.onAction(item, 'approve', undefined, undefined, isMaker)
+    setApproveItem(item)
   }
+  const detailItem = props.recordId ? props.items.find((item) => item.id === props.recordId) : null
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <header className="flex shrink-0 items-start justify-between gap-3 border-b pb-4">
-        <div className="flex gap-3">
-          <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
-            <PackagePlus />
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
+      {props.recordId ? (
+        <header className="flex shrink-0 items-start gap-3 border-b pb-4">
+          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
+            <PackagePlus aria-hidden="true" />
           </span>
-          <div>
-            <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-            <h1 className="text-xl font-semibold">Chứng từ tồn đầu</h1>
-            <p className="text-muted-foreground text-sm">
-              Maker-checker, ghi sổ một lần và chống trùng phạm vi.
-            </p>
+          <div className="min-w-0">
+            <Link className="text-primary text-xs underline" href="/inventory/opening-stocks">
+              Danh sách tồn đầu kỳ
+            </Link>
+            <h1 className="text-xl font-semibold wrap-anywhere">
+              {detailItem?.code ?? 'Chi tiết tồn đầu kỳ'}
+            </h1>
           </div>
-        </div>
-        {props.canCreate ? <Button onClick={openCreate}>Tạo chứng từ</Button> : null}
-      </header>
-      <InventoryWorkspaceNavigation currentView="opening-stocks" permissions={props.permissions} />
-      <OperationalListPanel aria-label="Danh sách chứng từ tồn đầu kỳ">
-        <div className="grid gap-3 border-b p-3 sm:grid-cols-4">
-          <NativeSelect
-            aria-label="Lọc theo kho"
-            value={props.filterWarehouseId}
-            onChange={(event) => props.onFilterWarehouseChange(event.target.value)}
-          >
-            <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-            {props.warehouseOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect
-            aria-label="Lọc theo trạng thái"
-            value={props.statusFilter}
-            onChange={(event) =>
-              props.onStatusFilterChange(event.target.value as OpeningStockStatus | '')
+        </header>
+      ) : (
+        <>
+          <h1 className="sr-only">Tồn kho đầu kỳ</h1>
+          <InventoryWorkspaceNavigation
+            currentView="opening-stocks"
+            permissions={props.permissions}
+            actions={
+              props.canCreate ? (
+                <>
+                  <Button asChild variant="outline">
+                    <Link href="/inventory/opening-stocks/import">Nhập từ tệp</Link>
+                  </Button>
+                  <Button onClick={openCreate}>Tạo chứng từ</Button>
+                </>
+              ) : undefined
             }
-          >
-            <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-            <NativeSelectOption value="Draft">Nháp</NativeSelectOption>
-            <NativeSelectOption value="PendingApproval">Chờ duyệt</NativeSelectOption>
-            <NativeSelectOption value="Returned">Trả lại</NativeSelectOption>
-            <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
-            <NativeSelectOption value="Posted">Đã ghi sổ</NativeSelectOption>
-            <NativeSelectOption value="Cancelled">Đã hủy</NativeSelectOption>
-          </NativeSelect>
-          <Input
-            aria-label="Từ ngày"
-            type="date"
-            value={props.dateFrom}
-            onChange={(event) => props.onDateFromChange(event.target.value)}
           />
-          <Input
-            aria-label="Đến ngày"
-            type="date"
-            value={props.dateTo}
-            min={props.dateFrom || undefined}
-            onChange={(event) => props.onDateToChange(event.target.value)}
-          />
-        </div>
-        {props.isLoading ? (
-          <OperationalLoadingState rows={8} />
+        </>
+      )}
+      {props.recordId ? (
+        props.isLoading ? (
+          <OperationalLoadingState />
         ) : props.isError ? (
-          <OperationalErrorState title="Không thể tải chứng từ tồn đầu" onRetry={props.onRetry} />
-        ) : props.items.length === 0 ? (
-          <OperationalEmptyState
-            title="Chưa có chứng từ tồn đầu"
-            description="Tạo chứng từ từ kết quả kiểm đếm ban đầu."
+          <OperationalErrorState title="Không thể tải chứng từ" onRetry={props.onRetry} />
+        ) : detailItem ? (
+          <OpeningStockDetail
+            item={detailItem}
+            status={statusLabel(detailItem.status)}
+            actions={
+              <OpeningStockActions
+                {...props}
+                item={detailItem}
+                onEdit={openEdit}
+                onApprove={approve}
+                onReview={(item, decision) => {
+                  setDecision(decision)
+                  setReviewItem(item)
+                }}
+              />
+            }
           />
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table className="min-w-[980px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="sticky top-0 z-10">Chứng từ</TableHead>
-                  <TableHead className="sticky top-0 z-10">Kho</TableHead>
-                  <TableHead className="sticky top-0 z-10">Dòng hàng</TableHead>
-                  <TableHead className="sticky top-0 z-10">Bằng chứng</TableHead>
-                  <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                  <TableHead className="sticky top-0 z-10">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {props.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <p className="font-mono font-medium">{item.code}</p>
-                      <p className="text-muted-foreground text-xs">
-                        v{item.revision} · {formatInventoryDate(item.createdAt)}
-                      </p>
-                    </TableCell>
-                    <TableCell>{item.warehouseName}</TableCell>
-                    <TableCell>
-                      {item.lines.map((line) => (
-                        <p key={line.id} className="text-xs">
-                          {line.sku} · {line.slotCode} ·{' '}
-                          {formatInventoryQuantity(line.enteredQuantity)} {line.enteredUnitName}
-                        </p>
-                      ))}
-                    </TableCell>
-                    <TableCell className="max-w-48">
-                      {item.evidence.map((file) => (
-                        <button
-                          key={file.id}
-                          type="button"
-                          className="text-primary block max-w-full truncate text-left underline"
-                          onClick={() =>
-                            void inventoryService.downloadEvidence(file.id, file.fileName)
-                          }
-                        >
-                          {file.fileName}
-                        </button>
-                      ))}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{statusLabel(item.status)}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setDetailItem(item)}>
-                          Chi tiết
-                        </Button>
-                        {(item.status === 'Draft' || item.status === 'Returned') &&
-                        props.canCreate &&
-                        (item.createdByUserId === props.currentUserId ||
-                          item.submittedByUserId === props.currentUserId) ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={props.isPending}
-                            onClick={() => openEdit(item)}
-                          >
-                            Sửa
-                          </Button>
-                        ) : null}
-                        {(item.status === 'Draft' || item.status === 'Returned') &&
-                        props.canCreate ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={props.isPending}
-                            onClick={() => void props.onAction(item, 'submit')}
-                          >
-                            Gửi duyệt
-                          </Button>
-                        ) : null}
-                        {item.status === 'PendingApproval' &&
-                        props.canApprove &&
-                        ((item.createdByUserId !== props.currentUserId &&
-                          item.submittedByUserId !== props.currentUserId) ||
-                          props.canSelfApprove) ? (
-                          <Button
-                            size="sm"
-                            disabled={props.isPending}
-                            onClick={() => void approve(item)}
-                          >
-                            Duyệt & ghi sổ
-                          </Button>
-                        ) : null}
-                        {item.status === 'PendingApproval' &&
-                        props.canApprove &&
-                        ((item.createdByUserId !== props.currentUserId &&
-                          item.submittedByUserId !== props.currentUserId) ||
-                          props.canSelfApprove) ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setDecision('Returned')
-                              setReviewItem(item)
-                            }}
-                          >
-                            Phản hồi
-                          </Button>
-                        ) : null}
-                        {item.status === 'PendingApproval' &&
-                        props.canCreate &&
-                        (item.createdByUserId === props.currentUserId ||
-                          item.submittedByUserId === props.currentUserId) ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setDecision('Withdraw')
-                              setReviewItem(item)
-                            }}
-                          >
-                            Rút lại
-                          </Button>
-                        ) : null}
-                        {['Draft', 'PendingApproval'].includes(item.status) &&
-                        props.canCreate &&
-                        (item.createdByUserId === props.currentUserId ||
-                          item.submittedByUserId === props.currentUserId) ? (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => {
-                              setDecision('Cancelled')
-                              setReviewItem(item)
-                            }}
-                          >
-                            Hủy
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-        <OperationalPagination
-          page={props.page}
-          pageSize={props.pageSize}
-          totalCount={props.totalCount}
-          isPending={props.isLoading}
-          onPageChange={props.onPageChange}
-        />
-      </OperationalListPanel>
-      <Dialog
-        open={Boolean(detailItem)}
-        onOpenChange={(open) => {
-          if (!open) setDetailItem(null)
-        }}
-      >
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{detailItem?.code}</DialogTitle>
-            <DialogDescription>Chi tiết chứng từ và các mốc xử lý đã ghi nhận.</DialogDescription>
-          </DialogHeader>
-          {detailItem ? (
-            <div className="grid gap-4 text-sm">
-              <div className="grid gap-1">
-                <p>
-                  <strong>Kho:</strong> {detailItem.warehouseName}
-                </p>
-                <p>
-                  <strong>Trạng thái:</strong> {statusLabel(detailItem.status)}
-                </p>
-                {detailItem.decisionReason ? (
-                  <p>
-                    <strong>Lý do quyết định:</strong> {detailItem.decisionReason}
-                  </p>
-                ) : null}
-              </div>
-              <div className="border">
-                <p className="border-b px-3 py-2 font-medium">Các dòng tồn đầu</p>
-                {detailItem.lines.map((line) => (
-                  <p key={line.id} className="border-b px-3 py-2 last:border-b-0">
-                    {line.sku} · {line.productName} · {line.slotCode}
-                    {line.lotNumber ? ` · lô ${line.lotNumber}` : ''} · nhập{' '}
-                    {formatInventoryQuantity(line.enteredQuantity)} {line.enteredUnitName} ×{' '}
-                    {line.conversionFactorSnapshot} = {formatInventoryQuantity(line.baseQuantity)}{' '}
-                    đơn vị cơ sở · {line.qualityStatus}/{line.eligibilityStatus}
-                  </p>
-                ))}
-              </div>
-              <div>
-                <p className="font-medium">Lịch sử trạng thái</p>
-                <p>
-                  Đã tạo bởi {detailItem.createdByName} ·{' '}
-                  {formatInventoryDate(detailItem.createdAt)}
-                </p>
-                {detailItem.submittedAt ? (
-                  <p>Đã gửi duyệt · {formatInventoryDate(detailItem.submittedAt)}</p>
-                ) : null}
-                {detailItem.approvedAt ? (
-                  <p>Đã ghi sổ · {formatInventoryDate(detailItem.approvedAt)}</p>
-                ) : null}
-              </div>
+          <OperationalEmptyState
+            title="Không tìm thấy chứng từ"
+            description="Chứng từ không còn tồn tại hoặc bạn chưa có quyền xem."
+          />
+        )
+      ) : (
+        <OperationalListPanel aria-label="Danh sách chứng từ tồn đầu kỳ">
+          <div className="flex shrink-0 items-end gap-3 border-b p-3">
+            <FieldGroup
+              role="search"
+              aria-label="Tìm kiếm và lọc chứng từ tồn đầu"
+              className="grid min-w-0 flex-1 shrink-0 grid-cols-2 items-end gap-3 xl:grid-cols-[minmax(10rem,1fr)_minmax(8rem,16rem)_9rem_10rem_10rem]"
+            >
+              <Field className="col-span-2 min-w-0 gap-1.5 xl:col-span-1">
+                <FieldLabel htmlFor={`${filterId}-search`}>Tìm kiếm</FieldLabel>
+                <Input
+                  id={`${filterId}-search`}
+                  name="openingStockSearch"
+                  aria-label="Tìm mã chứng từ"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={100}
+                  placeholder="Tìm mã chứng từ…"
+                  value={props.search}
+                  onChange={(event) => props.onSearchChange(event.target.value)}
+                />
+              </Field>
+              <Field className="min-w-0 gap-1.5">
+                <FieldLabel htmlFor={`${filterId}-warehouse`}>Kho</FieldLabel>
+                <NativeSelect
+                  id={`${filterId}-warehouse`}
+                  name="openingStockWarehouse"
+                  className="w-full min-w-0"
+                  aria-label="Lọc theo kho"
+                  value={props.filterWarehouseId}
+                  onChange={(event) => props.onFilterWarehouseChange(event.target.value)}
+                >
+                  <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+                  {props.warehouseOptions.map((option) => (
+                    <NativeSelectOption key={option.value} value={option.value}>
+                      {option.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field className="min-w-0 gap-1.5">
+                <FieldLabel htmlFor={`${filterId}-status`}>Trạng thái</FieldLabel>
+                <NativeSelect
+                  id={`${filterId}-status`}
+                  name="openingStockStatus"
+                  className="w-full min-w-0"
+                  aria-label="Lọc theo trạng thái"
+                  value={props.statusFilter}
+                  onChange={(event) =>
+                    props.onStatusFilterChange(event.target.value as OpeningStockStatus | '')
+                  }
+                >
+                  <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+                  <NativeSelectOption value="Draft">Nháp</NativeSelectOption>
+                  <NativeSelectOption value="PendingApproval">Chờ duyệt</NativeSelectOption>
+                  <NativeSelectOption value="Returned">Trả lại</NativeSelectOption>
+                  <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
+                  <NativeSelectOption value="Posted">Đã ghi sổ</NativeSelectOption>
+                  <NativeSelectOption value="Cancelled">Đã hủy</NativeSelectOption>
+                </NativeSelect>
+              </Field>
+              <Field className="min-w-0 gap-1.5">
+                <FieldLabel htmlFor={`${filterId}-from`}>Ngày ghi nhận từ</FieldLabel>
+                <Input
+                  id={`${filterId}-from`}
+                  name="openingStockDateFrom"
+                  type="date"
+                  value={props.dateFrom}
+                  onChange={(event) => props.onDateFromChange(event.target.value)}
+                />
+              </Field>
+              <Field className="min-w-0 gap-1.5">
+                <FieldLabel htmlFor={`${filterId}-to`}>Ngày ghi nhận đến</FieldLabel>
+                <Input
+                  id={`${filterId}-to`}
+                  name="openingStockDateTo"
+                  type="date"
+                  value={props.dateTo}
+                  min={props.dateFrom || undefined}
+                  onChange={(event) => props.onDateToChange(event.target.value)}
+                />
+              </Field>
+            </FieldGroup>
+            <div className="flex shrink-0 items-center gap-2">
+              {props.exportAction}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                aria-label="Làm mới tồn đầu kỳ"
+                disabled={props.isFetching}
+                onClick={props.onRetry}
+              >
+                <RefreshCw
+                  aria-hidden="true"
+                  className={
+                    props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined
+                  }
+                />
+              </Button>
             </div>
-          ) : null}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailItem(null)}>
-              Đóng
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+          {props.isLoading ? (
+            <OperationalLoadingState rows={8} />
+          ) : props.isError ? (
+            <OperationalErrorState title="Không thể tải chứng từ tồn đầu" onRetry={props.onRetry} />
+          ) : props.items.length === 0 ? (
+            <OperationalEmptyState
+              title="Chưa có chứng từ tồn đầu"
+              description="Tạo chứng từ từ kết quả kiểm đếm ban đầu."
+            />
+          ) : (
+            <div data-scrollbar="slim" className="min-h-0 flex-1 overflow-auto">
+              <Table className="min-w-[980px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 z-10">Chứng từ</TableHead>
+                    <TableHead className="sticky top-0 z-10">Kho</TableHead>
+                    <TableHead className="sticky top-0 z-10">Ngày ghi nhận</TableHead>
+                    <TableHead className="sticky top-0 z-10">Dòng hàng</TableHead>
+                    <TableHead className="sticky top-0 z-10">Bằng chứng</TableHead>
+                    <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                    <TableHead className="sticky top-0 z-10">Người lập</TableHead>
+                    <TableHead className="sticky top-0 z-10 w-px text-center">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {props.items.map((item) => (
+                    <ClickableTableRow key={item.id} href={`/inventory/opening-stocks/${item.id}`}>
+                      <TableCell>
+                        <Link
+                          className="focus-visible:ring-ring font-mono font-medium underline-offset-4 hover:underline focus-visible:ring-2"
+                          href={`/inventory/opening-stocks/${item.id}`}
+                        >
+                          {item.code}
+                        </Link>
+                        <p className="text-muted-foreground text-xs">
+                          v{item.revision} · {formatInventoryDate(item.createdAt)}
+                        </p>
+                      </TableCell>
+                      <TableCell>{item.warehouseName}</TableCell>
+                      <TableCell>
+                        {item.effectiveDate ?? 'Theo lịch sử'}
+                        {item.isLegacyDate ? (
+                          <p className="text-muted-foreground text-xs">Phiếu cũ</p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{item.lines.length} dòng</TableCell>
+                      <TableCell className="max-w-48">
+                        {item.evidence.map((file) => (
+                          <button
+                            key={file.id}
+                            type="button"
+                            className="text-primary block max-w-full truncate text-left underline"
+                            onClick={() =>
+                              void inventoryService.downloadEvidence(file.id, file.fileName)
+                            }
+                          >
+                            {file.fileName}
+                          </button>
+                        ))}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{statusLabel(item.status)}</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-40 wrap-anywhere whitespace-normal">
+                        {item.createdByName}
+                      </TableCell>
+                      <TableCell className="w-px">
+                        <div className="ml-auto w-max">
+                          <OpeningStockActions
+                            {...props}
+                            item={item}
+                            onEdit={openEdit}
+                            onApprove={approve}
+                            onReview={(item, decision) => {
+                              setDecision(decision)
+                              setReviewItem(item)
+                            }}
+                          />
+                        </div>
+                      </TableCell>
+                    </ClickableTableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <OperationalPagination
+            page={props.page}
+            pageSize={props.pageSize}
+            totalCount={props.totalCount}
+            isPending={props.isLoading}
+            onPageChange={props.onPageChange}
+          />
+        </OperationalListPanel>
+      )}
       <Dialog
-        open={createOpen}
+        open={createOpen && !mapWarehouseId}
         onOpenChange={(open) => {
+          if (mapWarehouseId || props.isPending || props.isCreateUncertain || saveLock.current)
+            return
           setCreateOpen(open)
           if (!open) {
             setDraftLines([])
@@ -573,179 +782,545 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
           }
         }}
       >
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent
+          data-scrollbar="slim"
+          className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden sm:max-w-4xl"
+          onEscapeKeyDown={(event) => {
+            if (
+              event.target instanceof HTMLSelectElement ||
+              (event.target instanceof Element &&
+                event.target
+                  .closest('[role="dialog"]')
+                  ?.querySelector('[role="combobox"][aria-expanded="true"]'))
+            )
+              event.preventDefault()
+          }}
+          onCloseAutoFocus={(event) => {
+            if (mapWarehouseId) event.preventDefault()
+          }}
+          onOpenAutoFocus={(event) => {
+            if (restoreMapFocus.current) {
+              event.preventDefault()
+              restoreMapFocus.current = false
+              document.getElementById('opening-slotId')?.focus()
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{editItem ? `Sửa ${editItem.code}` : 'Tạo chứng từ tồn đầu'}</DialogTitle>
             <DialogDescription>
               Thêm các dòng kiểm đếm thuộc cùng một kho trước khi lưu chứng từ.
             </DialogDescription>
           </DialogHeader>
-          <form className="grid gap-3" onSubmit={props.form.handleSubmit(create)}>
-            {(
-              [
-                ['warehouseId', 'Kho', props.warehouseOptions, 'Chọn kho'],
-                ['productId', 'Sản phẩm', props.productOptions, 'Chọn sản phẩm'],
-                [
-                  'slotId',
-                  'Vị trí',
-                  props.slotOptions,
-                  props.form.watch('warehouseId') ? 'Chọn vị trí' : 'Chọn kho trước',
-                ],
-                [
-                  'lotId',
-                  'Lô (không bắt buộc)',
-                  props.lotOptions,
-                  props.form.watch('productId') ? 'Không chọn lô' : 'Chọn sản phẩm trước',
-                ],
-              ] as const
-            ).map(([name, label, options, placeholder]) => (
-              <Field key={name} data-invalid={Boolean(errors[name])}>
-                <FieldLabel htmlFor={`opening-${name}`}>{label}</FieldLabel>
-                <NativeSelect
-                  id={`opening-${name}`}
-                  disabled={
-                    props.areOptionsLoading ||
-                    (name === 'warehouseId' && Boolean(editItem)) ||
-                    (name === 'slotId' && !props.form.watch('warehouseId')) ||
-                    (name === 'lotId' && !props.form.watch('productId'))
+          <form
+            noValidate
+            data-scrollbar="slim"
+            className="grid min-h-0 gap-4 overflow-y-auto overscroll-contain"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void createDraft()
+            }}
+          >
+            <fieldset disabled={props.isPending || props.isCreateUncertain} className="grid gap-3">
+              <FieldGroup className="bg-card grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+                <BusinessCodeField
+                  label="Mã chứng từ *"
+                  error={errors.code}
+                  description={
+                    editItem
+                      ? 'Mã chứng từ được giữ nguyên khi chỉnh sửa.'
+                      : 'Nhập mã chứng từ theo quy ước của doanh nghiệp.'
                   }
-                  {...props.form.register(name)}
-                >
-                  <NativeSelectOption value="">{placeholder}</NativeSelectOption>
-                  {options.map((option) => (
-                    <NativeSelectOption key={option.value} value={option.value}>
-                      {option.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-                <FieldError errors={errors[name] ? [errors[name]] : undefined} />
-              </Field>
-            ))}
-            <Field data-invalid={Boolean(errors.quantity)}>
-              <FieldLabel htmlFor="opening-quantity">
-                Số lượng (
-                {props.productOptions.find(
-                  (option) => option.value === props.form.watch('productId')
-                )?.unitName ?? 'đơn vị cơ sở'}
-                )
-              </FieldLabel>
-              <Input
-                id="opening-quantity"
-                type="number"
-                step="0.01"
-                {...props.form.register('quantity', { valueAsNumber: true })}
-              />
-              <FieldError errors={errors.quantity ? [errors.quantity] : undefined} />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="opening-quality">Tình trạng vật lý</FieldLabel>
-              <NativeSelect id="opening-quality" {...props.form.register('qualityStatus')}>
-                <NativeSelectOption value="Good">Đạt</NativeSelectOption>
-                <NativeSelectOption value="Damaged">Hư hỏng</NativeSelectOption>
-              </NativeSelect>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="opening-eligibility">Điều kiện sử dụng</FieldLabel>
-              <NativeSelect id="opening-eligibility" {...props.form.register('eligibilityStatus')}>
-                <NativeSelectOption value="Available">Khả dụng</NativeSelectOption>
-                <NativeSelectOption value="InspectionHold">Chờ kiểm tra</NativeSelectOption>
-                <NativeSelectOption value="DamageHold">Giữ do hỏng</NativeSelectOption>
-                <NativeSelectOption value="Quarantine">Cách ly</NativeSelectOption>
-              </NativeSelect>
-            </Field>
-            <div className="flex justify-end">
-              <Button type="button" variant="outline" onClick={() => void addLine()}>
-                <Plus aria-hidden="true" />
-                Thêm dòng và nhập tiếp
-              </Button>
-            </div>
-            {draftLines.length > 0 ? (
-              <div className="border">
-                <div className="border-b px-3 py-2 text-sm font-medium">
-                  Dòng đã thêm ({draftLines.length})
-                </div>
-                {draftLines.map((line, index) => (
-                  <div
-                    key={`${line.productId}-${line.slotId}-${line.lotId ?? 'none'}-${index}`}
-                    className="flex items-center justify-between gap-3 border-b px-3 py-2 last:border-b-0"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{line.productLabel}</p>
-                      <p className="text-muted-foreground truncate text-xs">
-                        {line.slotLabel}
-                        {line.lotLabel ? ` · ${line.lotLabel}` : ''} ·{' '}
-                        {formatInventoryQuantity(line.quantity)} {line.enteredUnitName} ·{' '}
-                        {line.qualityStatus}/{line.eligibilityStatus}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label={`Xóa dòng ${index + 1}`}
-                      onClick={() =>
-                        setDraftLines((current) =>
-                          current.filter((_, itemIndex) => itemIndex !== index)
-                        )
-                      }
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {!editItem ? (
-              <Field data-invalid={Boolean(errors.evidenceFile)}>
-                <FieldLabel htmlFor="opening-evidence">Tệp bằng chứng kiểm đếm</FieldLabel>
-                <Input
-                  id="opening-evidence"
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0]
-                    if (file)
-                      props.form.setValue('evidenceFile', file, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      })
-                    else props.form.resetField('evidenceFile')
+                  inputProps={{
+                    ...props.form.register('code'),
+                    id: 'opening-code',
+                    required: true,
+                    maxLength: 100,
+                    placeholder: 'Ví dụ: TDK-0001…',
+                    readOnly: Boolean(editItem),
                   }}
                 />
-                <FieldError errors={errors.evidenceFile ? [errors.evidenceFile] : undefined} />
-              </Field>
-            ) : (
-              <p className="text-muted-foreground text-xs">
-                Bằng chứng đã đính kèm được giữ nguyên khi sửa các dòng kiểm đếm.
-              </p>
-            )}
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setCreateOpen(false)
-                  setDraftLines([])
-                  setEditItem(null)
-                }}
-              >
-                Hủy
-              </Button>
-              <Button
-                type="button"
-                disabled={props.isPending || (Boolean(editItem) && draftLines.length === 0)}
-                onClick={() => void createDraft()}
-              >
-                {props.isPending
-                  ? 'Đang lưu...'
-                  : editItem
-                    ? `Lưu ${draftLines.length} dòng`
-                    : `Tạo nháp (${Math.max(1, draftLines.length)} dòng)`}
-              </Button>
-            </DialogFooter>
+                {!editItem?.isLegacyDate ? (
+                  <DatePickerField
+                    id="opening-effective-date"
+                    label="Ngày ghi nhận tồn đầu"
+                    required
+                    value={props.form.watch('effectiveDate')}
+                    onChange={(value) =>
+                      props.form.setValue('effectiveDate', value, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                    error={errors.effectiveDate?.message}
+                  />
+                ) : (
+                  <p className="text-xs">Phiếu cũ giữ nguyên ngày ghi sổ lịch sử.</p>
+                )}
+              </FieldGroup>
+              {props.lookupError ? (
+                <p role="alert">
+                  Không tải được danh mục.{' '}
+                  <Button type="button" variant="outline" onClick={props.onLookupRetry}>
+                    Thử lại
+                  </Button>
+                </p>
+              ) : null}
+              <FieldGroup className="bg-card grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+                {(
+                  [
+                    ['warehouseId', 'Kho', props.managedWarehouseOptions, 'Chọn kho'],
+                    ['productId', 'Sản phẩm', productOptions, 'Chọn sản phẩm'],
+                    [
+                      'slotId',
+                      'Vị trí',
+                      slotOptions,
+                      props.form.watch('warehouseId') ? 'Chọn vị trí' : 'Chọn kho trước',
+                    ],
+                    [
+                      'lotId',
+                      'Lô có sẵn (hàng theo lô phải chọn hoặc khai báo lô mới)',
+                      lotOptions,
+                      props.form.watch('productId') ? 'Không chọn lô' : 'Chọn sản phẩm trước',
+                    ],
+                  ] as const
+                ).map(([name, label, options, placeholder]) => (
+                  <Field
+                    key={name}
+                    className={name === 'lotId' || name === 'slotId' ? 'sm:col-span-2' : undefined}
+                    data-invalid={Boolean(errors[name])}
+                  >
+                    <FieldLabel htmlFor={`opening-${name}`}>{label}</FieldLabel>
+                    {name === 'slotId' ? (
+                      <>
+                        <LookupCombobox
+                          id="opening-slotId"
+                          value={slotId}
+                          options={slotOptions}
+                          selectedOption={chosenSlot?.value === slotId ? chosenSlot : undefined}
+                          placeholder={placeholder}
+                          emptyMessage="Không có vị trí phù hợp. Thử tìm lại hoặc chọn trên sơ đồ."
+                          ariaLabel="Vị trí"
+                          isLoading={props.areOptionsLoading}
+                          isInvalid={Boolean(errors.slotId)}
+                          disabled={
+                            !props.form.watch('warehouseId') ||
+                            props.isPending ||
+                            props.isCreateUncertain
+                          }
+                          onSearchChange={(value) => props.onLookupSearch('location', value)}
+                          onChange={(value, option) => {
+                            setChosenSlot(
+                              option ?? (chosenSlot?.value === value ? chosenSlot : null)
+                            )
+                            props.form.setValue('slotId', value, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            })
+                          }}
+                          footerAction={{
+                            label: 'Chọn trên sơ đồ',
+                            icon: <MapIcon aria-hidden="true" />,
+                            onClick: () => {
+                              const warehouseId = props.form.getValues('warehouseId')
+                              if (!warehouseId || props.isPending || props.isCreateUncertain) return
+                              setMapWarehouseId(warehouseId)
+                            },
+                          }}
+                        />
+                        {selectedSlotDescription ? (
+                          <FieldDescription>{selectedSlotDescription}</FieldDescription>
+                        ) : null}
+                      </>
+                    ) : name === 'productId' ? (
+                      <LookupCombobox
+                        id="opening-productId"
+                        value={productId}
+                        options={productOptions}
+                        selectedOption={
+                          chosenProduct?.value === productId ? chosenProduct : undefined
+                        }
+                        placeholder={placeholder}
+                        emptyMessage="Không tìm thấy hàng hóa. Thử mã hoặc tên khác."
+                        ariaLabel="Sản phẩm"
+                        isLoading={props.areOptionsLoading}
+                        isInvalid={Boolean(errors.productId)}
+                        disabled={
+                          !props.form.watch('warehouseId') ||
+                          props.isPending ||
+                          props.isCreateUncertain
+                        }
+                        onSearchChange={(value) => props.onLookupSearch('product', value)}
+                        onChange={(value) => {
+                          setChosenProduct(
+                            productOptions.find((option) => option.value === value) ?? null
+                          )
+                          props.form.setValue('productId', value, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+                          props.form.setValue('enteredUnitId', '')
+                          setChosenLot(null)
+                          props.form.setValue('lotId', '')
+                          props.form.setValue('newLotNumber', '')
+                          props.form.setValue('manufacturedDate', '')
+                          props.form.setValue('expiryDate', '')
+                        }}
+                      />
+                    ) : name === 'lotId' ? (
+                      <LookupCombobox
+                        id="opening-lotId"
+                        value={lotId ?? ''}
+                        options={lotOptions}
+                        selectedOption={chosenLot?.value === lotId ? chosenLot : undefined}
+                        placeholder={placeholder}
+                        emptyMessage="Không tìm thấy lô. Thử số lô khác hoặc khai báo lô mới."
+                        ariaLabel={label}
+                        isLoading={props.areOptionsLoading}
+                        isInvalid={Boolean(errors.lotId)}
+                        disabled={!productId || props.isPending || props.isCreateUncertain}
+                        onSearchChange={(value) => props.onLookupSearch('lot', value)}
+                        onChange={(value, option) => {
+                          setChosenLot(option ?? (chosenLot?.value === value ? chosenLot : null))
+                          props.form.setValue('lotId', value, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          })
+                        }}
+                      />
+                    ) : (
+                      <NativeSelect
+                        id={`opening-${name}`}
+                        disabled={
+                          props.areOptionsLoading || Boolean(editItem) || draftLines.length > 0
+                        }
+                        {...props.form.register(name, {
+                          onChange: () => {
+                            props.form.setValue('slotId', '')
+                            setChosenSlot(null)
+                          },
+                        })}
+                        value={props.form.watch(name)}
+                        aria-invalid={Boolean(errors[name])}
+                      >
+                        <NativeSelectOption value="">{placeholder}</NativeSelectOption>
+                        {options.map((option) => (
+                          <NativeSelectOption key={option.value} value={option.value}>
+                            {option.label}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    )}
+                    <FieldError errors={errors[name] ? [errors[name]] : undefined} />
+                  </Field>
+                ))}
+              </FieldGroup>
+              <FieldGroup className="bg-muted/30 grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="opening-new-lot">Số lô mới (nếu chưa có)</FieldLabel>
+                  <Input
+                    id="opening-new-lot"
+                    maxLength={100}
+                    {...props.form.register('newLotNumber')}
+                  />
+                  <FieldError errors={errors.newLotNumber ? [errors.newLotNumber] : undefined} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="opening-manufactured">Ngày sản xuất</FieldLabel>
+                  <Input
+                    id="opening-manufactured"
+                    type="date"
+                    {...props.form.register('manufacturedDate')}
+                  />
+                  <FieldError
+                    errors={errors.manufacturedDate ? [errors.manufacturedDate] : undefined}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="opening-expiry">Hạn sử dụng</FieldLabel>
+                  <Input id="opening-expiry" type="date" {...props.form.register('expiryDate')} />
+                  <FieldError errors={errors.expiryDate ? [errors.expiryDate] : undefined} />
+                </Field>
+              </FieldGroup>
+              <FieldGroup className="bg-card grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+                <Field data-invalid={Boolean(errors.quantity)}>
+                  <FieldLabel htmlFor="opening-quantity">
+                    Số lượng ({selectedUnit?.unitName ?? 'đơn vị cơ sở'})
+                  </FieldLabel>
+                  <Input
+                    id="opening-quantity"
+                    type="number"
+                    min={10 ** -(selectedUnit?.quantityPrecision ?? 2)}
+                    step={10 ** -(selectedUnit?.quantityPrecision ?? 2)}
+                    aria-invalid={Boolean(errors.quantity)}
+                    {...props.form.register('quantity', { valueAsNumber: true })}
+                  />
+                  <FieldError errors={errors.quantity ? [errors.quantity] : undefined} />
+                </Field>
+                <Field data-invalid={Boolean(errors.enteredUnitId)}>
+                  <FieldLabel htmlFor="opening-unit">Đơn vị tính</FieldLabel>
+                  <NativeSelect
+                    id="opening-unit"
+                    {...props.form.register('enteredUnitId')}
+                    disabled={!selectedProduct}
+                    value={selectedUnit?.unitId ?? ''}
+                    onChange={(event) =>
+                      props.form.setValue('enteredUnitId', event.target.value, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    {!selectedProduct ? (
+                      <NativeSelectOption value="">Chọn sản phẩm trước</NativeSelectOption>
+                    ) : null}
+                    {unitOptions.map((unit) => (
+                      <NativeSelectOption key={unit.unitId} value={unit.unitId}>
+                        {unit.unitName}
+                        {unit.unitId === selectedProduct?.unitId
+                          ? ' (đơn vị chính)'
+                          : ` (1 = ${unit.conversionFactor.toLocaleString('vi-VN', { maximumFractionDigits: 6 })} ${selectedProduct?.unitName})`}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                  {selectedProduct && selectedUnit ? (
+                    <FieldDescription>
+                      Quy về đơn vị chính:{' '}
+                      {formatInventoryQuantity(
+                        (props.form.watch('quantity') || 0) * selectedUnit.conversionFactor
+                      )}{' '}
+                      {selectedProduct.unitName}
+                    </FieldDescription>
+                  ) : null}
+                  <FieldError errors={[errors.enteredUnitId]} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="opening-quality">Tình trạng vật lý</FieldLabel>
+                  <NativeSelect id="opening-quality" {...props.form.register('qualityStatus')}>
+                    <NativeSelectOption value="Good">Đạt</NativeSelectOption>
+                    <NativeSelectOption value="Damaged">Hư hỏng</NativeSelectOption>
+                  </NativeSelect>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="opening-eligibility">Điều kiện sử dụng</FieldLabel>
+                  <NativeSelect
+                    id="opening-eligibility"
+                    {...props.form.register('eligibilityStatus')}
+                  >
+                    <NativeSelectOption value="Available">Khả dụng</NativeSelectOption>
+                    <NativeSelectOption value="InspectionHold">Chờ kiểm tra</NativeSelectOption>
+                    <NativeSelectOption value="DamageHold">Giữ do hỏng</NativeSelectOption>
+                    <NativeSelectOption value="Quarantine">Cách ly</NativeSelectOption>
+                  </NativeSelect>
+                </Field>
+              </FieldGroup>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={props.areOptionsLoading || props.isPending || draftLines.length >= 200}
+                  onClick={() => void addLine()}
+                >
+                  <Plus aria-hidden="true" />
+                  Thêm dòng và nhập tiếp
+                </Button>
+              </div>
+              {draftLines.length > 0 ? (
+                <div className="border">
+                  <div className="border-b px-3 py-2 text-sm font-medium">
+                    Dòng đã thêm ({draftLines.length})
+                  </div>
+                  {draftLines.map((line, index) => (
+                    <div
+                      key={`${line.productId}-${line.slotId}-${line.lotId ?? 'none'}-${index}`}
+                      className="flex items-center justify-between gap-3 border-b px-3 py-2 last:border-b-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{line.productLabel}</p>
+                        <p className="text-muted-foreground truncate text-xs">
+                          {line.slotLabel}
+                          {line.lotLabel ? ` · ${line.lotLabel}` : ''} ·{' '}
+                          {formatInventoryQuantity(line.quantity)} {line.enteredUnitName} ·{' '}
+                          {formatQualityStatus(line.qualityStatus)} /{' '}
+                          {formatEligibilityStatus(line.eligibilityStatus)}
+                        </p>
+                      </div>
+                      <Input
+                        aria-label={`Số lượng dòng ${index + 1}`}
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        className="w-28 shrink-0"
+                        value={line.quantity}
+                        onChange={(event) =>
+                          setDraftLines((current) =>
+                            current.map((item, i) =>
+                              i === index ? { ...item, quantity: Number(event.target.value) } : item
+                            )
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        aria-label={`Xóa dòng ${index + 1}`}
+                        onClick={() =>
+                          setDraftLines((current) =>
+                            current.filter((_, itemIndex) => itemIndex !== index)
+                          )
+                        }
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {!editItem ? (
+                <Field data-invalid={Boolean(errors.evidenceFile)}>
+                  <FieldLabel htmlFor="opening-evidence">
+                    Tài liệu đính kèm (không bắt buộc)
+                  </FieldLabel>
+                  <FieldDescription>Biên bản kiểm đếm hoặc ảnh đối chiếu, nếu có.</FieldDescription>
+                  <Input
+                    id="opening-evidence"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.csv,.xlsx"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (file)
+                        props.form.setValue('evidenceFile', file, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        })
+                      else props.form.resetField('evidenceFile')
+                    }}
+                  />
+                  <FieldError errors={errors.evidenceFile ? [errors.evidenceFile] : undefined} />
+                </Field>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  Tài liệu đã đính kèm (nếu có) được giữ nguyên khi sửa các dòng kiểm đếm.
+                </p>
+              )}
+              {draftLines.some((line) => line.newLot) || props.form.watch('newLotNumber') ? (
+                <>
+                  <label className="flex min-h-11 items-center gap-3 text-sm">
+                    <Checkbox
+                      checked={props.form.watch('acknowledgePendingLots')}
+                      onCheckedChange={(value) =>
+                        props.form.setValue('acknowledgePendingLots', value === true, {
+                          shouldValidate: true,
+                        })
+                      }
+                    />
+                    Tôi xác nhận thông tin các lô mới chỉ được tạo khi duyệt phiếu.
+                  </label>
+                  <FieldError
+                    errors={
+                      errors.acknowledgePendingLots ? [errors.acknowledgePendingLots] : undefined
+                    }
+                  />
+                </>
+              ) : null}
+              <FieldError errors={errors.root?.server ? [errors.root.server] : undefined} />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCreateOpen(false)
+                    setDraftLines([])
+                    setEditItem(null)
+                  }}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="button"
+                  disabled={
+                    props.isPending ||
+                    props.areOptionsLoading ||
+                    (Boolean(editItem) && draftLines.length === 0)
+                  }
+                  onClick={() => void createDraft()}
+                >
+                  {props.isPending
+                    ? 'Đang lưu...'
+                    : editItem
+                      ? `Lưu ${draftLines.length} dòng`
+                      : `Tạo nháp (${Math.max(1, draftLines.length)} dòng)`}
+                </Button>
+              </DialogFooter>
+            </fieldset>
+            {props.isCreateUncertain ? (
+              <div role="alert" className="space-y-2 border p-3 text-sm">
+                <p>
+                  Kết quả tạo phiếu chưa rõ. Dữ liệu và mã thao tác được giữ nguyên để tránh tạo
+                  trùng.
+                </p>
+                <Button type="button" disabled={props.isPending} onClick={() => void createDraft()}>
+                  Kiểm tra và thử lại cùng thao tác
+                </Button>
+              </div>
+            ) : null}
           </form>
         </DialogContent>
       </Dialog>
+      {mapWarehouseId ? (
+        <TransferSlotMapDialog
+          key={mapWarehouseId}
+          open={createOpen}
+          warehouseId={mapWarehouseId}
+          title="Chọn vị trí tồn đầu trên sơ đồ kho"
+          description="Chọn ô hoặc kệ quản lý cấp kệ trong kho đang lập chứng từ. Chọn vị trí không tạo dữ liệu tồn kho."
+          onOpenChange={(open) => {
+            if (!open) {
+              restoreMapFocus.current = true
+              setMapWarehouseId(null)
+            }
+          }}
+          onConfirm={({ slotId: pickedSlotId, label, capacity }) => {
+            if (
+              !createOpen ||
+              props.isPending ||
+              props.isCreateUncertain ||
+              props.form.getValues('warehouseId') !== mapWarehouseId
+            )
+              return
+            setChosenSlot({
+              value: pickedSlotId,
+              label,
+              description: capacity
+                ? openingStockLocationDescription({ id: pickedSlotId, label, ...capacity })
+                : 'Chưa tải được thông tin sức chứa. Hệ thống sẽ kiểm tra lại khi lưu phiếu.',
+            })
+            props.form.setValue('slotId', pickedSlotId, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }}
+        />
+      ) : null}
+      <OpeningStockApprovalDialog
+        item={approveItem}
+        currentUserId={props.currentUserId}
+        pending={props.isPending}
+        onClose={() => setApproveItem(null)}
+        onConfirm={async (self) => {
+          if (!approveItem) return
+          await props.onAction(approveItem, 'approve', undefined, undefined, self)
+          setApproveItem(null)
+        }}
+      />
+      <UnsavedChangesDialog
+        open={navigation.discardOpen}
+        onOpenChange={(open) => {
+          if (!open) navigation.cancelDiscard()
+        }}
+        onDiscard={navigation.confirmDiscard}
+      />
       <Dialog
         open={Boolean(reviewItem)}
         onOpenChange={(open) => {

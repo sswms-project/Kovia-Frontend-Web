@@ -6,6 +6,7 @@ export const WAREHOUSE_TASK_TYPES = [
   'Relocation',
   'TransferPick',
   'TransferReceive',
+  'TransferPutAway',
   'Picking',
 ] as const
 
@@ -60,6 +61,7 @@ export interface MyWarehouseTaskQuery {
   executionStatus?: MyWarehouseTask['executionStatus']
   deadlineStatus?: WarehouseTaskDeadlineStatus
   assignedTo?: string
+  recentlyAssignedFirst?: boolean
 }
 
 export type WarehouseTaskScope = 'mine' | 'managed'
@@ -157,6 +159,9 @@ export interface CreateWarehouseTaskRequest {
 }
 
 export interface AssignWarehouseTaskRequest {
+  priority?: 'Normal' | 'Urgent'
+  dueAt?: string | null
+  clearDueAt?: boolean
   staffId: string
   expectedStaffId: string | null
   expectedVersion: string

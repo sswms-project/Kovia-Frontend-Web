@@ -1,6 +1,11 @@
 export const API_ENDPOINTS = {
+  listExports: '/list-exports',
   dashboard: {
+    stockThresholdAlerts: '/dashboard/stock-alerts/thresholds',
+    stockExpiryAlerts: '/dashboard/stock-alerts/expiry',
+    stockExpiryDistribution: '/dashboard/stock-alerts/expiry-distribution',
     overview: '/dashboard/overview',
+    activity: '/dashboard/activity',
     warehouses: '/dashboard/warehouses',
   },
   reports: {
@@ -65,6 +70,7 @@ export const API_ENDPOINTS = {
   },
   organization: {
     me: '/organization',
+    taskAssignmentScoring: '/organization/task-assignment-scoring',
   },
   myWarehouseTasks: {
     current: '/my-warehouse-tasks',
@@ -138,8 +144,16 @@ export const API_ENDPOINTS = {
     reactivate: (warehouseId: string) => `/warehouses/${warehouseId}/reactivate`,
     quarantineSlot: (warehouseId: string) => `/warehouses/${warehouseId}/quarantine-slot`,
   },
+  inventoryAnomalies: {
+    list: '/inventory-anomalies',
+    summary: '/inventory-anomalies/summary',
+    scans: '/inventory-anomalies/scans',
+    detail: (id: string) => `/inventory-anomalies/${id}`,
+    review: (id: string) => `/inventory-anomalies/${id}/review`,
+  },
   inventory: {
     list: '/inventory',
+    exportExcel: '/inventory/export',
     warehouseOptions: '/inventory/filter-options/warehouses',
     slotOptions: (warehouseId: string) =>
       `/inventory/filter-options/warehouses/${warehouseId}/slots`,
@@ -155,6 +169,10 @@ export const API_ENDPOINTS = {
     damageCaseDisposition: (id: string) => `/inventory/damage-cases/${id}/disposition`,
     addDamageCaseEvidence: (id: string) => `/inventory/damage-cases/${id}/evidence`,
     openingStocks: '/inventory/opening-stocks',
+    openingStockImport: '/inventory/opening-stocks/import',
+    openingStockFormOptions: '/inventory/opening-stocks/form-options',
+    openingStockImportOperation: (commandId: string) =>
+      `/inventory/opening-stocks/import/operations/${encodeURIComponent(commandId)}`,
     updateOpeningStock: (id: string) => `/inventory/opening-stocks/${id}`,
     submitOpeningStock: (id: string) => `/inventory/opening-stocks/${id}/submit`,
     withdrawOpeningStock: (id: string) => `/inventory/opening-stocks/${id}/withdraw`,
@@ -176,12 +194,13 @@ export const API_ENDPOINTS = {
     history: '/inventory/history',
   },
   cycleCounts: {
+    nextCode: '/cycle-counts/next-code',
     list: '/cycle-counts',
     create: '/cycle-counts',
     detail: (cycleCountId: string) => `/cycle-counts/${cycleCountId}`,
     allowedActions: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/allowed-actions`,
-    recordItem: (cycleCountId: string, itemId: string) =>
-      `/cycle-counts/${cycleCountId}/items/${itemId}`,
+    recordItems: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/items`,
+    assignableStaff: '/cycle-counts/assignable-staff',
     evidence: '/cycle-counts/evidence',
     evidenceFile: (evidenceId: string) => `/cycle-counts/evidence/${evidenceId}`,
     start: (cycleCountId: string) => `/cycle-counts/${cycleCountId}/start`,
@@ -237,6 +256,8 @@ export const API_ENDPOINTS = {
       `/inbound-requests/${inboundRequestId}/approve-and-send`,
     sendToSupplier: (inboundRequestId: string) =>
       `/inbound-requests/${inboundRequestId}/send-to-supplier`,
+    acceptSupplierProposedDate: (inboundRequestId: string) =>
+      `/inbound-requests/${inboundRequestId}/accept-supplier-proposed-date`,
     reject: (inboundRequestId: string) => `/inbound-requests/${inboundRequestId}/reject`,
     cancel: (inboundRequestId: string) => `/inbound-requests/${inboundRequestId}/cancel`,
     closeRemaining: (inboundRequestId: string) =>
@@ -244,7 +265,15 @@ export const API_ENDPOINTS = {
     allowedActions: (inboundRequestId: string) =>
       `/inbound-requests/${inboundRequestId}/allowed-actions`,
   },
+  supplierResponses: {
+    preview: (token: string) => `/public/supplier-responses/${encodeURIComponent(token)}`,
+    respond: (token: string) => `/public/supplier-responses/${encodeURIComponent(token)}/respond`,
+  },
   goodsReceipts: {
+    createWithVersion: '/goods-receipts/with-version',
+    receivingLocations: '/goods-receipts/receiving-locations',
+    reconcileArrivalStock: (receiptId: string) =>
+      `/goods-receipts/${receiptId}/reconcile-arrival-stock`,
     nextCode: '/goods-receipts/next-code',
     list: '/goods-receipts',
     create: '/goods-receipts',
@@ -364,12 +393,31 @@ export const API_ENDPOINTS = {
     invoiceData: (paymentId: string) => `/payments/${paymentId}/invoice-data`,
   },
   transfers: {
+    assignmentSnapshot: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/assignment-snapshot`,
+    decision: (id: string) => `/transfers/${id}/decision`,
+    withdraw: (id: string) => `/transfers/${id}/withdraw`,
+    destinationLoad: '/transfers/destination-load',
+    assignableStaff: '/transfers/assignable-staff',
+    receiptSheet: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/receipt-sheet`,
+    putAwaySheet: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/putaway-sheet`,
+    startReceiving: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/start-receiving`,
+    submitReceipt: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/submit-receipt`,
+    resumePutAway: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/resume-putaway`,
+    putAwayShipment: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/putaway`,
     list: '/transfers',
     create: '/transfers',
     sourceWarehouses: '/transfers/source-warehouses',
     sourceProducts: '/transfers/source-products',
     receivableSlot: '/transfers/receivable-slot',
     receivableSlots: '/transfers/receivable-slots',
+    putAwaySlots: '/transfers/putaway-slots',
     sourceLocations: '/transfers/source-locations',
     nextCode: '/transfers/next-code',
     requesterOptions: '/transfers/requester-options',
@@ -426,6 +474,7 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/discrepancies/${discrepancyId}/resolve`,
   },
   stockIssueRequests: {
+    nextCode: '/stock-issue-requests/next-code',
     importPreview: '/stock-issue-requests/import/preview',
     importInspect: '/stock-issue-requests/import/inspect',
     import: '/stock-issue-requests/import',
@@ -456,6 +505,8 @@ export const API_ENDPOINTS = {
       `/stock-issue-requests/${stockIssueRequestId}/pick-details/${pickDetailId}`,
     goodsReturnRequests: (stockIssueRequestId: string) =>
       `/stock-issue-requests/${stockIssueRequestId}/goods-return-requests`,
+    goodsReturnSuggestions: (stockIssueRequestId: string) =>
+      `/stock-issue-requests/${stockIssueRequestId}/goods-return-requests/suggestions`,
   },
   goodsReturnRequests: {
     list: '/goods-return-requests',
@@ -466,6 +517,14 @@ export const API_ENDPOINTS = {
       `/goods-return-requests/${goodsReturnRequestId}/reject`,
     restock: (goodsReturnRequestId: string) =>
       `/goods-return-requests/${goodsReturnRequestId}/restock`,
+  },
+  supplierReturns: {
+    list: '/supplier-returns',
+    detail: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}`,
+    approve: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/approve`,
+    reject: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/reject`,
+    cancel: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/cancel`,
+    deliver: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/deliver`,
   },
   stockRecipients: {
     list: '/stock-recipients',

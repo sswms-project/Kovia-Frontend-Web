@@ -7,6 +7,7 @@ import type {
 } from '../../types/inbound-request.types'
 import { InboundRequestDetail } from './InboundRequestDetail'
 import { InboundRequestLines } from './InboundRequestLines'
+import { InboundRequestOverview } from './InboundRequestOverview'
 
 function request(overrides: Partial<InboundRequestDetailType> = {}): InboundRequestDetailType {
   return {
@@ -50,8 +51,10 @@ function renderDetail(
     onApprove: vi.fn().mockResolvedValue(true),
     onApproveAndSend: vi.fn().mockResolvedValue(true),
     onSendToSupplier: vi.fn().mockResolvedValue(true),
+    onAcceptSupplierProposedDate: vi.fn().mockResolvedValue(true),
     onReject: vi.fn().mockResolvedValue(true),
     onReconcile: vi.fn().mockResolvedValue(true),
+    onAssignReceiving: vi.fn(),
   }
   render(
     <InboundRequestDetail
@@ -65,7 +68,58 @@ function renderDetail(
   return handlers
 }
 
+describe('inbound document information disclosure', () => {
+  it('keeps progress and correction instructions visible while the shared toggle hides metadata', async () => {
+    const user = userEvent.setup()
+    render(
+      <InboundRequestOverview request={request({ rejectionReason: 'Kiểm tra lại đơn vị nhập' })} />
+    )
+    const toggle = screen.getByRole('button', { name: 'Thông tin phiếu' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Người tạo')).toBeVisible()
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Người tạo')).not.toBeInTheDocument()
+    expect(screen.getByText('Nhà cung cấp A → Kho A')).toBeVisible()
+    expect(screen.getByText('Tiến độ nhận')).toBeVisible()
+    expect(screen.getByText('Kiểm tra lại đơn vị nhập')).toBeVisible()
+    await user.keyboard('{Enter}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Người tạo')).toBeVisible()
+  })
+
+  it('preserves collapse on refresh and resets for another inbound request', async () => {
+    const user = userEvent.setup()
+    const value = request()
+    const view = render(<InboundRequestOverview request={value} />)
+    await user.click(screen.getByRole('button', { name: 'Thông tin phiếu' }))
+    view.rerender(
+      <InboundRequestOverview request={{ ...value, createdByName: 'Người tạo cập nhật' }} />
+    )
+    expect(screen.getByRole('button', { name: 'Thông tin phiếu' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    view.rerender(<InboundRequestOverview request={{ ...value, id: 'other-request' }} />)
+    expect(screen.getByRole('button', { name: 'Thông tin phiếu' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
+  })
+})
+
 describe('InboundRequestDetail supplier email actions', () => {
+  it('lets the warehouse manager open assignment when the server permits it', async () => {
+    const handlers = renderDetail(request({ status: 'Approved', receivingAssignedTo: null }), [
+      'AssignReceivingTask',
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Phân công nhân viên' }))
+    expect(handlers.onAssignReceiving).toHaveBeenCalledOnce()
+  })
+  it('does not advertise assignment without the backend action', () => {
+    renderDetail(request({ status: 'Approved' }), [])
+    expect(screen.queryByRole('button', { name: 'Phân công nhân viên' })).not.toBeInTheDocument()
+  })
   it('shows code-only edit when operational content is locked', () => {
     renderDetail(request({ status: 'Received' }), ['UpdateCode'])
     expect(screen.getByRole('link', { name: 'Đổi mã yêu cầu' })).toHaveAttribute(
@@ -172,5 +226,43 @@ describe('InboundRequestDetail supplier email actions', () => {
 
     expect(screen.getByRole('button', { name: /Gửi lại mail/ })).toBeEnabled()
     expect(screen.queryByRole('button', { name: /Gửi mail nhà cung cấp/ })).not.toBeInTheDocument()
+  })
+
+  it('shows the supplier proposal and accepts the proposed date after confirmation', async () => {
+    const handlers = renderDetail(
+      request({
+        status: 'Approved',
+        supplierEmailSentAt: '2026-09-30T01:00:00Z',
+        supplierEmailSentTo: 'ncc@example.com',
+        supplierResponse: 'ProposedNewDate',
+        supplierRespondedAt: '2026-10-01T01:00:00Z',
+        supplierProposedDate: '2026-10-10T00:00:00Z',
+        supplierResponseNote: 'Kẹt xe tải',
+      }),
+      ['AcceptSupplierProposedDate']
+    )
+
+    expect(screen.getByText(/Nhà cung cấp đề xuất giao ngày/)).toBeInTheDocument()
+    expect(screen.getByText('Kẹt xe tải')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Chấp nhận ngày đề xuất' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận' }))
+
+    expect(handlers.onAcceptSupplierProposedDate).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the supplier rejection reason', () => {
+    renderDetail(
+      request({
+        status: 'Approved',
+        supplierEmailSentAt: '2026-09-30T01:00:00Z',
+        supplierResponse: 'Rejected',
+        supplierResponseNote: 'Hết hàng',
+      }),
+      []
+    )
+
+    expect(screen.getByText('Nhà cung cấp từ chối đơn')).toBeInTheDocument()
+    expect(screen.getByText('Hết hàng')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Chấp nhận ngày đề xuất' })).not.toBeInTheDocument()
   })
 })

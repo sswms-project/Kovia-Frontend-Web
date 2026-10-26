@@ -1,9 +1,10 @@
 'use client'
 
 import { CircleCheck, ScanLine } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CameraScanControl } from '@/components/operations/scanning'
 import { resolveSlotCode } from './slot-code'
 
 interface PutawaySlotCodeConfirmProps {
@@ -36,17 +37,25 @@ export function PutawaySlotCodeConfirm({
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  function confirm() {
-    const result = resolveSlotCode(code, slots, slotId)
+  useEffect(() => {
+    // Keep desktop scanner focus without opening the phone keyboard ahead of the camera.
+    if (open && window.matchMedia?.('(pointer: fine)').matches) inputRef.current?.focus()
+  }, [open])
+
+  function confirm(rawCode: string) {
+    if (disabled) return false
+    const result = resolveSlotCode(rawCode, slots, slotId)
     if (result.status === 'error') {
       setError(result.message)
-      return
+      return false
     }
     setError(null)
     setCode('')
     setOpen(false)
     onConfirm(result.slotId, result.code)
+    return true
   }
 
   if (confirmedCode)
@@ -56,7 +65,10 @@ export function PutawaySlotCodeConfirm({
         role="status"
       >
         <CircleCheck aria-hidden="true" className="size-3.5" />
-        Đã xác nhận bằng mã <span className="font-mono">{confirmedCode}</span>
+        Đã xác nhận bằng mã{' '}
+        <span className="font-mono break-all" translate="no">
+          {confirmedCode}
+        </span>
         <Button
           type="button"
           variant="link"
@@ -77,7 +89,9 @@ export function PutawaySlotCodeConfirm({
         variant={required ? 'outline' : 'ghost'}
         size="icon"
         className={
-          required ? 'border-warning text-warning shrink-0' : 'text-muted-foreground shrink-0'
+          required
+            ? 'border-warning text-warning size-11 shrink-0 sm:size-8'
+            : 'text-muted-foreground size-11 shrink-0 sm:size-8'
         }
         disabled={disabled}
         aria-label="Quét mã vị trí"
@@ -90,18 +104,26 @@ export function PutawaySlotCodeConfirm({
 
   return (
     <div className="animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 flex basis-full flex-col gap-1 motion-reduce:animate-none">
-      <div className="flex items-center gap-2">
+      <CameraScanControl
+        key={slotId}
+        label="Mã vị trí của dòng cất"
+        disabled={disabled}
+        mode="single"
+        onCode={confirm}
+      />
+      <div className="flex flex-wrap items-center gap-2">
         <Input
           id={id}
+          ref={inputRef}
           value={code}
           disabled={disabled}
-          autoFocus
           autoComplete="off"
+          spellCheck={false}
           aria-label="Quét hoặc nhập mã vị trí để xác nhận"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
           placeholder="Quét hoặc nhập mã vị trí"
-          className="h-8 font-mono text-xs"
+          className="h-11 min-w-0 flex-1 basis-full font-mono text-base sm:h-8 sm:basis-auto sm:text-xs"
           onChange={(event) => {
             setCode(event.target.value)
             setError(null)
@@ -111,7 +133,7 @@ export function PutawaySlotCodeConfirm({
             if (event.key !== 'Enter') return
             // Máy quét gửi Enter sau mã; không để nó gửi cả form cất hàng.
             event.preventDefault()
-            confirm()
+            confirm(code)
           }}
         />
         <Button
@@ -119,16 +141,23 @@ export function PutawaySlotCodeConfirm({
           variant="outline"
           size="sm"
           disabled={disabled || code.trim().length === 0}
-          onClick={confirm}
+          className="h-11 touch-manipulation sm:h-8"
+          onClick={() => confirm(code)}
         >
           Xác nhận
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-11 touch-manipulation sm:h-8"
+          onClick={() => setOpen(false)}
+        >
           Đóng
         </Button>
       </div>
       {error ? (
-        <p id={`${id}-error`} className="text-destructive text-xs" role="alert">
+        <p id={`${id}-error`} className="text-destructive text-xs break-words" role="alert">
           {error}
         </p>
       ) : null}

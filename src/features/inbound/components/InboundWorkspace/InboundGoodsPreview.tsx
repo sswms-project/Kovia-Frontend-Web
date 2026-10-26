@@ -131,9 +131,18 @@ export function InboundGoodsPreview({
                 </TableHead>
               ))}
             </TooltipProvider>
-            <TableHead>Vị trí cất</TableHead>
-            <TableHead>Số lô</TableHead>
-            <TableHead>Hạn sử dụng</TableHead>
+            {!isReceipt ? (
+              <>
+                <TableHead className="text-right">Đã đóng</TableHead>
+                <TableHead className="text-right">Còn chờ nhận</TableHead>
+              </>
+            ) : (
+              <>
+                <TableHead>Vị trí cất</TableHead>
+                <TableHead>Số lô</TableHead>
+                <TableHead>Hạn sử dụng</TableHead>
+              </>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -150,23 +159,36 @@ export function InboundGoodsPreview({
               <TableCell className="text-right tabular-nums">
                 {formatQuantity(row.received)}
               </TableCell>
-              <TableCell>
-                {row.locations.length > 0 ? (
-                  <ul className="flex flex-col gap-1">
-                    {row.locations.map((location) => (
-                      <li key={location.id}>
-                        {location.label} · {formatQuantity(location.quantity)} {row.unit}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span className="text-muted-foreground">
-                    {isReceipt ? 'Chưa cất hàng' : 'Theo phiếu nhận hàng'}
-                  </span>
-                )}
-              </TableCell>
-              <TableCell>{row.lotNumber || '-'}</TableCell>
-              <TableCell>{row.expiryDate ? formatOperationalDate(row.expiryDate) : '-'}</TableCell>
+              {!isReceipt ? (
+                <>
+                  <TableCell className="text-right tabular-nums">
+                    {row.closed === undefined ? '—' : formatQuantity(row.closed)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {row.remaining === undefined ? '—' : formatQuantity(row.remaining)}
+                  </TableCell>
+                </>
+              ) : (
+                <>
+                  <TableCell>
+                    {row.locations.length > 0 ? (
+                      <ul className="flex flex-col gap-1">
+                        {row.locations.map((location) => (
+                          <li key={location.id}>
+                            {location.label} · {formatQuantity(location.quantity)} {row.unit}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="text-muted-foreground">Chưa cất hàng</span>
+                    )}
+                  </TableCell>
+                  <TableCell>{row.lotNumber || '-'}</TableCell>
+                  <TableCell>
+                    {row.expiryDate ? formatOperationalDate(row.expiryDate) : '-'}
+                  </TableCell>
+                </>
+              )}
             </TableRow>
           ))}
         </TableBody>

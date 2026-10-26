@@ -1,5 +1,10 @@
 'use client'
 
+import { P } from '@/config/permissionCodes'
+
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useMemo, useState } from 'react'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
@@ -97,8 +102,21 @@ export default function StockMovementsPage() {
     setPage(1)
   }
 
+  const listExport = useListExport({
+    dataset: 'movements',
+    filters: movementParams,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.INVENTORY_VIEW,
+    totalCount: movementsQuery.data?.totalCount ?? 0,
+    isFetching: movementsQuery.isFetching,
+    isError: movementsQuery.isError,
+    blocked: !isDateRangeValid || searchText.trim() !== debouncedSearchText,
+  })
   return (
     <StockMovementHistory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
       permissions={meQuery.data?.permissions ?? []}
       items={movementsQuery.data?.items ?? []}
       totalCount={movementsQuery.data?.totalCount ?? 0}

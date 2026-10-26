@@ -35,6 +35,8 @@ export interface WarehouseLayoutGeometry {
 }
 
 export interface WarehouseLayoutZoneSceneResponse extends WarehousePhysicalDetailsResponse {
+  isDefaultReceivingPoint?: boolean
+  isDefaultOutboundStagingPoint?: boolean
   id: string
   zoneCode: string
   zoneName: string

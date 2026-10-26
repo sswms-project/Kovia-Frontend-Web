@@ -25,6 +25,7 @@ import type {
   InventoryStockHistoryQuery,
   StockMovementListQuery,
 } from '@/features/inventory/types/inventory.types'
+import type { InventoryAnomalyListQuery } from '@/features/inventory-anomaly/types/inventory-anomaly.types'
 import type { ProductListQuery, ProductLotQuery } from '@/features/product/types/product.types'
 import type {
   TransferAvailabilityQuery,
@@ -39,6 +40,7 @@ import type {
   StockIssueRequestListQuery,
   GoodsReturnRequestListQuery,
 } from '@/features/stock-issue/types/stock-issue.types'
+import type { SupplierReturnListQuery } from '@/features/supplier-return/types/supplier-return.types'
 import type {
   StockRecipientListQuery,
   StockRecipientIssueHistoryQuery,
@@ -96,6 +98,7 @@ export const queryKeys = {
   organization: {
     all: ['organization'] as const,
     me: ['organization', 'me'] as const,
+    taskAssignmentScoring: ['organization', 'task-assignment-scoring'] as const,
   },
   staff: {
     all: ['staff'] as const,
@@ -155,6 +158,12 @@ export const queryKeys = {
     forecastRuns: (warehouseId: string) => ['inventory', 'forecast-run-list', warehouseId] as const,
     history: (params: InventoryStockHistoryQuery) => ['inventory', 'history', params] as const,
   },
+  inventoryAnomalies: {
+    all: ['inventory-anomalies'] as const,
+    list: (params: InventoryAnomalyListQuery) => ['inventory-anomalies', 'list', params] as const,
+    summary: (warehouseId: string) => ['inventory-anomalies', 'summary', warehouseId] as const,
+    scans: (warehouseId: string) => ['inventory-anomalies', 'scans', warehouseId] as const,
+  },
   units: {
     all: ['units'] as const,
     list: (status?: 'Active' | 'Inactive') => ['units', 'list', status] as const,
@@ -168,6 +177,8 @@ export const queryKeys = {
     list: (params: CycleCountListQuery) => ['cycle-counts', 'list', params] as const,
     detail: (id: string) => ['cycle-counts', 'detail', id] as const,
     allowedActions: (id: string) => ['cycle-counts', 'detail', id, 'allowed-actions'] as const,
+    assignableStaff: (warehouseId: string) =>
+      ['cycle-counts', 'assignable-staff', warehouseId] as const,
   },
   stockAdjustments: {
     all: ['stock-adjustments'] as const,
@@ -204,6 +215,7 @@ export const queryKeys = {
     list: (params: InboundRequestListQuery) => ['inbound-requests', 'list', params] as const,
     detail: (id: string) => ['inbound-requests', 'detail', id] as const,
     allowedActions: (id: string) => ['inbound-requests', 'detail', id, 'allowed-actions'] as const,
+    supplierResponse: (token: string) => ['supplier-responses', token] as const,
     products: (params: LookupQuery) => ['products', 'inbound-request-options', params] as const,
   },
   goodsReceipts: {
@@ -229,6 +241,14 @@ export const queryKeys = {
     detail: (id: string) => ['inbound-document-imports', 'detail', id] as const,
   },
   transfers: {
+    destinationLoad: (warehouseId: string, date: string, excludeTransferId?: string) =>
+      ['transfers', 'destination-load', warehouseId, date, excludeTransferId ?? null] as const,
+    receiptSheet: (transferId: string, shipmentId: string) =>
+      ['transfers', 'receipt-sheet', transferId, shipmentId] as const,
+    putAwaySheet: (transferId: string, shipmentId: string) =>
+      ['transfers', 'putaway-sheet', transferId, shipmentId] as const,
+    assignableStaff: (warehouseId: string, taskType: string) =>
+      ['transfers', 'assignable-staff', warehouseId, taskType] as const,
     all: ['transfers'] as const,
     lists: ['transfers', 'list'] as const,
     list: (params: TransferListQuery) => ['transfers', 'list', params] as const,
@@ -241,6 +261,8 @@ export const queryKeys = {
       ['transfers', 'putaway-plan-suggestions', transferId, shipmentId ?? null] as const,
     receivableSlots: (params: TransferReceivableSlotsQuery) =>
       ['transfers', 'receivable-slots', params] as const,
+    putAwaySlots: (params: TransferReceivableSlotsQuery) =>
+      ['transfers', 'putaway-slots', params] as const,
     sourceLocations: (params: TransferSourceLocationsQuery) =>
       ['transfers', 'source-locations', params] as const,
     sourceProducts: (params: TransferSourceProductsQuery) =>
@@ -257,6 +279,7 @@ export const queryKeys = {
       ['transfers', 'receive-sheet', transferId, shipmentId] as const,
   },
   stockIssueRequests: {
+    nextCode: ['stock-issue-requests', 'next-code'] as const,
     all: ['stock-issue-requests'] as const,
     lists: ['stock-issue-requests', 'list'] as const,
     list: (params: StockIssueRequestListQuery) => ['stock-issue-requests', 'list', params] as const,
@@ -272,6 +295,13 @@ export const queryKeys = {
     list: (params: GoodsReturnRequestListQuery) =>
       ['goods-return-requests', 'list', params] as const,
     detail: (id: string) => ['goods-return-requests', 'detail', id] as const,
+    slotSuggestions: (stockIssueRequestId: string, items: readonly unknown[]) =>
+      ['goods-return-requests', 'slot-suggestions', stockIssueRequestId, items] as const,
+  },
+  supplierReturns: {
+    all: ['supplier-returns'] as const,
+    list: (params: SupplierReturnListQuery) => ['supplier-returns', 'list', params] as const,
+    detail: (id: string) => ['supplier-returns', 'detail', id] as const,
   },
   stockRecipients: {
     all: ['stock-recipients'] as const,

@@ -1,8 +1,23 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { StockIssueStatusStepper } from './StockIssueStatusStepper'
 
 describe('StockIssueStatusStepper', () => {
+  it('offers an accessible mobile disclosure without changing the active step', async () => {
+    const { container } = render(<StockIssueStatusStepper status="Picking" />)
+    const trigger = screen.getByRole('button', { name: 'Xem các bước' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(container.querySelector('li[aria-current="step"]')).toHaveTextContent('Đang lấy hàng')
+  })
+
+  it('keeps cancellation distinct from completed steps', () => {
+    const { container } = render(<StockIssueStatusStepper status="Cancelled" />)
+    expect(container.querySelector('li[aria-current="step"]')).toHaveTextContent('Đã hủy')
+    expect(container.querySelectorAll('li svg.lucide-check')).toHaveLength(0)
+  })
   it('marks every step done once the goods have left the warehouse', () => {
     const { container } = render(<StockIssueStatusStepper status="Dispatched" />)
 

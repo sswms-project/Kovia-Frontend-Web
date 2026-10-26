@@ -1,18 +1,22 @@
 'use client'
 
 import { PackageCheck } from 'lucide-react'
+import { useState } from 'react'
+import { StagingPointChoice } from '@/features/warehouse/components/StagingPointChoice'
 import {
   OperationalEmptyState,
   OperationalErrorState,
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { P } from '@/config/permissionCodes'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import {
-  PickEntryDialog,
-  PickEscalateDialog,
+  PickEntryWorkspace,
   PickLineCard,
+  PickEscalateDialog,
+  TransferPickLinesTable,
   PickSwitchDialog,
   ReturnPickDialog,
   TransferWorkHeader,
@@ -21,11 +25,14 @@ import {
   MissingPermissionNotice,
   TransferChangedBanner,
   TransferConfirmDialog,
+  TransferUnsavedChanges,
 } from '../components/TransferShared'
 import { useTransferPickSheetQuery } from '../hooks/use-transfer-fulfillment'
 import { useTransferPickActions } from '../hooks/use-transfer-pick-actions'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
+import { useTransferQuery } from '../hooks/use-transfers'
+import { getShipmentCapabilities } from '../utils/transfer-capabilities'
 
 interface TransferPickTaskPageProps {
   readonly transferId: string
@@ -36,16 +43,37 @@ export default function TransferPickTaskPage({
   transferId,
   shipmentId,
 }: TransferPickTaskPageProps) {
-  const { viewer } = useTransferViewer()
+  const { viewer, isReady } = useTransferViewer()
   const sheetQuery = useTransferPickSheetQuery(transferId, shipmentId)
   const sheet = sheetQuery.data
+  const detailQuery = useTransferQuery(transferId)
+  const transfer = detailQuery.data
+  const shipment = transfer?.shipments?.find((row) => row.id === shipmentId)
   // Nhân viên có thể đang nhập số lượng dở: chỉ báo thay đổi, không tải đè lên màn hình.
   const realtime = useTransferRealtime({ transferId, autoRefresh: false })
-  const actions = useTransferPickActions(transferId, shipmentId, sheet)
+  const [stagingChoice, setStagingChoice] = useState<{ shipmentId: string; slotId: string } | null>(
+    null
+  )
+  const stagingSlotId =
+    sheet?.outboundStagingSlotId ??
+    (stagingChoice?.shipmentId === shipmentId
+      ? stagingChoice.slotId
+      : sheet?.stagingPoints?.suggestedSlotId) ??
+    ''
+  const staged = (sheet?.outboundStagingFlowVersion ?? 0) > 0
+  const validStaging =
+    !staged || Boolean(sheet?.stagingPoints?.items.some((point) => point.slotId === stagingSlotId))
+  const actions = useTransferPickActions(transferId, shipmentId, sheet, stagingSlotId)
 
   const isPicking = sheet?.shipmentStatus === 'Picking'
   const hasPickPermission = viewer.permissions.includes(P.TRANSFERS_PICK)
-  const canAct = hasPickPermission && isPicking
+  const canAct = Boolean(
+    isReady &&
+    !detailQuery.isError &&
+    shipment &&
+    isPicking &&
+    getShipmentCapabilities(viewer, shipment, transfer).canOpenPick
+  )
   const lines = sheet?.lines ?? []
   const blockers = {
     pendingManager: lines.filter((line) => line.status === 'PendingManager').length,
@@ -60,9 +88,12 @@ export default function TransferPickTaskPage({
     blockers.surplus === 0
   const totalPicked = lines.reduce((total, line) => total + line.pickedQuantity, 0)
 
-  function reload() {
-    realtime.dismiss()
-    void sheetQuery.refetch()
+  async function reload() {
+    const [fresh, freshDetail] = await Promise.all([sheetQuery.refetch(), detailQuery.refetch()])
+    if (fresh.data && !fresh.isError && !freshDetail.isError) {
+      actions.entry.acceptFresh()
+      realtime.dismiss()
+    }
   }
 
   return (
@@ -78,16 +109,43 @@ export default function TransferPickTaskPage({
         />
       ) : null}
       {realtime.hasPendingChange ? (
-        <TransferChangedBanner onReload={reload} onDismiss={realtime.dismiss} />
+        <TransferChangedBanner onReload={() => void reload()} onDismiss={realtime.dismiss} />
+      ) : null}
+      {actions.entry.needsRefresh && !actions.entry.isPending ? (
+        <Alert role="status">
+          <AlertDescription>
+            Lượt lấy đã được ghi nhận nhưng chưa tải được số lượng mới. Tải lại phiếu trước khi tiếp
+            tục.
+            <Button variant="outline" size="sm" onClick={() => void reload()}>
+              Tải lại phiếu
+            </Button>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
-      <div data-slot="transfer-scroll" className="min-h-0 flex-1 overflow-y-auto">
-        {sheetQuery.isLoading ? (
+      <div
+        data-slot="transfer-scroll"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+      >
+        {staged && sheet?.stagingPoints && (
+          <div className="shrink-0">
+            <StagingPointChoice
+              id="transfer-outbound-staging"
+              title="Đưa hàng tới điểm chờ xuất"
+              points={sheet.stagingPoints}
+              value={stagingSlotId}
+              frozen={Boolean(sheet.outboundStagingSlotId)}
+              disabled={!canAct || actions.complete.isPending}
+              onChange={(slotId) => setStagingChoice({ shipmentId, slotId })}
+            />
+          </div>
+        )}
+        {!isReady || sheetQuery.isLoading || detailQuery.isLoading ? (
           <OperationalLoadingState rows={3} />
-        ) : sheetQuery.isError || !sheet ? (
+        ) : sheetQuery.isError || detailQuery.isError || !sheet || !shipment ? (
           <OperationalErrorState
             title="Không thể tải phiếu lấy hàng"
-            onRetry={() => void sheetQuery.refetch()}
+            onRetry={() => void reload()}
           />
         ) : lines.length === 0 ? (
           <OperationalEmptyState
@@ -95,9 +153,14 @@ export default function TransferPickTaskPage({
             description="Quản lý có thể đã giảm hoặc hủy đợt này."
           />
         ) : (
-          <div className="grid gap-3 pb-3">
+          <div className="flex shrink-0 flex-col gap-3 pb-3 lg:min-h-0 lg:flex-1">
             {isPicking && !hasPickPermission ? (
               <MissingPermissionNotice action="lấy hàng điều chuyển" />
+            ) : isPicking && !canAct ? (
+              <p className="text-muted-foreground text-sm" role="status">
+                Chỉ xem: công việc này chưa được giao cho bạn hoặc bạn không có quyền thao tác tại
+                kho nguồn.
+              </p>
             ) : null}
             {sheet?.shipmentStatus === 'ReadyToDispatch' ? (
               <p className="text-muted-foreground text-sm" role="status">
@@ -108,17 +171,64 @@ export default function TransferPickTaskPage({
                 Đợt này không còn ở trạng thái lấy hàng nên chỉ xem được.
               </p>
             ) : null}
-            {lines.map((line) => (
-              <PickLineCard
-                key={line.lineId}
-                line={line}
+            <div className="flex flex-col gap-3 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.3fr)_minmax(20rem,1fr)]">
+              {canAct ? (
+                <div
+                  data-scrollbar="slim"
+                  className="min-w-0 shrink-0 lg:order-last lg:min-h-0 lg:overflow-y-auto"
+                >
+                  {actions.entry.line ? (
+                    <div className="mb-3 lg:hidden" aria-label="Hàng và vị trí đang lấy">
+                      <PickLineCard
+                        line={actions.entry.line}
+                        canAct={
+                          canAct &&
+                          !actions.entry.isPending &&
+                          !actions.entry.uncertain &&
+                          !actions.entry.needsRefresh &&
+                          !realtime.hasPendingChange
+                        }
+                        onPick={actions.entry.open}
+                        onSwitch={actions.switch.open}
+                        onEscalate={actions.escalate.open}
+                        onReturn={actions.returnPick.open}
+                      />
+                    </div>
+                  ) : null}
+                  <PickEntryWorkspace
+                    line={actions.entry.line}
+                    scan={actions.entry.scan}
+                    quantity={actions.entry.quantity}
+                    maximumQuantity={actions.entry.maximumQuantity}
+                    quantityError={actions.entry.quantityError}
+                    isPending={actions.entry.isPending}
+                    uncertain={actions.entry.uncertain}
+                    eachUnit={actions.entry.eachUnit}
+                    onScanSlot={actions.entry.scanSlot}
+                    onScanProduct={actions.entry.scanProduct}
+                    onQuantityChange={actions.entry.changeQuantity}
+                    onUseAlternative={actions.entry.useAlternative}
+                    onRescan={actions.entry.rescan}
+                    onConfirm={() => void actions.entry.confirm()}
+                  />
+                </div>
+              ) : null}
+              <TransferPickLinesTable
+                lines={lines}
+                selectedId={actions.entry.line?.lineId}
                 canAct={canAct}
+                busy={
+                  actions.entry.isPending ||
+                  actions.entry.uncertain ||
+                  actions.entry.needsRefresh ||
+                  realtime.hasPendingChange
+                }
                 onPick={actions.entry.open}
                 onSwitch={(target) => actions.switch.open(target)}
                 onEscalate={actions.escalate.open}
                 onReturn={actions.returnPick.open}
               />
-            ))}
+            </div>
           </div>
         )}
       </div>
@@ -138,8 +248,15 @@ export default function TransferPickTaskPage({
           <Button
             type="button"
             className="h-12 w-full text-base"
-            disabled={!canDispatch}
-            onClick={actions.complete.open}
+            disabled={
+              !canDispatch ||
+              !validStaging ||
+              actions.complete.isPending ||
+              actions.entry.isPending ||
+              actions.entry.uncertain ||
+              actions.entry.needsRefresh
+            }
+            onClick={staged ? () => void actions.complete.confirm() : actions.complete.open}
           >
             <PackageCheck aria-hidden="true" />
             Hoàn tất lấy hàng
@@ -147,22 +264,6 @@ export default function TransferPickTaskPage({
         </footer>
       ) : null}
 
-      <PickEntryDialog
-        line={actions.entry.line}
-        scan={actions.entry.scan}
-        quantity={actions.entry.quantity}
-        maximumQuantity={actions.entry.maximumQuantity}
-        quantityError={actions.entry.quantityError}
-        isPending={actions.entry.isPending}
-        eachUnit={actions.entry.eachUnit}
-        onScanSlot={actions.entry.scanSlot}
-        onScanProduct={actions.entry.scanProduct}
-        onQuantityChange={actions.entry.changeQuantity}
-        onUseAlternative={actions.entry.useAlternative}
-        onRescan={actions.entry.rescan}
-        onConfirm={() => void actions.entry.confirm()}
-        onOpenChange={actions.entry.onOpenChange}
-      />
       <PickSwitchDialog
         line={actions.switch.line}
         form={actions.switch.form}
@@ -205,6 +306,16 @@ export default function TransferPickTaskPage({
         isPending={actions.complete.isPending}
         onOpenChange={actions.complete.onOpenChange}
         onConfirm={() => void actions.complete.confirm()}
+      />
+      <TransferUnsavedChanges
+        dirty={actions.entry.uncertain}
+        busy={
+          actions.entry.isPending ||
+          actions.switch.isPending ||
+          actions.escalate.isPending ||
+          actions.returnPick.isPending ||
+          actions.complete.isPending
+        }
       />
     </div>
   )

@@ -1,5 +1,13 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
+import { logApiError } from '@/lib/api-error'
+import { toast } from 'sonner'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
 import { stockIssueService } from '../services/stock-issue.service'
@@ -20,6 +28,8 @@ import type {
   StockIssueRequestSummary,
   UpdateStockIssueRequestRequest,
   CreateGoodsReturnRequestRequest,
+  GoodsReturnLineSuggestion,
+  GoodsReturnSuggestionLineRequest,
   RejectGoodsReturnRequestRequest,
   GoodsReturnRequestListQuery,
   GoodsReturnRequestListResponse,
@@ -36,6 +46,48 @@ import { stockRecipientService } from '@/features/stock-recipient/services/stock
 interface RecordStockPickingVariables {
   stockIssueRequestId: string
   request: RecordStockPickingRequest
+}
+
+/** Commit is complete; only the active document/version gates the next action. */
+export async function refreshStockIssueAfterWrite(
+  client: QueryClient,
+  id: string,
+  inventoryChanged = false
+) {
+  const detail = queryKeys.stockIssueRequests.detail(id)
+  await client.cancelQueries({ queryKey: detail })
+  await client.invalidateQueries({
+    queryKey: queryKeys.stockIssueRequests.all,
+    refetchType: 'none',
+  })
+  if (inventoryChanged)
+    await client.invalidateQueries({ queryKey: queryKeys.inventory.all, refetchType: 'none' })
+  await client.refetchQueries({ queryKey: detail, type: 'active' })
+  if (client.getQueryState(detail)?.status === 'error') {
+    logger.warn(
+      'Đã lưu thay đổi xuất kho; chưa tải lại được chi tiết. Cần tải lại trước thao tác tiếp theo.'
+    )
+    toast.warning(
+      'Đã lưu thay đổi, nhưng chưa tải lại được phiếu. Hãy tải lại; không gửi lại thao tác đã lưu.'
+    )
+  }
+  void client.refetchQueries({
+    queryKey: queryKeys.stockIssueRequests.all,
+    type: 'active',
+    predicate: (query) =>
+      query.queryKey[1] !== 'detail' &&
+      (query.queryKey[1] === 'list' || query.queryKey.includes(id)),
+  })
+}
+
+export function useNextStockIssueRequestCodeQuery(enabled: boolean, sessionKey: string) {
+  return useQuery<string, ApiErrorResponse>({
+    queryKey: [...queryKeys.stockIssueRequests.nextCode, sessionKey],
+    queryFn: () => stockIssueService.getNextCode().then((response) => response.data),
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+  })
 }
 
 interface CreateGoodsReturnRequestVariables {
@@ -119,11 +171,7 @@ export function useCreateStockIssueRequestMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<string>, ApiErrorResponse, CreateStockIssueRequestRequest>({
     mutationFn: stockIssueService.createStockIssueRequest,
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.stockRecipients.all }),
-      ]),
+    onSuccess: (response) => refreshStockIssueAfterWrite(queryClient, response.data),
     onError: (error) => logger.error(error),
   })
 }
@@ -132,7 +180,8 @@ export function useUpdateStockIssueRequestMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, UpdateStockIssueRequestRequest>({
     mutationFn: stockIssueService.updateStockIssueRequest,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
+    onSuccess: (_, request) =>
+      refreshStockIssueAfterWrite(queryClient, request.stockIssueRequestId),
     onError: (error) => logger.error(error),
   })
 }
@@ -142,10 +191,8 @@ export function useRecordStockPickingMutation() {
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, RecordStockPickingVariables>({
     mutationFn: ({ stockIssueRequestId, request }) =>
       stockIssueService.recordStockPicking(stockIssueRequestId, request),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })
-    },
+    onSuccess: (_, variables) =>
+      refreshStockIssueAfterWrite(queryClient, variables.stockIssueRequestId, true),
     onError: (error) => logger.error(error),
   })
 }
@@ -154,11 +201,8 @@ export function useReleaseStockIssueRequestMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, ReleaseStockIssueRequestRequest>({
     mutationFn: stockIssueService.releaseForPicking,
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-      ]),
+    onSuccess: (_, request) =>
+      refreshStockIssueAfterWrite(queryClient, request.stockIssueRequestId, true),
     onError: (error) => logger.error(error),
   })
 }
@@ -167,7 +211,8 @@ export function useAssignStockIssuePickerMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, AssignStockIssuePickerRequest>({
     mutationFn: stockIssueService.assignPicker,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
+    onSuccess: (_, request) =>
+      refreshStockIssueAfterWrite(queryClient, request.stockIssueRequestId),
     onError: (error) => logger.error(error),
   })
 }
@@ -195,11 +240,8 @@ export function useCancelStockIssueRequestMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, CancelStockIssueRequestRequest>({
     mutationFn: stockIssueService.cancelStockIssueRequest,
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-      ]),
+    onSuccess: (_, request) =>
+      refreshStockIssueAfterWrite(queryClient, request.stockIssueRequestId, true),
     onError: (error) => logger.error(error),
   })
 }
@@ -221,13 +263,7 @@ export function useRemovePickDetailMutation() {
     mutationFn: ({ stockIssueRequestId, pickDetailId }) =>
       stockIssueService.removePickDetail(stockIssueRequestId, pickDetailId),
     onSuccess: (_, variables) =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.stockIssueRequests.detail(variables.stockIssueRequestId),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-      ]),
+      refreshStockIssueAfterWrite(queryClient, variables.stockIssueRequestId, true),
     onError: (error) => logger.error(error),
   })
 }
@@ -236,12 +272,8 @@ export function useConfirmStockDispatchMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
     mutationFn: stockIssueService.confirmDispatch,
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-      ]),
-    onError: (error) => logger.error(error),
+    onSuccess: (_, id) => refreshStockIssueAfterWrite(queryClient, id, true),
+    onError: logApiError,
   })
 }
 
@@ -249,8 +281,8 @@ export function useAuthorizeStockDispatchMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
     mutationFn: stockIssueService.authorizeDispatch,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
-    onError: (error) => logger.error(error),
+    onSuccess: (_, id) => refreshStockIssueAfterWrite(queryClient, id),
+    onError: logApiError,
   })
 }
 
@@ -264,6 +296,21 @@ export function useCreateGoodsReturnRequestMutation() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all })
     },
     onError: (error) => logger.error(error),
+  })
+}
+
+export function useGoodsReturnSlotSuggestionsQuery(
+  stockIssueRequestId: string | null,
+  items: readonly GoodsReturnSuggestionLineRequest[]
+) {
+  return useQuery<GoodsReturnLineSuggestion[], ApiErrorResponse>({
+    queryKey: queryKeys.goodsReturnRequests.slotSuggestions(stockIssueRequestId ?? '', items),
+    queryFn: () =>
+      stockIssueService
+        .suggestGoodsReturnSlots(stockIssueRequestId ?? '', items)
+        .then((response) => response.data),
+    enabled: Boolean(stockIssueRequestId) && items.length > 0,
+    placeholderData: (previousData) => previousData,
   })
 }
 
@@ -290,8 +337,13 @@ export function useGoodsReturnRequestQuery(goodsReturnRequestId: string | null) 
 
 export function useApproveGoodsReturnRequestMutation() {
   const queryClient = useQueryClient()
-  return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
-    mutationFn: stockIssueService.approveGoodsReturnRequest,
+  return useMutation<
+    ApiResponse<unknown>,
+    ApiErrorResponse,
+    { goodsReturnRequestId: string; selfApprovalAcknowledged?: boolean }
+  >({
+    mutationFn: ({ goodsReturnRequestId, selfApprovalAcknowledged }) =>
+      stockIssueService.approveGoodsReturnRequest(goodsReturnRequestId, selfApprovalAcknowledged),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.goodsReturnRequests.all })
       void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })

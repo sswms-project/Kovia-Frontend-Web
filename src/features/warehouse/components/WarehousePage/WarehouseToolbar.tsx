@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { RefreshCw, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -12,6 +13,7 @@ interface WarehouseToolbarProps {
   readonly searchText: string
   readonly isFetching: boolean
   readonly onSearchChange: (value: string) => void
+  readonly exportAction?: ReactNode
   readonly onRefresh: () => void
 }
 
@@ -20,6 +22,7 @@ export function WarehouseToolbar({
   isFetching,
   onSearchChange,
   onRefresh,
+  exportAction,
 }: WarehouseToolbarProps) {
   return (
     <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
@@ -48,8 +51,9 @@ export function WarehouseToolbar({
 
       <div className="flex items-center justify-between gap-2 sm:justify-end">
         <p className="text-muted-foreground text-xs" aria-live="polite">
-          {isFetching ? 'Đang cập nhật' : 'Đã cập nhật'}
+          {isFetching ? 'Đang cập nhật' : ''}
         </p>
+        {exportAction}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

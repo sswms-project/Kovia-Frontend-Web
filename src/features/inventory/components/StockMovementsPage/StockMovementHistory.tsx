@@ -1,6 +1,7 @@
 'use client'
 
-import { History, ListFilter, RefreshCw } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { ListFilter, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import {
   OperationalEmptyState,
@@ -57,6 +58,7 @@ interface StockMovementHistoryProps {
   readonly onRetryLocations: () => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
@@ -78,21 +80,7 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
-            <History aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-            <h1 className="mt-0.5 text-xl font-semibold">Lịch sử biến động</h1>
-          </div>
-        </div>
-        <div className="border-primary/20 bg-primary/5 flex min-h-10 items-center gap-2 border px-3">
-          <History className="text-primary size-4" aria-hidden="true" />
-          <span className="text-xs font-medium tabular-nums">{totalCount} biến động</span>
-        </div>
-      </header>
+      <h1 className="sr-only">Lịch sử biến động</h1>
       <InventoryWorkspaceNavigation currentView="movements" permissions={props.permissions} />
       <OperationalListPanel aria-labelledby="movement-history-title">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b p-3">
@@ -100,9 +88,8 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
             <h2 id="movement-history-title" className="text-sm font-semibold">
               Nhật ký tồn kho
             </h2>
-            <p className="text-muted-foreground text-xs">Mới nhất được hiển thị trước.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="ml-auto flex shrink-0 gap-2">
             <Button
               type="button"
               variant="outline"
@@ -112,6 +99,7 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
               <ListFilter aria-hidden="true" />
               Bộ lọc{activeFilterCount ? ` (${activeFilterCount})` : ''}
             </Button>
+            {props.exportAction}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

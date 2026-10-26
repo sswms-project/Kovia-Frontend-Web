@@ -44,7 +44,7 @@ it('finds an imported rack among 500 locations and selects its real ID without s
   render(<WarehouseUnplacedLocations scene={scene} onSelect={onSelect} />)
   await userEvent.click(screen.getByRole('button', { name: 'Chưa sắp xếp (500)' }))
   await userEvent.type(screen.getByRole('textbox', { name: 'Tìm vị trí chưa sắp xếp' }), 'R499')
-  await userEvent.click(screen.getByRole('button', { name: 'Chọn Z / R499' }))
+  await userEvent.click(screen.getByRole('button', { name: /Chọn Khu Z .*Kệ R499 ·/ }))
   await waitFor(() =>
     expect(onSelect).toHaveBeenCalledExactlyOnceWith({ kind: 'rack', id: 'rack-499' })
   )

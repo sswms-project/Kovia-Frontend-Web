@@ -87,21 +87,25 @@ function ComboboxContent({
   align = 'start',
   alignOffset = 0,
   anchor,
+  container,
   ...props
 }: ComboboxPrimitive.Popup.Props &
+  Pick<ComboboxPrimitive.Portal.Props, 'container'> &
   Pick<
     ComboboxPrimitive.Positioner.Props,
     'side' | 'align' | 'sideOffset' | 'alignOffset' | 'anchor'
   >) {
   return (
-    <ComboboxPrimitive.Portal>
+    <ComboboxPrimitive.Portal container={container}>
       <ComboboxPrimitive.Positioner
         side={side}
         sideOffset={sideOffset}
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
-        className="isolate z-50"
+        // Dialog/Sheet modal của Radix đặt pointer-events: none lên body; danh sách nằm trong portal ngoài
+        // nội dung nên phải tự bật lại, nếu không bấm chuột bị xuyên xuống lớp nền.
+        className="pointer-events-auto isolate z-50"
       >
         <ComboboxPrimitive.Popup
           data-slot="combobox-content"

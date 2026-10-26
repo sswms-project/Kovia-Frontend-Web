@@ -1,6 +1,7 @@
 import type { RecordStockPickingFormValues } from '../schemas/stock-issue.schema'
 import type { StockIssueRequestSummary } from '../types/stock-issue.types'
 import { stockIssueItemFactor } from './stock-issue-format'
+import { formatStockIssueLocation, isStockIssueRackLocation } from './stock-issue-location'
 
 export type StockPickingLine = RecordStockPickingFormValues['lines'][number]
 
@@ -27,7 +28,7 @@ function sameCode(left: string | null | undefined, right: string): boolean {
  * lô đã được giữ theo FEFO lúc giao việc nên không cho chọn lại ở đây.
  */
 export function buildStockPickingLines(order: StockIssueRequestSummary): StockPickingLine[] {
-  const entries = order.items.flatMap((item) => {
+  const entries = order.items.flatMap<{ sortKey: string; line: StockPickingLine }>((item) => {
     const factor = stockIssueItemFactor(item)
     const remainingQuantity = Math.max(0, item.quantity - item.pickedQuantity) / factor
     if (remainingQuantity <= 0) return []
@@ -63,8 +64,11 @@ export function buildStockPickingLines(order: StockIssueRequestSummary): StockPi
         ...base,
         inventoryStockId: location.inventoryStockId,
         availableQuantity: location.reservedQuantity / factor,
-        slotCode: location.slotCode,
+        slotCode: isStockIssueRackLocation(location) ? location.rackCode : location.slotCode,
+        slotPath: formatStockIssueLocation(location),
         lotNumber: location.lotNumber,
+        directFromReceiving: location.directFromReceiving,
+        allocationReason: location.allocationReason,
       },
     }))
   })

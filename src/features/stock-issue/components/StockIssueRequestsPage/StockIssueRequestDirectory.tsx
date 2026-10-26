@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -19,6 +20,8 @@ import { StockIssueRequestStatusStats } from './StockIssueRequestStatusStats'
 import { StockIssueRequestTable, StockIssueRequestTableSkeleton } from './StockIssueRequestTable'
 
 interface StockIssueRequestDirectoryProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: StockIssueRequestSummary) => void
   readonly items: readonly StockIssueRequestSummary[]
   readonly totalCount: number
   readonly page: number
@@ -47,10 +50,13 @@ interface StockIssueRequestDirectoryProps {
   readonly onAssignedToMeChange: (value: boolean) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
 }
 
 export function StockIssueRequestDirectory({
+  previewId,
+  onPreview,
   items,
   totalCount,
   page,
@@ -80,6 +86,7 @@ export function StockIssueRequestDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
 }: StockIssueRequestDirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
@@ -95,6 +102,7 @@ export function StockIssueRequestDirectory({
               Danh sách yêu cầu xuất kho
             </h2>
             <StockIssueRequestFilters
+              exportAction={exportAction}
               searchText={searchText}
               status={status}
               warehouseId={warehouseId}
@@ -130,12 +138,20 @@ export function StockIssueRequestDirectory({
           <>
             <div data-slot="operational-list-body" className="md:hidden">
               <StockIssueRequestMobileList
+                previewId={previewId}
+                onPreview={onPreview}
                 items={items}
                 capabilities={capabilities}
                 handlers={handlers}
               />
             </div>
-            <StockIssueRequestTable items={items} capabilities={capabilities} handlers={handlers} />
+            <StockIssueRequestTable
+              previewId={previewId}
+              onPreview={onPreview}
+              items={items}
+              capabilities={capabilities}
+              handlers={handlers}
+            />
             <OperationalPagination
               page={page}
               pageSize={pageSize}

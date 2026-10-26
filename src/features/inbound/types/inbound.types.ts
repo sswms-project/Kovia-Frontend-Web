@@ -1,3 +1,4 @@
+import type { OrderType } from '@/types/api'
 import type {
   LifecycleEvent,
   PagedResponse,
@@ -22,11 +23,14 @@ export type GoodsReceiptAction =
   | 'PutAway'
   | 'AssignPutAway'
   | 'PlanPutAway'
+  | 'ReconcileArrivalStock'
+  | 'IsolateDamage'
 
 export type WarehouseTaskExecutionStatus = 'Queued' | 'InProgress' | 'Paused' | 'Completed'
 export type WarehouseTaskPriority = 'Normal' | 'Urgent'
 
 export interface InboundListQuery {
+  sortDirection?: OrderType
   pageNumber: number
   pageSize: number
   searchTerm?: string
@@ -38,6 +42,7 @@ export interface InboundListQuery {
 }
 
 export interface ReceivingTaskQuery {
+  sortDirection?: OrderType
   pageNumber: number
   pageSize: number
   searchTerm?: string
@@ -51,6 +56,7 @@ export interface ReceivingTaskQuery {
 }
 
 export interface PutawayTaskQuery {
+  sortDirection?: OrderType
   pageNumber: number
   pageSize: number
   searchTerm?: string
@@ -80,6 +86,7 @@ export interface ReceivingTaskLine {
 }
 
 export interface ReceivingTask {
+  version: string
   warehouseCode?: string | null
   supplierCode?: string | null
   sourceName?: string | null
@@ -137,6 +144,11 @@ export interface GoodsReceiptSummary {
 }
 
 export interface GoodsReceiptItem {
+  keptAtReceivingQuantity?: number
+  rejectedQuantity?: number
+  deliveredQuantity?: number
+  isolatedDamagedQuantity?: number
+  remainingDamageIsolationQuantity?: number
   id: string
   inboundRequestItemId: string | null
   productId: string
@@ -253,6 +265,7 @@ export interface GoodsReceiptDetail extends Omit<
   | 'putAwayQuantity'
   | 'putAwayExecutionStatus'
 > {
+  keptAtReceiving?: boolean
   supplierCode?: string | null
   supplierName?: string | null
   sourceName?: string | null
@@ -267,6 +280,12 @@ export interface GoodsReceiptDetail extends Omit<
   rejectionReason: string | null
   arrivalConfirmedBy: string | null
   arrivalConfirmedAt: string | null
+  receivingSlotId: string | null
+  arrivalStockPostedAt: string | null
+  sourceRequestVersion: string | null
+  receivingFlowVersion?: number
+  refusedGoodsHandedBack?: boolean
+  refusalEvidence?: InventoryEvidence[]
   putAwayTaskExecutionStatus: 'Queued' | 'InProgress' | 'Paused' | 'Completed' | 'Cancelled'
   putAwayTaskCancelledAt: string | null
   putAwayTaskCancellationReason: string | null
@@ -284,6 +303,7 @@ export interface ReceiptLineRequest {
   inboundRequestItemId: string
   receivedQty: number
   damagedQty: number
+  rejectedQty?: number
   exceptionReason: string | null
   lotNumber: string | null
   manufacturedDate: string | null
@@ -292,6 +312,8 @@ export interface ReceiptLineRequest {
 
 export interface SaveGoodsReceiptRequest {
   inboundRequestId: string
+  expectedInboundVersion: string
+  commandId: string
   receiptCode?: string
   lines: ReceiptLineRequest[]
 }
@@ -366,9 +388,13 @@ export interface PutAwaySuggestionsResponse {
 }
 
 export interface ConfirmPhysicalArrivalRequest {
+  keepAtReceiving?: boolean
   expectedVersion: string
   commandId: string
   selfApprovalAcknowledged?: boolean
+  receivingSlotId?: string | null
+  refusedGoodsHandedBack?: boolean
+  refusalEvidenceIds?: string[]
 }
 
 export interface CancelPutawayTaskRequest {
@@ -389,7 +415,15 @@ export interface AssignableWarehouseStaff {
   email: string
   openReceivingTasks: number
   openPutAwayTasks: number
+  // Các trường dưới chỉ có từ khi Backend chấm điểm tải chung; thiếu thì coi như chưa có dữ liệu.
+  openPickingTasks?: number
+  openWarehouseTasks?: number
+  openCycleCounts?: number
   hasTaskInProgress: boolean
+  /** Điểm tải theo hệ số chấm điểm của doanh nghiệp; danh sách xếp tăng dần theo điểm này. */
+  workloadScore?: number
+  /** Người có điểm tải thấp nhất, được đề xuất giao trước. */
+  isRecommended?: boolean
 }
 
 export interface UnassignReceivingTaskRequest {

@@ -1,8 +1,10 @@
 import { queryKeys } from '@/lib/query-keys'
+import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { NotificationItem, NotificationType } from '../types/platform-services.types'
 
 const TZ = 'Asia/Ho_Chi_Minh'
+const notificationReferenceIdSchema = nonEmptyDotNetGuidSchema('Tham chiếu không hợp lệ.')
 
 const dateTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
   day: '2-digit',
@@ -50,6 +52,20 @@ export function getNotificationReferenceRoute(
 ): string | null {
   const { action, referenceType, referenceId } = notification
 
+  // Old assignment notifications point at a management-only document instead of the task.
+  if (notification.type === 'TaskAssigned' && referenceType === 'InboundRequest')
+    return APP_ROUTES.myTasks
+
+  // The backend's legacy list action still carries the exact outbound request reference.
+  if (
+    referenceType === 'StockIssueRequest' &&
+    (!action || action === 'ViewStockIssueRequests' || !notificationActionRoutes[action])
+  ) {
+    if (notificationReferenceIdSchema.safeParse(referenceId).success && referenceId)
+      return APP_ROUTES.stockIssueRequestDetail(referenceId)
+    return action === 'ViewStockIssueRequests' ? APP_ROUTES.stockIssueRequests : null
+  }
+
   const actionRoute = action ? notificationActionRoutes[action] : undefined
   if (actionRoute) {
     if (actionRoute.requiresId && !referenceId) return null
@@ -90,6 +106,7 @@ const notificationTypeQueryRoots: Partial<
   OpeningStockUpdate: [queryKeys.inventory.all],
   DamageCaseUpdate: [queryKeys.inventory.all],
   StockDiscrepancyUpdate: [queryKeys.inventory.all],
+  SupplierReturnUpdate: [queryKeys.supplierReturns.all, queryKeys.inventory.all],
   LowStock: [queryKeys.inventory.all],
   WarehouseUpdate: [queryKeys.warehouses.all],
   TaskAssigned: [
@@ -110,8 +127,10 @@ const notificationReferenceDetailKeys: Record<string, (id: string) => readonly s
   StockAdjustment: queryKeys.stockAdjustments.detail,
   StockAdjustmentVoucher: queryKeys.stockAdjustments.voucherDetail,
   InboundRequest: queryKeys.inboundRequests.detail,
+  StockIssueRequest: queryKeys.stockIssueRequests.detail,
   GoodsReceipt: queryKeys.goodsReceipts.detail,
   Product: queryKeys.products.detail,
+  SupplierReturnRequest: queryKeys.supplierReturns.detail,
 }
 
 /**
@@ -121,7 +140,10 @@ const notificationReferenceDetailKeys: Record<string, (id: string) => readonly s
 export function getNotificationQueryKeys(
   notification: Pick<NotificationItem, 'type' | 'referenceType' | 'referenceId'>
 ): readonly (readonly unknown[])[] {
-  const roots = notificationTypeQueryRoots[notification.type] ?? []
+  const roots =
+    notification.type === 'TaskAssigned' && notification.referenceType === 'StockIssueRequest'
+      ? [queryKeys.stockIssueRequests.all, ['warehouse-tasks']]
+      : (notificationTypeQueryRoots[notification.type] ?? [])
   const { referenceType, referenceId } = notification
   const detail =
     referenceType && referenceId
@@ -143,6 +165,7 @@ const notificationReferenceRoutes: Record<string, (id: string) => string> = {
   WarehouseTask: () => APP_ROUTES.myTasks,
   StockIssueRequest: (id) => APP_ROUTES.stockIssueRequestDetail(id),
   GoodsReturnRequest: () => APP_ROUTES.goodsReturnRequests,
+  SupplierReturnRequest: (id) => `${APP_ROUTES.supplierReturns}?id=${id}`,
   DamageCase: () => APP_ROUTES.inventoryDamageCases,
   OpeningStockRecord: () => APP_ROUTES.inventoryOpeningStocks,
   StockDiscrepancyReport: () => APP_ROUTES.inventoryDiscrepancies,
@@ -174,6 +197,18 @@ export const notificationActionRoutes: Record<string, NotificationActionRoute> =
   ViewStockTransfer: { to: APP_ROUTES.transferDetail, requiresId: true },
   ViewStockTransferShipments: {
     to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=shipments`,
+    requiresId: true,
+  },
+  ViewStockTransferPick: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=pick`,
+    requiresId: true,
+  },
+  ViewStockTransferReceive: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=receive`,
+    requiresId: true,
+  },
+  ViewStockTransferPutAway: {
+    to: (id) => `${APP_ROUTES.transferDetail(id)}?tab=putaway`,
     requiresId: true,
   },
   ViewStockTransferDiscrepancies: {

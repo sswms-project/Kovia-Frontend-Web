@@ -1,8 +1,9 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
-import { ShieldAlert } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -49,9 +58,11 @@ import {
 } from '../../utils/inventory-format'
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
 import { DamageCaseDetailDialog } from './DamageCaseDetailDialog'
+import { rowActivationProps } from '@/features/inbound/utils/row-activation-props'
 
 interface DamageCaseDirectoryProps {
   readonly permissions: readonly string[]
+  readonly canViewSupplierReturn: boolean
   readonly currentUserId: string | null
   readonly items: readonly DamageCase[]
   readonly page: number
@@ -65,11 +76,13 @@ interface DamageCaseDirectoryProps {
   readonly warehouseOptions: readonly InventoryFilterOption[]
   readonly productOptions: readonly InventoryFilterOption[]
   readonly isLoading: boolean
+  readonly isFetching: boolean
   readonly isError: boolean
   readonly isPending: boolean
   readonly canDecide: boolean
-  readonly recipientOptions: readonly { value: string; label: string }[]
-  readonly areRecipientsLoading: boolean
+  readonly exportAction?: ReactNode
+  readonly supplierOptions: readonly { value: string; label: string }[]
+  readonly areSuppliersLoading: boolean
   readonly onRetry: () => void
   readonly onPageChange: (page: number) => void
   readonly onWarehouseChange: (value: string) => void
@@ -82,7 +95,7 @@ interface DamageCaseDirectoryProps {
     disposition: DamageDisposition,
     quantity: number | undefined,
     note: string,
-    stockRecipientId?: string
+    supplierId?: string
   ) => Promise<void>
   readonly onAddEvidence: (
     item: DamageCase,
@@ -95,7 +108,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
   const [selected, setSelected] = useState<DamageCase | null>(null)
   const [disposition, setDisposition] = useState<DamageDisposition>('ContinueHold')
   const [note, setNote] = useState('')
-  const [stockRecipientId, setStockRecipientId] = useState('')
+  const [supplierId, setSupplierId] = useState('')
   const [detailItem, setDetailItem] = useState<DamageCase | null>(null)
   const [dispositionQuantity, setDispositionQuantity] = useState(0)
   const [evidenceItem, setEvidenceItem] = useState<DamageCase | null>(null)
@@ -108,7 +121,8 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
       item.status === 'Open' &&
       item.reportedByUserId !== props.currentUserId &&
       !item.linkedStockIssueRequestId &&
-      !item.linkedStockAdjustmentId
+      !item.linkedStockAdjustmentId &&
+      !item.linkedSupplierReturnId
     )
   }
 
@@ -139,79 +153,89 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
         ? dispositionQuantity
         : undefined,
       note,
-      stockRecipientId || undefined
+      disposition === 'SupplierReturn' ? supplierId || undefined : undefined
     )
     setSelected(null)
     setNote('')
-    setStockRecipientId('')
+    setSupplierId('')
     setDispositionQuantity(0)
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <header className="flex shrink-0 items-start gap-3 border-b pb-4">
-        <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
-          <ShieldAlert />
-        </span>
-        <div>
-          <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-          <h1 className="text-xl font-semibold">Hồ sơ hàng hỏng</h1>
-          <p className="text-muted-foreground text-sm">
-            Theo dõi lượng đang giữ và quyết định xử lý có truy vết.
-          </p>
-        </div>
-      </header>
+      <h1 className="sr-only">Hồ sơ hàng hỏng</h1>
       <InventoryWorkspaceNavigation currentView="damage-cases" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách sự cố hư hỏng">
-        <div className="grid gap-2 border-b p-3 sm:grid-cols-2 lg:grid-cols-5">
-          <NativeSelect
-            className="w-full"
-            aria-label="Lọc theo kho"
-            value={props.warehouseId}
-            onChange={(event) => props.onWarehouseChange(event.target.value)}
-          >
-            <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-            {props.warehouseOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect
-            className="w-full"
-            aria-label="Lọc theo sản phẩm"
-            value={props.productId}
-            onChange={(event) => props.onProductChange(event.target.value)}
-          >
-            <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-            {props.productOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <NativeSelect
-            className="w-full"
-            aria-label="Lọc theo trạng thái"
-            value={props.statusFilter}
-            onChange={(event) => props.onStatusChange(event.target.value as DamageCaseStatus | '')}
-          >
-            <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-            <NativeSelectOption value="Open">Đang giữ</NativeSelectOption>
-            <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
-          </NativeSelect>
-          <Input
-            aria-label="Từ ngày"
-            type="date"
-            value={props.dateFrom}
-            onChange={(event) => props.onDateFromChange(event.target.value)}
-          />
-          <Input
-            aria-label="Đến ngày"
-            type="date"
-            value={props.dateTo}
-            onChange={(event) => props.onDateToChange(event.target.value)}
-          />
+        <div className="flex shrink-0 items-start gap-3 border-b p-3">
+          <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <NativeSelect
+              className="w-full"
+              aria-label="Lọc theo kho"
+              value={props.warehouseId}
+              onChange={(event) => props.onWarehouseChange(event.target.value)}
+            >
+              <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+              {props.warehouseOptions.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <NativeSelect
+              className="w-full"
+              aria-label="Lọc theo sản phẩm"
+              value={props.productId}
+              onChange={(event) => props.onProductChange(event.target.value)}
+            >
+              <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
+              {props.productOptions.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <NativeSelect
+              className="w-full"
+              aria-label="Lọc theo trạng thái"
+              value={props.statusFilter}
+              onChange={(event) =>
+                props.onStatusChange(event.target.value as DamageCaseStatus | '')
+              }
+            >
+              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+              <NativeSelectOption value="Open">Đang giữ</NativeSelectOption>
+              <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
+            </NativeSelect>
+            <Input
+              aria-label="Từ ngày"
+              type="date"
+              value={props.dateFrom}
+              onChange={(event) => props.onDateFromChange(event.target.value)}
+            />
+            <Input
+              aria-label="Đến ngày"
+              type="date"
+              value={props.dateTo}
+              onChange={(event) => props.onDateToChange(event.target.value)}
+            />
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {props.exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              aria-label="Làm mới hàng hỏng"
+              disabled={props.isFetching}
+              onClick={props.onRetry}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+              />
+            </Button>
+          </div>
         </div>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />
@@ -223,96 +247,38 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
             description="Các báo cáo hàng hỏng sẽ xuất hiện tại đây."
           />
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table className="min-w-[900px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="sticky top-0 z-10">Sản phẩm</TableHead>
-                  <TableHead className="sticky top-0 z-10">Kho / vị trí</TableHead>
-                  <TableHead className="sticky top-0 z-10 text-right">Số lượng</TableHead>
-                  <TableHead className="sticky top-0 z-10">Lý do / bằng chứng</TableHead>
-                  <TableHead className="sticky top-0 z-10">Nguồn</TableHead>
-                  <TableHead className="sticky top-0 z-10">Người báo</TableHead>
-                  <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <ItemGroup className="gap-0">
                 {props.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-muted-foreground font-mono text-xs">{item.sku}</p>
-                    </TableCell>
-                    <TableCell>
-                      <p>{item.warehouseName}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatInventoryLocation(item)}
+                  <Item
+                    key={item.id}
+                    {...rowActivationProps(() => setDetailItem(item), 'border-b last:border-b-0')}
+                  >
+                    <ItemContent className="min-w-0">
+                      <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                        <span className="min-w-0 break-words">{item.productName}</span>
+                        <Badge variant={item.status === 'Open' ? 'outline' : 'secondary'}>
+                          {DAMAGE_STATUS_LABELS[item.status]}
+                        </Badge>
+                      </ItemTitle>
+                      <ItemDescription className="font-mono">{item.sku}</ItemDescription>
+                      <ItemDescription>
+                        {item.warehouseName} · {formatInventoryLocation(item)}
                         {item.lotNumber ? ` · lô ${item.lotNumber}` : ''}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {item.isQuantityConfirmed ? (
-                        <>
-                          {formatInventoryQuantity(item.resolvedQuantity)} /{' '}
-                          {formatInventoryQuantity(item.quantity)}
-                          <span className="text-muted-foreground block text-xs">
-                            còn {formatInventoryQuantity(item.remainingQuantity)}
-                          </span>
-                        </>
-                      ) : (
-                        'Chờ xác nhận'
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-64">
-                      <p className="truncate">{item.reason}</p>
-                      {item.evidence.map((file) => (
-                        <button
-                          key={file.id}
-                          type="button"
-                          className="text-primary block max-w-full truncate text-left text-xs underline"
-                          onClick={() =>
-                            void inventoryService.downloadEvidence(file.id, file.fileName)
-                          }
-                        >
-                          {file.fileName}
-                        </button>
-                      ))}
-                      <p className="text-muted-foreground text-xs">
-                        {formatInventoryDate(item.createdAt)}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      {item.relatedTaskType === 'CycleCount' && item.relatedTaskId ? (
-                        <Link
-                          href={APP_ROUTES.cycleCountDetail(item.relatedTaskId)}
-                          className="text-primary text-xs underline-offset-2 hover:underline"
-                        >
-                          Phiếu kiểm kê
-                          {item.relatedTaskCode ? (
-                            <span className="block font-mono">{item.relatedTaskCode}</span>
-                          ) : null}
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">Báo tay</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{item.reportedByName}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.status === 'Open' ? 'outline' : 'secondary'}>
-                        {DAMAGE_STATUS_LABELS[item.status]}
-                      </Badge>
-                      {item.status === 'Resolved' && item.disposition ? (
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          {DAMAGE_DISPOSITION_LABELS[item.disposition]}
-                        </p>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setDetailItem(item)}>
-                          Chi tiết
-                        </Button>
+                      </ItemDescription>
+                      <ItemDescription>
+                        {item.isQuantityConfirmed
+                          ? `Đã xử lý ${formatInventoryQuantity(item.resolvedQuantity)} / ${formatInventoryQuantity(item.quantity)} · còn ${formatInventoryQuantity(item.remainingQuantity)}`
+                          : 'Số lượng chờ xác nhận'}
+                      </ItemDescription>
+                      <ItemDescription className="line-clamp-2">{item.reason}</ItemDescription>
+                      <ItemDescription>
+                        {item.reportedByName} · {formatInventoryDate(item.createdAt)}
+                      </ItemDescription>
+                    </ItemContent>
+                    {canDecideCase(item) || canAddEvidenceToCase(item) ? (
+                      <ItemActions>
                         {canDecideCase(item) ? (
                           <Button size="sm" onClick={() => openDecision(item)}>
                             Chọn xử lý
@@ -323,13 +289,120 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                             Bổ sung bằng chứng
                           </Button>
                         ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </ItemActions>
+                    ) : null}
+                  </Item>
                 ))}
-              </TableBody>
-            </Table>
-          </div>
+              </ItemGroup>
+            </div>
+            <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+              <Table className="min-w-[900px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 z-10">Sản phẩm</TableHead>
+                    <TableHead className="sticky top-0 z-10">Kho / vị trí</TableHead>
+                    <TableHead className="sticky top-0 z-10 text-right">Số lượng</TableHead>
+                    <TableHead className="sticky top-0 z-10">Lý do / bằng chứng</TableHead>
+                    <TableHead className="sticky top-0 z-10">Nguồn</TableHead>
+                    <TableHead className="sticky top-0 z-10">Người báo</TableHead>
+                    <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                    <TableHead className="sticky top-0 z-10 w-px text-center">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {props.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <p className="font-medium">{item.productName}</p>
+                        <p className="text-muted-foreground font-mono text-xs">{item.sku}</p>
+                      </TableCell>
+                      <TableCell>
+                        <p>{item.warehouseName}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {formatInventoryLocation(item)}
+                          {item.lotNumber ? ` · lô ${item.lotNumber}` : ''}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {item.isQuantityConfirmed ? (
+                          <>
+                            {formatInventoryQuantity(item.resolvedQuantity)} /{' '}
+                            {formatInventoryQuantity(item.quantity)}
+                            <span className="text-muted-foreground block text-xs">
+                              còn {formatInventoryQuantity(item.remainingQuantity)}
+                            </span>
+                          </>
+                        ) : (
+                          'Chờ xác nhận'
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-64">
+                        <p className="truncate">{item.reason}</p>
+                        {item.evidence.map((file) => (
+                          <button
+                            key={file.id}
+                            type="button"
+                            className="text-primary block max-w-full truncate text-left text-xs underline"
+                            onClick={() =>
+                              void inventoryService.downloadEvidence(file.id, file.fileName)
+                            }
+                          >
+                            {file.fileName}
+                          </button>
+                        ))}
+                        <p className="text-muted-foreground text-xs">
+                          {formatInventoryDate(item.createdAt)}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        {item.relatedTaskType === 'CycleCount' && item.relatedTaskId ? (
+                          <Link
+                            href={APP_ROUTES.cycleCountDetail(item.relatedTaskId)}
+                            className="text-primary text-xs underline-offset-2 hover:underline"
+                          >
+                            Phiếu kiểm kê
+                            {item.relatedTaskCode ? (
+                              <span className="block font-mono">{item.relatedTaskCode}</span>
+                            ) : null}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Báo tay</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{item.reportedByName}</TableCell>
+                      <TableCell>
+                        <Badge variant={item.status === 'Open' ? 'outline' : 'secondary'}>
+                          {DAMAGE_STATUS_LABELS[item.status]}
+                        </Badge>
+                        {item.status === 'Resolved' && item.disposition ? (
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            {DAMAGE_DISPOSITION_LABELS[item.disposition]}
+                          </p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="w-px">
+                        <div className="ml-auto flex w-max gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setDetailItem(item)}>
+                            Chi tiết
+                          </Button>
+                          {canDecideCase(item) ? (
+                            <Button size="sm" onClick={() => openDecision(item)}>
+                              Chọn xử lý
+                            </Button>
+                          ) : null}
+                          {canAddEvidenceToCase(item) ? (
+                            <Button size="sm" variant="outline" onClick={() => openEvidence(item)}>
+                              Bổ sung bằng chứng
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
         <OperationalPagination
           page={props.page}
@@ -343,6 +416,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
         item={detailItem}
         canDecide={detailItem ? canDecideCase(detailItem) : false}
         canAddEvidence={detailItem ? canAddEvidenceToCase(detailItem) : false}
+        canViewSupplierReturn={props.canViewSupplierReturn}
         onClose={() => setDetailItem(null)}
         onDecide={(item) => {
           setDetailItem(null)
@@ -405,15 +479,15 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
           ) : null}
           {disposition === 'SupplierReturn' ? (
             <Field>
-              <FieldLabel htmlFor="damage-recipient">Đơn vị nhận hàng trả</FieldLabel>
+              <FieldLabel htmlFor="damage-supplier">Nhà cung cấp nhận hàng trả</FieldLabel>
               <NativeSelect
-                id="damage-recipient"
-                value={stockRecipientId}
-                disabled={props.areRecipientsLoading}
-                onChange={(event) => setStockRecipientId(event.target.value)}
+                id="damage-supplier"
+                value={supplierId}
+                disabled={props.areSuppliersLoading}
+                onChange={(event) => setSupplierId(event.target.value)}
               >
-                <NativeSelectOption value="">Chọn đơn vị nhận</NativeSelectOption>
-                {props.recipientOptions.map((option) => (
+                <NativeSelectOption value="">Chọn nhà cung cấp</NativeSelectOption>
+                {props.supplierOptions.map((option) => (
                   <NativeSelectOption key={option.value} value={option.value}>
                     {option.label}
                   </NativeSelectOption>
@@ -436,7 +510,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
             <Button
               disabled={
                 props.isPending ||
-                (disposition === 'SupplierReturn' && !stockRecipientId) ||
+                (disposition === 'SupplierReturn' && !supplierId) ||
                 (['ReturnToAvailable', 'InventoryAdjustment', 'SupplierReturn'].includes(
                   disposition
                 ) &&

@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronDown } from 'lucide-react'
-import { Fragment, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -29,14 +29,14 @@ function withPerson(date: string | null, name: string | null): string {
   return name ? `${formatCycleCountDate(date)} · ${name}` : formatCycleCountDate(date)
 }
 
-function InfoList({ rows }: { readonly rows: readonly InfoRow[] }) {
+function InfoGrid({ rows }: { readonly rows: readonly InfoRow[] }) {
   return (
-    <dl className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 p-4 text-sm">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 text-sm sm:grid-cols-3 xl:grid-cols-5">
       {rows.map(([label, value]) => (
-        <Fragment key={label}>
-          <dt className="text-muted-foreground">{label}</dt>
+        <div key={label} className="min-w-0">
+          <dt className="text-muted-foreground text-xs">{label}</dt>
           <dd className="font-medium break-words">{value}</dd>
-        </Fragment>
+        </div>
       ))}
     </dl>
   )
@@ -48,7 +48,9 @@ export function CycleCountInfoSection({
   varianceCount,
 }: CycleCountInfoSectionProps) {
   const isMobile = useIsMobile()
-  const [isOpen, setIsOpen] = useState(false)
+  // Mặc định mở trên máy tính, gập trên điện thoại; người dùng đổi tay thì giữ lựa chọn đó.
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null)
+  const isOpen = manualOpen ?? !isMobile
   const showResults = hasCountResults(detail.status)
   const scopeRows: readonly InfoRow[] = [
     ['Mục đích', detail.purpose || '—'],
@@ -84,36 +86,30 @@ export function CycleCountInfoSection({
     ['Chốt phiếu', withPerson(detail.finalizedAt ?? detail.completedAt, detail.finalizedByName)],
   ]
 
-  const sections = (
-    <div className="grid shrink-0 gap-3 lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <section className="bg-card border" aria-label="Thông tin chung">
-        <h2 className="border-b px-4 py-2 text-sm font-semibold">Thông tin chung</h2>
-        <div className="grid md:grid-cols-2">
-          <InfoList rows={scopeRows} />
-          <InfoList rows={scheduleRows} />
-        </div>
-      </section>
-      <section className="bg-card border" aria-label="Theo dõi tình trạng">
-        <h2 className="border-b px-4 py-2 text-sm font-semibold">Theo dõi tình trạng</h2>
-        <InfoList rows={trackingRows} />
-      </section>
-    </div>
-  )
+  const summary = [
+    detail.code,
+    detail.assignedToName || 'Chưa phân công',
+    showResults ? `${countedCount}/${detail.items.length} dòng` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
-  if (!isMobile) return sections
-
-  // Điện thoại: thu gọn để danh sách dòng đếm chiếm gần hết màn hình; mở ra khi cần xem chi tiết phiếu.
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="bg-card shrink-0 border">
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setManualOpen}
+      className="bg-card shrink-0 border"
+      aria-label="Thông tin phiếu"
+    >
       <CollapsibleTrigger asChild>
-        <Button variant="ghost" className="h-11 w-full justify-between px-4">
+        <Button variant="ghost" className="h-9 w-full justify-between px-3">
           <span className="text-sm font-semibold">Thông tin phiếu</span>
-          <span className="text-muted-foreground flex items-center gap-2 text-xs font-normal">
-            {showResults ? `${countedCount}/${detail.items.length} dòng` : detail.code}
+          <span className="text-muted-foreground flex min-w-0 items-center gap-2 text-xs font-normal">
+            {isOpen ? null : <span className="truncate">{summary}</span>}
             <ChevronDown
               aria-hidden="true"
               className={cn(
-                'size-4 transition-transform motion-reduce:transition-none',
+                'size-4 shrink-0 transition-transform motion-reduce:transition-none',
                 isOpen && 'rotate-180'
               )}
             />
@@ -121,7 +117,7 @@ export function CycleCountInfoSection({
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="max-h-[50dvh] overflow-y-auto border-t">
-        {sections}
+        <InfoGrid rows={[...scopeRows, ...scheduleRows, ...trackingRows]} />
       </CollapsibleContent>
     </Collapsible>
   )

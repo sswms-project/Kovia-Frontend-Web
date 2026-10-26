@@ -5,9 +5,12 @@ import {
   OperationalErrorState,
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
-import { logger } from '@/lib/logger'
+import { getApiErrorMessage, logApiError } from '@/lib/api-error'
 import { InboundRequestDetail } from '../components/InboundRequestDetailPage'
+import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
+import { useAssignWarehouseTask } from '@/features/inbound/hooks/use-assign-warehouse-task'
 import {
+  useAcceptSupplierProposedDateMutation,
   useApproveAndSendInboundRequestMutation,
   useApproveInboundRequestMutation,
   useInboundRequestAllowedActionsQuery,
@@ -43,11 +46,13 @@ export default function InboundRequestDetailPage({
   readonly inboundRequestId: string
 }) {
   const detailQuery = useInboundRequestQuery(inboundRequestId)
+  const assignment = useAssignWarehouseTask()
   const actionsQuery = useInboundRequestAllowedActionsQuery(inboundRequestId)
   const submitMutation = useSubmitInboundRequestMutation()
   const approveMutation = useApproveInboundRequestMutation()
   const approveAndSendMutation = useApproveAndSendInboundRequestMutation()
   const sendToSupplierMutation = useSendInboundRequestToSupplierMutation()
+  const acceptProposedDateMutation = useAcceptSupplierProposedDateMutation()
   const rejectMutation = useRejectInboundRequestMutation()
   const reconcileMutation = useReconcileInboundRequestMutation()
 
@@ -80,6 +85,14 @@ export default function InboundRequestDetailPage({
           : await sendToSupplierMutation.mutateAsync(inboundRequestId)
         notifyDispatch(response.data, approvedNow)
         return approvedNow || response.data.sent
+      }
+      if (action === INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate) {
+        await acceptProposedDateMutation.mutateAsync({
+          inboundRequestId,
+          expectedVersion: expectedVersion ?? '',
+        })
+        toast.success('Đã chấp nhận ngày giao và báo cho nhà cung cấp.')
+        return true
       }
       if (action === INBOUND_REQUEST_ACTION.Submit)
         await submitMutation.mutateAsync(inboundRequestId)
@@ -121,8 +134,10 @@ export default function InboundRequestDetailPage({
       )
       return true
     } catch (error) {
-      logger.error(error)
-      toast.error('Không thể cập nhật yêu cầu nhập kho. Vui lòng thử lại.')
+      logApiError(error)
+      toast.error(
+        getApiErrorMessage(error, 'Không thể cập nhật yêu cầu nhập kho. Vui lòng thử lại.')
+      )
       return false
     }
   }
@@ -140,30 +155,81 @@ export default function InboundRequestDetailPage({
     )
 
   return (
-    <InboundRequestDetail
-      inboundRequest={detailQuery.data}
-      allowedActions={actionsQuery.data?.allowedActions ?? []}
-      selfApprovalRequired={actionsQuery.data?.selfApprovalRequired ?? false}
-      isPending={
-        submitMutation.isPending ||
-        approveMutation.isPending ||
-        approveAndSendMutation.isPending ||
-        sendToSupplierMutation.isPending ||
-        rejectMutation.isPending ||
-        reconcileMutation.isPending
-      }
-      onSubmit={() => runAction(INBOUND_REQUEST_ACTION.Submit)}
-      onApprove={(acknowledged) =>
-        runAction(INBOUND_REQUEST_ACTION.Approve, undefined, acknowledged)
-      }
-      onApproveAndSend={(acknowledged) =>
-        runAction(INBOUND_REQUEST_ACTION.ApproveAndSend, undefined, acknowledged)
-      }
-      onSendToSupplier={() => runAction(INBOUND_REQUEST_ACTION.SendToSupplier)}
-      onReject={(reason, acknowledged) =>
-        runAction(INBOUND_REQUEST_ACTION.Reject, reason, acknowledged)
-      }
-      onReconcile={(action, reason) => runAction(action, reason)}
-    />
+    <>
+      <InboundRequestDetail
+        inboundRequest={detailQuery.data}
+        allowedActions={actionsQuery.data?.allowedActions ?? []}
+        selfApprovalRequired={actionsQuery.data?.selfApprovalRequired ?? false}
+        isPending={
+          assignment.isPending ||
+          submitMutation.isPending ||
+          approveMutation.isPending ||
+          approveAndSendMutation.isPending ||
+          sendToSupplierMutation.isPending ||
+          acceptProposedDateMutation.isPending ||
+          rejectMutation.isPending ||
+          reconcileMutation.isPending
+        }
+        onSubmit={() => runAction(INBOUND_REQUEST_ACTION.Submit)}
+        onApprove={(acknowledged) =>
+          runAction(INBOUND_REQUEST_ACTION.Approve, undefined, acknowledged)
+        }
+        onApproveAndSend={(acknowledged) =>
+          runAction(INBOUND_REQUEST_ACTION.ApproveAndSend, undefined, acknowledged)
+        }
+        onSendToSupplier={() => runAction(INBOUND_REQUEST_ACTION.SendToSupplier)}
+        onAcceptSupplierProposedDate={() =>
+          runAction(INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate)
+        }
+        onReject={(reason, acknowledged) =>
+          runAction(INBOUND_REQUEST_ACTION.Reject, reason, acknowledged)
+        }
+        onReconcile={(action, reason) => runAction(action, reason)}
+        onAssignReceiving={() => {
+          const request = detailQuery.data
+          if (
+            !request?.warehouseId ||
+            request.receivingAssignedTo ||
+            !actionsQuery.data?.allowedActions.includes(INBOUND_REQUEST_ACTION.AssignReceivingTask)
+          )
+            return
+          assignment.open({
+            kind: 'Receiving',
+            id: request.id,
+            referenceCode: request.inboundRequestCode,
+            warehouseId: request.warehouseId,
+            warehouseName: request.warehouseName ?? '',
+            currentAssigneeId: null,
+            currentAssigneeName: null,
+            currentPriority: 'Normal',
+            currentDueAt: null,
+          })
+        }}
+      />
+      <AssignWarehouseTaskDialog
+        target={
+          assignment.target?.id === detailQuery.data.id &&
+          actionsQuery.data?.allowedActions.includes(INBOUND_REQUEST_ACTION.AssignReceivingTask)
+            ? assignment.target
+            : null
+        }
+        form={assignment.form}
+        staff={assignment.staff}
+        isLoadingStaff={assignment.isLoadingStaff}
+        isErrorStaff={assignment.isErrorStaff}
+        isFetchingStaff={assignment.isFetchingStaff}
+        onRetryStaff={assignment.onRetryStaff}
+        isPending={assignment.isPending}
+        onOpenChange={(open) => !open && assignment.close()}
+        onSubmit={() => {
+          if (
+            assignment.target?.id === detailQuery.data?.id &&
+            !detailQuery.data.receivingAssignedTo &&
+            actionsQuery.data?.allowedActions.includes(INBOUND_REQUEST_ACTION.AssignReceivingTask)
+          )
+            assignment.onSubmit()
+        }}
+      />
+    </>
   )
 }

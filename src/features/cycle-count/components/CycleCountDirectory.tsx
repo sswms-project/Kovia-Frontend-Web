@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ClipboardCheck, Eye, Flame, Plus, RefreshCw, Search, TriangleAlert } from 'lucide-react'
@@ -82,6 +83,7 @@ interface Props {
   readonly onSearchTermChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onPrefetchDetail: (cycleCountId: string) => void
 }
@@ -123,7 +125,7 @@ export function CycleCountDirectory(props: Props) {
                 : props.status || ALL_STATUSES
             }
             onValueChange={(value) => props.onStatusChange(parseCycleCountStatus(value))}
-            className="overflow-x-auto"
+            className="min-w-0 shrink-0 overflow-x-auto overflow-y-hidden p-1"
           >
             <TabsList>
               <TabsTrigger value={ALL_STATUSES}>
@@ -219,18 +221,21 @@ export function CycleCountDirectory(props: Props) {
                 <Badge variant="destructive">{props.needsAdjustmentCount}</Badge>
               </Button>
             ) : null}
-            <Button
-              variant="outline"
-              size="icon"
-              className="max-sm:h-11 max-sm:w-full"
-              aria-label="Làm mới"
-              disabled={props.isFetching}
-              onClick={props.onRetry}
-            >
-              <RefreshCw
-                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
-              />
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {props.exportAction}
+              <Button
+                variant="outline"
+                size="icon"
+                className="max-sm:h-11 max-sm:w-full"
+                aria-label="Làm mới"
+                disabled={props.isFetching}
+                onClick={props.onRetry}
+              >
+                <RefreshCw
+                  className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
+                />
+              </Button>
+            </div>
           </div>
         </div>
         {props.isLoading ? (
@@ -260,16 +265,16 @@ export function CycleCountDirectory(props: Props) {
           >
             <TableHeader>
               <TableRow>
-                <TableHead className="bg-card sticky top-0 z-10">Số phiếu / Kho</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Mục đích</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Phụ trách</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Lịch kiểm kê</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Kiểm kê đến ngày</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Tiến độ</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10 text-right">Lệch</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Trạng thái</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10">Xử lý chênh lệch</TableHead>
-                <TableHead className="bg-card sticky top-0 z-10 w-14">
+                <TableHead className="sticky top-0 z-10">Số phiếu / Kho</TableHead>
+                <TableHead className="sticky top-0 z-10">Mục đích</TableHead>
+                <TableHead className="sticky top-0 z-10">Phụ trách</TableHead>
+                <TableHead className="sticky top-0 z-10">Lịch kiểm kê</TableHead>
+                <TableHead className="sticky top-0 z-10">Kiểm kê đến ngày</TableHead>
+                <TableHead className="sticky top-0 z-10">Tiến độ</TableHead>
+                <TableHead className="sticky top-0 z-10 text-right">Lệch</TableHead>
+                <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                <TableHead className="sticky top-0 z-10">Xử lý chênh lệch</TableHead>
+                <TableHead className="sticky top-0 z-10 w-14">
                   <span className="sr-only">Xem chi tiết</span>
                 </TableHead>
               </TableRow>

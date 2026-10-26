@@ -15,6 +15,7 @@ import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDial
 import { Button } from '@/components/ui/button'
 import type { LookupOption } from '@/features/inbound-request/components/InboundRequestFormPage'
 import { StockRecipientFormDialog } from '@/features/stock-recipient/components/StockRecipientsPage'
+import { getPutawayBaseQuantity } from '@/features/inbound/utils/putaway-units'
 import {
   useCreateStockRecipientMutation,
   useNextStockRecipientCodeQuery,
@@ -29,7 +30,7 @@ import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
-import { dateToIsoDateString } from '@/lib/date-format'
+import { toOperationalDateTimeInput } from '@/lib/operational-date-time'
 import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
@@ -41,6 +42,7 @@ import {
 } from '../components/StockIssueRequestFormPage'
 import {
   useCreateStockIssueRequestMutation,
+  useNextStockIssueRequestCodeQuery,
   useStockIssueProductOptionsQuery,
   useStockIssueRequestQuery,
   useStockIssueSavedProductOptions,
@@ -77,8 +79,11 @@ export default function StockIssueRequestFormPage({
   const codeInstanceId = useId()
   const [codeSession, setCodeSession] = useState(0)
   const codeSessionKey = `${codeInstanceId}:${codeSession}`
+  const [requestCodeSession, setRequestCodeSession] = useState(0)
+  const requestCodeSessionKey = `${codeInstanceId}:request:${requestCodeSession}`
   const hydratedRequestId = useRef<string | null>(null)
   const editingVersion = useRef('')
+  const editingIssueTime = useRef<string | null>(null)
   const [warehouseSearchText, setWarehouseSearchText] = useState('')
   const [recipientSearchText, setRecipientSearchText] = useState('')
   const [productSearch, setProductSearch] = useState<ProductSearchState | null>(null)
@@ -99,11 +104,12 @@ export default function StockIssueRequestFormPage({
   const form = useForm<CreateStockIssueRequestFormValues>({
     resolver: zodResolver(createStockIssueRequestSchema),
     defaultValues: {
+      stockIssueRequestCode: '',
       stockRecipientId: '',
       warehouseId: '',
       purpose: '',
       referenceCode: '',
-      issueDate: dateToIsoDateString(new Date()),
+      issueDate: toOperationalDateTimeInput(new Date().toISOString()),
       note: '',
       lines: [{ ...EMPTY_LINE }],
     },
@@ -168,10 +174,24 @@ export default function StockIssueRequestFormPage({
   })
   Object.assign(productsById, pickedProducts)
   const nextRecipientCode = useNextStockRecipientCodeQuery(isQuickRecipientOpen, codeSessionKey)
+  const nextRequestCode = useNextStockIssueRequestCodeQuery(!isEditing, requestCodeSessionKey)
   const createMutation = useCreateStockIssueRequestMutation()
   const updateMutation = useUpdateStockIssueRequestMutation()
   const createRecipientMutation = useCreateStockRecipientMutation()
   const isPending = createMutation.isPending || updateMutation.isPending
+
+  const requestCodeSuggestion = useCodeSuggestion({
+    active: !isEditing,
+    sessionKey: requestCodeSessionKey,
+    suggestedCode: nextRequestCode.data,
+    isFetching: nextRequestCode.isFetching,
+    isError: nextRequestCode.isError,
+    getCurrentCode: () => form.getValues('stockIssueRequestCode'),
+    applyCode: (code) =>
+      form.setValue('stockIssueRequestCode', code, {
+        shouldValidate: form.formState.isSubmitted,
+      }),
+  })
 
   const codeSuggestion = useCodeSuggestion({
     active: isQuickRecipientOpen,
@@ -190,11 +210,14 @@ export default function StockIssueRequestFormPage({
     const detail = detailQuery.data
     if (!detail || hydratedRequestId.current === detail.id) return
     form.reset({
+      stockIssueRequestCode: detail.stockIssueRequestCode,
       stockRecipientId: detail.stockRecipientId,
       warehouseId: detail.warehouseId,
       purpose: detail.purpose ?? '',
       referenceCode: detail.referenceCode ?? '',
-      issueDate: detail.issueDate ?? '',
+      issueDate: detail.issueDate
+        ? `${detail.issueDate}${detail.issueTime ? `T${detail.issueTime.slice(0, 5)}` : ''}`
+        : '',
       note: detail.note ?? '',
       lines: detail.items.map((item) => ({
         productId: item.productId,
@@ -205,6 +228,7 @@ export default function StockIssueRequestFormPage({
     })
     hydratedRequestId.current = detail.id
     editingVersion.current = detail.version ?? ''
+    editingIssueTime.current = detail.issueTime ?? null
   }, [detailQuery.data, form])
 
   useEffect(() => {
@@ -282,12 +306,47 @@ export default function StockIssueRequestFormPage({
   }
 
   async function save(values: CreateStockIssueRequestFormValues, addAnother: boolean) {
+    for (const [index, line] of values.lines.entries()) {
+      const product = productsById[line.productId]
+      const selected = product?.units.find(
+        (unit) => unit.unitId === (line.unitId || product.unitId)
+      )
+      const base = product?.units.find(
+        (unit) => unit.unitId === product.unitId && unit.conversionFactor === 1
+      )
+      const fallback = {
+        unitId: '',
+        unitName: '',
+        unitCode: '',
+        quantityPrecision: 6,
+        conversionFactor: 1,
+      }
+      if (
+        getPutawayBaseQuantity(
+          line.quantity,
+          selected ? { ...selected, unitCode: '' } : fallback,
+          base ? { ...base, unitCode: '' } : fallback
+        ) === null
+      ) {
+        form.setError(`lines.${index}.quantity`, {
+          message:
+            'Số lượng quy đổi phải lưu chính xác với tối đa 2 chữ số thập phân. Không tự làm tròn.',
+        })
+        return
+      }
+    }
+    const [issueDate, issueTime] = values.issueDate.split('T')
     const request = {
       stockRecipientId: values.stockRecipientId,
       warehouseId: values.warehouseId,
       purpose: values.purpose || null,
       referenceCode: values.referenceCode || null,
-      issueDate: values.issueDate || null,
+      issueDate: issueDate || null,
+      issueTime: issueTime
+        ? editingIssueTime.current?.slice(0, 5) === issueTime
+          ? editingIssueTime.current
+          : `${issueTime}:00`
+        : null,
       note: values.note || null,
       items: values.lines.map((line) => ({
         productId: line.productId,
@@ -309,7 +368,10 @@ export default function StockIssueRequestFormPage({
         return
       }
 
-      const created = await createMutation.mutateAsync(request)
+      const created = await createMutation.mutateAsync({
+        ...request,
+        stockIssueRequestCode: values.stockIssueRequestCode || null,
+      })
       const failedUploads = await uploadAttachments(created.data)
       if (failedUploads.length > 0)
         toast.warning(
@@ -320,11 +382,14 @@ export default function StockIssueRequestFormPage({
       if (addAnother) {
         form.reset({
           ...values,
+          stockIssueRequestCode: '',
           purpose: '',
           referenceCode: '',
           note: '',
           lines: [{ ...EMPTY_LINE }],
         })
+        requestCodeSuggestion.resetSession()
+        setRequestCodeSession((current) => current + 1)
         return
       }
       form.reset(values)
@@ -470,6 +535,16 @@ export default function StockIssueRequestFormPage({
         isRecipientSearchLoading={recipientsQuery.isFetching}
         isProductSearchLoading={productsQuery.isFetching}
         isPending={isPending}
+        codeSuggestionStatus={
+          isEditing
+            ? undefined
+            : nextRequestCode.isFetching
+              ? 'loading'
+              : nextRequestCode.isError
+                ? 'error'
+                : 'ready'
+        }
+        onCodeChange={requestCodeSuggestion.markEdited}
         onWarehouseSearchChange={setWarehouseSearchText}
         onRecipientSearchChange={setRecipientSearchText}
         onProductSearchChange={handleProductSearchChange}

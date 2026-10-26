@@ -69,41 +69,46 @@ export default function NotificationsPage() {
   }
 
   return (
-    <NotificationDirectory
-      items={notificationsQuery.data?.items ?? []}
-      totalCount={notificationsQuery.data?.totalCount ?? 0}
-      unreadCount={unreadQuery.data?.totalCount ?? null}
-      page={queryParams.pageNumber}
-      pageSize={queryParams.pageSize}
-      filters={filters}
-      isLoading={notificationsQuery.isLoading}
-      isFetching={notificationsQuery.isFetching}
-      isError={notificationsQuery.isError}
-      hasActiveFilters={hasActiveFilters}
-      pendingNotificationId={pendingNotificationId}
-      isMarkingAll={markAllMutation.isPending}
-      onApplyFilters={applyFilters}
-      onClearFilters={() => {
-        const next = new URLSearchParams()
-        next.set('pageSize', String(queryParams.pageSize))
-        navigate(next)
-      }}
-      onPageChange={(page) => {
-        const next = new URLSearchParams(params)
-        next.set('page', String(page))
-        navigate(next)
-      }}
-      onPageSizeChange={(pageSize) => {
-        const next = new URLSearchParams(params)
-        next.set('page', '1')
-        next.set('pageSize', String(pageSize))
-        navigate(next)
-      }}
-      onMarkRead={markRead}
-      onOpen={open}
-      onMarkAllRead={markAllRead}
-      onRetry={() => void notificationsQuery.refetch()}
-    />
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
+      <header className="shrink-0">
+        <h1 className="text-foreground text-xl font-semibold">Thông báo</h1>
+      </header>
+      <NotificationDirectory
+        items={notificationsQuery.data?.items ?? []}
+        totalCount={notificationsQuery.data?.totalCount ?? 0}
+        unreadCount={unreadQuery.data?.totalCount ?? null}
+        page={queryParams.pageNumber}
+        pageSize={queryParams.pageSize}
+        filters={filters}
+        isLoading={notificationsQuery.isLoading}
+        isFetching={notificationsQuery.isFetching}
+        isError={notificationsQuery.isError}
+        hasActiveFilters={hasActiveFilters}
+        pendingNotificationId={pendingNotificationId}
+        isMarkingAll={markAllMutation.isPending}
+        onApplyFilters={applyFilters}
+        onClearFilters={() => {
+          const next = new URLSearchParams()
+          next.set('pageSize', String(queryParams.pageSize))
+          navigate(next)
+        }}
+        onPageChange={(page) => {
+          const next = new URLSearchParams(params)
+          next.set('page', String(page))
+          navigate(next)
+        }}
+        onPageSizeChange={(pageSize) => {
+          const next = new URLSearchParams(params)
+          next.set('page', '1')
+          next.set('pageSize', String(pageSize))
+          navigate(next)
+        }}
+        onMarkRead={markRead}
+        onOpen={open}
+        onMarkAllRead={markAllRead}
+        onRetry={() => void notificationsQuery.refetch()}
+      />
+    </div>
   )
 }
 

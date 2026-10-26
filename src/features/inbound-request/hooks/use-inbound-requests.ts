@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { productService } from '@/features/product/services/product.service'
 import { logger } from '@/lib/logger'
-import { formatApiError, isApiErrorResponse } from '@/lib/api-error'
+import { formatApiError, isApiErrorResponse, logApiError } from '@/lib/api-error'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
 import { inboundRequestService } from '../services/inbound-request.service'
@@ -15,6 +15,8 @@ import type {
   InboundRequestListQuery,
   SaveInboundRequestRequest,
   SupplierEmailDispatch,
+  SupplierInboundResponsePreview,
+  SupplierInboundResponseRequest,
   SupplierOption,
 } from '../types/inbound-request.types'
 
@@ -259,6 +261,51 @@ export function useSendInboundRequestToSupplierMutation() {
   })
 }
 
+interface AcceptSupplierProposedDateVariables {
+  inboundRequestId: string
+  expectedVersion: string
+}
+
+export function useAcceptSupplierProposedDateMutation() {
+  const invalidate = useInvalidateInboundRequests()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, AcceptSupplierProposedDateVariables>({
+    mutationFn: ({ inboundRequestId, expectedVersion }) =>
+      inboundRequestService.acceptSupplierProposedDate(inboundRequestId, {
+        expectedVersion,
+        selfApprovalAcknowledged: false,
+      }),
+    onSuccess: (_, { inboundRequestId }) => invalidate(inboundRequestId),
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useSupplierResponsePreviewQuery(token: string) {
+  return useQuery<SupplierInboundResponsePreview, ApiErrorResponse>({
+    queryKey: queryKeys.inboundRequests.supplierResponse(token),
+    queryFn: () =>
+      inboundRequestService.getSupplierResponsePreview(token).then((response) => response.data),
+    enabled: Boolean(token),
+    retry: false,
+  })
+}
+
+interface RespondAsSupplierVariables {
+  token: string
+  request: SupplierInboundResponseRequest
+}
+
+export function useRespondAsSupplierMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<ApiResponse<unknown>, ApiErrorResponse, RespondAsSupplierVariables>({
+    mutationFn: ({ token, request }) => inboundRequestService.respondAsSupplier(token, request),
+    onSettled: (_, __, { token }) =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.inboundRequests.supplierResponse(token),
+      }),
+    onError: (error) => logger.error(error),
+  })
+}
+
 export function useRejectInboundRequestMutation() {
   const invalidate = useInvalidateInboundRequests()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, RejectInboundRequestVariables>({
@@ -282,6 +329,6 @@ export function useReconcileInboundRequestMutation() {
         : inboundRequestService.closeRemainingInboundQuantity(inboundRequestId, request)
     },
     onSuccess: (_, variables) => invalidate(variables.inboundRequestId),
-    onError: (error) => logger.error(error),
+    onError: logApiError,
   })
 }

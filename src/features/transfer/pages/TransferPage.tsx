@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useSearchParams } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { P } from '@/config/permissionCodes'
@@ -37,7 +40,7 @@ export default function TransferPage() {
 
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const { viewer } = useTransferViewer()
-  const transfersQuery = useTransfersQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(status ? { status } : {}),
@@ -46,7 +49,8 @@ export default function TransferPage() {
     ...(debouncedSearchText.trim() ? { searchTerm: debouncedSearchText.trim() } : {}),
     ...(dateFrom ? { dateFrom: toOperationalDateTimeStart(dateFrom) } : {}),
     ...(dateTo ? { dateTo: toOperationalDateTimeEnd(dateTo) } : {}),
-  })
+  }
+  const transfersQuery = useTransfersQuery(exportFilters)
   const warehousesQuery = useWarehousesQuery({
     top: 100,
     skip: 0,
@@ -88,6 +92,16 @@ export default function TransferPage() {
     else window.history.pushState(null, '', url)
   }
 
+  const listExport = useListExport({
+    dataset: 'transfers',
+    filters: exportFilters,
+    permissions: viewer.permissions,
+    viewPermission: P.TRANSFERS_VIEW,
+    totalCount: transfersQuery.data?.totalCount ?? 0,
+    isFetching: transfersQuery.isFetching,
+    isError: transfersQuery.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <TransferMasterDetail
@@ -106,7 +120,9 @@ export default function TransferPage() {
         }
       >
         <TransferDirectory
-          query={searchParams.toString()}
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
           statusCounts={
             !transfersQuery.isPlaceholderData ? transfersQuery.data?.statusCounts : undefined
           }
@@ -128,6 +144,7 @@ export default function TransferPage() {
           isFetching={transfersQuery.isFetching}
           isError={transfersQuery.isError}
           onSearchChange={(value) => updateFilter('search', value, true, true)}
+          onStatusChange={(value) => updateFilter('status', value)}
           onSourceWarehouseChange={(value) => updateFilter('source', value)}
           onDestinationWarehouseChange={(value) => updateFilter('destination', value)}
           onDateFromChange={(value) => updateFilter('from', value)}

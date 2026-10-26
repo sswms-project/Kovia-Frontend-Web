@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { isOperationalDateTimeInput } from '@/lib/operational-date-time'
 import { GOODS_RETURN_REQUEST_ITEM_CONDITIONS } from '../types/stock-issue.types'
 
 export const stockIssueRequestLineSchema = z.object({
@@ -11,11 +12,17 @@ export const stockIssueRequestLineSchema = z.object({
 
 export const createStockIssueRequestSchema = z
   .object({
+    stockIssueRequestCode: z
+      .string()
+      .trim()
+      .max(100, 'Mã yêu cầu xuất kho không được vượt quá 100 ký tự.'),
     stockRecipientId: dotNetGuidSchema('Vui lòng chọn đơn vị nhận hàng.'),
     warehouseId: dotNetGuidSchema('Vui lòng chọn kho xuất hàng.'),
     purpose: z.string().trim().max(500, 'Diễn giải không được vượt quá 500 ký tự.'),
     referenceCode: z.string().trim().max(100, 'Tham chiếu không được vượt quá 100 ký tự.'),
-    issueDate: z.string(),
+    issueDate: z.string().refine((value) => !value || isOperationalDateTimeInput(value), {
+      message: 'Ngày và giờ xuất không hợp lệ.',
+    }),
     note: z.string().trim().max(1000, 'Ghi chú không được vượt quá 1000 ký tự.'),
     lines: z
       .array(stockIssueRequestLineSchema)
@@ -36,6 +43,12 @@ export const createStockIssueRequestSchema = z
   })
 
 export const recordStockPickingLineSchema = z.object({
+  destinationStagingSlotId: z.string().optional(),
+  stagingSlotCode: z.string().optional(),
+  stagingPath: z.string().optional(),
+  scannedStagingSlotCode: z.string().trim().max(200).optional(),
+  directFromReceiving: z.boolean().optional(),
+  allocationReason: z.string().nullable().optional(),
   stockIssueRequestItemId: z.string(),
   productId: z.string(),
   productName: z.string(),
@@ -48,6 +61,7 @@ export const recordStockPickingLineSchema = z.object({
   scannedBarcode: z.string().optional(),
   scannedSlotCode: z.string().optional(),
   slotCode: z.string().optional(),
+  slotPath: z.string().optional(),
   lotNumber: z.string().nullable().optional(),
   unitName: z.string(),
   /** Số đơn vị cơ sở trong một đơn vị của dòng; số lượng lấy nhập theo đơn vị này. */
@@ -71,6 +85,21 @@ export const recordStockPickingSchema = z
     }
 
     values.lines.forEach((line, index) => {
+      if (line.pickedQuantity > 0) {
+        if (!line.destinationStagingSlotId)
+          context.addIssue({
+            code: 'custom',
+            path: ['lines', index, 'destinationStagingSlotId'],
+            message: 'Chưa xác định điểm chờ xuất hợp lệ. Hãy tải lại phiếu.',
+          })
+        // The server accepts canonical location labels, rack labels and custom barcodes too.
+        if (!line.scannedSlotCode?.trim())
+          context.addIssue({
+            code: 'custom',
+            path: ['lines', index, 'scannedSlotCode'],
+            message: 'Quét hoặc nhập đúng mã vị trí nguồn.',
+          })
+      }
       if (line.pickedQuantity > 0 && !line.inventoryStockId) {
         context.addIssue({
           code: 'custom',

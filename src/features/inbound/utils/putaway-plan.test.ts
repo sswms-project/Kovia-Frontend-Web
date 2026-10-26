@@ -11,6 +11,7 @@ import {
   getPutawayEvidenceError,
   getPutawayHeldRows,
   getPutawayPlanDeviation,
+  getPutawayPlanSignature,
   getRequiredScanRows,
   isPutawayDeviationReasonValid,
   matchScannedSlotCode,
@@ -394,6 +395,31 @@ describe('deviation reason groups, held slots and slot code confirmation', () =>
 })
 
 describe('saving the put-away screen as a plan', () => {
+  it('compares item/slot quantities independently of order and detects actual plan changes', () => {
+    const first = {
+      goodsReceiptItemId: 'item-1',
+      slots: [
+        { slotId: 'slot-a', quantity: 12.5 },
+        { slotId: 'slot-b', quantity: 5 },
+      ],
+    }
+    const second = { goodsReceiptItemId: 'item-2', slots: [] }
+    const original = getPutawayPlanSignature([first, second])
+    expect(getPutawayPlanSignature([second, { ...first, slots: [...first.slots].reverse() }])).toBe(
+      original
+    )
+    expect(
+      getPutawayPlanSignature([{ ...first, slots: [{ slotId: 'slot-a', quantity: 17.5 }] }, second])
+    ).not.toBe(original)
+    expect(
+      getPutawayPlanSignature([
+        { ...first, slots: [{ slotId: 'slot-a', quantity: 12.51 }, first.slots[1]!] },
+        second,
+      ])
+    ).not.toBe(original)
+    expect(getPutawayPlanSignature([second, { ...first, slots: [] }])).not.toBe(original)
+  })
+
   it('merges rows of the same slot, skips rows without a slot and clears items left empty', () => {
     const first = makeItem()
     const second = makeItem({ id: 'item-2' })
@@ -433,6 +459,38 @@ describe('saving the put-away screen as a plan', () => {
 })
 
 describe('scanning slot codes as put-away evidence', () => {
+  it('rejects ambiguous short codes and resolves canonical labels and rack QR to the exact slot', () => {
+    const duplicated = [
+      { id: 'slot-a', code: 'A01', scanCodes: ['Z1-A01', 'KOVIA:LOC:RACK:rack-a'] },
+      { id: 'slot-b', code: 'A01', scanCodes: ['Z2-A01', 'KOVIA:LOC:RACK:rack-b'] },
+    ]
+    const rows = [{ index: 0, slotId: 'slot-b' }]
+    expect(matchScannedSlotCode('A01', duplicated, rows).status).toBe('error')
+    expect(resolveSlotCode('A01', duplicated, 'slot-b').status).toBe('error')
+    for (const code of ['z2-a01', 'KOVIA:LOC:RACK:rack-b']) {
+      expect(matchScannedSlotCode(` ${code} `, duplicated, rows)).toEqual({
+        status: 'confirmed',
+        index: 0,
+        code,
+        slotCode: 'A01',
+      })
+      expect(resolveSlotCode(code, duplicated, 'slot-b')).toEqual({
+        status: 'confirmed',
+        slotId: 'slot-b',
+        code,
+      })
+      expect(resolveSlotCode(code, duplicated, 'slot-a').status).toBe('error')
+    }
+    expect(matchScannedSlotCode('Z1-A01', duplicated, rows).status).toBe('error')
+  })
+
+  it('never confirms the internal marker, even for a selected slot or a legacy barcode alias', () => {
+    const internal = [{ id: 'slot-a', code: 'A01', scanCodes: ['__SYSTEM_DEFAULT__'] }]
+    expect(resolveSlotCode(' __system_default__ ', internal, 'slot-a').status).toBe('error')
+    expect(
+      matchScannedSlotCode('__SYSTEM_DEFAULT__', internal, [{ index: 0, slotId: 'slot-a' }]).status
+    ).toBe('error')
+  })
   const slots = [
     { id: 'slot-a', code: 'A-01' },
     { id: 'slot-b', code: 'B-01' },

@@ -8,7 +8,13 @@ import { P } from '@/config/permissionCodes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useProductOptionsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
-import { InventoryDirectory, ReportDamagedStockDialog } from '../components/InventoryPage'
+import {
+  InventoryDirectory,
+  InventoryExportButton,
+  ReportDamagedStockDialog,
+} from '../components/InventoryPage'
+import { useInventoryExport } from '../hooks/use-inventory-export'
+import { inventoryExportSchema } from '../schemas/inventory-export.schema'
 import {
   useInventoryQuery,
   useInventorySlotOptionsQuery,
@@ -33,6 +39,7 @@ export default function InventoryPage({
   const [warehouseId, setWarehouseId] = useState(initialWarehouseId ?? '')
   const [productId, setProductId] = useState(initialProductId ?? '')
   const [slotId, setSlotId] = useState('')
+  const [showDepleted, setShowDepleted] = useState(false)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [damagedStock, setDamagedStock] = useState<InventoryStock | null>(null)
@@ -53,13 +60,32 @@ export default function InventoryPage({
   const inventoryParams = useMemo(
     () =>
       buildInventoryQuery(
-        { searchTerm: debouncedSearchText, warehouseId, productId, slotId },
+        { searchTerm: debouncedSearchText, warehouseId, productId, slotId, showDepleted },
         page,
         pageSize
       ),
-    [debouncedSearchText, page, pageSize, productId, slotId, warehouseId]
+    [debouncedSearchText, page, pageSize, productId, slotId, warehouseId, showDepleted]
   )
   const inventoryQuery = useInventoryQuery(inventoryParams)
+  const canExport = Boolean(
+    meQuery.data?.permissions.includes(P.INVENTORY_VIEW) &&
+    meQuery.data?.permissions.includes(P.LISTS_EXPORT)
+  )
+  const exportMutation = useInventoryExport(canExport)
+  const exportFilters = inventoryExportSchema.safeParse(inventoryParams)
+  const exportDisabledReason = inventoryQuery.isFetching
+    ? 'Đợi danh sách tải xong trước khi xuất.'
+    : inventoryQuery.isError || !inventoryQuery.data
+      ? 'Tải lại danh sách thành công trước khi xuất.'
+      : searchText.trim() !== debouncedSearchText.trim()
+        ? 'Đợi áp dụng từ khóa tìm kiếm trước khi xuất.'
+        : !exportFilters.success
+          ? (exportFilters.error.issues[0]?.message ?? 'Bộ lọc chưa hợp lệ.')
+          : inventoryQuery.data.totalCount === 0
+            ? 'Không có dữ liệu phù hợp để xuất.'
+            : inventoryQuery.data.totalCount > 10000
+              ? 'Danh sách vượt 10.000 dòng. Thu hẹp bộ lọc để xuất đầy đủ.'
+              : undefined
   const warehousesQuery = useInventoryWarehouseOptionsQuery()
   const productsQuery = useProductOptionsQuery({ pageNumber: 1, pageSize: 100, status: 'Active' })
   const slotsQuery = useInventorySlotOptionsQuery(warehouseId)
@@ -162,6 +188,18 @@ export default function InventoryPage({
   return (
     <>
       <InventoryDirectory
+        exportAction={
+          canExport ? (
+            <InventoryExportButton
+              isPending={exportMutation.isPending}
+              disabledReason={exportDisabledReason}
+              onExport={() => {
+                if (!exportDisabledReason && exportFilters.success)
+                  exportMutation.mutate(exportFilters.data)
+              }}
+            />
+          ) : null
+        }
         permissions={meQuery.data?.permissions ?? []}
         items={inventoryQuery.data?.items ?? []}
         totalCount={inventoryQuery.data?.totalCount ?? 0}
@@ -171,6 +209,7 @@ export default function InventoryPage({
         warehouseId={warehouseId}
         productId={productId}
         slotId={slotId}
+        showDepleted={showDepleted}
         warehouseOptions={warehouseOptions}
         productOptions={productOptions}
         slotOptions={slotOptions}
@@ -178,12 +217,14 @@ export default function InventoryPage({
         isLoading={inventoryQuery.isLoading}
         isFetching={inventoryQuery.isFetching}
         isError={inventoryQuery.isError}
-        areFiltersLoading={
-          warehousesQuery.isLoading || productsQuery.isLoading || slotsQuery.isLoading
-        }
+        areFiltersLoading={warehousesQuery.isLoading || productsQuery.isLoading}
+        areSlotsLoading={slotsQuery.isLoading}
         areFiltersError={warehousesQuery.isError || productsQuery.isError || slotsQuery.isError}
         activeFilterCount={
-          Number(Boolean(warehouseId)) + Number(Boolean(productId)) + Number(Boolean(slotId))
+          Number(Boolean(warehouseId)) +
+          Number(Boolean(productId)) +
+          Number(Boolean(slotId)) +
+          Number(showDepleted)
         }
         canReportDamaged={meQuery.data?.permissions.includes(P.INVENTORY_REPORT_DAMAGED) ?? false}
         onSearchChange={(value) => updateFilter(setSearchText, value)}
@@ -193,10 +234,15 @@ export default function InventoryPage({
         }}
         onProductChange={(value) => updateFilter(setProductId, value)}
         onSlotChange={(value) => updateFilter(setSlotId, value)}
+        onShowDepletedChange={(value) => {
+          setShowDepleted(value)
+          setPage(1)
+        }}
         onResetFilters={() => {
           setWarehouseId('')
           setProductId('')
           setSlotId('')
+          setShowDepleted(false)
           setPage(1)
         }}
         onRetryFilters={() => {

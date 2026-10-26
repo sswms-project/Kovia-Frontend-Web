@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import userEvent from '@testing-library/user-event'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +13,9 @@ const itemId = '10000000-0000-4000-8000-000000000002'
 const slotId = '10000000-0000-4000-8000-000000000001'
 const otherSlotId = '10000000-0000-4000-8000-000000000009'
 const receipt: GoodsReceiptDetail = {
+  receivingSlotId: null,
+  arrivalStockPostedAt: null,
+  sourceRequestVersion: null,
   id: 'receipt',
   receiptCode: 'GR-QA',
   inboundRequestId: 'request',
@@ -128,6 +132,10 @@ function TestForm({
   suggestedSlotId = otherSlotId,
   requireScan = false,
   planning = false,
+  planChanged = true,
+  planSaved = false,
+  planSaving = false,
+  locationOptions = slots,
   onSuggest = vi.fn(),
   onApplySuggestion = vi.fn(),
   onPlan = vi.fn(),
@@ -141,6 +149,10 @@ function TestForm({
   readonly suggestedSlotId?: string
   readonly requireScan?: boolean
   readonly planning?: boolean
+  readonly planChanged?: boolean
+  readonly planSaved?: boolean
+  readonly planSaving?: boolean
+  readonly locationOptions?: readonly SlotOption[]
   readonly onSuggest?: () => void
   readonly onApplySuggestion?: (itemId: string, slotId: string) => void
   readonly onPlan?: () => void
@@ -174,7 +186,7 @@ function TestForm({
       }}
       form={form}
       fields={fieldArray.fields}
-      slots={slots}
+      slots={locationOptions}
       isPending={pending}
       hasUncertainSubmission={uncertain}
       planDeviation={{ offPlanRows: new Set(offPlan ? [0] : []), requiresReason: offPlan }}
@@ -190,7 +202,9 @@ function TestForm({
         planning
           ? {
               assigneeName: 'An',
-              isSaving: false,
+              isSaving: planSaving,
+              hasChanges: planChanged,
+              hasSavedPlan: planSaved,
               canSavePlan: true,
               canAssign: true,
               onSavePlan: vi.fn(),
@@ -259,6 +273,64 @@ function TestForm({
     />
   )
 }
+
+describe('putaway workspace layout and plan locations', () => {
+  it('keeps the action footer outside the scrolling content and uses the shared slim scrollbar', () => {
+    const { container } = render(<TestForm plan={plan} requireScan />)
+    const content = screen.getByRole('region', { name: 'Nội dung cất hàng' })
+    const footer = container.querySelector('footer')!
+    expect(content).toHaveAttribute('data-scrollbar', 'slim')
+    expect(content).not.toContainElement(footer)
+    expect(footer.parentElement).toBe(content.parentElement)
+    expect(footer).toHaveClass('shrink-0')
+    expect(footer).not.toHaveClass('sticky')
+    expect(screen.getByText(/Khu A \/ Kệ KE-01 \/ Vị trí A-01:/)).toBeInTheDocument()
+    if (process.env.PUTAWAY_LAYOUT_PREVIEW) {
+      mkdirSync('output/playwright', { recursive: true })
+      writeFileSync(
+        'output/playwright/putaway-layout.html',
+        `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body><div class="flex h-svh flex-col overflow-hidden"><header class="h-14 shrink-0 border-b">Kovia — Layout fixture (no API)</header><main class="flex min-h-0 flex-1 overflow-hidden"><aside class="hidden w-60 shrink-0 border-r lg:block">Kho</aside><div data-slot="workspace-scroll-area" class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4 lg:p-5"><div class="shrink-0"></div><div class="flex min-h-0 w-full min-w-0 flex-1 flex-col">${container.innerHTML}</div></div></main></div></body></html>`
+      )
+    }
+  })
+
+  it('resolves the zone by slot ID even when two zones have the same rack code', () => {
+    render(
+      <TestForm
+        plan={[
+          {
+            ...plan[0]!,
+            slotId: otherSlotId,
+            slotCode: '__SYSTEM_DEFAULT__',
+            isSystemDefaultSlot: true,
+          },
+        ]}
+        locationOptions={[
+          ...slots,
+          { ...slots[0]!, id: otherSlotId, zoneId: 'zone-b', zoneLabel: 'Z-B - Khu vực B' },
+        ]}
+      />
+    )
+    expect(screen.getByText(/Z-B - Khu vực B \/ Kệ KE-01:/)).toBeInTheDocument()
+    expect(screen.queryByText(/__SYSTEM_DEFAULT__/)).not.toBeInTheDocument()
+  })
+
+  it('does not invent a zone if a persisted location is missing from the current layout', () => {
+    render(<TestForm plan={plan} locationOptions={[]} />)
+    expect(screen.getByText(/Chưa xác định khu vực \/ Kệ KE-01/)).toBeInTheDocument()
+  })
+})
+
+describe('plan save button states', () => {
+  it('only enables updating a saved plan when it has changes', () => {
+    const view = render(<TestForm planning planSaved planChanged={false} />)
+    expect(screen.getByRole('button', { name: 'Đã lưu & báo nhân viên' })).toBeDisabled()
+    view.rerender(<TestForm planning planSaved />)
+    expect(screen.getByRole('button', { name: 'Cập nhật & báo nhân viên' })).toBeEnabled()
+    view.rerender(<TestForm planning planSaved planSaving />)
+    expect(screen.getByRole('button', { name: 'Đang lưu…' })).toBeDisabled()
+  })
+})
 
 describe('AI slot suggestion on the put-away form', () => {
   it('puts the AI button next to "Chia sang vị trí khác" and lists suggestions', async () => {

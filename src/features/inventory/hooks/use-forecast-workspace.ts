@@ -36,6 +36,7 @@ import {
   useRejectForecastSuggestionMutation,
   useEvaluateForecastRunMutation,
   useAcceptRebalancingSuggestionMutation,
+  useWaitForForecastRun,
 } from './use-inventory'
 
 export function useForecastWorkspace() {
@@ -62,6 +63,8 @@ export function useForecastWorkspace() {
   const runQuery = useForecastRunQuery(runId)
   const createMutation = useCreateForecastRunMutation()
   const executeMutation = useExecuteForecastRunMutation()
+  const waitForForecastRun = useWaitForForecastRun()
+  const [isWaitingForRun, setIsWaitingForRun] = useState(false)
   const acceptMutation = useAcceptReplenishmentSuggestionMutation(runId)
   const rejectMutation = useRejectForecastSuggestionMutation(runId)
   const evaluateMutation = useEvaluateForecastRunMutation()
@@ -122,15 +125,24 @@ export function useForecastWorkspace() {
     })
   }
   const createAndRun = createForm.handleSubmit(async (values) => {
+    setIsWaitingForRun(true)
     try {
       const response = await createMutation.mutateAsync(values)
       selectRun(response.data)
+      // Execute only starts the run; the calculation finishes in the background.
       await executeMutation.mutateAsync(response.data)
+      const finished = await waitForForecastRun(response.data)
       await runsQuery.refetch()
+      if (finished.status === 'Failed') {
+        toast.error(finished.failureReason ?? 'Không thể hoàn tất phiên dự báo.')
+        return
+      }
       await queryClient.invalidateQueries({ queryKey: queryKeys.inboundRequests.all })
       toast.success('Đã tính nhu cầu và lập kế hoạch bổ sung. Hãy kiểm tra các nháp trước khi gửi.')
     } catch (error) {
       reportError(error, 'Không thể hoàn tất phiên dự báo.')
+    } finally {
+      setIsWaitingForRun(false)
     }
   })
   const accept = reviewForm.handleSubmit(async (values) => {
@@ -220,7 +232,7 @@ export function useForecastWorkspace() {
     runQuery,
     runsQuery,
     createAndRun,
-    isCreating: createMutation.isPending || executeMutation.isPending,
+    isCreating: isWaitingForRun,
     selected,
     openReview,
     closeReview: () => setReviewId(''),

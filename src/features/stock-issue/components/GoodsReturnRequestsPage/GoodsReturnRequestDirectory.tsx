@@ -1,7 +1,7 @@
 'use client'
 
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
-import { Check, Eye, MoreHorizontal, Search, Undo2, X } from 'lucide-react'
+import { Check, Eye, MoreHorizontal, Plus, Search, Undo2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -11,6 +11,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item'
+import { rowActivationProps } from '@/features/inbound/utils/row-activation-props'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -28,7 +37,7 @@ import {
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
-import { StockIssueWorkspaceNavigation } from '@/components/operations/StockIssueWorkspaceNavigation'
+import { ReturnsWorkspaceNavigation } from '@/components/operations/ReturnsWorkspaceNavigation'
 import { P } from '@/config/permissionCodes'
 import type {
   GoodsReturnRequestStatus,
@@ -64,6 +73,7 @@ interface GoodsReturnRequestDirectoryProps {
   readonly onApprove: (item: GoodsReturnRequestSummary) => void
   readonly onReject: (item: GoodsReturnRequestSummary) => void
   readonly onRestock: (item: GoodsReturnRequestSummary) => void
+  readonly onCreate: () => void
   readonly onRetry: () => void
 }
 
@@ -94,30 +104,94 @@ export function GoodsReturnRequestDirectory({
   onApprove,
   onReject,
   onRestock,
+  onCreate,
   onRetry,
 }: GoodsReturnRequestDirectoryProps) {
   const canApprove = permissions.includes(P.GOODS_RETURN_REQUESTS_APPROVE)
+  const canSelfApprove = permissions.includes(P.GOODS_RETURN_REQUESTS_SELF_APPROVE)
+  const canRestock = permissions.includes(P.GOODS_RETURN_REQUESTS_RESTOCK)
+  const canCreate = permissions.includes(P.STOCK_ISSUE_REQUESTS_RETURN)
+  const renderActions = (item: GoodsReturnRequestSummary) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Thao tác với ${item.goodsReturnRequestCode}`}
+        >
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={() => onInspect(item)}>
+            <Eye />
+            Chi tiết
+          </DropdownMenuItem>
+          {canApprove &&
+          item.status === 'Requested' &&
+          (item.createdBy !== currentUserId || canSelfApprove) ? (
+            <DropdownMenuItem onSelect={() => onApprove(item)}>
+              <Check />
+              {item.createdBy === currentUserId ? 'Tự duyệt' : 'Duyệt'}
+            </DropdownMenuItem>
+          ) : null}
+          {canApprove && item.status === 'Requested' && item.createdBy !== currentUserId ? (
+            <DropdownMenuItem variant="destructive" onSelect={() => onReject(item)}>
+              <X />
+              Từ chối
+            </DropdownMenuItem>
+          ) : null}
+          {canRestock && item.status === 'Approved' ? (
+            <DropdownMenuItem onSelect={() => onRestock(item)}>
+              <Undo2 />
+              Nhập lại kho
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <h1 className="sr-only">Yêu cầu trả hàng</h1>
-      <StockIssueWorkspaceNavigation currentView="goodsReturnRequests" permissions={permissions} />
-      <OperationalListPanel aria-label="Danh sách phiếu hoàn hàng">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b p-3">
-          <div>
+      <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <ReturnsWorkspaceNavigation currentView="goodsReturnRequests" permissions={permissions} />
+        </div>
+        {canCreate ? (
+          <Button type="button" size="sm" className="shrink-0 self-end" onClick={onCreate}>
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            Lập phiếu
+          </Button>
+        ) : null}
+      </header>
+      <OperationalListPanel
+        className="max-md:[&>[data-slot=table-container]]:hidden"
+        aria-label="Danh sách phiếu hoàn hàng"
+      >
+        <div className="flex shrink-0 flex-col gap-3 border-b p-3">
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold">Danh sách yêu cầu trả hàng</h2>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-5">
-            <InputGroup className="min-w-0 lg:w-64">
+          <div
+            role="search"
+            aria-label="Bộ lọc yêu cầu trả hàng"
+            className="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(14rem,2fr)_repeat(2,minmax(9rem,1fr))_repeat(2,minmax(9.5rem,1fr))]"
+          >
+            <InputGroup className="min-w-0">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
               <InputGroupInput
                 aria-label="Tìm yêu cầu trả hàng"
+                placeholder="Tìm yêu cầu trả hàng…"
                 value={searchText}
                 onChange={(event) => onSearchChange(event.target.value)}
               />
             </InputGroup>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc trạng thái yêu cầu trả hàng"
               value={status}
               onChange={(event) =>
@@ -132,6 +206,7 @@ export function GoodsReturnRequestDirectory({
               ))}
             </NativeSelect>
             <NativeSelect
+              className="w-full min-w-0"
               aria-label="Lọc kho nhận hàng trả"
               value={warehouseId}
               onChange={(event) => onWarehouseChange(event.target.value)}
@@ -169,77 +244,59 @@ export function GoodsReturnRequestDirectory({
             description="Thử đổi từ khóa hoặc trạng thái."
           />
         ) : (
-          <Table className="min-w-[760px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sticky top-0 z-10">Mã phiếu</TableHead>
-                <TableHead className="sticky top-0 z-10">Yêu cầu xuất kho</TableHead>
-                <TableHead className="sticky top-0 z-10">Lý do</TableHead>
-                <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
-                <TableHead className="sticky top-0 z-10">
-                  <span className="sr-only">Thao tác</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <ClickableTableRow key={item.id} onActivate={() => onInspect(item)}>
-                  <TableCell className="font-mono">{item.goodsReturnRequestCode}</TableCell>
-                  <TableCell className="font-mono">{item.stockIssueRequestCode}</TableCell>
-                  <TableCell className="max-w-64 truncate">{item.reason}</TableCell>
-                  <TableCell>
-                    <GoodsReturnRequestStatusBadge status={item.status} />
-                  </TableCell>
-                  <TableCell>{formatStockIssueDate(item.createdAt)}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Thao tác với ${item.goodsReturnRequestCode}`}
-                        >
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem onSelect={() => onInspect(item)}>
-                            <Eye />
-                            Chi tiết
-                          </DropdownMenuItem>
-                          {canApprove &&
-                          item.status === 'Requested' &&
-                          item.createdBy !== currentUserId ? (
-                            <>
-                              <DropdownMenuItem onSelect={() => onApprove(item)}>
-                                <Check />
-                                Duyệt
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onSelect={() => onReject(item)}
-                              >
-                                <X />
-                                Từ chối
-                              </DropdownMenuItem>
-                            </>
-                          ) : null}
-                          {canApprove && item.status === 'Approved' ? (
-                            <DropdownMenuItem onSelect={() => onRestock(item)}>
-                              <Undo2 />
-                              Nhập lại kho
-                            </DropdownMenuItem>
-                          ) : null}
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </ClickableTableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <ItemGroup className="gap-0">
+                {items.map((item) => (
+                  <Item
+                    key={item.id}
+                    {...rowActivationProps(() => onInspect(item), 'border-b last:border-b-0')}
+                  >
+                    <ItemContent className="min-w-0">
+                      <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                        <span className="font-mono">{item.goodsReturnRequestCode}</span>
+                        <GoodsReturnRequestStatusBadge status={item.status} />
+                      </ItemTitle>
+                      <ItemDescription>
+                        Yêu cầu xuất <span className="font-mono">{item.stockIssueRequestCode}</span>{' '}
+                        · {formatStockIssueDate(item.createdAt)}
+                      </ItemDescription>
+                      <ItemDescription className="line-clamp-2">{item.reason}</ItemDescription>
+                    </ItemContent>
+                    <ItemActions>{renderActions(item)}</ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            </div>
+            <Table className="min-w-[760px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky top-0 z-10">Mã phiếu</TableHead>
+                  <TableHead className="sticky top-0 z-10">Yêu cầu xuất kho</TableHead>
+                  <TableHead className="sticky top-0 z-10">Lý do</TableHead>
+                  <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                  <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
+                  <TableHead className="sticky top-0 z-10">
+                    <span className="sr-only">Thao tác</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => (
+                  <ClickableTableRow key={item.id} onActivate={() => onInspect(item)}>
+                    <TableCell className="font-mono">{item.goodsReturnRequestCode}</TableCell>
+                    <TableCell className="font-mono">{item.stockIssueRequestCode}</TableCell>
+                    <TableCell className="max-w-64 truncate">{item.reason}</TableCell>
+                    <TableCell>
+                      <GoodsReturnRequestStatusBadge status={item.status} />
+                    </TableCell>
+                    <TableCell>{formatStockIssueDate(item.createdAt)}</TableCell>
+                    <TableCell className="text-right">{renderActions(item)}</TableCell>
+                  </ClickableTableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </>
         )}
         <OperationalPagination
           page={page}

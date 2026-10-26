@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   OperationalErrorState,
   OperationalLoadingState,
@@ -14,14 +15,18 @@ const PAGE_SIZE = 10
 
 interface StockIssueAuditTimelineProps {
   readonly stockIssueRequestId: string
+  readonly limit?: number
 }
 
-export function StockIssueAuditTimeline({ stockIssueRequestId }: StockIssueAuditTimelineProps) {
+export function StockIssueAuditTimeline({
+  stockIssueRequestId,
+  limit,
+}: StockIssueAuditTimelineProps) {
   const reduceMotion = useReducedMotion()
   const [pageNumber, setPageNumber] = useState(1)
   const query = useStockIssueRequestAuditLogsQuery(stockIssueRequestId, {
     pageNumber,
-    pageSize: PAGE_SIZE,
+    pageSize: limit ?? PAGE_SIZE,
   })
   const data = query.data?.data
   const items = data?.items ?? []
@@ -39,14 +44,14 @@ export function StockIssueAuditTimeline({ stockIssueRequestId }: StockIssueAudit
     return <p className="text-muted-foreground text-sm">Chưa có nhật ký thao tác.</p>
 
   return (
-    <div className="space-y-3">
-      <ol className="border-border relative ml-2 space-y-4 border-l pl-4">
+    <div className="flex flex-col gap-3">
+      <ol className="border-border relative ml-2 flex flex-col gap-4 border-l pl-4">
         <AnimatePresence initial={false} mode="popLayout">
-          {items.map((log, index) => (
+          {items.slice(0, limit ?? items.length).map((log, index) => (
             <motion.li
               key={log.id}
               layout={!reduceMotion}
-              className="relative"
+              className="relative min-w-0 break-words"
               initial={reduceMotion ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduceMotion ? undefined : { opacity: 0 }}
@@ -56,19 +61,25 @@ export function StockIssueAuditTimeline({ stockIssueRequestId }: StockIssueAudit
                 aria-hidden="true"
                 className="bg-primary absolute top-1.5 -left-[1.3rem] size-2 rounded-full"
               />
-              <p className="text-sm font-medium">{log.actionLabel}</p>
-              <p className="text-muted-foreground text-xs">
+              <p className={cn('text-sm font-medium', limit && 'line-clamp-2')}>
+                {log.actionLabel}
+              </p>
+              <p className={cn('text-muted-foreground text-xs', limit && 'line-clamp-2')}>
                 {log.actorName} · {formatStockIssueDate(log.createdAt)}
               </p>
-              {log.description ? <p className="text-xs">{log.description}</p> : null}
+              {log.description ? (
+                <p className={cn('text-xs', limit && 'line-clamp-2')}>{log.description}</p>
+              ) : null}
               {log.reason ? (
-                <p className="text-muted-foreground text-xs">Lý do: {log.reason}</p>
+                <p className={cn('text-muted-foreground text-xs', limit && 'line-clamp-2')}>
+                  Lý do: {log.reason}
+                </p>
               ) : null}
             </motion.li>
           ))}
         </AnimatePresence>
       </ol>
-      {totalPages > 1 ? (
+      {!limit && totalPages > 1 ? (
         <div className="flex items-center justify-between">
           <Button
             type="button"

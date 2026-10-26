@@ -1,8 +1,15 @@
 import { axiosClient } from '@/lib/axios'
+import { warehouseStagingPointsSchema } from '@/features/warehouse/schemas/warehouse-staging-points.schema'
+import { transferWriteConfig } from '../utils/transfer-client'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
+import type { ResumeTransferPutAwayRequest } from '../types/transfer-receipt.types'
 import type { ApiResponse, QueryResult } from '@/types/api'
 import type { WarehouseResponse } from '@/types/warehouse'
 import type {
+  TransferDestinationLoadQuery,
+  TransferRequestDecision,
+  WithdrawTransferRequest,
+  TransferDestinationLoad,
   AdjustTransferAllocationRequest,
   TransferAllocationOption,
   AddTransferFeedbackRequest,
@@ -43,21 +50,120 @@ import type {
   UpdateTransferRequest,
 } from '../types/transfer.types'
 import type { ReceivableSlot } from '../utils/transfer-receive'
+import type { AssignableWarehouseStaff } from '@/features/inbound/types/inbound.types'
+import type {
+  TransferAssignmentTask,
+  TransferTaskType,
+  TransferReceiptSheet,
+  TransferPutAwaySheet,
+  StartTransferReceivingRequest,
+  SubmitTransferReceiptRequest,
+  PutAwayTransferShipmentRequest,
+} from '../types/transfer-receipt.types'
 
 const unwrap = <TData>(response: { data: ApiResponse<TData> }) => response.data
+const validateStagingPoints = <TData extends { stagingPoints?: unknown }>(
+  response: ApiResponse<TData>
+) => {
+  if (response.data?.stagingPoints) warehouseStagingPointsSchema.parse(response.data.stagingPoints)
+  return response
+}
 
 export const transferService = {
+  getAssignmentSnapshot: (transferId: string, shipmentId: string, warehouseId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferAssignmentTask[]>
+      >(API_ENDPOINTS.transfers.assignmentSnapshot(transferId, shipmentId), { params: { warehouseId } })
+      .then(unwrap),
+  decideRequest: (id: string, request: TransferRequestDecision) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.decision(id), request, transferWriteConfig())
+      .then(unwrap),
+  withdrawRequest: (id: string, request: WithdrawTransferRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.withdraw(id), request, transferWriteConfig())
+      .then(unwrap),
+  getDestinationLoad: (query: TransferDestinationLoadQuery, signal?: AbortSignal) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferDestinationLoad>
+      >(API_ENDPOINTS.transfers.destinationLoad, { params: query, signal })
+      .then(unwrap),
+  getAssignableStaff: (warehouseId: string, taskType: TransferTaskType) =>
+    axiosClient
+      .get<
+        ApiResponse<AssignableWarehouseStaff[]>
+      >(API_ENDPOINTS.transfers.assignableStaff, { params: { warehouseId, taskType } })
+      .then(unwrap),
+  getReceiptSheet: (transferId: string, shipmentId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferReceiptSheet>
+      >(API_ENDPOINTS.transfers.receiptSheet(transferId, shipmentId))
+      .then(unwrap)
+      .then(validateStagingPoints),
+  getPutAwaySheet: (transferId: string, shipmentId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<TransferPutAwaySheet>
+      >(API_ENDPOINTS.transfers.putAwaySheet(transferId, shipmentId))
+      .then(unwrap),
+  startReceiving: (
+    transferId: string,
+    shipmentId: string,
+    request: StartTransferReceivingRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.startReceiving(transferId, shipmentId), request, transferWriteConfig())
+      .then(unwrap),
+  submitReceipt: (transferId: string, shipmentId: string, request: SubmitTransferReceiptRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.submitReceipt(transferId, shipmentId), request, transferWriteConfig())
+      .then(unwrap),
+  resumePutAway: (transferId: string, shipmentId: string, request: ResumeTransferPutAwayRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.resumePutAway(transferId, shipmentId), request, transferWriteConfig())
+      .then(unwrap),
+  putAwayShipment: (
+    transferId: string,
+    shipmentId: string,
+    request: PutAwayTransferShipmentRequest
+  ) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.putAwayShipment(transferId, shipmentId), request, transferWriteConfig())
+      .then(unwrap),
   setPutAwayPlan: (transferId: string, request: SetTransferPutAwayPlanRequest) =>
     axiosClient
-      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request)
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.setPutAwayPlan(transferId), request, transferWriteConfig())
       .then(unwrap),
 
-  getPutAwayPlanSuggestions: (transferId: string, shipmentId?: string) =>
+  getPutAwayPlanSuggestions: (
+    transferId: string,
+    shipmentId?: string,
+    useAi = true,
+    signal?: AbortSignal
+  ) =>
     axiosClient
       .get<ApiResponse<TransferPutAwayPlanSuggestions>>(
         API_ENDPOINTS.transfers.putAwayPlanSuggestions(transferId),
         {
-          params: shipmentId ? { shipmentId } : undefined,
+          params: { shipmentId, useAi },
+          signal,
         }
       )
       .then(unwrap),
@@ -105,6 +211,14 @@ export const transferService = {
       })
       .then(unwrap),
 
+  /** Vị trí kho nhập cho lập kế hoạch/cất hàng: chỉ cần quyền nhận chuyển kho, không cần quyền tạo phiếu. */
+  getPutAwaySlots: (params: TransferReceivableSlotsQuery) =>
+    axiosClient
+      .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.putAwaySlots, {
+        params,
+      })
+      .then(unwrap),
+
   getSourceLocations: (params: TransferSourceLocationsQuery) =>
     axiosClient
       .get<ApiResponse<TransferSourceLocation[]>>(API_ENDPOINTS.transfers.sourceLocations, {
@@ -123,48 +237,64 @@ export const transferService = {
       .then(unwrap),
 
   createDraft: (request: SaveTransferDraftRequest) =>
-    axiosClient.post<ApiResponse<string>>(API_ENDPOINTS.transfers.drafts, request).then(unwrap),
+    axiosClient
+      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.drafts, request, transferWriteConfig())
+      .then(unwrap),
 
   updateDraft: (transferId: string, request: SaveTransferDraftRequest) =>
     axiosClient
-      .put<ApiResponse<string>>(API_ENDPOINTS.transfers.draft(transferId), request)
+      .put<
+        ApiResponse<string>
+      >(API_ENDPOINTS.transfers.draft(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   submitDraft: (transferId: string, request: SubmitTransferRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.submitDraft(transferId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.submitDraft(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   updateTransfer: (transferId: string, request: UpdateTransferRequest) =>
     axiosClient
-      .put<ApiResponse<unknown>>(API_ENDPOINTS.transfers.update(transferId), request)
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.update(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   cancelTransfer: (transferId: string, request: CancelTransferRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.cancel(transferId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.cancel(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   stopRemaining: (transferId: string, request: CancelTransferRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.stopRemaining(transferId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.stopRemaining(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   addFeedback: (transferId: string, request: AddTransferFeedbackRequest) =>
     axiosClient
-      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.feedback(transferId), request)
+      .post<
+        ApiResponse<string>
+      >(API_ENDPOINTS.transfers.feedback(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   replyFeedback: (transferId: string, feedbackId: string, request: ReplyTransferFeedbackRequest) =>
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.replyFeedback(transferId, feedbackId), request)
+      >(API_ENDPOINTS.transfers.replyFeedback(transferId, feedbackId), request, transferWriteConfig())
       .then(unwrap),
 
   createShipment: (transferId: string, request: CreateTransferShipmentRequest) =>
     axiosClient
-      .post<ApiResponse<string>>(API_ENDPOINTS.transfers.shipments(transferId), request)
+      .post<
+        ApiResponse<string>
+      >(API_ENDPOINTS.transfers.shipments(transferId), { ...request, outboundStagingFlowVersion: 1 }, transferWriteConfig())
       .then(unwrap),
 
   cancelShipment: (
@@ -175,7 +305,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.cancelShipment(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.cancelShipment(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   getPickSheet: (transferId: string, shipmentId: string) =>
@@ -183,7 +313,8 @@ export const transferService = {
       .get<
         ApiResponse<TransferPickSheet>
       >(API_ENDPOINTS.transfers.pickSheet(transferId, shipmentId))
-      .then(unwrap),
+      .then(unwrap)
+      .then(validateStagingPoints),
 
   getPickAlternatives: (transferId: string, shipmentId: string, lineId: string) =>
     axiosClient
@@ -194,7 +325,9 @@ export const transferService = {
 
   recordPick: (transferId: string, shipmentId: string, request: RecordTransferPickRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.picks(transferId, shipmentId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.picks(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   getAllocationOptions: (transferId: string, itemId: string) =>
@@ -206,7 +339,9 @@ export const transferService = {
 
   adjustAllocation: (transferId: string, request: AdjustTransferAllocationRequest) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.adjustAllocation(transferId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.adjustAllocation(transferId), request, transferWriteConfig())
       .then(unwrap),
 
   switchPick: (
@@ -218,7 +353,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.switchPick(transferId, shipmentId, lineId), request)
+      >(API_ENDPOINTS.transfers.switchPick(transferId, shipmentId, lineId), request, transferWriteConfig())
       .then(unwrap),
 
   escalatePick: (
@@ -230,7 +365,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<string>
-      >(API_ENDPOINTS.transfers.escalatePick(transferId, shipmentId, lineId), request)
+      >(API_ENDPOINTS.transfers.escalatePick(transferId, shipmentId, lineId), request, transferWriteConfig())
       .then(unwrap),
 
   resolveEscalation: (
@@ -243,14 +378,14 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.resolveEscalation(transferId, shipmentId, lineId, exceptionId), request)
+      >(API_ENDPOINTS.transfers.resolveEscalation(transferId, shipmentId, lineId, exceptionId), request, transferWriteConfig())
       .then(unwrap),
 
   returnPick: (transferId: string, shipmentId: string, request: ReturnTransferPickRequest) =>
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.returnPick(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.returnPick(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   completePicking: (
@@ -261,14 +396,14 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.completePicking(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.completePicking(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   reopenPicking: (transferId: string, shipmentId: string, request: ReopenTransferPickingRequest) =>
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.reopenPicking(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.reopenPicking(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   dispatchShipment: (
@@ -279,7 +414,7 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.dispatchShipment(transferId, shipmentId), request)
+      >(API_ENDPOINTS.transfers.dispatchShipment(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   getReceiveSheet: (transferId: string, shipmentId: string) =>
@@ -295,7 +430,9 @@ export const transferService = {
     request: ReceiveTransferShipmentRequest
   ) =>
     axiosClient
-      .post<ApiResponse<unknown>>(API_ENDPOINTS.transfers.receipt(transferId, shipmentId), request)
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.receipt(transferId, shipmentId), request, transferWriteConfig())
       .then(unwrap),
 
   resolveDiscrepancy: (
@@ -306,6 +443,6 @@ export const transferService = {
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.transfers.resolveDiscrepancy(transferId, discrepancyId), request)
+      >(API_ENDPOINTS.transfers.resolveDiscrepancy(transferId, discrepancyId), request, transferWriteConfig())
       .then(unwrap),
 }

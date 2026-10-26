@@ -41,16 +41,19 @@ function Harness({
   task,
   staff,
   onUnassign,
+  title,
 }: {
   readonly task: AssignWarehouseTaskTarget
   readonly staff: readonly AssignableWarehouseStaff[]
   readonly onUnassign?: () => void
+  readonly title?: string
 }) {
   const form = useForm<AssignWarehouseTaskFormValues>({
     defaultValues: { staffId: '', priority: 'Normal', dueAt: '', reason: '' },
   })
   return (
     <AssignWarehouseTaskDialog
+      title={title}
       target={task}
       form={form}
       staff={staff}
@@ -67,6 +70,42 @@ function Harness({
 }
 
 describe('AssignWarehouseTaskDialog unassign', () => {
+  it('accepts a combined transfer title while leaving default inbound labels intact', () => {
+    render(
+      <Harness
+        title="Giao việc nhận và cất hàng"
+        task={target({ kind: 'TransferReceive' })}
+        staff={[person(CURRENT_ID, 'Nhân viên')]}
+      />
+    )
+    expect(screen.getByRole('heading', { name: 'Giao việc nhận và cất hàng' })).toBeInTheDocument()
+  })
+  it('labels a first transfer assignment as an optional note, not reassignment', () => {
+    render(
+      <Harness
+        task={target({
+          kind: 'TransferReceive',
+          currentAssigneeId: null,
+          currentAssigneeName: null,
+        })}
+        staff={[person(CURRENT_ID, 'Nhân viên A')]}
+      />
+    )
+    expect(screen.getByLabelText('Ghi chú giao việc (nếu có)')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Lý do đổi người nhận việc (nếu có)')).not.toBeInTheDocument()
+  })
+  it('allows the current transfer worker to keep their assignment and change its schedule', () => {
+    render(
+      <Harness
+        task={target({ kind: 'TransferPick' })}
+        staff={[person(CURRENT_ID, 'Nhân viên A')]}
+      />
+    )
+    expect(screen.getByRole('radio')).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Lưu giao việc' })).not.toBeDisabled()
+    expect(screen.getByLabelText('Mức ưu tiên')).toBeInTheDocument()
+    expect(screen.getByLabelText('Hạn hoàn thành')).toBeInTheDocument()
+  })
   it('offers "Hủy giao việc" for an assigned receiving task and calls the handler', async () => {
     const onUnassign = vi.fn()
     render(
@@ -130,5 +169,29 @@ describe('AssignWarehouseTaskDialog unassign', () => {
       />
     )
     expect(screen.queryByRole('button', { name: /Hủy giao việc/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('AssignWarehouseTaskDialog workload', () => {
+  it('shows the workload score, every open task kind and the recommended badge', () => {
+    render(
+      <Harness
+        task={target({ currentAssigneeId: null, currentAssigneeName: null })}
+        staff={[
+          {
+            ...person('staff-2', 'Nhân viên B'),
+            openReceivingTasks: 1,
+            openWarehouseTasks: 2,
+            openCycleCounts: 1,
+            workloadScore: 12.5,
+            isRecommended: true,
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByText('Đề xuất')).toBeInTheDocument()
+    expect(screen.getByText('Điểm tải 12,5')).toBeInTheDocument()
+    expect(screen.getByText('1 nhận · 0 cất · 2 việc kho · 1 kiểm kê')).toBeInTheDocument()
   })
 })

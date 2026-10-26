@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { FieldError } from '@/components/ui/field'
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import {
   Dialog,
   DialogContent,
@@ -75,65 +77,117 @@ interface DirectoryProps {
   readonly onStatusChange: (value: '' | StockAdjustmentStatus) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
+}
+
+function StockAdjustmentMobileList({
+  items,
+}: {
+  readonly items: readonly StockAdjustmentVoucher[]
+}) {
+  return (
+    <ItemGroup className="gap-0">
+      {items.map((voucher) => (
+        <Item key={voucher.id} className="border-b last:border-b-0">
+          <ItemContent className="min-w-0">
+            <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
+              <Link
+                href={APP_ROUTES.stockAdjustmentVoucherDetail(voucher.id)}
+                className="text-primary font-mono font-semibold underline-offset-4 hover:underline"
+              >
+                {voucher.code}
+              </Link>
+              <StockAdjustmentStatusBadge status={voucher.status} />
+            </ItemTitle>
+            {voucher.reason ? (
+              <ItemDescription className="line-clamp-2">{voucher.reason}</ItemDescription>
+            ) : null}
+            <ItemDescription>
+              {voucher.warehouseName} · Kiểm kê{' '}
+              <Link
+                href={APP_ROUTES.cycleCountDetail(voucher.cycleCountId)}
+                className="font-mono underline-offset-2 hover:underline"
+              >
+                {voucher.cycleCountCode}
+              </Link>
+            </ItemDescription>
+            <ItemDescription className="font-mono">
+              {voucher.lineCount} dòng ·{' '}
+              <span className="text-primary font-semibold">
+                {voucher.totalIncrease > 0 ? `+${formatCount(voucher.totalIncrease)}` : '+0'}
+              </span>{' '}
+              /{' '}
+              <span className="text-destructive font-semibold">
+                {voucher.totalDecrease < 0 ? formatCount(voucher.totalDecrease) : '0'}
+              </span>
+            </ItemDescription>
+            <ItemDescription>
+              {voucher.createdByName} · {formatCycleCountDate(voucher.createdAt)}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+      ))}
+    </ItemGroup>
+  )
 }
 
 export function StockAdjustmentDirectory(props: DirectoryProps) {
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex shrink-0 items-start gap-3 border-b pb-4">
-        <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
-          <SlidersHorizontal />
-        </span>
-        <div>
-          <p className="text-primary text-xs font-medium">Kiểm soát tồn kho</p>
-          <h1 className="text-xl font-semibold">Điều chỉnh tồn kho</h1>
-        </div>
-      </header>
+      <h1 className="sr-only">Điều chỉnh tồn kho</h1>
       <InventoryWorkspaceNavigation currentView="adjustments" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách điều chỉnh tồn kho">
-        <div className="flex flex-wrap items-end gap-3 border-b p-3">
-          <label className="grid gap-1 text-xs font-medium">
-            Kho
-            <NativeSelect
-              className="h-9 min-w-52"
-              value={props.warehouseId}
-              onChange={(e) => props.onWarehouseChange(e.target.value)}
+        <div className="flex shrink-0 items-start gap-3 border-b p-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs font-medium">
+              Kho
+              <NativeSelect
+                className="min-w-52"
+                value={props.warehouseId}
+                onChange={(e) => props.onWarehouseChange(e.target.value)}
+              >
+                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+                {props.warehouses.map((o) => (
+                  <NativeSelectOption key={o.value} value={o.value}>
+                    {o.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </label>
+            <label className="flex items-center gap-2 text-xs font-medium">
+              Trạng thái
+              <NativeSelect
+                className="min-w-44"
+                value={props.status}
+                onChange={(e) => props.onStatusChange(parseAdjustmentStatus(e.target.value))}
+              >
+                <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+                {Object.values(STOCK_ADJUSTMENT_STATUSES).map((value) => (
+                  <NativeSelectOption key={value} value={value}>
+                    {STOCK_ADJUSTMENT_STATUS_LABELS[value]}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </label>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {props.exportAction}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={props.onRetry}
+              disabled={props.isFetching}
+              aria-label="Làm mới"
             >
-              <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-              {props.warehouses.map((o) => (
-                <NativeSelectOption key={o.value} value={o.value}>
-                  {o.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </label>
-          <label className="grid gap-1 text-xs font-medium">
-            Trạng thái
-            <NativeSelect
-              className="h-9 min-w-44"
-              value={props.status}
-              onChange={(e) => props.onStatusChange(parseAdjustmentStatus(e.target.value))}
-            >
-              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-              {Object.values(STOCK_ADJUSTMENT_STATUSES).map((value) => (
-                <NativeSelectOption key={value} value={value}>
-                  {STOCK_ADJUSTMENT_STATUS_LABELS[value]}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </label>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={props.onRetry}
-            disabled={props.isFetching}
-            aria-label="Làm mới"
-          >
-            <RefreshCw
-              className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
-            />
-          </Button>
+              <RefreshCw
+                aria-hidden="true"
+                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
+              />
+            </Button>
+          </div>
         </div>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />
@@ -145,75 +199,80 @@ export function StockAdjustmentDirectory(props: DirectoryProps) {
             description="Phiếu được tạo từ các dòng lệch của phiếu kiểm kê đã hoàn tất."
           />
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table className="min-w-[1000px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Phiếu điều chỉnh</TableHead>
-                  <TableHead>Phiếu kiểm kê</TableHead>
-                  <TableHead>Kho</TableHead>
-                  <TableHead className="text-right">Số dòng</TableHead>
-                  <TableHead className="text-right">Tăng</TableHead>
-                  <TableHead className="text-right">Giảm</TableHead>
-                  <TableHead>Người tạo</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {props.items.map((voucher) => (
-                  <TableRow key={voucher.id}>
-                    <TableCell>
-                      <Link
-                        href={APP_ROUTES.stockAdjustmentVoucherDetail(voucher.id)}
-                        className="font-mono font-medium underline-offset-2 hover:underline"
-                      >
-                        {voucher.code}
-                      </Link>
-                      <p className="text-muted-foreground max-w-xs truncate text-xs">
-                        {voucher.reason}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <Link
-                        href={APP_ROUTES.cycleCountDetail(voucher.cycleCountId)}
-                        className="font-mono text-xs underline-offset-2 hover:underline"
-                      >
-                        {voucher.cycleCountCode}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{voucher.warehouseName}</TableCell>
-                    <TableCell className="text-right font-mono">{voucher.lineCount}</TableCell>
-                    <TableCell className="text-primary text-right font-mono font-semibold">
-                      {voucher.totalIncrease > 0 ? `+${formatCount(voucher.totalIncrease)}` : '—'}
-                    </TableCell>
-                    <TableCell className="text-destructive text-right font-mono font-semibold">
-                      {voucher.totalDecrease < 0 ? formatCount(voucher.totalDecrease) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <p>{voucher.createdByName}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatCycleCountDate(voucher.createdAt)}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <StockAdjustmentStatusBadge status={voucher.status} />
-                    </TableCell>
-                    <TableCell>
-                      <Button asChild size="icon" variant="ghost">
+          <>
+            <div data-slot="operational-list-body" className="md:hidden">
+              <StockAdjustmentMobileList items={props.items} />
+            </div>
+            <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+              <Table className="min-w-[1000px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Phiếu điều chỉnh</TableHead>
+                    <TableHead>Phiếu kiểm kê</TableHead>
+                    <TableHead>Kho</TableHead>
+                    <TableHead className="text-right">Số dòng</TableHead>
+                    <TableHead className="text-right">Tăng</TableHead>
+                    <TableHead className="text-right">Giảm</TableHead>
+                    <TableHead>Người tạo</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {props.items.map((voucher) => (
+                    <TableRow key={voucher.id}>
+                      <TableCell>
                         <Link
                           href={APP_ROUTES.stockAdjustmentVoucherDetail(voucher.id)}
-                          aria-label="Xem chi tiết"
+                          className="font-mono font-medium underline-offset-2 hover:underline"
                         >
-                          <Eye />
+                          {voucher.code}
                         </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                        <p className="text-muted-foreground max-w-xs truncate text-xs">
+                          {voucher.reason}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <Link
+                          href={APP_ROUTES.cycleCountDetail(voucher.cycleCountId)}
+                          className="font-mono text-xs underline-offset-2 hover:underline"
+                        >
+                          {voucher.cycleCountCode}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{voucher.warehouseName}</TableCell>
+                      <TableCell className="text-right font-mono">{voucher.lineCount}</TableCell>
+                      <TableCell className="text-primary text-right font-mono font-semibold">
+                        {voucher.totalIncrease > 0 ? `+${formatCount(voucher.totalIncrease)}` : '—'}
+                      </TableCell>
+                      <TableCell className="text-destructive text-right font-mono font-semibold">
+                        {voucher.totalDecrease < 0 ? formatCount(voucher.totalDecrease) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <p>{voucher.createdByName}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {formatCycleCountDate(voucher.createdAt)}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <StockAdjustmentStatusBadge status={voucher.status} />
+                      </TableCell>
+                      <TableCell>
+                        <Button asChild size="icon" variant="ghost">
+                          <Link
+                            href={APP_ROUTES.stockAdjustmentVoucherDetail(voucher.id)}
+                            aria-label="Xem chi tiết"
+                          >
+                            <Eye />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
         <OperationalPagination
           page={props.page}
@@ -254,18 +313,18 @@ export function StockAdjustmentDetailView({
   const [rejecting, setRejecting] = useState(false)
   const [approving, setApproving] = useState(false)
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-4">
+    <div className="flex min-h-full w-full min-w-0 flex-col gap-4 pb-3">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b pb-4">
-        <div className="flex items-start gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
           <Button asChild variant="ghost" size="icon">
             <Link href={APP_ROUTES.stockAdjustments} aria-label="Quay lại">
               <ArrowLeft />
             </Link>
           </Button>
-          <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">
+          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center">
             <SlidersHorizontal />
           </span>
-          <div>
+          <div className="min-w-0 break-words">
             <p className="text-primary text-xs font-medium">Đề nghị điều chỉnh</p>
             <h1 className="text-xl font-semibold">{detail.productName}</h1>
             <p className="text-muted-foreground font-mono text-xs">
@@ -281,9 +340,9 @@ export function StockAdjustmentDetailView({
         <Metric label="Chênh lệch hệ thống tính" value={detail.quantityChange} signed />
       </section>
       <section className="bg-card grid gap-4 border p-4 md:grid-cols-2">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold">Căn cứ điều chỉnh</h2>
-          <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+          <dl className="mt-3 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm [&>dd]:break-words">
             <dt className="text-muted-foreground">Mã VTHH</dt>
             <dd className="font-mono">{detail.productSku}</dd>
             <dt className="text-muted-foreground">Tên VTHH</dt>

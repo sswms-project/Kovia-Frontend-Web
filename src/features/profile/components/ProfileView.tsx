@@ -27,7 +27,7 @@ interface InfoRowProps {
 
 export function ProfileViewSkeleton() {
   return (
-    <Card className="gap-0 rounded-xl py-0">
+    <Card className="@container min-w-0 gap-0 rounded-xl py-0">
       <CardHeader className="grid grid-cols-1 items-start gap-x-4 border-b px-6 pt-5 pb-4 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex min-w-0 items-start gap-2.5">
           <Skeleton className="bg-muted-foreground/20 size-[30px] rounded-lg" />
@@ -38,10 +38,10 @@ export function ProfileViewSkeleton() {
         </div>
         <Skeleton className="bg-muted-foreground/20 mt-3 h-8 w-24 sm:mt-0" />
       </CardHeader>
-      <CardContent className="grid gap-3 px-6 py-5 md:grid-cols-2">
+      <CardContent className="grid min-w-0 gap-3 px-6 py-5 @min-[40rem]:grid-cols-2">
         <Skeleton className="bg-muted-foreground/20 h-[92px] rounded-lg" />
         <Skeleton className="bg-muted-foreground/20 h-[92px] rounded-lg" />
-        <Skeleton className="bg-muted-foreground/20 h-[92px] rounded-lg md:col-span-2" />
+        <Skeleton className="bg-muted-foreground/20 h-[92px] rounded-lg @min-[40rem]:col-span-2" />
       </CardContent>
     </Card>
   )
@@ -57,8 +57,8 @@ function InfoRow({ icon: Icon, label, value, suffix }: InfoRowProps) {
         <p className="text-muted-foreground text-[11.5px] font-medium tracking-wide uppercase">
           {label}
         </p>
-        <div className="mt-0.5 flex items-center gap-2">
-          <p className="text-foreground text-sm font-medium break-words">
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
+          <p className="text-foreground min-w-0 text-sm font-medium wrap-anywhere">
             {value || 'Chưa cập nhật'}
           </p>
           {suffix}
@@ -74,7 +74,7 @@ export function ProfileView({ profile, onEdit }: ProfileViewProps) {
     .join(', ')
 
   return (
-    <Card className="animate-in fade-in slide-in-from-right-4 gap-0 rounded-xl py-0 duration-400">
+    <Card className="animate-in fade-in slide-in-from-right-4 @container min-w-0 gap-0 rounded-xl py-0 duration-400">
       <CardHeader className="grid grid-cols-1 items-start gap-x-4 border-b px-6 pt-5 pb-4 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex min-w-0 items-start gap-2.5">
           <SectionIconBadge icon={Mail} />
@@ -98,7 +98,7 @@ export function ProfileView({ profile, onEdit }: ProfileViewProps) {
         </CardAction>
       </CardHeader>
 
-      <CardContent className="grid gap-3 px-6 py-5 md:grid-cols-2">
+      <CardContent className="grid min-w-0 gap-3 px-6 py-5 @min-[40rem]:grid-cols-2">
         <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both delay-75 duration-300">
           <InfoRow
             icon={Mail}
@@ -106,12 +106,12 @@ export function ProfileView({ profile, onEdit }: ProfileViewProps) {
             value={profile.email}
             suffix={
               profile.emailVerified ? (
-                <span className="text-chart-1 flex items-center gap-1 text-xs font-medium">
+                <span className="text-chart-1 flex shrink-0 items-center gap-1 text-xs font-medium">
                   <CheckCircle2 className="size-3.5" />
                   Đã xác thực
                 </span>
               ) : (
-                <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                <span className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
                   <XCircle className="size-3.5" />
                   Chưa xác thực
                 </span>
@@ -122,7 +122,7 @@ export function ProfileView({ profile, onEdit }: ProfileViewProps) {
         <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both delay-150 duration-300">
           <InfoRow icon={Phone} label="Số điện thoại" value={profile.phone} />
         </div>
-        <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both delay-200 duration-300 md:col-span-2">
+        <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both delay-200 duration-300 @min-[40rem]:col-span-2">
           <InfoRow
             icon={Warehouse}
             label="Kho đang làm việc"

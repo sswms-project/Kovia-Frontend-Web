@@ -1,6 +1,8 @@
 'use client'
 
 import { Checkbox } from '@/components/ui/checkbox'
+import { cn } from '@/lib/utils'
+import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
   Table,
   TableBody,
@@ -28,7 +30,69 @@ export function StockAdjustmentVoucherLinesTable({
   onToggleExclude,
 }: StockAdjustmentVoucherLinesTableProps) {
   return (
-    <div className="min-h-0 flex-1 overflow-auto border">
+    <OperationalListPanel
+      aria-label="Dòng hàng phiếu điều chỉnh tồn"
+      className="max-md:[&>[data-slot=table-container]]:hidden"
+    >
+      <ul data-slot="operational-list-body" className="divide-y md:hidden">
+        {lines.map((line, index) => {
+          const excluded = excludedLineIds.includes(line.id)
+          return (
+            <li
+              key={line.id}
+              className={cn('flex items-start gap-3 p-4', excluded && 'opacity-50')}
+            >
+              {canExclude ? (
+                <Checkbox
+                  className="mt-0.5"
+                  checked={!excluded}
+                  onCheckedChange={(value) => onToggleExclude(line.id, value !== true)}
+                  aria-label={`Giữ dòng ${line.productSku}`}
+                />
+              ) : null}
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="min-w-0 font-medium break-words">
+                    <span className="text-muted-foreground">{index + 1}. </span>
+                    {line.productName}
+                  </p>
+                  <StockAdjustmentStatusBadge status={line.status} />
+                </div>
+                <p className="text-muted-foreground font-mono text-xs">
+                  {line.productSku} · {formatStockLocation(line)}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Lô {line.lotNumber ?? 'theo số lượng'} ·{' '}
+                  {CYCLE_COUNT_QUALITY_LABELS[line.qualityStatus] ?? line.qualityStatus}
+                  {line.unitName ? ` · ${line.unitName}` : ''}
+                </p>
+                <dl className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <dt className="text-muted-foreground">Sổ sách</dt>
+                    <dd className="font-mono">{formatCount(line.systemQuantity)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Kiểm đếm</dt>
+                    <dd className="font-mono">{formatCount(line.countedQuantity)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Chênh lệch</dt>
+                    <dd
+                      className={cn(
+                        'font-mono font-semibold',
+                        line.quantityChange < 0 ? 'text-destructive' : 'text-primary'
+                      )}
+                    >
+                      {line.quantityChange > 0 ? '+' : ''}
+                      {formatCount(line.quantityChange)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
       <Table className="min-w-[960px]">
         <TableHeader>
           <TableRow>
@@ -93,6 +157,6 @@ export function StockAdjustmentVoucherLinesTable({
           })}
         </TableBody>
       </Table>
-    </div>
+    </OperationalListPanel>
   )
 }

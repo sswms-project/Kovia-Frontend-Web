@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
+import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
 import type { Route } from 'next'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -11,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   OperationalCellStack,
   OperationalQuantityProgress,
@@ -24,10 +23,11 @@ import {
   formatOperationalDateTime,
   formatQuantity,
 } from '../../utils/inbound-request-format'
-import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
+import { InboundRequestStatusBadge, SupplierResponseHint } from './InboundRequestStatusBadge'
 import { InboundRequestRowActions } from './InboundRequestRowActions'
 
 interface InboundRequestTableProps {
+  readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canDelete: boolean
   readonly canDeleteApproved?: boolean
@@ -57,14 +57,12 @@ export function InboundRequestTableSkeleton() {
       <Table className="min-w-[960px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card w-12 p-0 text-center">
+            <TableHead className="w-12 p-0 text-center">
               <Skeleton className="size-4" />
             </TableHead>
             {['Mã yêu cầu', 'Nguồn hàng · Kho nhận', 'Trạng thái', 'Tiến độ', 'Thời gian', ''].map(
               (heading) => (
-                <TableHead key={heading} className="bg-card">
-                  {heading}
-                </TableHead>
+                <TableHead key={heading}>{heading}</TableHead>
               )
             )}
           </TableRow>
@@ -106,6 +104,7 @@ export function InboundRequestTableSkeleton() {
 }
 
 export function InboundRequestTable({
+  onOpen,
   items,
   canDelete,
   canDeleteApproved = false,
@@ -133,7 +132,7 @@ export function InboundRequestTable({
       <Table className="min-w-[960px] table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="bg-card w-12 p-0 text-center">
+            <TableHead className="w-12 p-0 text-center">
               <Checkbox
                 className="mx-auto"
                 aria-label="Chọn tất cả yêu cầu nhập kho trên trang"
@@ -152,23 +151,23 @@ export function InboundRequestTable({
                 }
               />
             </TableHead>
-            <TableHead className="bg-card w-52">Mã yêu cầu</TableHead>
-            <TableHead className="bg-card">Nguồn hàng · Kho nhận</TableHead>
-            <TableHead className="bg-card w-36">Trạng thái</TableHead>
-            <TableHead className="bg-card w-44">Tiến độ nhận</TableHead>
-            <TableHead className="bg-card w-44">Thời gian</TableHead>
-            <TableHead className="bg-card w-16">
+            <TableHead className="w-52">Mã yêu cầu</TableHead>
+            <TableHead>Nguồn hàng · Kho nhận</TableHead>
+            <TableHead className="w-36">Trạng thái</TableHead>
+            <TableHead className="w-44">Tiến độ nhận</TableHead>
+            <TableHead className="w-44">Thời gian</TableHead>
+            <TableHead className="w-16">
               <span className="sr-only">Thao tác</span>
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((item) => (
-            <ClickableTableRow
+            <TableRow
               key={item.id}
-              href={APP_ROUTES.inboundRequestDetail(item.id) as Route}
+              {...goodsPreviewInteractions(onOpen ? () => onOpen(item) : undefined, false)}
             >
-              <TableCell data-row-ignore className="w-12 p-0 text-center">
+              <TableCell data-row-ignore data-preview-ignore className="w-12 p-0 text-center">
                 <Checkbox
                   className="mx-auto"
                   aria-label={`Chọn ${item.inboundRequestCode}`}
@@ -185,20 +184,18 @@ export function InboundRequestTable({
               </TableCell>
               <TableCell className="min-w-0">
                 <div className="min-w-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={APP_ROUTES.inboundRequestDetail(item.id) as Route}
-                        className="text-primary block truncate font-mono font-semibold underline-offset-4 hover:underline"
-                        translate="no"
-                      >
-                        {item.inboundRequestCode}
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent className="font-mono" translate="no">
+                  <div
+                    className="font-mono font-semibold wrap-anywhere whitespace-normal"
+                    translate="no"
+                  >
+                    <Link
+                      href={APP_ROUTES.inboundRequestDetail(item.id) as Route}
+                      className="underline-offset-4 hover:underline"
+                      translate="no"
+                    >
                       {item.inboundRequestCode}
-                    </TooltipContent>
-                  </Tooltip>
+                    </Link>
+                  </div>
                   <p className="text-muted-foreground truncate text-xs">{item.createdByName}</p>
                 </div>
               </TableCell>
@@ -211,7 +208,10 @@ export function InboundRequestTable({
                 />
               </TableCell>
               <TableCell>
-                <InboundRequestStatusBadge status={item.status} />
+                <div className="flex flex-col items-start gap-1">
+                  <InboundRequestStatusBadge status={item.status} />
+                  <SupplierResponseHint item={item} />
+                </div>
               </TableCell>
               <TableCell>
                 <OperationalQuantityProgress
@@ -247,7 +247,7 @@ export function InboundRequestTable({
                   onDuplicate={onDuplicate}
                 />
               </TableCell>
-            </ClickableTableRow>
+            </TableRow>
           ))}
         </TableBody>
       </Table>

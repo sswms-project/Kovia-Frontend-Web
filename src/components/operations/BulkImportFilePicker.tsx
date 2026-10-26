@@ -31,7 +31,10 @@ export function BulkImportFilePicker({
   const message = dropError ?? error
   return (
     <Card
-      className={cn('min-w-0 border-dashed', dragging && !pending && 'border-primary bg-muted')}
+      className={cn(
+        'min-w-0 shrink-0 border-dashed',
+        dragging && !pending && 'border-primary bg-muted'
+      )}
       onDragEnter={(event) => {
         event.preventDefault()
         if (!event.dataTransfer.types.includes('Files') || pending) return

@@ -2,8 +2,14 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
+import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { LegacyReceiptStockDialog } from '../components/LegacyReceiptStockDialog'
+import { useLegacyReceiptStock } from '../hooks/use-legacy-receipt-stock'
 import {
   OperationalErrorState,
   OperationalLoadingState,
@@ -20,6 +26,12 @@ import { ReceiveGoodsDialog } from '../components/ReceivingPage'
 import { AssignWarehouseTaskDialog } from '../components/TaskAssignment'
 import { inventoryService } from '@/features/inventory/services/inventory.service'
 import { useAssignWarehouseTask } from '../hooks/use-assign-warehouse-task'
+import { useReceivingLocationSelection } from '../hooks/use-receiving-location-selection'
+import { ReceivingLocationPicker } from '../components/ReceivingLocationPicker'
+import { RefusalEvidencePanel } from '../components/RefusalEvidencePanel'
+import { ReceiptDamageIsolationDialog } from '../components/ReceiptDamageIsolationDialog'
+import { useReceiptDamageIsolation } from '../hooks/use-receipt-damage-isolation'
+import { useRefusalEvidence } from '../hooks/use-refusal-evidence'
 import { usePutawayPlanEditor } from '../hooks/use-putaway-plan-editor'
 import {
   useApproveGoodsReceiptMutation,
@@ -33,9 +45,28 @@ import { goodsReceiptSchema, type GoodsReceiptFormValues } from '../schemas/inbo
 import type { ReceivingTask } from '../types/inbound.types'
 
 export default function GoodsReceiptDetailPage({ receiptId }: { readonly receiptId: string }) {
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
+  const [editVersion, setEditVersion] = useState('')
   const detailQuery = useGoodsReceiptQuery(receiptId)
   const actionsQuery = useInboundAllowedActionsQuery(receiptId)
+  const damageIsolation = useReceiptDamageIsolation(
+    detailQuery.data,
+    actionsQuery.data?.allowedActions.includes('IsolateDamage') === true
+  )
+  const refusal = useRefusalEvidence(
+    detailQuery.data?.warehouseId,
+    `${receiptId}:${detailQuery.data?.version}`
+  )
+  const legacyStock = useLegacyReceiptStock(
+    detailQuery.data,
+    actionsQuery.data?.selfApprovalRequired ?? false
+  )
+  const receivingLocation = useReceivingLocationSelection(
+    detailQuery.data?.warehouseId,
+    receiptId,
+    !detailQuery.data?.arrivalConfirmedAt && !!actionsQuery.data?.allowedActions.includes('Submit')
+  )
   const submitMutation = useSubmitGoodsReceiptMutation()
   const approveMutation = useApproveGoodsReceiptMutation()
   const rejectMutation = useRejectGoodsReceiptMutation()
@@ -47,6 +78,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
     defaultValues: { inboundRequestId: '', receiptCode: '', lines: [] },
   })
 
+  const receiptLines = useWatch({ control: form.control, name: 'lines' })
   function showMutationError(error: unknown, fallback: string) {
     const message = getApiErrorMessage(error, fallback)
     toast.error(message)
@@ -60,6 +92,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
   function openEditor() {
     const receipt = detailQuery.data
     if (!receipt) return
+    setEditVersion(receipt.version)
     form.reset({
       inboundRequestId: receipt.inboundRequestId,
       receiptCode: receipt.receiptCode,
@@ -69,6 +102,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
               {
                 inboundRequestItemId: item.inboundRequestItemId,
                 receivedQty: item.receivedQuantity,
+                rejectedQty: item.rejectedQuantity ?? 0,
                 enteredUnitId: item.baseUnitId,
                 damagedQty: item.damagedQuantity,
                 exceptionReason: item.exceptionReason ?? '',
@@ -85,16 +119,35 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
   }
 
   async function saveUpdate(values: GoodsReceiptFormValues, shouldSubmit: boolean) {
+    if (
+      shouldSubmit &&
+      values.lines.some((line) => line.receivedQty > 0) &&
+      !detailQuery.data?.arrivalConfirmedAt &&
+      (!receivingLocation.selected ||
+        receivingLocation.query.isError ||
+        receivingLocation.query.isFetching)
+    ) {
+      toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
+      return
+    }
     try {
+      const refusalPayload = shouldSubmit
+        ? refusal.payload(
+            !detailQuery.data?.arrivalConfirmedAt &&
+              values.lines.some((line) => (line.rejectedQty ?? 0) > 0)
+          )
+        : {}
       await updateMutation.mutateAsync({
         receiptId,
         request: {
+          expectedVersion: editVersion,
           receiptCode: values.receiptCode,
           lines: values.lines.map((line) => ({
             inboundRequestItemId: line.inboundRequestItemId,
             receivedQty: line.receivedQty,
             enteredUnitId: line.enteredUnitId,
             damagedQty: line.damagedQty,
+            rejectedQty: line.rejectedQty ?? 0,
             exceptionReason: line.exceptionReason.trim() || null,
             lotNumber: line.isLotTracked ? line.lotNumber.trim() || null : null,
             manufacturedDate: line.isLotTracked ? line.manufacturedDate || null : null,
@@ -108,6 +161,10 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
         await submitMutation.mutateAsync({
           receiptId,
           expectedVersion: refreshed.data.version,
+          receivingSlotId: values.lines.some((line) => line.receivedQty > 0)
+            ? (detailQuery.data?.receivingSlotId ?? receivingLocation.selected?.id)
+            : null,
+          ...refusalPayload,
         })
       }
       toast.success(
@@ -157,12 +214,37 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
     }
   }
 
-  async function perform(action: 'submit' | 'approve' | 'reject', reason?: string) {
+  async function perform(
+    action: 'submit' | 'approve' | 'reject',
+    reason?: string,
+    keepAtReceiving = false
+  ) {
     try {
       if (action === 'submit') {
         const receipt = detailQuery.data
         if (!receipt?.version) return false
-        await submitMutation.mutateAsync({ receiptId, expectedVersion: receipt.version })
+        const receivingSlotId = receipt.items.some((item) => item.receivedQuantity > 0)
+          ? (receipt.receivingSlotId ?? receivingLocation.selected?.id)
+          : null
+        if (
+          !receipt.arrivalConfirmedAt &&
+          receipt.items.some((item) => item.receivedQuantity > 0) &&
+          (!receivingSlotId ||
+            receivingLocation.query.isError ||
+            receivingLocation.query.isFetching)
+        ) {
+          toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
+          return false
+        }
+        await submitMutation.mutateAsync({
+          receiptId,
+          expectedVersion: receipt.version,
+          receivingSlotId,
+          ...refusal.payload(
+            !receipt.arrivalConfirmedAt &&
+              receipt.items.some((item) => (item.rejectedQuantity ?? 0) > 0)
+          ),
+        })
       } else if (action === 'approve') {
         const receipt = detailQuery.data
         if (!receipt) return false
@@ -170,15 +252,31 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
           receiptId,
           expectedVersion: receipt.version,
           selfApprovalAcknowledged: actionsQuery.data?.selfApprovalRequired === true,
+          keepAtReceiving,
         })
-      } else await rejectMutation.mutateAsync({ receiptId, reason: reason ?? '' })
+      } else {
+        if (!detailQuery.data?.version) return false
+        await rejectMutation.mutateAsync({
+          receiptId,
+          reason: reason ?? '',
+          expectedVersion: detailQuery.data.version,
+        })
+      }
       toast.success(
         action === 'submit'
           ? 'Đã xác nhận hàng đến và gửi kết quả kiểm hàng để duyệt.'
           : action === 'approve'
-            ? 'Đã duyệt kết quả kiểm hàng; hàng sẵn sàng để cất.'
+            ? keepAtReceiving
+              ? 'Đã duyệt. Hàng đạt giữ tại vị trí nhận và có thể được phân bổ FEFO.'
+              : 'Đã duyệt kết quả kiểm hàng; hàng tiếp tục theo luồng cất/cách biệt.'
             : 'Đã trả phiếu nhận hàng để chỉnh sửa.'
       )
+      if (
+        action === 'approve' &&
+        !keepAtReceiving &&
+        detailQuery.data?.items.some((item) => item.receivedQuantity > 0)
+      )
+        router.push(APP_ROUTES.inboundPutawayDetail(receiptId) as Route)
       return true
     } catch (error) {
       logMutationFailure(error)
@@ -200,6 +298,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
     )
   const receipt = detailQuery.data
   const editTask: ReceivingTask = {
+    version: receipt.version,
     inboundRequestId: receipt.inboundRequestId,
     inboundRequestCode: receipt.inboundRequestCode,
     warehouseId: receipt.warehouseId,
@@ -260,6 +359,39 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
 
   return (
     <>
+      {actionsQuery.data?.allowedActions.includes('IsolateDamage') && (
+        <div className="shrink-0 py-3">
+          <Button variant="outline" onClick={damageIsolation.open}>
+            Xác nhận cách biệt hàng hỏng đã nhập
+          </Button>
+        </div>
+      )}
+      <ReceiptDamageIsolationDialog state={damageIsolation} />
+      {!isEditing &&
+        !receipt.arrivalConfirmedAt &&
+        actionsQuery.data?.allowedActions.includes('Submit') && (
+          <div className="shrink-0 border-b pb-4">
+            {receipt.items.some((item) => item.receivedQuantity > 0) && (
+              <ReceivingLocationPicker state={receivingLocation} disabled={isPending} />
+            )}
+            {receipt.items.some((item) => (item.rejectedQuantity ?? 0) > 0) && (
+              <RefusalEvidencePanel state={refusal} />
+            )}
+          </div>
+        )}
+      {receipt.arrivalConfirmedAt && !receipt.arrivalStockPostedAt && (
+        <p role="alert" className="text-destructive shrink-0 border p-3 text-sm">
+          Phiếu nhận cũ chưa được đối soát tồn thực nhận. Cần người có quyền phê duyệt kiểm tra số
+          đếm, vị trí và bằng chứng trước khi tiếp tục.
+        </p>
+      )}
+      {actionsQuery.data?.allowedActions.includes('ReconcileArrivalStock') && (
+        <div className="shrink-0 py-3">
+          <Button variant="outline" onClick={legacyStock.open}>
+            Đối soát tồn thực nhận có bằng chứng
+          </Button>
+        </div>
+      )}
       <ReceiptDetail
         receipt={receipt}
         allowedActions={actionsQuery.data?.allowedActions ?? []}
@@ -267,7 +399,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
         isPending={isPending}
         onUpdate={openEditor}
         onSubmit={() => perform('submit')}
-        onApprove={() => perform('approve')}
+        onApprove={(keepAtReceiving) => perform('approve', undefined, keepAtReceiving)}
         onReject={(reason) => perform('reject', reason)}
         onAssignPutAway={openAssignPutAway}
         onPlanPutAway={planEditor.open}
@@ -297,6 +429,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
         onApplyBestSuggestions={planEditor.applyBestSuggestions}
         onSave={() => void planEditor.save()}
       />
+      <LegacyReceiptStockDialog state={legacyStock} />
       <AssignWarehouseTaskDialog
         target={assignment.target}
         form={assignment.form}
@@ -311,6 +444,17 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
         onUnassign={assignment.onUnassign}
       />
       <ReceiveGoodsDialog
+        acceptanceFirst={receipt.receivingFlowVersion === 1}
+        receivingLocationField={
+          !receipt.arrivalConfirmedAt ? (
+            <>
+              <ReceivingLocationPicker state={receivingLocation} disabled={isPending} />
+              {receiptLines.some((line) => (line.rejectedQty ?? 0) > 0) && (
+                <RefusalEvidencePanel state={refusal} />
+              )}
+            </>
+          ) : undefined
+        }
         task={isEditing ? editTask : null}
         form={form}
         isPending={isPending}

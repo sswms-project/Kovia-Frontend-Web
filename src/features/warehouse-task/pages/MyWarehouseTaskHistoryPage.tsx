@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
@@ -32,14 +35,15 @@ export default function MyWarehouseTaskHistoryPage() {
   const managesWarehouseTasks = (meQuery.data?.permissions ?? []).includes(
     P.WAREHOUSE_TASKS_VIEW_ALL
   )
+  const exportFilters = {
+    pageNumber: page,
+    pageSize,
+    taskType: taskTypeFilter || undefined,
+    executionStatus: executionStatusFilter || undefined,
+    deadlineStatus: deadlineFilter || undefined,
+  }
   const query = useMyWarehouseTaskHistoryQuery(
-    {
-      pageNumber: page,
-      pageSize,
-      taskType: taskTypeFilter || undefined,
-      executionStatus: executionStatusFilter || undefined,
-      deadlineStatus: deadlineFilter || undefined,
-    },
+    exportFilters,
     managesWarehouseTasks ? 'managed' : 'mine'
   )
   const scope = managesWarehouseTasks ? 'managed' : 'mine'
@@ -47,10 +51,22 @@ export default function MyWarehouseTaskHistoryPage() {
   const readOnlyForm = useForm<ExecuteWarehouseRelocationFormValues>({
     defaultValues: { lineId: '', destinationSlotId: '', quantity: 1, overrideReason: '' },
   })
+  const listExport = useListExport({
+    dataset: managesWarehouseTasks ? 'managed-task-history' : 'my-task-history',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: managesWarehouseTasks ? P.WAREHOUSE_TASKS_VIEW_ALL : P.WAREHOUSE_TASKS_VIEW_OWN,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+  })
   return (
     <>
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
         <WarehouseTaskDirectory
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
           title={managesWarehouseTasks ? 'Lịch sử công việc kho' : 'Công việc đã xử lý'}
           description="Các công việc đã hoàn tất hoặc đã hủy; không bao gồm nhật ký thao tác hệ thống."
           items={query.data?.items ?? []}
@@ -73,7 +89,7 @@ export default function MyWarehouseTaskHistoryPage() {
           isFetching={query.isFetching}
           isError={query.isError}
           headerAction={
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:flex sm:flex-none sm:flex-wrap sm:items-center sm:justify-end">
               <NativeSelect
                 aria-label="Lọc lịch sử theo loại công việc"
                 value={taskTypeFilter}
@@ -81,7 +97,7 @@ export default function MyWarehouseTaskHistoryPage() {
                   setTaskTypeFilter(event.target.value as WarehouseTaskType | '')
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi loại việc</NativeSelectOption>
                 <NativeSelectOption value="Receiving">Nhận hàng</NativeSelectOption>
@@ -103,7 +119,7 @@ export default function MyWarehouseTaskHistoryPage() {
                   )
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi trạng thái</NativeSelectOption>
                 <NativeSelectOption value="Completed">Hoàn tất</NativeSelectOption>
@@ -116,7 +132,7 @@ export default function MyWarehouseTaskHistoryPage() {
                   setDeadlineFilter(event.target.value as WarehouseTaskDeadlineStatus | '')
                   setPage(1)
                 }}
-                className="w-40"
+                className="w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi thời hạn</NativeSelectOption>
                 <NativeSelectOption value="CompletedOnTime">Đúng hạn</NativeSelectOption>

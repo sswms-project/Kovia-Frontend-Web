@@ -54,7 +54,7 @@ export function TransferMobileList({
                 {item.lineCount} dòng · {formatQuantity(item.requestedQuantity)} đơn vị ·{' '}
                 {formatOperationalDateTime(item.createdAt)}
               </ItemDescription>
-              <TransferNextActionChip code={item.nextActionCode} />
+              <TransferNextActionChip code={item.nextActionCode} transferId={item.id} />
               <TransferFlagBadges
                 hasOpenFeedback={item.hasOpenFeedback}
                 hasPendingPickEscalation={item.hasPendingPickEscalation}

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CameraScanControl } from '@/components/operations/scanning'
 import { cn } from '@/lib/utils'
 import type { GoodsReceiptFormValues } from '../../schemas/inbound.schema'
 import type { ReceivingTask, ReceivingTaskLine } from '../../types/inbound.types'
@@ -45,6 +46,7 @@ export function ReceiveQuickActions({ task, form, disabled }: ReceiveQuickAction
         // Số hỏng đang nhập theo đơn vị cũ, không còn nghĩa khi đổi đơn vị.
         form.setValue(`lines.${index}.enteredUnitId`, remaining.unitId, { shouldDirty: true })
         form.setValue(`lines.${index}.damagedQty`, 0, { shouldDirty: true })
+        form.setValue(`lines.${index}.rejectedQty`, 0, { shouldDirty: true })
       }
       form.setValue(`lines.${index}.receivedQty`, remaining.quantity, {
         shouldDirty: true,
@@ -58,18 +60,19 @@ export function ReceiveQuickActions({ task, form, disabled }: ReceiveQuickAction
     })
   }
 
-  function scan() {
-    const result = matchScannedReceiptLine(code, task.lines)
+  function scan(rawCode: string) {
+    if (disabled) return false
+    const result = matchScannedReceiptLine(rawCode, task.lines)
     setCode('')
     setScanCount((count) => count + 1)
     if (result.status === 'error') {
       setFeedback({ ok: false, message: result.message })
-      return
+      return false
     }
     const index = findFormIndex(result.line)
     if (index < 0) {
       setFeedback({ ok: false, message: `${result.line.productName} không nằm trong phiếu này.` })
-      return
+      return false
     }
     const unitId = form.getValues(`lines.${index}.enteredUnitId`)
     const unit = getReceiptUnit(result.line, unitId)
@@ -82,67 +85,81 @@ export function ReceiveQuickActions({ task, form, disabled }: ReceiveQuickAction
         ok: false,
         message: `${result.line.productName} đã đủ số lượng còn lại của yêu cầu. Hàng dư cần báo quản lý.`,
       })
-      return
+      return false
     }
     form.setValue(`lines.${index}.receivedQty`, next, { shouldDirty: true, shouldValidate: true })
     setFeedback({
       ok: true,
       message: `${result.line.productName}: ${next}/${limit} ${unit.name}.`,
     })
+    return true
   }
 
   return (
     <section className="bg-muted/40 flex flex-col gap-2 border p-3" aria-label="Nhận nhanh">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <ScanLine aria-hidden="true" className="text-primary size-5 shrink-0" />
-          <Input
-            value={code}
-            disabled={disabled}
-            autoComplete="off"
-            aria-label="Quét mã hàng vừa nhận"
-            placeholder="Quét mã vạch hoặc SKU, mỗi lần quét cộng 1"
-            className="font-mono"
-            onChange={(event) => setCode(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return
-              // Máy quét gửi Enter sau mã; không để nó gửi cả phiếu nhận.
-              event.preventDefault()
-              scan()
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled || code.trim().length === 0}
-            onClick={scan}
-          >
-            Cộng 1
-          </Button>
-        </div>
-        <Button type="button" variant="outline" disabled={disabled} onClick={receiveAllRemaining}>
-          <CheckCheck aria-hidden="true" />
-          Nhận đủ tất cả
-        </Button>
-      </div>
+      <CameraScanControl label="Mã hàng nhận" disabled={disabled} onCode={scan} />
       {feedback ? (
         <p
-          // Mỗi lần quét là một thông báo mới: `key` đổi để hiệu ứng chạy lại.
           key={scanCount}
           className={cn(
-            'animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 text-xs motion-reduce:animate-none',
+            'animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 text-sm break-words motion-reduce:animate-none',
             feedback.ok ? 'text-primary' : 'text-destructive'
           )}
           role={feedback.ok ? 'status' : 'alert'}
         >
           {feedback.message}
         </p>
-      ) : (
+      ) : null}
+      <p className="text-muted-foreground text-xs">
+        Mỗi lần quét hợp lệ cộng 1 theo đơn vị nhận đang chọn ở dòng hàng. Kiểm tra đơn vị trước khi
+        quét; quét mã không tự gửi phiếu.
+      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <ScanLine aria-hidden="true" className="text-primary size-5 shrink-0" />
+          <Input
+            value={code}
+            disabled={disabled}
+            autoComplete="off"
+            spellCheck={false}
+            className="h-11 min-w-0 font-mono text-base sm:h-8 sm:text-sm"
+            aria-label="Quét mã hàng vừa nhận"
+            placeholder="Quét mã vạch hoặc SKU, mỗi lần quét cộng 1"
+            onChange={(event) => setCode(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return
+              // Máy quét gửi Enter sau mã; không để nó gửi cả phiếu nhận.
+              event.preventDefault()
+              scan(code)
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled || code.trim().length === 0}
+            className="h-11 touch-manipulation sm:h-8"
+            onClick={() => scan(code)}
+          >
+            Cộng 1
+          </Button>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 touch-manipulation sm:h-8"
+          disabled={disabled}
+          onClick={receiveAllRemaining}
+        >
+          <CheckCheck aria-hidden="true" />
+          Nhận đủ tất cả
+        </Button>
+      </div>
+      {!feedback ? (
         <p className="text-muted-foreground text-xs">
-          Giao đủ cả chuyến thì bấm “Nhận đủ tất cả”. Phiếu nhận đủ, không hàng hỏng sẽ tự hoàn tất
-          kiểm hàng và chuyển sang cất hàng.
+          Chỉ bấm “Nhận đủ tất cả” sau khi đã kiểm đếm thực tế. Xác nhận nhận hàng ghi tồn chờ kiểm;
+          kết quả kiểm hàng vẫn cần được người có quyền phê duyệt trước khi cất.
         </p>
-      )}
+      ) : null}
     </section>
   )
 }

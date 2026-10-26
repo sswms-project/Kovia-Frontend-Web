@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +18,8 @@ interface OperationalPaginationProps {
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange?: (pageSize: number) => void
   readonly pageSizeOptions?: readonly number[]
+  readonly centerContent?: ReactNode
+  readonly density?: 'default' | 'compact'
 }
 
 export function OperationalPagination({
@@ -26,17 +30,37 @@ export function OperationalPagination({
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = [10, 20, 30, 50],
+  centerContent,
+  density = 'default',
 }: OperationalPaginationProps) {
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
-  const start = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
-  const end = Math.min(page * pageSize, totalCount)
 
   return (
-    <footer className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-3 border-t px-3 py-2 sm:px-4">
+    <footer
+      className={cn(
+        'flex shrink-0 flex-wrap items-center justify-between border-t',
+        density === 'compact' ? 'min-h-10 gap-2 px-3 py-1' : 'min-h-12 gap-3 px-3 py-2 sm:px-4'
+      )}
+    >
       <p className="text-[13px] tabular-nums">
         Tổng số: <span className="font-medium">{totalCount}</span>
       </p>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      {centerContent != null ? (
+        <div
+          className={cn(
+            'text-muted-foreground text-center text-xs',
+            density === 'compact' ? 'shrink-0' : 'min-w-48 flex-1'
+          )}
+        >
+          {centerContent}
+        </div>
+      ) : null}
+      <div
+        className={cn(
+          'flex items-center justify-end',
+          density === 'compact' ? 'ml-auto gap-1' : 'flex-wrap gap-2'
+        )}
+      >
         {onPageSizeChange ? (
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-[13px]">Số dòng/trang</span>
@@ -45,7 +69,10 @@ export function OperationalPagination({
               disabled={isPending}
               onValueChange={(value) => onPageSizeChange(Number(value))}
             >
-              <SelectTrigger className="h-8 w-20" aria-label="Số dòng mỗi trang">
+              <SelectTrigger
+                className={cn('h-8', density === 'compact' ? 'w-16' : 'w-20')}
+                aria-label="Số dòng mỗi trang"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end">
@@ -58,14 +85,12 @@ export function OperationalPagination({
             </Select>
           </div>
         ) : null}
-        <span className="text-muted-foreground min-w-16 text-center text-xs tabular-nums">
-          {start}–{end}
-        </span>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           aria-label="Trang đầu"
+          className={cn(density === 'compact' && 'max-sm:hidden')}
           disabled={page <= 1 || isPending}
           onClick={() => onPageChange(1)}
         >
@@ -99,6 +124,7 @@ export function OperationalPagination({
           variant="ghost"
           size="icon-sm"
           aria-label="Trang cuối"
+          className={cn(density === 'compact' && 'max-sm:hidden')}
           disabled={page >= pageCount || isPending}
           onClick={() => onPageChange(pageCount)}
         >

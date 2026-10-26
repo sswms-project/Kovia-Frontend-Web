@@ -31,12 +31,22 @@ export function useWarehouseReportOptions(
   enabled: boolean,
   permissionKey: string,
   warehouseId?: string,
-  search?: string
+  search?: string,
+  categoryId?: string
 ) {
   const user = useAuthStore((state) => state.user)
   return useQuery({
-    queryKey: ['report-options', user?.tenantId, user?.id, permissionKey, warehouseId, search],
-    queryFn: () => warehouseReportService.getOptions(warehouseId, search),
+    queryKey: [
+      'report-options',
+      user?.tenantId,
+      user?.id,
+      permissionKey,
+      warehouseId,
+      search,
+      categoryId,
+    ],
+    queryFn: ({ signal }) =>
+      warehouseReportService.getOptions(warehouseId, search, categoryId, signal),
     enabled: enabled && Boolean(user?.tenantId),
     retry: false,
   })
@@ -50,7 +60,8 @@ export function useWarehouseReport(
   const user = useAuthStore((state) => state.user)
   return useQuery({
     queryKey: ['warehouse-report', user?.tenantId, user?.id, permissionKey, type, query],
-    queryFn: () => warehouseReportService.getReport(type, query ?? { pageNumber: 1, pageSize: 25 }),
+    queryFn: ({ signal }) =>
+      warehouseReportService.getReport(type, query ?? { pageNumber: 1, pageSize: 25 }, signal),
     enabled: enabled && Boolean(user?.tenantId && query),
     retry: false,
   })

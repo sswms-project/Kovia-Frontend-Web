@@ -26,6 +26,18 @@ export const FORECAST_RISK_LABELS: Record<ForecastRisk, string> = {
   unknown: 'Chưa đủ dữ liệu',
 }
 
+/** Accuracy compares days that have ended: a run starting today (business date) has none yet. */
+export function hasEndedForecastDays(forecastStartDate: string, today: string): boolean {
+  return forecastStartDate < today
+}
+
+/** The first date on which the run has an ended day to compare: the day after it starts. */
+export function forecastEvaluationStartDate(forecastStartDate: string): string {
+  const next = new Date(`${forecastStartDate}T00:00:00Z`)
+  next.setUTCDate(next.getUTCDate() + 1)
+  return next.toISOString().slice(0, 10)
+}
+
 // Running out this soon leaves no room to wait for the next run.
 const URGENT_COVER_DAYS = 7
 const RISK_ORDER: readonly ForecastRisk[] = ['stockout', 'watch', 'ok', 'unknown']
@@ -35,6 +47,7 @@ const MODEL_LABELS: Record<string, string> = {
   'weekday-average': 'Trung bình theo thứ',
   'croston-sba': 'Croston (bán ngắt quãng)',
   'holt-winters-weekly': 'Holt-Winters theo tuần',
+  'lightgbm-global': 'LightGBM (học máy)',
 }
 
 const RUN_STATUS_LABELS: Record<ForecastRunStatus, string> = {

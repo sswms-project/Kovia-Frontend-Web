@@ -1,13 +1,14 @@
 import { Info } from 'lucide-react'
+import { OperationalDocumentInfo } from '@/components/operations/OperationalDocumentInfo'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
-  formatOperationalDate,
   formatOperationalDateTime,
   formatQuantity,
 } from '@/features/inbound-request/utils/inbound-request-format'
 import type { TransferDetail } from '../../types/transfer.types'
 import { TRANSFER_STATUS_DESCRIPTIONS } from '../../utils/transfer-format'
 import { TransferStatusBadge } from '../TransfersPage'
+import { formatOperationalOptionalTime } from '@/lib/operational-date-time'
 
 interface OverviewItem {
   readonly label: string
@@ -33,8 +34,12 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
     { label: 'Bộ phận yêu cầu', value: transfer.requestingDepartment || '—' },
     { label: 'Ngày tạo', value: formatOperationalDateTime(transfer.createdAt) },
     {
-      label: 'Hạn cần hàng',
-      value: transfer.requiredBy ? formatOperationalDate(transfer.requiredBy) : 'Chưa đặt hạn',
+      label: 'Ngày dự kiến điều chuyển',
+      value: formatOperationalOptionalTime(transfer.plannedTransferDate),
+    },
+    {
+      label: 'Ngày hàng dự kiến về kho nhập',
+      value: formatOperationalOptionalTime(transfer.requiredBy),
     },
     { label: 'Ghi chú cho kho', value: transfer.note || '—' },
     { label: 'Người yêu cầu', value: transfer.requesterName || '—' },
@@ -54,26 +59,31 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
   }
 
   return (
-    <section className="bg-card border p-4" aria-labelledby="transfer-overview-title">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 id="transfer-overview-title" className="text-sm font-semibold">
-          Thông tin phiếu
-        </h2>
-        <TransferStatusBadge status={transfer.status} />
-        <span className="text-muted-foreground text-xs">
-          {TRANSFER_STATUS_DESCRIPTIONS[transfer.status]}
-        </span>
-      </div>
-      {transfer.isLegacyWorkflow ? (
-        <Alert className="mb-3">
-          <Info aria-hidden="true" />
-          <AlertTitle>Phiếu thuộc quy trình cũ</AlertTitle>
-          <AlertDescription>
-            Phiếu này được tạo trước khi chuyển sang quy trình đợt xuất mới nên chỉ xem được. Liên
-            hệ quản trị để xử lý các phiếu còn dở.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+    <OperationalDocumentInfo
+      documentId={transfer.id}
+      headingId="transfer-overview-title"
+      summary={`${transfer.sourceWarehouseName} → ${transfer.destinationWarehouseName}`}
+      summaryContent={
+        <>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <TransferStatusBadge status={transfer.status} />
+            <span className="text-muted-foreground text-xs">
+              {TRANSFER_STATUS_DESCRIPTIONS[transfer.status]}
+            </span>
+          </div>
+          {transfer.isLegacyWorkflow ? (
+            <Alert className="mt-3">
+              <Info aria-hidden="true" />
+              <AlertTitle>Phiếu thuộc quy trình cũ</AlertTitle>
+              <AlertDescription>
+                Phiếu này được tạo trước khi chuyển sang quy trình đợt xuất mới nên chỉ xem được.
+                Liên hệ quản trị để xử lý các phiếu còn dở.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </>
+      }
+    >
       <div className="grid gap-4 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:gap-0">
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:pr-6 xl:grid-cols-3">
           {items.map((item) => (
@@ -98,6 +108,6 @@ export function TransferOverview({ transfer }: { readonly transfer: TransferDeta
           </dl>
         </section>
       </div>
-    </section>
+    </OperationalDocumentInfo>
   )
 }

@@ -27,13 +27,38 @@ const DISCREPANCY_LABELS: Record<TransferDiscrepancyState, string> = {
 const COLUMNS = [
   { label: 'SL yêu cầu', description: 'Số lượng yêu cầu điều chuyển theo ĐVT chính' },
   { label: 'Chưa vào đợt', description: 'Phần chưa được chia vào đợt xuất nào' },
-  { label: 'Đã lấy', description: 'Đã lấy ra khỏi vị trí, chưa xuất khỏi kho' },
+  {
+    label: 'Đã lấy',
+    description: 'Số lượng đã lấy hợp lệ, gồm phần đã xuất; không gồm hàng đã trả lại vị trí',
+  },
   { label: 'Đã xuất', description: 'Đã xuất khỏi kho xuất' },
-  { label: 'Nhận tốt', description: 'Đã nhận tốt vào kho nhập' },
-  { label: 'Hỏng', description: 'Nhận vào kho nhập dưới dạng hàng hỏng' },
+  {
+    label: 'SL thực nhận',
+    description: 'Số lượng thực nhận ở kho nhập, gồm hàng tốt và hàng hỏng',
+  },
+  { label: 'Hỏng', description: 'Trong số thực nhận, phần hàng hỏng' },
   { label: 'Thiếu', description: 'Thiếu khi nhận, chờ hoặc đã được xử lý' },
   { label: 'Dừng', description: 'Phần đã dừng, không chuyển nữa' },
 ] as const
+
+/** Số theo ĐVT người tạo chọn, chỉ hiện khi quy đổi tròn đến 2 chữ số thập phân để không gây hiểu nhầm. */
+function ConvertedQuantity({
+  row,
+  value,
+}: {
+  readonly row: Pick<TransferGoodsRow, 'conversionFactor' | 'conversionUnit'>
+  readonly value: number
+}) {
+  if (!row.conversionFactor || !row.conversionUnit || value === 0) return null
+  const converted = value / row.conversionFactor
+  if (Math.abs(converted * 100 - Math.round(converted * 100)) > 1e-7) return null
+  return (
+    <span className="text-muted-foreground block text-xs font-normal">
+      <span className="sr-only"> · </span>
+      {formatQuantity(converted)} {row.conversionUnit}
+    </span>
+  )
+}
 
 interface TransferGoodsTableProps {
   readonly rows: readonly TransferGoodsRow[]
@@ -189,7 +214,7 @@ export function TransferGoodsTable({
                 row.unbatched,
                 row.picked,
                 row.dispatched,
-                row.receivedGood,
+                row.receivedPhysical,
                 row.damaged,
                 row.missing,
                 row.stopped,
@@ -202,6 +227,7 @@ export function TransferGoodsTable({
                   )}
                 >
                   {formatQuantity(value)}
+                  <ConvertedQuantity row={row} value={value} />
                 </TableCell>
               ))}
               <TableCell className={cn(row.discrepancy === 'open' && 'text-warning font-medium')}>

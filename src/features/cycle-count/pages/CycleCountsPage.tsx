@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useMemo, useState } from 'react'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
@@ -54,8 +57,21 @@ export default function CycleCountsPage() {
       })),
     [warehouses.data?.items]
   )
+  const listExport = useListExport({
+    dataset: 'cycle-counts',
+    filters: params,
+    permissions: me.data?.permissions ?? [],
+    viewPermission: P.CYCLE_COUNTS_VIEW,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    blocked: searchTerm !== debouncedSearch,
+  })
   return (
     <CycleCountDirectory
+      exportAction={
+        listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      }
       items={query.data?.items ?? []}
       totalCount={query.data?.totalCount ?? 0}
       statusCounts={query.data?.statusCounts ?? {}}

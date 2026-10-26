@@ -1,5 +1,5 @@
 export { LookupCombobox, type LookupOption } from './LookupCombobox'
-export { DatePickerField } from './DatePickerField'
+export { DatePickerField } from '@/components/forms/DatePickerField'
 export { FormActions } from './FormActions'
 export { InboundRequestForm } from './InboundRequestForm'
 export { InboundRequestLineRow } from './InboundRequestLineRow'

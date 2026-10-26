@@ -1,7 +1,7 @@
-import { ArrowUpRight, Warehouse } from 'lucide-react'
+import { Warehouse } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
   Table,
@@ -41,14 +41,15 @@ export function WarehouseList({ warehouses }: WarehouseListProps) {
               <TableHead className="sticky top-0 z-10">Địa chỉ</TableHead>
               <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
               <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
-              <TableHead className="sticky top-0 z-10 w-12">
-                <span className="sr-only">Thao tác</span>
-              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {warehouses.map((warehouse) => (
-              <TableRow key={warehouse.id}>
+              <ClickableTableRow
+                key={warehouse.id}
+                href={APP_ROUTES.warehouseDetail(warehouse.id)}
+                className="focus-within:bg-muted"
+              >
                 <TableCell className="pl-4 font-mono text-xs font-medium">
                   {warehouse.warehouseCode}
                 </TableCell>
@@ -69,17 +70,7 @@ export function WarehouseList({ warehouses }: WarehouseListProps) {
                 <TableCell className="text-muted-foreground whitespace-nowrap">
                   {formatDate(warehouse.createdAt)}
                 </TableCell>
-                <TableCell>
-                  <Button asChild variant="ghost" size="icon-sm">
-                    <Link
-                      href={`${APP_ROUTES.warehouses}/${warehouse.id}`}
-                      aria-label={`Xem chi tiết ${warehouse.warehouseName}`}
-                    >
-                      <ArrowUpRight aria-hidden="true" />
-                    </Link>
-                  </Button>
-                </TableCell>
-              </TableRow>
+              </ClickableTableRow>
             ))}
           </TableBody>
         </Table>
@@ -87,19 +78,21 @@ export function WarehouseList({ warehouses }: WarehouseListProps) {
 
       <div className="divide-y md:hidden">
         {warehouses.map((warehouse) => (
-          <article key={warehouse.id} className="flex min-w-0 items-start gap-3 px-3 py-3">
+          <Link
+            key={warehouse.id}
+            href={APP_ROUTES.warehouseDetail(warehouse.id)}
+            aria-label={warehouse.warehouseName}
+            className="hover:bg-muted focus-visible:bg-muted focus-visible:outline-ring flex min-h-11 min-w-0 items-start gap-3 px-3 py-3 focus-visible:outline-2"
+          >
             <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center">
               <Warehouse aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <Link
-                    href={APP_ROUTES.warehouseDetail(warehouse.id)}
-                    className="text-primary block truncate text-sm font-medium hover:underline focus-visible:underline focus-visible:outline-none"
-                  >
+                  <span className="text-primary block truncate text-sm font-medium">
                     {warehouse.warehouseName}
-                  </Link>
+                  </span>
                   <p className="text-muted-foreground mt-0.5 truncate font-mono text-xs">
                     {warehouse.warehouseCode}
                   </p>
@@ -113,18 +106,9 @@ export function WarehouseList({ warehouses }: WarehouseListProps) {
                 <span className="text-muted-foreground text-xs">
                   {formatDate(warehouse.createdAt)}
                 </span>
-                <Button asChild variant="ghost" size="sm">
-                  <Link
-                    href={`${APP_ROUTES.warehouses}/${warehouse.id}`}
-                    aria-label={`Xem chi tiết ${warehouse.warehouseName}`}
-                  >
-                    Xem chi tiết
-                    <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-                  </Link>
-                </Button>
               </div>
             </div>
-          </article>
+          </Link>
         ))}
       </div>
     </div>

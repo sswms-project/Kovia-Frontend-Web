@@ -48,6 +48,39 @@ const destinationManager: TransferViewer = {
 }
 
 describe('getTransferNextSteps', () => {
+  it('offers one destination assignment for both receive and put-away tasks', () => {
+    const shipment = buildShipment({
+      id: 's1',
+      status: 'Receiving',
+      receiveTaskId: 'r1',
+      putAwayTaskId: 'p1',
+    })
+    const transfer = buildTransfer({ shipments: [shipment] })
+    const capabilities = getTransferCapabilities(destinationManager, transfer)
+    const steps = getTransferNextSteps(destinationManager, transfer, capabilities, {
+      s1: getShipmentCapabilities(destinationManager, shipment, transfer),
+    }).filter((step) => step.action.type === 'assign')
+    expect(steps).toHaveLength(1)
+    expect(steps[0]?.actionLabel).toBe('Giao việc nhận và cất hàng')
+    expect(steps[0]?.action).toMatchObject({ type: 'assign', kind: 'receive' })
+  })
+
+  it('keeps a single put-away assignment after receiving is completed', () => {
+    const transfer = buildTransfer({
+      shipments: [
+        buildShipment({
+          id: 's1',
+          status: 'AwaitingPutAway',
+          receiveTaskId: 'r1',
+          receiveTaskStatus: 'Completed',
+          putAwayTaskId: 'p1',
+        }),
+      ],
+    })
+    const steps = stepsFor(destinationManager, transfer)
+    expect(steps).toContain('assign-putaway-s1')
+    expect(steps).not.toContain('assign-receive-s1')
+  })
   it('tells the source manager to create a shipment, then to assign the pick task', () => {
     const open = buildTransfer({
       items: [buildTransferItem({ quantity: 10, batchedQuantity: 0, unbatchedQuantity: 10 })],
@@ -84,7 +117,7 @@ describe('getTransferNextSteps', () => {
     expect(stepsFor(sourceManager, inTransit)).toEqual([])
   })
 
-  it('keeps a reassign step for the manager after the pick task has an assignee', () => {
+  it('does not promote reassignment or taking over another worker into the main flow', () => {
     const assigned = buildTransfer({
       items: [buildTransferItem({ quantity: 10, batchedQuantity: 10, unbatchedQuantity: 0 })],
       shipments: [
@@ -96,7 +129,7 @@ describe('getTransferNextSteps', () => {
         }),
       ],
     })
-    expect(stepsFor(sourceManager, assigned)).toEqual(['reassign-pick-s1'])
+    expect(stepsFor(sourceManager, assigned)).toEqual([])
 
     const received = buildTransfer({
       items: [buildTransferItem({ quantity: 10, batchedQuantity: 10, unbatchedQuantity: 0 })],
@@ -109,7 +142,7 @@ describe('getTransferNextSteps', () => {
         }),
       ],
     })
-    expect(stepsFor(destinationManager, received)).toEqual(['reassign-receive-s1'])
+    expect(stepsFor(destinationManager, received)).toEqual([])
   })
 
   it('puts a pending pick report in front of the source manager first', () => {
@@ -142,14 +175,14 @@ describe('getTransferNextSteps', () => {
     expect(stepsFor(destinationManager, transfer)).not.toContain('resolve-escalation-s1')
   })
 
-  it('asks the destination manager to choose put-away slots while some lines have none', () => {
+  it('does not treat optional put-away planning as a blocking task', () => {
     const transfer = buildTransfer({
       items: [
         buildTransferItem({ id: 'i1', quantity: 10, destinationSlotId: null }),
         buildTransferItem({ id: 'i2', quantity: 5, destinationSlotId: 'slot-1' }),
       ],
     })
-    expect(allStepsFor(destinationManager, transfer)).toContain('set-put-away')
+    expect(allStepsFor(destinationManager, transfer)).not.toContain('set-put-away')
     expect(allStepsFor(sourceManager, transfer)).not.toContain('set-put-away')
 
     const allChosen = buildTransfer({
@@ -233,8 +266,8 @@ describe('allocation hint', () => {
     ],
   })
 
-  it('suggests checking the allocation before the first shipment is created', () => {
-    expect(stepsFor(sourceManager, allocated)).toEqual(['check-allocation', 'create-shipment'])
+  it('keeps optional allocation adjustments out of the required steps', () => {
+    expect(stepsFor(sourceManager, allocated)).toEqual(['create-shipment'])
   })
 
   it('stops suggesting it once a shipment exists', () => {

@@ -1,9 +1,8 @@
 'use client'
 
-import { ListFilter, Plus, RefreshCw, Search } from 'lucide-react'
+import { Plus, RefreshCw, Search } from 'lucide-react'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -21,10 +20,10 @@ import type {
   TransferSummary,
 } from '../../types/transfer.types'
 import { TransferDesktopTable } from './TransferDesktopTable'
-import { TransferFilterSheet } from './TransferFilterSheet'
+import { TransferFilterBar } from './TransferFilterBar'
 import { TransferMobileList } from './TransferMobileList'
 import { TransferRowActions } from './TransferRowActions'
-import { TransferStatusFilter } from './TransferStatusFilter'
+import { TransferStatusFilter, TransferStatusStats } from './TransferStatusFilter'
 
 interface WarehouseOption {
   readonly id: string
@@ -32,7 +31,6 @@ interface WarehouseOption {
 }
 
 interface TransferDirectoryProps {
-  readonly query: string
   readonly statusCounts?: TransferStatusCounts
   readonly items: readonly TransferSummary[]
   readonly totalCount: number
@@ -52,18 +50,19 @@ interface TransferDirectoryProps {
   readonly isFetching: boolean
   readonly isError: boolean
   readonly onSearchChange: (value: string) => void
+  readonly onStatusChange: (value: TransferWorkflowStatus | '') => void
   readonly onSourceWarehouseChange: (value: string) => void
   readonly onDestinationWarehouseChange: (value: string) => void
   readonly onDateFromChange: (value: string) => void
   readonly onDateToChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onPageSizeChange: (pageSize: number) => void
+  readonly exportAction?: ReactNode
   readonly onRetry: () => void
   readonly onPreview: (transfer: TransferSummary) => void
 }
 
 export function TransferDirectory({
-  query,
   statusCounts,
   items,
   totalCount,
@@ -83,6 +82,7 @@ export function TransferDirectory({
   isFetching,
   isError,
   onSearchChange,
+  onStatusChange,
   onSourceWarehouseChange,
   onDestinationWarehouseChange,
   onDateFromChange,
@@ -90,15 +90,9 @@ export function TransferDirectory({
   onPageChange,
   onPageSizeChange,
   onRetry,
+  exportAction,
   onPreview,
 }: TransferDirectoryProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const activeFilterCount =
-    (sourceWarehouseId ? 1 : 0) +
-    (destinationWarehouseId ? 1 : 0) +
-    (dateFrom ? 1 : 0) +
-    (dateTo ? 1 : 0)
-
   const renderRowActions = (transfer: TransferSummary): ReactNode => (
     <TransferRowActions
       transfer={transfer}
@@ -109,12 +103,12 @@ export function TransferDirectory({
   )
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
+    <div
+      data-slot="transfer-directory"
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3"
+    >
       <header className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="sr-only">Điều chuyển kho</h1>
-        <div className="min-w-0 flex-1">
-          <TransferStatusFilter status={status} counts={statusCounts} query={query} />
-        </div>
+        <h1 className="text-xl font-semibold">Điều chuyển kho</h1>
         {canCreate ? (
           <Button asChild size="sm" className="shrink-0">
             <Link href={APP_ROUTES.transferCreate}>
@@ -124,12 +118,19 @@ export function TransferDirectory({
           </Button>
         ) : null}
       </header>
+      <TransferStatusStats
+        counts={statusCounts}
+        isLoading={isLoading || (isFetching && !statusCounts)}
+        isError={isError}
+      />
 
-      <OperationalListPanel>
+      <OperationalListPanel aria-label="Danh sách phiếu điều chuyển">
         <div className="flex shrink-0 flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-sm font-semibold">Danh sách phiếu điều chuyển</h2>
-          <div className="flex w-full gap-2 sm:w-auto">
-            <InputGroup className="min-w-0 flex-1 sm:w-72">
+          <h2 className="shrink-0 text-sm font-semibold whitespace-nowrap">
+            Danh sách phiếu điều chuyển
+          </h2>
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-1 sm:justify-end">
+            <InputGroup className="min-w-0 flex-1 basis-full sm:w-60 sm:flex-none sm:basis-auto">
               <InputGroupAddon>
                 <Search aria-hidden="true" />
               </InputGroupAddon>
@@ -140,10 +141,19 @@ export function TransferDirectory({
                 onChange={(event) => onSearchChange(event.target.value)}
               />
             </InputGroup>
-            <Button type="button" variant="outline" onClick={() => setIsFilterOpen(true)}>
-              <ListFilter aria-hidden="true" />
-              Bộ lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-            </Button>
+            <TransferStatusFilter status={status} onChange={onStatusChange} />
+            <TransferFilterBar
+              sourceWarehouseId={sourceWarehouseId}
+              destinationWarehouseId={destinationWarehouseId}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              warehouseOptions={warehouseOptions}
+              onSourceWarehouseChange={onSourceWarehouseChange}
+              onDestinationWarehouseChange={onDestinationWarehouseChange}
+              onDateFromChange={onDateFromChange}
+              onDateToChange={onDateToChange}
+            />
+            {exportAction}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -203,20 +213,6 @@ export function TransferDirectory({
           </>
         )}
       </OperationalListPanel>
-
-      <TransferFilterSheet
-        open={isFilterOpen}
-        sourceWarehouseId={sourceWarehouseId}
-        destinationWarehouseId={destinationWarehouseId}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        warehouseOptions={warehouseOptions}
-        onOpenChange={setIsFilterOpen}
-        onSourceWarehouseChange={onSourceWarehouseChange}
-        onDestinationWarehouseChange={onDestinationWarehouseChange}
-        onDateFromChange={onDateFromChange}
-        onDateToChange={onDateToChange}
-      />
     </div>
   )
 }

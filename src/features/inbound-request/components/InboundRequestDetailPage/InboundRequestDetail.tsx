@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Check, Edit3, Mail, Send, X } from 'lucide-react'
+import { ArrowLeft, CalendarCheck, Check, Edit3, Mail, Send, UserPlus, X } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -33,9 +33,10 @@ import type {
   InboundRequestDetail as InboundRequestDetailType,
 } from '../../types/inbound-request.types'
 import { INBOUND_REQUEST_ACTION } from '../../types/inbound-request.types'
-import { InboundRequestStatusBadge } from '../InboundRequestsPage'
+import { InboundRequestStatusBadge, SupplierResponseHint } from '../InboundRequestsPage'
 import { InboundRequestOverview } from './InboundRequestOverview'
 import { InboundRequestLines } from './InboundRequestLines'
+import { formatOperationalDate } from '../../utils/inbound-request-format'
 
 const MISSING_SUPPLIER_EMAIL_HINT_ID = 'inbound-request-missing-supplier-email'
 
@@ -44,10 +45,12 @@ interface InboundRequestDetailProps {
   readonly allowedActions: readonly InboundRequestAction[]
   readonly selfApprovalRequired: boolean
   readonly isPending: boolean
+  readonly onAssignReceiving?: () => void
   readonly onSubmit: () => Promise<boolean>
   readonly onApprove: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onApproveAndSend: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onSendToSupplier: () => Promise<boolean>
+  readonly onAcceptSupplierProposedDate: () => Promise<boolean>
   readonly onReject: (reason: string, selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onReconcile: (
     action: typeof INBOUND_REQUEST_ACTION.Cancel | typeof INBOUND_REQUEST_ACTION.CloseRemaining,
@@ -68,6 +71,10 @@ const INBOUND_REQUEST_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = 
   ResendToSupplier: 'Gửi lại mail cho nhà cung cấp',
   ReturnWarehouseTask: 'Trả nhiệm vụ nhận hàng về hàng đợi',
   SendToSupplier: 'Gửi mail cho nhà cung cấp',
+  SupplierConfirm: 'Nhà cung cấp xác nhận đơn',
+  SupplierReject: 'Nhà cung cấp từ chối đơn',
+  SupplierProposeDate: 'Nhà cung cấp đề xuất ngày giao khác',
+  AcceptSupplierProposedDate: 'Chấp nhận ngày giao nhà cung cấp đề xuất',
   StartWarehouseTask: 'Bắt đầu nhiệm vụ nhận hàng',
   Submit: 'Gửi yêu cầu duyệt',
   UnassignReceivingTask: 'Hủy giao nhiệm vụ nhận hàng',
@@ -78,6 +85,10 @@ const INBOUND_REQUEST_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = 
 const INBOUND_REQUEST_HISTORY_REASON_LABELS: Readonly<Record<string, string>> = {
   ResendToSupplier: 'Người nhận',
   SendToSupplier: 'Người nhận',
+  SupplierConfirm: 'Chi tiết',
+  SupplierReject: 'Chi tiết',
+  SupplierProposeDate: 'Chi tiết',
+  AcceptSupplierProposedDate: 'Thay đổi',
 }
 export function InboundRequestDetail({
   inboundRequest,
@@ -88,8 +99,10 @@ export function InboundRequestDetail({
   onApprove,
   onApproveAndSend,
   onSendToSupplier,
+  onAcceptSupplierProposedDate,
   onReject,
   onReconcile,
+  onAssignReceiving,
 }: InboundRequestDetailProps) {
   const [confirmationAction, setConfirmationAction] = useState<InboundRequestAction | null>(null)
   const [isRejectOpen, setIsRejectOpen] = useState(false)
@@ -106,6 +119,7 @@ export function InboundRequestDetail({
       [INBOUND_REQUEST_ACTION.Approve]: () => onApprove(selfApprovalAcknowledged),
       [INBOUND_REQUEST_ACTION.ApproveAndSend]: () => onApproveAndSend(selfApprovalAcknowledged),
       [INBOUND_REQUEST_ACTION.SendToSupplier]: onSendToSupplier,
+      [INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate]: onAcceptSupplierProposedDate,
     }
     const succeeded = await handlers[confirmationAction]?.()
     if (succeeded) {
@@ -117,7 +131,15 @@ export function InboundRequestDetail({
   const supplierEmail = inboundRequest.supplierEmail
   const canMailSupplier = Boolean(inboundRequest.supplierId)
   const hasSentToSupplier = Boolean(inboundRequest.supplierEmailSentAt)
-  const confirmationCopy = getConfirmationCopy(confirmationAction, supplierEmail)
+  const confirmationCopy = getConfirmationCopy(
+    confirmationAction,
+    supplierEmail,
+    inboundRequest.supplierProposedDate ?? null
+  )
+  const skipsSelfApproval =
+    confirmationAction === INBOUND_REQUEST_ACTION.Submit ||
+    confirmationAction === INBOUND_REQUEST_ACTION.SendToSupplier ||
+    confirmationAction === INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate
   const showMissingEmailHint =
     canMailSupplier &&
     !supplierEmail &&
@@ -159,7 +181,7 @@ export function InboundRequestDetail({
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-5">
+    <div className="flex w-full min-w-0 flex-col gap-5 pb-3">
       <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <Button asChild variant="outline" size="icon">
@@ -173,6 +195,7 @@ export function InboundRequestDetail({
                 {inboundRequest.inboundRequestCode}
               </h1>
               <InboundRequestStatusBadge status={inboundRequest.status} />
+              <SupplierResponseHint item={inboundRequest} />
             </div>
             <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
               Hàng từ{' '}
@@ -182,6 +205,18 @@ export function InboundRequestDetail({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {allowedActions.includes(INBOUND_REQUEST_ACTION.AssignReceivingTask) &&
+          onAssignReceiving ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={onAssignReceiving}
+            >
+              <UserPlus aria-hidden="true" data-icon="inline-start" />
+              Phân công nhân viên
+            </Button>
+          ) : null}
           {allowedActions.includes(INBOUND_REQUEST_ACTION.Update) ||
           allowedActions.includes('UpdateCode') ? (
             <Button asChild variant="outline">
@@ -212,6 +247,7 @@ export function InboundRequestDetail({
             <Button
               type="button"
               variant="destructive"
+              className="border-destructive"
               onClick={() => {
                 setReason('')
                 setReconciliationAction(INBOUND_REQUEST_ACTION.Cancel)
@@ -252,6 +288,17 @@ export function InboundRequestDetail({
             >
               <Mail aria-hidden="true" />
               Duyệt và gửi mail
+            </Button>
+          ) : null}
+          {allowedActions.includes(INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate) ? (
+            <Button
+              type="button"
+              onClick={() =>
+                setConfirmationAction(INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate)
+              }
+            >
+              <CalendarCheck aria-hidden="true" />
+              Chấp nhận ngày đề xuất
             </Button>
           ) : null}
           {canMailSupplier && allowedActions.includes(INBOUND_REQUEST_ACTION.SendToSupplier) ? (
@@ -322,9 +369,7 @@ export function InboundRequestDetail({
             <AlertDialogTitle>{confirmationCopy.title}</AlertDialogTitle>
             <AlertDialogDescription>{confirmationCopy.description}</AlertDialogDescription>
           </AlertDialogHeader>
-          {selfApprovalRequired &&
-          confirmationAction !== INBOUND_REQUEST_ACTION.Submit &&
-          confirmationAction !== INBOUND_REQUEST_ACTION.SendToSupplier ? (
+          {selfApprovalRequired && !skipsSelfApproval ? (
             <label className="flex items-start gap-3 text-sm">
               <Checkbox
                 checked={selfApprovalAcknowledged}
@@ -338,10 +383,7 @@ export function InboundRequestDetail({
             <AlertDialogAction
               disabled={
                 isPending ||
-                (selfApprovalRequired &&
-                  confirmationAction !== INBOUND_REQUEST_ACTION.Submit &&
-                  confirmationAction !== INBOUND_REQUEST_ACTION.SendToSupplier &&
-                  !selfApprovalAcknowledged)
+                (selfApprovalRequired && !skipsSelfApproval && !selfApprovalAcknowledged)
               }
               onClick={(event) => {
                 event.preventDefault()
@@ -475,8 +517,12 @@ export function InboundRequestDetail({
   )
 }
 
-function getConfirmationCopy(action: InboundRequestAction | null, supplierEmail: string | null) {
-  const mailNote = `Email kèm file PDF đơn đặt hàng sẽ được gửi tới ${supplierEmail ?? 'nhà cung cấp'}, đồng thời CC người tạo và người duyệt.`
+function getConfirmationCopy(
+  action: InboundRequestAction | null,
+  supplierEmail: string | null,
+  supplierProposedDate: string | null
+) {
+  const mailNote = `Email kèm file PDF và nút xác nhận đơn sẽ được gửi tới ${supplierEmail ?? 'nhà cung cấp'}, đồng thời CC người tạo và người duyệt. Liên kết trong email gửi trước (nếu có) sẽ hết hiệu lực.`
   switch (action) {
     case INBOUND_REQUEST_ACTION.Approve:
       return {
@@ -492,6 +538,11 @@ function getConfirmationCopy(action: InboundRequestAction | null, supplierEmail:
       return {
         title: 'Gửi mail cho nhà cung cấp?',
         description: mailNote,
+      }
+    case INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate:
+      return {
+        title: 'Chấp nhận ngày giao nhà cung cấp đề xuất?',
+        description: `Ngày nhận hàng dự kiến sẽ đổi thành ${formatOperationalDate(supplierProposedDate)} và nhà cung cấp sẽ nhận email thông báo.`,
       }
     default:
       return {

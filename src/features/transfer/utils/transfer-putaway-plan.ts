@@ -12,14 +12,36 @@ export function planTotalFromRemaining(received: number, remaining: number) {
 }
 
 export function buildTransferPlanDraft(items: readonly TransferItem[]): TransferPlanDraftItem[] {
-  return items.map((item) => ({
-    itemId: item.id,
-    lines: transferPlanLocations(item).map((line) => ({
+  return items.map((item) => {
+    const lines = transferPlanLocations(item).map((line) => ({
       slotId: line.slotId,
       plannedTotal: Math.max(line.plannedTotal, line.receivedQuantity),
       path: line.path,
-    })),
-  }))
+    }))
+    // Older requests have a destination suggestion but no saved plan. Seed the editor only;
+    // actual putaway remains locked and the API validates the location again on save.
+    if (!item.putAwayPlan?.length && item.destinationSlotId && item.destinationSlotPath) {
+      const remaining = planTotalFromRemaining(
+        0,
+        Math.max(
+          0,
+          item.quantity -
+            item.stoppedQuantity -
+            lines.reduce((sum, line) => sum + line.plannedTotal, 0)
+        )
+      )
+      const destination = lines.find((line) => line.slotId === item.destinationSlotId)
+      if (destination)
+        destination.plannedTotal = planTotalFromRemaining(destination.plannedTotal, remaining)
+      else if (remaining > 0)
+        lines.push({
+          slotId: item.destinationSlotId,
+          path: item.destinationSlotPath,
+          plannedTotal: remaining,
+        })
+    }
+    return { itemId: item.id, lines }
+  })
 }
 
 /** Vị trí đã nhận ngoài kế hoạch cũng phải được khóa khi quản lý sửa kế hoạch. */
@@ -76,8 +98,9 @@ export function applyTransferPlanSuggestions(
     const received = new Map(
       transferPlanLocations(item).map((line) => [line.slotId, line.receivedQuantity])
     )
+    // Dòng còn trống vị trí chỉ là chỗ chờ chọn; không để số lượng của nó chặn việc áp dụng một gợi ý.
     const lines = only
-      ? entry.lines.map((line) => ({ ...line }))
+      ? entry.lines.filter((line) => line.slotId).map((line) => ({ ...line }))
       : transferPlanLocations(item)
           .filter((line) => line.receivedQuantity > 0)
           .map((line) => ({

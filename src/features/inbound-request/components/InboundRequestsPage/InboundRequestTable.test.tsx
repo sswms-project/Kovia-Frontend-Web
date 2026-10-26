@@ -78,6 +78,8 @@ function directoryProps(): ComponentProps<typeof InboundRequestDirectory> {
     status: '',
     createdFrom: '',
     createdTo: '',
+    sortDirection: 1,
+    onSortDirectionChange: vi.fn(),
     statusCounts: [],
     isLoading: false,
     isStatsError: false,
@@ -97,27 +99,34 @@ function directoryProps(): ComponentProps<typeof InboundRequestDirectory> {
 }
 
 describe('inbound row navigation and bulk checkboxes', () => {
-  it('opens the detail page when any plain cell of the row is clicked, not only the code link', async () => {
+  it('opens the request from any plain cell and from the keyboard', async () => {
     const options = props()
-    render(<InboundRequestTable {...options} />)
+    const onOpen = vi.fn()
+    render(<InboundRequestTable {...options} onOpen={onOpen} />)
     const row = screen.getByRole('row', { name: /IR-001/ })
     expect(within(row).getAllByRole('link')).toHaveLength(1)
     const code = within(row).getByRole('link', { name: 'IR-001' })
     expect(code).toHaveAttribute('href', '/inbound-requests/draft')
+    expect(code.parentElement).not.toHaveClass('truncate')
+    expect(code.parentElement).toHaveClass('wrap-anywhere', 'whitespace-normal')
     code.addEventListener('click', (event) => event.preventDefault())
     await userEvent.setup().click(code)
     expect(push).not.toHaveBeenCalled()
     await userEvent.setup().click(within(row).getByText(/Kho kiểm thử/))
-    expect(push).toHaveBeenCalledExactlyOnceWith('/inbound-requests/draft')
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(draft)
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(onOpen).toHaveBeenCalledTimes(2)
   })
   it('keeps checkbox, its cell and action controls independent from row navigation', async () => {
     const options = props()
-    render(<InboundRequestTable {...options} />)
+    const onOpen = vi.fn()
+    render(<InboundRequestTable {...options} onOpen={onOpen} />)
     const checkbox = screen.getByRole('checkbox', { name: 'Chọn IR-001' })
     await userEvent.setup().click(checkbox)
     expect(options.onSelectionChange).toHaveBeenCalledExactlyOnceWith(['draft'])
     expect(push).not.toHaveBeenCalled()
     fireEvent.click(checkbox.closest('td')!)
+    expect(onOpen).not.toHaveBeenCalled()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Thao tác cho IR-001' }))
     expect(push).not.toHaveBeenCalled()
     await userEvent.setup().click(screen.getByRole('menuitem', { name: 'Sao chép' }))
@@ -236,5 +245,40 @@ describe('inbound row navigation and bulk checkboxes', () => {
       />
     )
     expect(screen.getByRole('button', { name: 'Xóa chứng từ' })).toBeDisabled()
+  })
+})
+
+describe('supplier email response in the list', () => {
+  it('shows the supplier answer under the approved status', () => {
+    render(
+      <InboundRequestTable
+        {...props()}
+        items={[
+          {
+            ...approved,
+            supplierEmailSentAt: '2026-10-25T12:40:00Z',
+            supplierResponse: 'Confirmed',
+          },
+          {
+            ...approved,
+            id: 'waiting',
+            inboundRequestCode: 'IR-003',
+            supplierEmailSentAt: '2026-10-25T12:40:00Z',
+            supplierResponse: null,
+          },
+        ]}
+      />
+    )
+    expect(
+      within(screen.getByRole('row', { name: /IR-002/ })).getByText('NCC đã xác nhận')
+    ).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('row', { name: /IR-003/ })).getByText('Chờ NCC phản hồi')
+    ).toBeInTheDocument()
+  })
+
+  it('shows nothing when the order was never emailed', () => {
+    render(<InboundRequestTable {...props()} />)
+    expect(screen.queryByText(/NCC/)).not.toBeInTheDocument()
   })
 })

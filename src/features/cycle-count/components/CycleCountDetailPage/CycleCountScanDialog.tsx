@@ -1,7 +1,8 @@
 'use client'
 
 import { CircleCheck, LockKeyhole } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { EACH_UNIT_REPEAT_GUARD_MS } from '@/lib/camera-scan'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,11 +17,14 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { ScanInput } from '@/features/transfer/components/TransferWork/ScanInput'
+import { CameraScanPanel } from '@/features/transfer/components/TransferWork/CameraScanPanel'
+import { transferLocationScanCodes } from '@/features/transfer/utils/transfer-location'
+import { codesMatch } from '@/features/transfer/utils/transfer-scan'
 import {
   useDamageEvidenceUpload,
   type DamageEvidenceFile,
 } from '../../hooks/use-damage-evidence-upload'
-import { recordCycleCountItemSchema } from '../../schemas/cycle-count.schema'
+import { parseCountQuantity } from '../../schemas/cycle-count.schema'
 import type { CycleCountItem } from '../../types/cycle-count.types'
 import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
 import { formatCount } from '../../utils/cycle-count-format'
@@ -45,9 +49,9 @@ interface ScanMessage {
 const normalize = (value: string) => value.trim().toLocaleLowerCase('vi')
 
 function matchesSlot(item: CycleCountItem, code: string): boolean {
-  // Kệ mặc định dùng chung một mã nội bộ nên nhân viên quét mã kệ thay cho mã vị trí.
-  return [item.slotCode, item.slotBarcode, item.isSystemDefaultSlot ? item.rackCode : null].some(
-    (candidate) => candidate && normalize(candidate) === code
+  return codesMatch(
+    code,
+    ...transferLocationScanCodes(item).filter((value) => value !== '__SYSTEM_DEFAULT__')
   )
 }
 
@@ -69,9 +73,29 @@ export function CycleCountScanDialog({
   onOpenChange,
   onSave,
 }: CycleCountScanDialogProps) {
+  const saving = useRef(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const busy = isPending || isSaving
+
+  async function save(entries: readonly CycleCountRecordEntry[]) {
+    if (saving.current || isPending) return false
+    saving.current = true
+    setIsSaving(true)
+    try {
+      return await onSave(entries)
+    } finally {
+      saving.current = false
+      setIsSaving(false)
+    }
+  }
+
+  function changeOpen(next: boolean) {
+    if (!busy && !saving.current) onOpenChange(next)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-dvh overflow-y-auto sm:max-w-lg">
+    <Dialog open={open} onOpenChange={changeOpen}>
+      <DialogContent className="max-h-dvh overflow-y-auto sm:max-w-lg" showCloseButton={!busy}>
         <DialogHeader>
           <DialogTitle>Quét mã kiểm kê</DialogTitle>
           <DialogDescription>
@@ -83,13 +107,13 @@ export function CycleCountScanDialog({
         {open ? (
           <ScanSession
             items={items}
-            isPending={isPending}
+            isPending={busy}
             evidenceActions={evidenceActions}
-            onSave={onSave}
+            onSave={save}
           />
         ) : null}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => changeOpen(false)}>
             Đóng
           </Button>
         </DialogFooter>
@@ -106,6 +130,7 @@ interface ScanSessionProps {
 }
 
 function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionProps) {
+  const [cameraOpen, setCameraOpen] = useState(false)
   const [slotId, setSlotId] = useState<string | null>(null)
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [scannedCode, setScannedCode] = useState<string | null>(null)
@@ -124,12 +149,12 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
   const selectableItems =
     candidateIds.length > 0 ? slotItems.filter((item) => candidateIds.includes(item.id)) : slotItems
   const quantityError =
-    quantity !== '' && !recordCycleCountItemSchema.safeParse(quantity).success
+    quantity !== '' && parseCountQuantity(quantity) === null
       ? 'Số lượng từ 0, tối đa 2 chữ số thập phân.'
       : null
   const damagedError =
     damaged !== '' &&
-    (!recordCycleCountItemSchema.safeParse(damaged).success ||
+    (parseCountQuantity(damaged) === null ||
       (quantityError === null && quantity !== '' && Number(damaged) > Number(quantity)))
       ? 'Số hỏng phải từ 0 và không vượt số đếm.'
       : null
@@ -156,8 +181,17 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
   }
 
   function handleSlotScan(raw: string): boolean {
+    if (isPending) return false
     const code = normalize(raw)
-    const matched = items.find((item) => matchesSlot(item, code))
+    const matches = items.filter((item) => matchesSlot(item, code))
+    if (new Set(matches.map((item) => item.slotId)).size > 1) {
+      setMessage({
+        ok: false,
+        text: 'Mã này trùng ở nhiều vị trí. Hãy quét nhãn QR đầy đủ khu vực/kệ.',
+      })
+      return false
+    }
+    const matched = matches[0]
     if (!matched) {
       setMessage({ ok: false, text: `Vị trí "${raw}" không nằm trong phiếu kiểm kê này.` })
       return false
@@ -171,6 +205,7 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
   }
 
   function handleProductScan(raw: string): boolean {
+    if (isPending) return false
     const code = normalize(raw)
     const matches = slotItems.filter((item) => matchesProduct(item, code))
     const [matched] = matches
@@ -208,7 +243,16 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
   }
 
   async function handleSave() {
-    if (!activeItem || quantity === '' || quantityError || damagedError || !isDamageComplete) return
+    if (
+      isPending ||
+      evidenceUpload.isUploading ||
+      !activeItem ||
+      quantity === '' ||
+      quantityError ||
+      damagedError ||
+      !isDamageComplete
+    )
+      return
     const saved = await onSave([
       {
         itemId: activeItem.id,
@@ -220,7 +264,13 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
         damageReason: hasDamage ? damageReason.trim() : null,
         damageEvidenceIds: hasDamage ? addedEvidence.map((file) => file.id) : [],
       },
-    ])
+    ]).catch(() => {
+      setMessage({
+        ok: false,
+        text: 'Không thể lưu số kiểm kê. Số đã nhập được giữ lại; hãy thử lại.',
+      })
+      return false
+    })
     if (!saved) return
     setMessage({ ok: true, text: `Đã lưu ${describeItem(activeItem)}.` })
     setActiveItemId(null)
@@ -232,17 +282,42 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <fieldset disabled={isPending} className="flex min-w-0 flex-col gap-4" aria-busy={isPending}>
+      <legend className="sr-only">Quét và nhập số kiểm kê</legend>
+      <CameraScanPanel
+        label={slotId === null ? 'Quét mã vị trí kiểm kê' : 'Quét mã hàng kiểm kê'}
+        open={cameraOpen}
+        onOpenChange={setCameraOpen}
+        disabled={isPending || Boolean(activeItem && !isIncrementMode)}
+        onCode={(code) => (slotId === null ? handleSlotScan(code) : handleProductScan(code))}
+        repeatGuardMs={isIncrementMode ? EACH_UNIT_REPEAT_GUARD_MS : undefined}
+      />
       <ScanInput
         id="cycle-count-scan-slot"
         label="Vị trí"
         confirmedValue={slotItems[0] ? formatStockLocation(slotItems[0]) : undefined}
-        autoFocus
+        hideCamera
+        autoFocus={!cameraOpen}
         pending={isPending}
+        disabled={isPending}
         onScan={handleSlotScan}
       />
       {slotId !== null ? (
         <>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => {
+              setSlotId(null)
+              setActiveItemId(null)
+              setCandidateIds([])
+              setScannedCode(null)
+              setMessage(null)
+            }}
+          >
+            Quét vị trí khác
+          </Button>
           <div className="flex items-center justify-between gap-3">
             <label htmlFor="cycle-count-scan-increment" className="text-sm">
               Mỗi lần quét hàng cộng 1
@@ -251,14 +326,17 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
               id="cycle-count-scan-increment"
               checked={isIncrementMode}
               onCheckedChange={setIsIncrementMode}
+              disabled={isPending}
             />
           </div>
           <ScanInput
             id="cycle-count-scan-product"
             label="Mã hàng"
+            hideCamera
             confirmedValue={activeItem ? describeItem(activeItem) : undefined}
-            focusWhen={activeItem === null || isIncrementMode}
+            focusWhen={!cameraOpen && (activeItem === null || isIncrementMode)}
             pending={isPending}
+            disabled={isPending}
             onScan={handleProductScan}
           />
           <p className="text-muted-foreground text-xs">
@@ -294,13 +372,14 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
             <FieldLabel htmlFor="cycle-count-scan-quantity">Số đếm thực tế</FieldLabel>
             <Input
               id="cycle-count-scan-quantity"
-              autoFocus
+              autoFocus={!isIncrementMode}
               className="h-11 text-right font-mono text-base"
               type="number"
               inputMode="decimal"
               min="0"
               step="0.01"
               value={quantity}
+              disabled={isPending}
               aria-invalid={Boolean(quantityError)}
               onChange={(event) => setQuantity(event.target.value)}
               onKeyDown={(event) => {
@@ -331,7 +410,7 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
               step="0.01"
               placeholder="0"
               value={damaged}
-              disabled={quantity === ''}
+              disabled={isPending || quantity === ''}
               aria-invalid={Boolean(damagedError)}
               onChange={(event) => setDamaged(event.target.value)}
               onKeyDown={(event) => {
@@ -402,6 +481,6 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
           ))}
         </ul>
       ) : null}
-    </div>
+    </fieldset>
   )
 }

@@ -4,7 +4,11 @@ import type { Route } from 'next'
 import { toast } from 'sonner'
 import { useTopLoader } from 'nextjs-toploader'
 
-export function useImportNavigation(dirty: boolean, busy: boolean) {
+export function useImportNavigation(
+  dirty: boolean,
+  busy: boolean,
+  busyMessage = 'Vui lòng đợi thao tác nhập tệp hoàn tất.'
+) {
   const router = useRouter()
   const progress = useTopLoader()
   const startProgress = useEffectEvent(() => progress.start())
@@ -26,7 +30,7 @@ export function useImportNavigation(dirty: boolean, busy: boolean) {
   }
   function confirmDiscard() {
     if (busy) {
-      toast.info('Vui lòng đợi thao tác nhập tệp hoàn tất.')
+      toast.info(busyMessage)
       cancelDiscard()
       return
     }

@@ -1,6 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
+import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
@@ -12,21 +14,27 @@ import {
   useInventoryQuery,
 } from '@/features/inventory/hooks/use-inventory'
 import { useCategoriesQuery } from '@/features/product/hooks/use-products'
-import { useStaffListQuery } from '@/features/staff/hooks/use-staff'
-import { STAFF_DIRECTORY_KINDS } from '@/features/staff/types/staff.types'
 import {
   useWarehouseLayoutQuery,
   useWarehousesQuery,
 } from '@/features/warehouse/hooks/use-warehouse'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { CreateCycleCountForm, type SubmitMode } from '../components/CreateCycleCountPage'
-import { useCreateCycleCountMutation } from '../hooks/use-cycle-count'
+import {
+  useCreateCycleCountMutation,
+  useNextCycleCountCodeQuery,
+  useCycleCountAssignableStaffQuery,
+} from '../hooks/use-cycle-count'
 import {
   createCycleCountSchema,
   type CreateCycleCountFormValues,
 } from '../schemas/cycle-count.schema'
 
 export default function CreateCycleCountPage() {
+  const instanceId = useId()
+  const [codeSession, setCodeSession] = useState(0)
+  const sessionKey = `${instanceId}:${codeSession}`
+  const nextCode = useNextCycleCountCodeQuery(sessionKey)
   const [inventoryPage, setInventoryPage] = useState(1)
   const [inventoryPageSize, setInventoryPageSize] = useState(50)
   const [searchTerm, setSearchTerm] = useState('')
@@ -39,6 +47,7 @@ export default function CreateCycleCountPage() {
   const form = useForm<CreateCycleCountFormValues>({
     resolver: zodResolver(createCycleCountSchema),
     defaultValues: {
+      code: '',
       warehouseId: '',
       zoneId: '',
       scheduledDate: '',
@@ -49,6 +58,15 @@ export default function CreateCycleCountPage() {
       purpose: '',
       dueDate: '',
     },
+  })
+  const codeSuggestion = useCodeSuggestion({
+    active: true,
+    sessionKey,
+    suggestedCode: nextCode.data,
+    isFetching: nextCode.isFetching,
+    isError: nextCode.isError,
+    getCurrentCode: () => form.getValues('code') ?? '',
+    applyCode: (code) => form.setValue('code', code),
   })
   const warehouseId = useWatch({ control: form.control, name: 'warehouseId' })
   const zoneId = useWatch({ control: form.control, name: 'zoneId' })
@@ -63,11 +81,7 @@ export default function CreateCycleCountPage() {
   const warehouses = useWarehousesQuery({ top: 100, skip: 0, needTotalCount: true, isActive: true })
   const categories = useCategoriesQuery(true, 'Active')
   const layout = useWarehouseLayoutQuery(warehouseId, Boolean(warehouseId))
-  const staff = useStaffListQuery(STAFF_DIRECTORY_KINDS.staff, {
-    top: 100,
-    skip: 0,
-    needTotalCount: true,
-  })
+  const staff = useCycleCountAssignableStaffQuery(warehouseId)
   const inventory = useInventoryQuery(
     {
       pageNumber: inventoryPage,
@@ -114,15 +128,20 @@ export default function CreateCycleCountPage() {
         })),
     [categories.data]
   )
+  // Backend đã lọc nhân viên đủ điều kiện tại kho và xếp người ít việc nhất lên đầu.
   const staffOptions = useMemo(
     () =>
-      (staff.data?.items ?? [])
-        .filter(
-          (member) =>
-            member.status === 'Active' && member.assignedWarehouseIds.includes(warehouseId)
-        )
-        .map((member) => ({ value: member.id, label: `${member.fullName} · ${member.email}` })),
-    [staff.data?.items, warehouseId]
+      (staff.data ?? []).map((member) => ({
+        value: member.id,
+        label: [
+          member.fullName,
+          member.isRecommended ? 'Đề xuất' : null,
+          `${member.openCycleCounts ?? 0} phiếu kiểm kê đang mở`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      })),
+    [staff.data]
   )
 
   async function selectAllMatching() {
@@ -138,6 +157,7 @@ export default function CreateCycleCountPage() {
   async function submit(values: CreateCycleCountFormValues, mode: SubmitMode) {
     try {
       const response = await mutation.mutateAsync({
+        code: values.code?.trim() || undefined,
         warehouseId: values.warehouseId,
         zoneId: values.zoneId || null,
         scheduledDate: new Date(values.scheduledDate).toISOString(),
@@ -152,20 +172,24 @@ export default function CreateCycleCountPage() {
       })
       toast.success('Đã tạo phiếu kiểm kê.')
       if (mode === 'saveAndAdd') {
-        form.reset({ ...values, items: [], purpose: '', dueDate: '' })
+        form.reset({ ...values, code: '', items: [], purpose: '', dueDate: '' })
+        codeSuggestion.resetSession()
+        setCodeSession((current) => current + 1)
         setInventoryPage(1)
         return
       }
       router.push(APP_ROUTES.cycleCountDetail(response.data))
     } catch (error) {
       logger.error(error)
-      toast.error(error instanceof Error ? error.message : 'Không thể tạo phiếu kiểm kê.')
+      toast.error(getApiErrorMessage(error, 'Không thể tạo phiếu kiểm kê.'))
     }
   }
 
   return (
     <CreateCycleCountForm
       form={form}
+      onCodeChange={codeSuggestion.markEdited}
+      codeSuggestionStatus={nextCode.isFetching ? 'loading' : nextCode.isError ? 'error' : 'ready'}
       warehouses={warehouseOptions}
       zones={zoneOptions}
       racks={rackOptions}

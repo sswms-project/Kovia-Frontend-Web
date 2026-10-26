@@ -8,6 +8,7 @@ import { StockIssueRequestDetail } from '../components/StockIssueRequestDetailPa
 import { StockIssueWorkflowDialogs } from '../components/StockIssueWorkflow'
 import { useStockIssueRequestQuery } from '../hooks/use-stock-issue-requests'
 import { useStockIssueWorkflow } from '../hooks/use-stock-issue-workflow'
+import { CrossDockSection } from '../components/CrossDockPanel'
 
 export default function StockIssueRequestDetailPage({
   stockIssueRequestId,
@@ -28,7 +29,7 @@ export default function StockIssueRequestDetailPage({
     )
 
   return (
-    <>
+    <div className="min-w-0 shrink-0 pb-3">
       <StockIssueRequestDetail
         order={order}
         capabilities={workflow.capabilities}
@@ -40,8 +41,9 @@ export default function StockIssueRequestDetailPage({
         onRemovePickDetail={(pickDetailId) =>
           void workflow.removePickDetail(order.id, pickDetailId)
         }
+        pickingPlan={<CrossDockSection key={`${order.id}:${order.version}`} order={order} />}
       />
       <StockIssueWorkflowDialogs workflow={workflow} />
-    </>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { Route } from 'next'
-import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
+import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
 import {
   OperationalCellStack,
   OperationalQuantityProgress,
@@ -14,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type {
   StockIssueCapabilities,
@@ -32,6 +31,8 @@ import { StockIssueRequestStatusBadge } from './StockIssueRequestStatusBadge'
 const TABLE_CLASS_NAME = 'min-w-[960px] table-fixed'
 
 interface StockIssueRequestTableProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: StockIssueRequestSummary) => void
   readonly items: readonly StockIssueRequestSummary[]
   readonly capabilities: StockIssueCapabilities
   readonly handlers: StockIssueRowActionHandlers
@@ -41,12 +42,12 @@ function StockIssueRequestTableHeader() {
   return (
     <TableHeader>
       <TableRow>
-        <TableHead className="bg-card w-56">Mã phiếu</TableHead>
-        <TableHead className="bg-card">Đơn vị nhận · Kho xuất</TableHead>
-        <TableHead className="bg-card w-48">Trạng thái</TableHead>
-        <TableHead className="bg-card w-48">Tiến độ lấy hàng (kiện)</TableHead>
-        <TableHead className="bg-card w-44">Thời gian</TableHead>
-        <TableHead className="bg-card w-16">
+        <TableHead className="w-56">Mã yêu cầu</TableHead>
+        <TableHead>Đơn vị nhận · Kho xuất</TableHead>
+        <TableHead className="w-48">Trạng thái</TableHead>
+        <TableHead className="w-48">Tiến độ lấy hàng (kiện)</TableHead>
+        <TableHead className="w-44">Thời gian</TableHead>
+        <TableHead className="w-16">
           <span className="sr-only">Thao tác</span>
         </TableHead>
       </TableRow>
@@ -93,6 +94,8 @@ export function StockIssueRequestTableSkeleton() {
 }
 
 export function StockIssueRequestTable({
+  previewId,
+  onPreview,
   items,
   capabilities,
   handlers,
@@ -107,22 +110,26 @@ export function StockIssueRequestTable({
             const progress = summarizeStockIssueProgress(item)
             const pendingSlots = summarizeStockIssueSlots(item)
             return (
-              <ClickableTableRow key={item.id} href={detailHref}>
+              <TableRow
+                key={item.id}
+                {...goodsPreviewInteractions(
+                  onPreview ? () => onPreview(item) : undefined,
+                  previewId === item.id
+                )}
+              >
                 <TableCell className="min-w-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={detailHref}
-                        className="text-primary block truncate font-mono font-semibold underline-offset-4 hover:underline"
-                        translate="no"
-                      >
-                        {item.stockIssueRequestCode}
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent className="font-mono" translate="no">
+                  <div
+                    className="font-mono font-semibold wrap-anywhere whitespace-normal"
+                    translate="no"
+                  >
+                    <Link
+                      href={detailHref}
+                      className="underline-offset-4 hover:underline"
+                      translate="no"
+                    >
                       {item.stockIssueRequestCode}
-                    </TooltipContent>
-                  </Tooltip>
+                    </Link>
+                  </div>
                   <p className="text-muted-foreground truncate text-xs">
                     {item.referenceCode
                       ? `Tham chiếu ${item.referenceCode}`
@@ -132,7 +139,7 @@ export function StockIssueRequestTable({
                 <TableCell className="min-w-0">
                   <OperationalCellStack
                     primary={item.recipientName}
-                    secondary={`${item.recipientCode} → ${item.warehouseName}`}
+                    secondary={`Mã: ${item.recipientCode} · Kho xuất: ${item.warehouseName}`}
                   />
                 </TableCell>
                 <TableCell className="min-w-0">
@@ -143,7 +150,7 @@ export function StockIssueRequestTable({
                       : 'Chưa giao người lấy hàng'}
                   </p>
                 </TableCell>
-                <TableCell>
+                <TableCell className="min-w-0 whitespace-normal">
                   <OperationalQuantityProgress
                     done={progress.done}
                     total={progress.total}
@@ -152,7 +159,7 @@ export function StockIssueRequestTable({
                     suffix={progress.suffix}
                   />
                   {pendingSlots ? (
-                    <p className="text-muted-foreground mt-1 truncate text-xs">
+                    <p className="text-muted-foreground mt-1 max-w-full text-xs wrap-anywhere">
                       Kệ cần lấy:{' '}
                       <span className="font-mono" translate="no">
                         {pendingSlots}
@@ -173,7 +180,7 @@ export function StockIssueRequestTable({
                     handlers={handlers}
                   />
                 </TableCell>
-              </ClickableTableRow>
+              </TableRow>
             )
           })}
         </TableBody>

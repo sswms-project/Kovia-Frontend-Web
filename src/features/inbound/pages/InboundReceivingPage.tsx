@@ -1,4 +1,9 @@
 'use client'
+
+import { OrderType } from '@/types/api'
+
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
 import { getRemainingReceiptQuantity } from '../utils/receipt-units'
 
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,7 +11,7 @@ import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
@@ -30,6 +35,11 @@ import {
 } from '../components/ReceivingPage'
 import { AssignWarehouseTaskDialog } from '../components/TaskAssignment'
 import { useAssignWarehouseTask } from '../hooks/use-assign-warehouse-task'
+import { useReceivingLocationSelection } from '../hooks/use-receiving-location-selection'
+import { ReceivingLocationPicker } from '../components/ReceivingLocationPicker'
+import { RefusalEvidencePanel } from '../components/RefusalEvidencePanel'
+import { useRefusalEvidence } from '../hooks/use-refusal-evidence'
+import type { CreateReceiptInput } from '../types/receipt-commands.types'
 import { useWarehouseTaskAssignmentAccess } from '../hooks/use-warehouse-task-assignment-access'
 import {
   useCreateDraftFromDocumentMutation,
@@ -47,7 +57,7 @@ import {
   type InboundDocumentReviewFormValues,
 } from '../schemas/inbound-document-import.schema'
 import { goodsReceiptSchema, type GoodsReceiptFormValues } from '../schemas/inbound.schema'
-import type { ReceivingTask, SaveGoodsReceiptRequest } from '../types/inbound.types'
+import type { ReceivingTask } from '../types/inbound.types'
 import { inboundService } from '../services/inbound.service'
 import {
   toOperationalDateTimeEnd,
@@ -62,11 +72,14 @@ export default function InboundReceivingPage() {
   const [searchText, setSearchText] = useState(() => searchParams.get('search') ?? '')
   const [createdFrom, setCreatedFrom] = useState('')
   const [createdTo, setCreatedTo] = useState('')
+  const [sortDirection, setSortDirection] = useState(OrderType.Descending)
   const [assignmentFilter, setAssignmentFilter] = useState<ReceivingAssignmentFilter>('all')
   const assignment = useAssignWarehouseTask()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [selectedTask, setSelectedTask] = useState<ReceivingTask | null>(null)
+  const saveInProgress = useRef(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [importTask, setImportTask] = useState<ReceivingTask | null>(null)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importId, setImportId] = useState('')
@@ -76,16 +89,27 @@ export default function InboundReceivingPage() {
   const codeInstanceId = useId()
   const [codeSession, setCodeSession] = useState(0)
   const codeSessionKey = `${codeInstanceId}:${codeSession}`
+  const refusal = useRefusalEvidence(
+    selectedTask?.warehouseId,
+    `${codeSessionKey}:${currentUserId}`
+  )
+  const receivingLocation = useReceivingLocationSelection(
+    selectedTask?.warehouseId,
+    codeSessionKey,
+    !!selectedTask
+  )
   const debouncedSearchText = useDebouncedValue(searchText, 350)
-  const query = useReceivingTasksQuery({
+  const exportFilters = {
+    sortDirection,
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
     ...(createdFrom ? { createdFrom: toOperationalDateTimeStart(createdFrom) } : {}),
     ...(createdTo ? { createdTo: toOperationalDateTimeEnd(createdTo) } : {}),
     ...(canAssign && assignmentFilter === 'unassigned' ? { unassigned: true } : {}),
-  })
-  const createMutation = useCreateGoodsReceiptMutation()
+  }
+  const query = useReceivingTasksQuery(exportFilters)
+  const createMutation = useCreateGoodsReceiptMutation(true)
   const submitMutation = useSubmitGoodsReceiptMutation()
   const importQuery = useInboundDocumentImportQuery(importId)
   const startImportMutation = useStartInboundDocumentImportMutation()
@@ -134,6 +158,7 @@ export default function InboundReceivingPage() {
     })
   }, [importId, importQuery.data?.review, importForm])
 
+  const receiptLines = useWatch({ control: form.control, name: 'lines' })
   function openReceive(task: ReceivingTask) {
     if (task.activeGoodsReceiptId) {
       router.push(APP_ROUTES.goodsReceiptDetail(task.activeGoodsReceiptId) as Route)
@@ -150,7 +175,7 @@ export default function InboundReceivingPage() {
         .map((line) => ({
           inboundRequestItemId: line.inboundRequestItemId,
           enteredUnitId: getRemainingReceiptQuantity(line, line.enteredUnitId).unitId,
-          receivedQty: getRemainingReceiptQuantity(line, line.enteredUnitId).quantity,
+          receivedQty: 0,
           damagedQty: 0,
           exceptionReason: '',
           isLotTracked: line.isLotTracked,
@@ -269,15 +294,39 @@ export default function InboundReceivingPage() {
   }
 
   async function save(values: GoodsReceiptFormValues, shouldSubmit: boolean) {
+    if (saveInProgress.current) return
+    if (!selectedTask?.version) {
+      toast.error(
+        'Dữ liệu đã được người dùng khác cập nhật. Vui lòng tải lại trang trước khi tiếp tục.'
+      )
+      return
+    }
+    if (
+      shouldSubmit &&
+      values.lines.some((line) => line.receivedQty > 0) &&
+      (!receivingLocation.selected ||
+        receivingLocation.query.isError ||
+        receivingLocation.query.isFetching)
+    ) {
+      toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
+      return
+    }
+    saveInProgress.current = true
+    setIsSaving(true)
     try {
-      const request: SaveGoodsReceiptRequest = {
+      const refusalPayload = shouldSubmit
+        ? refusal.payload(values.lines.some((line) => (line.rejectedQty ?? 0) > 0))
+        : {}
+      const request: CreateReceiptInput = {
         inboundRequestId: values.inboundRequestId,
+        expectedInboundVersion: selectedTask.version,
         receiptCode: values.receiptCode,
         lines: values.lines.map((line) => ({
           inboundRequestItemId: line.inboundRequestItemId,
           receivedQty: line.receivedQty,
           enteredUnitId: line.enteredUnitId,
           damagedQty: line.damagedQty,
+          rejectedQty: line.rejectedQty ?? 0,
           exceptionReason: line.exceptionReason.trim() || null,
           lotNumber: line.isLotTracked ? line.lotNumber.trim() || null : null,
           manufacturedDate: line.isLotTracked ? line.manufacturedDate || null : null,
@@ -287,10 +336,16 @@ export default function InboundReceivingPage() {
       const response = await createMutation.mutateAsync(request)
       if (shouldSubmit) {
         try {
-          const receipt = await inboundService.getReceipt(response.data)
+          // Missing version is only a compatibility fallback; current BE returns it from creation.
+          const version =
+            response.version || (await inboundService.getReceipt(response.data)).data.version
           await submitMutation.mutateAsync({
             receiptId: response.data,
-            expectedVersion: receipt.data.version,
+            expectedVersion: version,
+            receivingSlotId: values.lines.some((line) => line.receivedQty > 0)
+              ? receivingLocation.selected?.id
+              : null,
+            ...refusalPayload,
           })
         } catch (error) {
           if (isApiErrorResponse(error)) logger.warn(formatApiError(error))
@@ -300,10 +355,11 @@ export default function InboundReceivingPage() {
           )
           setSelectedTask(null)
           form.reset()
+          await createMutation.refresh()
           router.push(APP_ROUTES.goodsReceiptDetail(response.data) as Route)
           return
         }
-      }
+      } else await createMutation.refresh()
       toast.success(
         shouldSubmit
           ? 'Đã tạo và gửi phiếu nhận hàng để duyệt.'
@@ -322,6 +378,9 @@ export default function InboundReceivingPage() {
         form.setError('receiptCode', { type: 'server', message }, { shouldFocus: true })
       }
       toast.error(message)
+    } finally {
+      saveInProgress.current = false
+      setIsSaving(false)
     }
   }
 
@@ -339,7 +398,17 @@ export default function InboundReceivingPage() {
     })
   }
 
-  const isPending = createMutation.isPending || submitMutation.isPending
+  const isPending = isSaving || createMutation.isPending || submitMutation.isPending || refusal.busy
+  const listExport = useListExport({
+    dataset: 'receiving',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.GOODS_RECEIPTS_VIEW,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <InboundPageHeader
@@ -353,6 +422,9 @@ export default function InboundReceivingPage() {
         isError={query.isError}
       />
       <ReceivingTaskDirectory
+        exportAction={
+          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        }
         canViewRequest={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_VIEW) ?? false}
         items={query.data?.items ?? []}
         totalCount={query.data?.totalCount ?? 0}
@@ -361,6 +433,11 @@ export default function InboundReceivingPage() {
         searchText={searchText}
         createdFrom={createdFrom}
         createdTo={createdTo}
+        sortDirection={sortDirection}
+        onSortDirectionChange={(value) => {
+          setSortDirection(value)
+          setPage(1)
+        }}
         isLoading={query.isFetching}
         isFetching={query.isFetching}
         isError={query.isError}
@@ -407,6 +484,17 @@ export default function InboundReceivingPage() {
         onUnassign={assignment.onUnassign}
       />
       <ReceiveGoodsDialog
+        receivingLocationField={
+          <>
+            <ReceivingLocationPicker
+              state={receivingLocation}
+              disabled={createMutation.isPending || submitMutation.isPending}
+            />
+            {receiptLines.some((line) => (line.rejectedQty ?? 0) > 0) && (
+              <RefusalEvidencePanel state={refusal} />
+            )}
+          </>
+        }
         isLoadingCode={nextCodeQuery.isFetching}
         isCodeSuggestionError={nextCodeQuery.isError}
         onReceiptCodeChange={codeSuggestion.markEdited}

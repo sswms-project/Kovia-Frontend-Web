@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { defaultTransferDetailTab, parseTransferDetailTab } from './transfer-detail-tabs'
+import { parseTransferDetailTab } from './transfer-detail-tabs'
 import { readTransferListState, transferStatusHref } from './transfer-list-state'
-import type { TransferNextStep } from './transfer-next-steps'
 
 describe('transfer navigation', () => {
   it.each([
@@ -27,22 +26,12 @@ describe('transfer navigation', () => {
     ).toBe('/transfers?pageSize=20&search=milk&sourceWarehouseId=w1&status=Completed')
     expect(transferStatusHref('/transfers', 'status=Cancelled&page=2', '')).toBe('/transfers')
   })
-  it('maps old detail tabs and defaults to the first actionable stage', () => {
-    expect(parseTransferDetailTab('shipments')).toBe('pick')
-    expect(parseTransferDetailTab('feedback')).toBe('discrepancies')
+  it('maps every legacy work tab into execution while keeping goods and history', () => {
+    expect(parseTransferDetailTab('shipments')).toBe('execution')
+    expect(parseTransferDetailTab('pick')).toBe('execution')
+    expect(parseTransferDetailTab('feedback')).toBe('execution')
+    expect(parseTransferDetailTab('goods')).toBe('goods')
+    expect(parseTransferDetailTab('history')).toBe('history')
     expect(parseTransferDetailTab('anything')).toBeNull()
-    const step = (action: TransferNextStep['action']): TransferNextStep => ({
-      id: '1',
-      title: '',
-      description: '',
-      actionLabel: '',
-      action,
-    })
-    expect(defaultTransferDetailTab([])).toBe('goods')
-    expect(defaultTransferDetailTab([step({ type: 'openReceive', shipmentId: 's1' })])).toBe(
-      'receive'
-    )
-    expect(defaultTransferDetailTab([step({ type: 'resolveDiscrepancy' })])).toBe('discrepancies')
-    expect(defaultTransferDetailTab([step({ type: 'createShipment' })])).toBe('pick')
   })
 })

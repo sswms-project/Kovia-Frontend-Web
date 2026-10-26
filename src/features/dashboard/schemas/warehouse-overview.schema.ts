@@ -6,6 +6,7 @@ export const warehouseOverviewSchema = z.object({
   generatedAt: z.string(),
   activityDateFrom: z.string(),
   activityDateTo: z.string(),
+  activityGranularity: z.enum(['day', 'week', 'month']).default('day'),
   activity: z.array(
     z.object({ date: z.string(), completedReceipts: z.number(), dispatchedIssues: z.number() })
   ),
@@ -38,4 +39,12 @@ export const warehouseOverviewSchema = z.object({
   ),
 })
 export type WarehouseOverview = z.infer<typeof warehouseOverviewSchema>
+export const warehouseActivitySchema = warehouseOverviewSchema.pick({
+  generatedAt: true,
+  activityDateFrom: true,
+  activityDateTo: true,
+  activityGranularity: true,
+  activity: true,
+})
+export type WarehouseActivity = z.infer<typeof warehouseActivitySchema>
 export type ReportingWarehouse = z.infer<typeof reportingWarehouseSchema>

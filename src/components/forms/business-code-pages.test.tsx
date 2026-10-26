@@ -14,6 +14,10 @@ import type {
 } from '@/features/stock-recipient/components/StockRecipientsPage'
 import { BusinessCodeField } from './BusinessCodeField'
 
+vi.mock('@/features/list-export/hooks/use-list-export', () => ({
+  useListExport: () => ({ canExport: false, buttonProps: { isPending: false, onExport: vi.fn() } }),
+}))
+
 const fixtures = vi.hoisted(() => ({
   query: { data: { data: 'AUTO001' }, isFetching: false, isError: false },
   next: vi.fn(),

@@ -1,9 +1,10 @@
 import { Plus } from 'lucide-react'
 import type { FieldArrayWithId, UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
+import { FieldSet, FieldLegend } from '@/components/ui/field'
 import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
-import type { TransferLineUnits } from '../../types/transfer.types'
+import type { TransferLineUnits, TransferDestinationLoad } from '../../types/transfer.types'
 import {
   TransferGeneralSection,
   type TransferFormMode,
@@ -13,10 +14,12 @@ import { exceedsAvailability } from '../../utils/transfer-line-units'
 import { lineGridColumns } from './line-grid'
 import { TransferLineRow, type TransferLineLockInfo } from './TransferLineRow'
 import type { BusinessCodeFieldProps } from '@/components/forms/BusinessCodeField'
+import { TransferAllocationHelp } from './TransferAllocationHelp'
 
 export type { TransferFormMode, WarehouseSelectOption }
 
 interface TransferFormProps {
+  readonly destinationLoad?: TransferDestinationLoad
   readonly form: UseFormReturn<TransferRequestFormValues>
   readonly fields: readonly FieldArrayWithId<TransferRequestFormValues, 'lines', 'id'>[]
   readonly mode: TransferFormMode
@@ -42,6 +45,7 @@ interface TransferFormProps {
   readonly lockByItemId: Readonly<Record<string, TransferLineLockInfo>>
   readonly isProductSearchLoading: boolean
   readonly isSaving: boolean
+  readonly isBlocked?: boolean
   readonly requesterNames: readonly string[]
   readonly codeSuggestionStatus?: BusinessCodeFieldProps['suggestionStatus']
   readonly canCreateRelocation: boolean
@@ -58,6 +62,7 @@ interface TransferFormProps {
 }
 
 export function TransferForm({
+  destinationLoad,
   form,
   fields,
   mode,
@@ -82,6 +87,7 @@ export function TransferForm({
   lockByItemId,
   isProductSearchLoading,
   isSaving,
+  isBlocked = false,
   requesterNames,
   codeSuggestionStatus,
   canCreateRelocation,
@@ -108,107 +114,122 @@ export function TransferForm({
   return (
     <form
       data-slot="transfer-scroll"
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
+      className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
       noValidate
       onSubmit={(event) => {
         event.preventDefault()
-        onSubmit()
+        if (!isSaving && !isBlocked) onSubmit()
       }}
     >
-      <TransferGeneralSection
-        form={form}
-        mode={mode}
-        destinationOptions={destinationOptions}
-        sourceOptions={sourceOptions}
-        warehousesLocked={warehousesLocked}
-        requesterNames={requesterNames}
-        codeSuggestionStatus={codeSuggestionStatus}
-        canCreateRelocation={canCreateRelocation}
-        onCodeChange={onCodeChange}
-        onDestinationChange={onDestinationChange}
-        onSourceChange={onSourceChange}
-        onSelectInternalRelocation={onSelectInternalRelocation}
-      />
+      <FieldSet disabled={isSaving || isBlocked} aria-busy={isSaving} className="min-w-0 gap-3">
+        <FieldLegend className="sr-only">Nội dung yêu cầu điều chuyển</FieldLegend>
+        <TransferGeneralSection
+          destinationLoad={destinationLoad}
+          form={form}
+          mode={mode}
+          destinationOptions={destinationOptions}
+          sourceOptions={sourceOptions}
+          warehousesLocked={warehousesLocked}
+          requesterNames={requesterNames}
+          codeSuggestionStatus={codeSuggestionStatus}
+          canCreateRelocation={canCreateRelocation}
+          onCodeChange={onCodeChange}
+          onDestinationChange={onDestinationChange}
+          onSourceChange={onSourceChange}
+          onSelectInternalRelocation={onSelectInternalRelocation}
+        />
 
-      <section className="bg-card border" aria-labelledby="transfer-form-lines">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
-          <div>
-            <h2 id="transfer-form-lines" className="text-sm font-semibold">
-              Dòng hàng
-            </h2>
-            <p className="text-muted-foreground text-xs">
-              Hệ thống tự phân bổ vị trí và lô theo FEFO/FIFO khi gửi yêu cầu.
-            </p>
+        <section className="bg-card border" aria-labelledby="transfer-form-lines">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
+            <div>
+              <h2 id="transfer-form-lines" className="text-sm font-semibold">
+                Dòng hàng
+              </h2>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={onAddLine}>
+              <Plus aria-hidden="true" />
+              Thêm dòng
+            </Button>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={onAddLine}>
-            <Plus aria-hidden="true" />
-            Thêm dòng
-          </Button>
-        </div>
-        <div
-          className={`text-muted-foreground bg-muted hidden gap-3 border-b px-3 py-2 text-xs font-medium lg:grid ${lineGridColumns(showSourceSlot, showDestinationSlot)}`}
-        >
-          <span>#</span>
-          <span>Sản phẩm</span>
-          <span>ĐVT</span>
-          <span>Số lượng</span>
-          <span>SL theo ĐVT chính</span>
-          <span>Tồn khả dụng kho xuất</span>
-          {showSourceSlot ? <span>Vị trí đi</span> : null}
-          {showDestinationSlot ? <span>Vị trí đến</span> : null}
-          <span />
-        </div>
-        {errors.lines?.message || errors.lines?.root?.message ? (
-          <p role="alert" className="text-destructive px-3 pt-3 text-xs">
-            {errors.lines?.message ?? errors.lines?.root?.message}
-          </p>
-        ) : null}
-        <div className="divide-y">
-          {fields.map((field, index) => {
-            const line = lines[index]
-            const itemId = line?.itemId ?? null
-            const productId = line?.productId ?? ''
-            return (
-              <TransferLineRow
-                key={field.id}
-                field={field}
-                index={index}
-                lineCount={fields.length}
-                form={form}
-                unitInfo={unitsByProductId[productId]}
-                isUnitLoading={isUnitLoading}
-                isUnitError={isUnitError}
-                hasWarehouses={hasWarehouses}
-                showSourceSlot={showSourceSlot}
-                sourceWarehouseId={sourceWarehouseId}
-                selectedSourceSlot={knownSourceSlots[line?.sourceSlotId ?? '']}
-                isSourceSlotLocked={isEditingSubmitted && Boolean(itemId)}
-                showDestinationSlot={showDestinationSlot}
-                destinationSlotOptions={destinationSlotOptions}
-                selectedDestinationSlot={knownDestinationSlots[line?.destinationSlotId ?? '']}
-                isDestinationSlotLoading={isDestinationSlotLoading}
-                isDestinationSlotLocked={Boolean(itemId && lockedDestinationItemIds.has(itemId))}
-                onDestinationSlotSearchChange={onDestinationSlotSearchChange}
-                selectedOption={knownProductOptions[productId]}
-                options={productOptions}
-                isProductSearchLoading={isProductSearchLoading}
-                isIdentityLocked={isEditingSubmitted && Boolean(itemId)}
-                lockInfo={itemId ? lockByItemId[itemId] : undefined}
-                showAvailabilityWarning={!isEditingSubmitted || !itemId}
-                onProductSearchChange={onProductSearchChange}
-                onRemove={onRemoveLine}
-              />
-            )
-          })}
-        </div>
-      </section>
+          <div
+            className={`text-muted-foreground bg-muted hidden gap-3 border-b px-3 py-2 text-xs font-medium lg:grid ${lineGridColumns(showSourceSlot, showDestinationSlot)}`}
+          >
+            <span>#</span>
+            <span>Sản phẩm</span>
+            <span>ĐVT</span>
+            <span>Số lượng</span>
+            <span>SL theo ĐVT chính</span>
+            <span>Tồn khả dụng kho xuất</span>
+            {showSourceSlot ? (
+              <span className="flex items-center gap-1">
+                Vị trí đi (không bắt buộc)
+                <TransferAllocationHelp />
+              </span>
+            ) : null}
+            {showDestinationSlot ? <span>Vị trí đến</span> : null}
+            <span />
+          </div>
+          {errors.lines?.message || errors.lines?.root?.message ? (
+            <p role="alert" className="text-destructive px-3 pt-3 text-xs">
+              {errors.lines?.message ?? errors.lines?.root?.message}
+            </p>
+          ) : null}
+          <div className="divide-y">
+            {fields.map((field, index) => {
+              const line = lines[index]
+              const itemId = line?.itemId ?? null
+              const productId = line?.productId ?? ''
+              return (
+                <TransferLineRow
+                  key={field.id}
+                  field={field}
+                  index={index}
+                  lineCount={fields.length}
+                  form={form}
+                  unitInfo={unitsByProductId[productId]}
+                  isUnitLoading={isUnitLoading}
+                  isUnitError={isUnitError}
+                  hasWarehouses={hasWarehouses}
+                  showSourceSlot={showSourceSlot}
+                  sourceWarehouseId={sourceWarehouseId}
+                  selectedSourceSlot={knownSourceSlots[line?.sourceSlotId ?? '']}
+                  isSourceSlotLocked={isEditingSubmitted && Boolean(itemId)}
+                  showDestinationSlot={showDestinationSlot}
+                  destinationSlotOptions={destinationSlotOptions}
+                  selectedDestinationSlot={knownDestinationSlots[line?.destinationSlotId ?? '']}
+                  isDestinationSlotLoading={isDestinationSlotLoading}
+                  isDestinationSlotLocked={Boolean(itemId && lockedDestinationItemIds.has(itemId))}
+                  onDestinationSlotSearchChange={onDestinationSlotSearchChange}
+                  selectedOption={knownProductOptions[productId]}
+                  options={productOptions}
+                  isProductSearchLoading={isProductSearchLoading}
+                  isIdentityLocked={isEditingSubmitted && Boolean(itemId)}
+                  lockInfo={itemId ? lockByItemId[itemId] : undefined}
+                  showAvailabilityWarning={!isEditingSubmitted || !itemId}
+                  onProductSearchChange={onProductSearchChange}
+                  onRemove={onRemoveLine}
+                />
+              )
+            })}
+          </div>
+        </section>
+      </FieldSet>
 
-      <div className="bg-background sticky bottom-0 flex flex-wrap justify-end gap-2 border-t py-3">
+      <div
+        role="group"
+        aria-label="Thao tác yêu cầu điều chuyển"
+        className="bg-background sticky bottom-0 flex shrink-0 flex-wrap justify-end gap-2 border-t py-1.5"
+      >
         <Button type="button" variant="outline" disabled={isSaving} onClick={onCancel}>
           Hủy
         </Button>
         {mode !== 'edit' ? (
-          <Button type="button" variant="outline" disabled={isSaving} onClick={onSaveDraft}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isSaving || isBlocked}
+            onClick={onSaveDraft}
+          >
             Lưu nháp
           </Button>
         ) : null}
@@ -217,7 +238,7 @@ export function TransferForm({
             {overAvailabilityCount} dòng vượt tồn khả dụng của kho xuất.
           </p>
         ) : null}
-        <Button type="submit" disabled={isSaving || overAvailabilityCount > 0}>
+        <Button type="submit" disabled={isSaving || isBlocked || overAvailabilityCount > 0}>
           {isSaving ? 'Đang lưu…' : mode === 'edit' ? 'Lưu thay đổi' : 'Tạo yêu cầu'}
         </Button>
       </div>

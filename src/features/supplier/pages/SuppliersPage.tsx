@@ -1,5 +1,8 @@
 'use client'
 
+import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
+import { useListExport } from '@/features/list-export/hooks/use-list-export'
+
 import { useId, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -72,12 +75,13 @@ export default function SuppliersPage() {
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
 
-  const query = useSuppliersQuery({
+  const exportFilters = {
     pageNumber: page,
     pageSize,
     ...(debouncedSearchText ? { searchTerm: debouncedSearchText } : {}),
     ...(status ? { status } : {}),
-  })
+  }
+  const query = useSuppliersQuery(exportFilters)
   const nextCodeQuery = useNextSupplierCodeQuery(isCreateOpen, codeSessionKey)
   const codeSuggestion = useCodeSuggestion({
     active: isCreateOpen,
@@ -159,9 +163,22 @@ export default function SuppliersPage() {
     }
   }
 
+  const listExport = useListExport({
+    dataset: 'suppliers',
+    filters: exportFilters,
+    permissions: meQuery.data?.permissions ?? [],
+    viewPermission: P.SUPPLIERS_VIEW,
+    totalCount: query.data?.totalCount ?? 0,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    blocked: searchText !== debouncedSearchText,
+  })
   return (
     <>
       <SupplierDirectory
+        exportAction={
+          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        }
         items={query.data?.items ?? []}
         totalCount={query.data?.totalCount ?? 0}
         page={page}

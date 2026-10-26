@@ -30,12 +30,35 @@ import type {
 export const TRANSFER_MUTATION_KEY = ['transfers', 'write'] as const
 
 /** Mọi thao tác trên phiếu có thể đổi tồn kho, giữ chỗ và công việc được giao. */
-export function invalidateTransferQueries(queryClient: QueryClient) {
+export function invalidateTransferQueries(
+  queryClient: QueryClient,
+  refetchType: 'active' | 'none' = 'active'
+) {
   return Promise.all([
-    queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-    queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all, refetchType }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all, refetchType }),
+    queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'], refetchType }),
   ])
+}
+
+/** Refresh only the current document/list and required sheet; other lookups stay stale until needed. */
+export async function refreshTransferAfterWrite(
+  queryClient: QueryClient,
+  transferId: string,
+  shipmentId?: string
+) {
+  await invalidateTransferQueries(queryClient, 'none')
+  await queryClient.refetchQueries({
+    type: 'active',
+    predicate: ({ queryKey }) =>
+      queryKey[0] === 'transfers' &&
+      (queryKey[1] === 'list' ||
+        (queryKey[1] === 'detail' && queryKey[2] === transferId) ||
+        (Boolean(shipmentId) &&
+          queryKey[1] === 'pick-sheet' &&
+          queryKey[2] === transferId &&
+          queryKey[3] === shipmentId)),
+  })
 }
 
 export function useTransfersQuery(params: TransferListQuery, enabled = true) {
@@ -94,6 +117,15 @@ export function useTransferReceivableSlotsQuery(
   return useQuery<TransferReceivableSlotOption[], ApiErrorResponse>({
     queryKey: queryKeys.transfers.receivableSlots(query),
     queryFn: () => transferService.getReceivableSlots(query).then((response) => response.data),
+    enabled,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useTransferPutAwaySlotsQuery(query: TransferReceivableSlotsQuery, enabled = true) {
+  return useQuery<TransferReceivableSlotOption[], ApiErrorResponse>({
+    queryKey: queryKeys.transfers.putAwaySlots(query),
+    queryFn: () => transferService.getPutAwaySlots(query).then((response) => response.data),
     enabled,
     placeholderData: (previousData) => previousData,
   })
@@ -163,11 +195,13 @@ export function useSaveTransferDraftMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<string>, ApiErrorResponse, SaveDraftVariables>({
     mutationKey: TRANSFER_MUTATION_KEY,
+    retry: false,
     mutationFn: ({ transferId, request }) =>
       transferId
         ? transferService.updateDraft(transferId, request)
         : transferService.createDraft(request),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.transfers.all, refetchType: 'none' }),
     onError: (error) => logTransferError(error),
   })
 }
@@ -176,8 +210,9 @@ export function useSubmitTransferDraftMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, SubmitDraftVariables>({
     mutationKey: TRANSFER_MUTATION_KEY,
+    retry: false,
     mutationFn: ({ transferId, request }) => transferService.submitDraft(transferId, request),
-    onSuccess: () => invalidateTransferQueries(queryClient),
+    onSuccess: () => invalidateTransferQueries(queryClient, 'none'),
     onError: (error) => logTransferError(error),
   })
 }
@@ -186,6 +221,7 @@ export function useUpdateTransferMutation() {
   const queryClient = useQueryClient()
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, UpdateTransferVariables>({
     mutationKey: TRANSFER_MUTATION_KEY,
+    retry: false,
     mutationFn: ({ transferId, request }) => transferService.updateTransfer(transferId, request),
     onSuccess: () => invalidateTransferQueries(queryClient),
     onError: (error) => logTransferError(error),

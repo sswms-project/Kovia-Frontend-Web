@@ -4,6 +4,7 @@ import { CircleCheck, ScanLine } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CameraScanControl } from '@/components/operations/scanning'
 import { cn } from '@/lib/utils'
 import { matchScannedSlotCode, type ScannableLine } from '../../utils/putaway-plan'
 
@@ -34,16 +35,18 @@ export function PutawayScanBar({ state, lines, slots, disabled, onConfirm }: Put
   const [scanCount, setScanCount] = useState(0)
   const missing = state.requiredCount - state.confirmedCount
 
-  function scan() {
-    const result = matchScannedSlotCode(code, slots, lines)
+  function scan(rawCode: string) {
+    if (disabled) return false
+    const result = matchScannedSlotCode(rawCode, slots, lines)
     setCode('')
     setScanCount((count) => count + 1)
     if (result.status === 'error') {
       setFeedback({ ok: false, message: result.message })
-      return
+      return false
     }
     onConfirm(result.index, result.code)
     setFeedback({ ok: true, message: `Đã xác nhận vị trí ${result.slotCode}.` })
+    return true
   }
 
   return (
@@ -51,29 +54,53 @@ export function PutawayScanBar({ state, lines, slots, disabled, onConfirm }: Put
       className="bg-muted/40 flex flex-col gap-2 border-b px-4 py-3"
       aria-label="Quét mã vị trí"
     >
+      <CameraScanControl
+        label="Vị trí cất hàng"
+        disabled={disabled}
+        pausedMessage={
+          missing <= 0
+            ? 'Đã quét đủ vị trí được giao. Kiểm tra rồi bấm xác nhận cất hàng.'
+            : undefined
+        }
+        onCode={scan}
+      />
+      {feedback ? (
+        <p
+          key={scanCount}
+          className={cn(
+            'animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 text-sm break-words motion-reduce:animate-none',
+            feedback.ok ? 'text-primary' : 'text-destructive'
+          )}
+          role={feedback.ok ? 'status' : 'alert'}
+        >
+          {feedback.message}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-md">
+        <div className="flex min-w-0 flex-1 basis-full items-center gap-2 sm:max-w-md sm:basis-auto">
           <ScanLine aria-hidden="true" className="text-primary size-5 shrink-0" />
           <Input
             value={code}
             disabled={disabled}
             autoComplete="off"
+            spellCheck={false}
             aria-label="Quét mã vị trí vừa cất"
             placeholder="Quét mã vị trí vừa cất hàng vào"
-            className="font-mono"
+            className="h-11 min-w-0 font-mono text-base sm:h-8 sm:text-sm"
             onChange={(event) => setCode(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== 'Enter') return
               // Máy quét gửi Enter sau mã; không để nó gửi cả form cất hàng.
               event.preventDefault()
-              scan()
+              scan(code)
             }}
           />
           <Button
             type="button"
             variant="outline"
             disabled={disabled || code.trim().length === 0}
-            onClick={scan}
+            className="h-11 touch-manipulation sm:h-8"
+            onClick={() => scan(code)}
           >
             Xác nhận
           </Button>
@@ -96,24 +123,12 @@ export function PutawayScanBar({ state, lines, slots, disabled, onConfirm }: Put
           </Button>
         ) : null}
       </div>
-      {feedback ? (
-        <p
-          // Mỗi lần quét là một thông báo mới: `key` đổi để hiệu ứng chạy lại.
-          key={scanCount}
-          className={cn(
-            'animate-in fade-in-0 slide-in-from-top-1 animation-duration-200 text-xs motion-reduce:animate-none',
-            feedback.ok ? 'text-primary' : 'text-destructive animate-[shake_0.4s_ease-in-out]'
-          )}
-          role={feedback.ok ? 'status' : 'alert'}
-        >
-          {feedback.message}
-        </p>
-      ) : (
+      {!feedback ? (
         <p className="text-muted-foreground text-xs">
           Quản lý dùng mã đã quét làm bằng chứng hàng nằm đúng vị trí được giao. Cất xong vị trí nào
           thì quét mã vị trí đó.
         </p>
-      )}
+      ) : null}
     </section>
   )
 }
