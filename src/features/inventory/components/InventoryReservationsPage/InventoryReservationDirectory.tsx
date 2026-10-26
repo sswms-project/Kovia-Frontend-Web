@@ -31,6 +31,7 @@ import {
   formatEligibilityStatus,
   formatInventoryDate,
   formatInventoryQuantity,
+  formatInventoryLocation,
 } from '../../utils/inventory-format'
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
 
@@ -209,7 +210,7 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
                         <Badge variant="outline">{statusLabel(item.status)}</Badge>
                       </ItemTitle>
                       <ItemDescription className="font-mono" translate="no">
-                        {item.productSku} · {item.warehouseCode} · {item.slotCode}
+                        {item.productSku} · {item.warehouseCode} · {formatInventoryLocation(item)}
                       </ItemDescription>
                       <ItemDescription>
                         Giữ{' '}
@@ -262,7 +263,7 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
                       <TableCell>
                         <p>{item.warehouseName}</p>
                         <p className="text-muted-foreground font-mono text-xs" translate="no">
-                          {item.warehouseCode} · {item.slotCode}
+                          {item.warehouseCode} · {formatInventoryLocation(item)}
                         </p>
                       </TableCell>
                       <TableCell>

@@ -166,6 +166,8 @@ export interface InventoryReservationQuery {
 export type InventoryReservationStatus = 'Active' | 'Released' | 'Consumed'
 
 export interface InventoryReservation {
+  zoneCode?: string | null
+  rackCode?: string | null
   id: string
   inventoryStockId: string
   productId: string

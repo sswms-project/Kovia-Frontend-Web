@@ -71,7 +71,9 @@ it('labels supplier-return reservations with the return code', () => {
           warehouseCode: 'MAIN',
           warehouseName: 'Kho chính',
           slotId: 's-1',
-          slotCode: 'A-01',
+          slotCode: '__SYSTEM_DEFAULT__',
+          zoneCode: 'K01',
+          rackCode: 'A04',
           lotId: null,
           lotNumber: null,
           qualityStatus: 'Good',
@@ -114,4 +116,6 @@ it('labels supplier-return reservations with the return code', () => {
   expect(screen.getAllByText(/Trả hàng NCC ·/).length).toBeGreaterThan(0)
   expect(screen.getAllByText('SRT-20261019100000-ABC123').length).toBeGreaterThan(0)
   expect(screen.queryByText(/Điều chuyển kho/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/__SYSTEM_DEFAULT__/)).not.toBeInTheDocument()
+  expect(screen.getAllByText(/Khu vực K01 \/ Kệ A04/).length).toBeGreaterThan(0)
 })

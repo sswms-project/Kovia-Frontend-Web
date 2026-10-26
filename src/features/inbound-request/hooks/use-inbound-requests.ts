@@ -216,7 +216,7 @@ export function useSubmitInboundRequestMutation() {
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, string>({
     mutationFn: inboundRequestService.submitInboundRequest,
     onSuccess: (_, inboundRequestId) => invalidate(inboundRequestId),
-    onError: (error) => logger.error(error),
+    onError: logApiError,
   })
 }
 

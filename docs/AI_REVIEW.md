@@ -2508,3 +2508,13 @@ P31 verification complete: BE focused build/tests 105/105 (exit 0); web focused 
 - User-authorized non-rewriting merge of kept-at-receiving navigation fix. Preserved both review histories; resolved receipt test fixture conflict by retaining incoming removal of duplicate object properties. Existing cycle-count test fix already present.
 - Focused transfer receiving, receipt overview and cycle count table regressions:23 tests passed across three files. TypeScript check run separately. GitNexus staged scope MEDIUM for transfer receive page.
 - Protected local instructions/configuration and untracked outputs preserved. No runtime start, business API calls, migration/seed, push or deployment.
+
+## 2026-10-26 — Reservation location and inbound submit validation UX
+
+READY_FOR_CODEX_REVIEW (implementer self-verification).
+
+- Reservation desktop/mobile labels use shared formatInventoryLocation and optional BE zone/rack metadata; **SYSTEM_DEFAULT** hidden with explicit unknown-rack fallback if older API lacks metadata. Reservation IDs/values untouched.
+- Save-and-submit checks the expected Vietnam calendar date before creating/updating a draft; same-day times remain valid per existing server rule. Past date gets field error/focus. Draft-only saving remains allowed. DatePicker trigger connected to RHF focus.
+- A later server refusal after successful save uses a warning with the real API reason and routes to saved detail, preserving the draft identity. Submit mutation logs expected4xx as warnings; backend date validation retained.
+- Focused tests:25 passed across4files (reservation labels, location formatter, Vietnam midnight/same-day dates and form). Scoped ESLint/TypeScript passed; form/focus follow-up tests run separately. No business API, migration/seed, camera session or deployment. Paired BE metadata required for complete physical labels.
+- main/dev/screen/huytv synchronized by fast-forward before this fix; protected instructions/local outputs retained. No commit/push of this fix requested.

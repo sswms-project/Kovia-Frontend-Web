@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { toOperationalDateTimeEnd, toOperationalDateTimeStart } from './inbound-request-format'
+import {
+  isPastInboundExpectedDate,
+  toOperationalDateTimeEnd,
+  toOperationalDateTimeStart,
+} from './inbound-request-format'
+
+it('validates submission by Vietnam calendar day, including midnight and same-day past times', () => {
+  const midnight = new Date('2026-10-25T17:01:00Z')
+  expect(isPastInboundExpectedDate('2026-10-25', midnight)).toBe(true)
+  expect(isPastInboundExpectedDate('2026-10-26', midnight)).toBe(false)
+  expect(isPastInboundExpectedDate('2026-10-26T00:00', midnight)).toBe(false)
+  expect(isPastInboundExpectedDate('2026-10-27', midnight)).toBe(false)
+  expect(isPastInboundExpectedDate('', midnight)).toBe(false)
+})
 
 describe('operational filter date boundaries', () => {
   it('preserves whole-day boundaries for existing inbound and transfer callers', () => {
