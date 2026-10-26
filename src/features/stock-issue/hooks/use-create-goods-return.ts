@@ -6,6 +6,7 @@ import { useWarehouseLocationsQuery } from '@/features/warehouse/hooks/use-wareh
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
+import { useSaveReturnDocument } from '@/hooks/use-return-document-editing'
 import {
   createGoodsReturnRequestSchema,
   type CreateGoodsReturnRequestFormValues,
@@ -13,6 +14,7 @@ import {
 import type {
   GoodsReturnLineSuggestion,
   GoodsReturnSuggestionLineRequest,
+  GoodsReturnRequestSummary,
 } from '../types/stock-issue.types'
 import {
   useCreateGoodsReturnRequestMutation,
@@ -26,6 +28,9 @@ import {
  * chỗ, hàng lỗi vào vị trí cách biệt); người dùng vẫn chọn tay được nhưng backend sẽ chặn vị trí không nhận.
  */
 export function useCreateGoodsReturn() {
+  const [editingDocument, setEditingDocument] = useState<GoodsReturnRequestSummary | null>(null)
+  const hydratedSource = useRef<string | null>(null)
+  const saveMutation = useSaveReturnDocument('goodsReturnRequests')
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [sourceId, setSourceId] = useState<string | null>(null)
   const [slotSearch, setSlotSearch] = useState('')
@@ -77,25 +82,52 @@ export function useCreateGoodsReturn() {
   )
 
   useEffect(() => {
-    if (!order) return
+    if (!order || hydratedSource.current === `${order.id}:${editingDocument?.id ?? 'new'}`) return
+    hydratedSource.current = `${order.id}:${editingDocument?.id ?? 'new'}`
     autoSlots.current = {}
-    form.reset({
-      reason: '',
-      lines: order.items.flatMap((item) =>
-        item.pickDetails
-          .filter((detail) => detail.issuedAt && detail.returnableQuantity > 0)
-          .map((detail) => ({
+    const savedLines = new Map(
+      (editingDocument?.items ?? []).map((line) => [line.stockIssuePickDetailId, line])
+    )
+    const lines = order.items.flatMap((item) =>
+      item.pickDetails
+        .filter(
+          (detail) =>
+            detail.issuedAt && (detail.returnableQuantity > 0 || savedLines.has(detail.id))
+        )
+        .map((detail) => {
+          const saved = savedLines.get(detail.id)
+          return {
             stockIssuePickDetailId: detail.id,
             productName: item.productName,
             lotNumber: detail.lotNumber,
             returnableQuantity: detail.returnableQuantity,
-            quantity: 0,
-            condition: 'Good' as const,
-            restockSlotId: '',
-          }))
-      ),
+            quantity: saved?.quantity ?? 0,
+            condition: saved?.condition ?? ('Good' as const),
+            restockSlotId: saved?.restockSlotId ?? '',
+          }
+        })
+    )
+    // Keep unavailable saved lines visible and invalid until the user explicitly reduces/removes them.
+    for (const saved of editingDocument?.items ?? []) {
+      if (
+        saved.stockIssuePickDetailId &&
+        !lines.some((line) => line.stockIssuePickDetailId === saved.stockIssuePickDetailId)
+      )
+        lines.push({
+          stockIssuePickDetailId: saved.stockIssuePickDetailId,
+          productName: saved.productName,
+          lotNumber: saved.lotNumber,
+          returnableQuantity: 0,
+          quantity: saved.quantity,
+          condition: saved.condition,
+          restockSlotId: saved.restockSlotId ?? '',
+        })
+    }
+    form.reset({
+      reason: editingDocument?.reason ?? '',
+      lines,
     })
-  }, [form, order])
+  }, [form, order, editingDocument])
 
   // Điền vị trí gợi ý đầu tiên cho dòng chưa chọn hoặc dòng đang giữ vị trí do hệ thống điền.
   useEffect(() => {
@@ -112,6 +144,9 @@ export function useCreateGoodsReturn() {
   }, [form, suggestionsByPickDetail])
 
   function closeForm() {
+    if (createMutation.isPending || saveMutation.isPending) return
+    setEditingDocument(null)
+    hydratedSource.current = null
     setSourceId(null)
     setSlotSearch('')
     autoSlots.current = {}
@@ -121,21 +156,30 @@ export function useCreateGoodsReturn() {
   async function submit(values: CreateGoodsReturnRequestFormValues) {
     if (!order) return
     try {
-      await createMutation.mutateAsync({
-        stockIssueRequestId: order.id,
-        request: {
-          reason: values.reason,
-          items: values.lines
-            .filter((line) => line.quantity > 0)
-            .map((line) => ({
-              stockIssuePickDetailId: line.stockIssuePickDetailId,
-              quantity: line.quantity,
-              condition: line.condition,
-              restockSlotId: line.condition === 'Scrap' ? null : line.restockSlotId,
-            })),
-        },
-      })
-      toast.success('Đã tạo yêu cầu trả hàng.')
+      const request = {
+        reason: values.reason,
+        items: values.lines
+          .filter((line) => line.quantity > 0)
+          .map((line) => ({
+            stockIssuePickDetailId: line.stockIssuePickDetailId,
+            quantity: line.quantity,
+            condition: line.condition,
+            restockSlotId: line.condition === 'Scrap' ? null : line.restockSlotId,
+          })),
+      }
+      if (editingDocument) {
+        if (!editingDocument.version) throw new Error('Thiếu phiên bản phiếu. Vui lòng tải lại.')
+        await saveMutation.mutateAsync({
+          id: editingDocument.id,
+          expectedVersion: editingDocument.version,
+          commandId: crypto.randomUUID(),
+          content: { ...request, stockIssueRequestId: order.id },
+        })
+        toast.success('Đã lưu nháp. Bạn có thể kiểm tra rồi gửi duyệt lại.')
+      } else {
+        await createMutation.mutateAsync({ stockIssueRequestId: order.id, request })
+        toast.success('Đã tạo yêu cầu trả hàng.')
+      }
       closeForm()
     } catch (error) {
       logger.error(formatApiError(error))
@@ -153,10 +197,23 @@ export function useCreateGoodsReturn() {
       },
     },
     openPicker: () => setIsPickerOpen(true),
+    openForEdit: (document: GoodsReturnRequestSummary) => {
+      if (!document.allowedActions?.includes('Update') || !document.version) return
+      if (document.items.some((line) => !line.stockIssuePickDetailId)) {
+        toast.error(
+          'Phiếu cũ thiếu dòng xuất nguồn. Cần đối chiếu trước khi chỉnh sửa để tránh mất dòng hàng.'
+        )
+        return
+      }
+      hydratedSource.current = null
+      setEditingDocument(document)
+      setSourceId(document.stockIssueRequestId)
+    },
     dialog: {
+      isEditing: Boolean(editingDocument),
       order,
       form,
-      isPending: createMutation.isPending,
+      isPending: createMutation.isPending || saveMutation.isPending,
       slotOptions: (slotsQuery.data?.items ?? []).map((slot) => ({
         id: slot.id,
         label: slot.code,

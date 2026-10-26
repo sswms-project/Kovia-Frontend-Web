@@ -15,11 +15,12 @@ import type {
   UpdateSupplierVariables,
 } from '../types/supplier.types'
 
-export function useSuppliersQuery(params: SupplierListQuery) {
+export function useSuppliersQuery(params: SupplierListQuery, enabled = true) {
   return useQuery<SupplierListResponse, ApiErrorResponse>({
     queryKey: queryKeys.suppliers.list(params),
     queryFn: () => supplierService.getSuppliers(params).then((response) => response.data),
     placeholderData: (previousData) => previousData,
+    enabled,
   })
 }
 

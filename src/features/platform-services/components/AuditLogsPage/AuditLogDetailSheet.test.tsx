@@ -34,6 +34,24 @@ const auditLog: AuditLogItem = {
 }
 
 describe('AuditLogDetailSheet', () => {
+  it('explains current catalog references while preserving field comparisons for document edits', () => {
+    render(
+      <AuditLogDetailSheet
+        log={{
+          ...auditLog,
+          oldValue: '{"SchemaVersion":1,"DocumentType":"StockTransfer","Header":{},"Lines":[]}',
+          changes: [
+            { label: 'Sửa dòng hàng: SKU001 · Bia · Số lượng ĐVT', before: '1', after: '2' },
+          ],
+        }}
+        onOpenChange={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/danh mục hiện tại/)).toBeInTheDocument()
+    expect(screen.getByText('Sửa dòng hàng: SKU001 · Bia · Số lượng ĐVT')).toBeInTheDocument()
+    expect(screen.getByText('Trước')).toBeInTheDocument()
+    expect(screen.getByText('Sau')).toBeInTheDocument()
+  })
   it('uses a right-side half-width desktop panel with a separately scrolling body', () => {
     render(<AuditLogDetailSheet log={auditLog} onOpenChange={vi.fn()} />)
     const panel = screen.getByRole('dialog')

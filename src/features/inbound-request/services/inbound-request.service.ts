@@ -71,13 +71,24 @@ export const inboundRequestService = {
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.inboundRequests.update(inboundRequestId), request)
       .then((response) => response.data),
-  deleteInboundRequest: (inboundRequestId: string) =>
+  withdrawInboundRequest: (id: string, request: InboundReconciliationRequest) =>
     axiosClient
-      .delete<ApiResponse<unknown>>(API_ENDPOINTS.inboundRequests.delete(inboundRequestId))
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.inboundRequests.withdraw(id), request)
       .then((response) => response.data),
-  deleteInboundRequests: (ids: readonly string[]) =>
+  deleteInboundRequest: (inboundRequestId: string, expectedVersion: string) =>
     axiosClient
-      .delete<ApiResponse<unknown>>(API_ENDPOINTS.inboundRequests.deleteMany, { data: { ids } })
+      .delete<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.inboundRequests.delete(inboundRequestId), { params: { expectedVersion } })
+      .then((response) => response.data),
+  deleteInboundRequests: (
+    ids: readonly string[],
+    expectedVersions: Readonly<Record<string, string>>
+  ) =>
+    axiosClient
+      .delete<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.inboundRequests.deleteMany, { data: { ids, expectedVersions } })
       .then((response) => response.data),
   submitInboundRequest: (inboundRequestId: string) =>
     axiosClient

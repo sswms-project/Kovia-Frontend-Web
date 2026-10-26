@@ -43,6 +43,16 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 export const stockIssueService = {
+  getAllowedActions: (id: string) =>
+    axiosClient
+      .get<
+        ApiResponse<{ allowedActions: string[] }>
+      >(API_ENDPOINTS.stockIssueRequests.allowedActions(id))
+      .then((response) => response.data.data),
+  withdraw: (id: string, request: { expectedVersion: string; commandId: string; reason: string }) =>
+    axiosClient
+      .post<ApiResponse<unknown>>(API_ENDPOINTS.stockIssueRequests.withdraw(id), request)
+      .then((response) => response.data),
   downloadImportTemplate: async () => {
     const response = await axiosClient.get<Blob>(API_ENDPOINTS.stockIssueRequests.importTemplate, {
       responseType: 'blob',
@@ -236,11 +246,15 @@ export const stockIssueService = {
       >(API_ENDPOINTS.goodsReturnRequests.detail(goodsReturnRequestId))
       .then((response) => response.data),
 
-  approveGoodsReturnRequest: (goodsReturnRequestId: string, selfApprovalAcknowledged = false) =>
+  approveGoodsReturnRequest: (
+    goodsReturnRequestId: string,
+    selfApprovalAcknowledged = false,
+    expectedVersion?: string | null
+  ) =>
     axiosClient
       .post<
         ApiResponse<unknown>
-      >(API_ENDPOINTS.goodsReturnRequests.approve(goodsReturnRequestId), { selfApprovalAcknowledged })
+      >(API_ENDPOINTS.goodsReturnRequests.approve(goodsReturnRequestId), { selfApprovalAcknowledged, expectedVersion })
       .then((response) => response.data),
 
   rejectGoodsReturnRequest: (

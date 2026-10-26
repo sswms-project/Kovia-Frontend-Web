@@ -15,6 +15,8 @@ export const GOODS_RETURN_REQUEST_STATUSES = [
   'Approved',
   'Rejected',
   'Restocked',
+  'Draft',
+  'Cancelled',
 ] as const
 
 export type GoodsReturnRequestStatus = (typeof GOODS_RETURN_REQUEST_STATUSES)[number]
@@ -108,6 +110,7 @@ export interface StockIssuePickDetail {
 }
 
 export interface StockIssueRequestSummary {
+  createdBy?: string | null
   id: string
   stockIssueRequestCode: string
   stockRecipientId: string
@@ -330,6 +333,8 @@ export interface GoodsReturnLineSuggestion {
 }
 
 export interface GoodsReturnRequestItem {
+  unitName?: string | null
+  restockLocation?: string | null
   id: string
   stockIssuePickDetailId: string | null
   productId: string
@@ -343,6 +348,13 @@ export interface GoodsReturnRequestItem {
 }
 
 export interface GoodsReturnRequestSummary {
+  version?: string | null
+  allowedActions?: readonly string[] | null
+  history?: readonly import('@/types/return-document').ReturnDocumentEvent[] | null
+  warehouseName?: string | null
+  recipientName?: string | null
+  createdByName?: string | null
+  approvedByName?: string | null
   id: string
   goodsReturnRequestCode: string
   stockIssueRequestId: string
@@ -376,6 +388,7 @@ export interface GoodsReturnRequestListResponse {
 }
 
 export interface RejectGoodsReturnRequestRequest {
+  expectedVersion?: string | null
   reason: string
 }
 
@@ -386,6 +399,7 @@ export interface RestockGoodsReturnRequestItem {
 }
 
 export interface RestockGoodsReturnRequest {
+  expectedVersion?: string | null
   items: RestockGoodsReturnRequestItem[]
 }
 
@@ -396,6 +410,7 @@ export interface StockIssueRequestFilters {
 
 /** Quyền thao tác trên phiếu xuất, do trang suy ra từ quyền hiệu lực rồi truyền xuống component. */
 export interface StockIssueCapabilities {
+  readonly currentUserId?: string | null
   readonly canCreate: boolean
   readonly canAssignPicker: boolean
   readonly canPick: boolean

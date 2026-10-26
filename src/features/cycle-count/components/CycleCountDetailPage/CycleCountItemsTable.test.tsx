@@ -54,7 +54,7 @@ const detail: CycleCountDetail = {
   warehouseName: 'Kho mẫu',
   zoneId: null,
   zoneName: null,
-  status: 'InProgress',
+  status: 'Counting',
   scheduledDate: '2026-10-25T08:00:00Z',
   priority: 'Normal',
   dueAt: null,

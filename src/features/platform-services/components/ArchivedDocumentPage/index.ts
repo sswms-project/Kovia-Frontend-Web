@@ -1,0 +1,1 @@
+export { ArchivedDocumentDetail } from './ArchivedDocumentDetail'

@@ -1,4 +1,8 @@
-import { toOperationalDateTimeInput, toOperationalDateTimeApi } from '@/lib/operational-date-time'
+import {
+  compareOperationalInstants,
+  toOperationalDateTimeInput,
+  toOperationalDateTimeApi,
+} from '@/lib/operational-date-time'
 import type {
   TransferRequestFormValues,
   TransferLineFormValues,
@@ -108,6 +112,42 @@ export function toSaveDraftRequest(
     note: values.note || null,
     items: toTransferLineInputs(values.lines),
   }
+}
+
+/** A later read can belong to another tab; accept its version only for the content just saved. */
+export function matchesSavedTransferDraft(
+  request: SaveTransferDraftRequest,
+  saved: TransferDetail
+): boolean {
+  const text = (value: string | null | undefined) => value?.trim() || null
+  const sameDate = (expected: string | null | undefined, actual: string | null | undefined) =>
+    !expected || !actual ? !expected && !actual : compareOperationalInstants(expected, actual) === 0
+  if (
+    saved.status !== 'Draft' ||
+    request.sourceWarehouseId !== saved.sourceWarehouseId ||
+    request.destinationWarehouseId !== saved.destinationWarehouseId ||
+    (text(request.transferCode) &&
+      text(request.transferCode)?.toUpperCase() !== saved.transferCode) ||
+    text(request.requesterName) !== text(saved.requesterName) ||
+    text(request.requestingDepartment) !== text(saved.requestingDepartment) ||
+    text(request.reason) !== text(saved.reason) ||
+    text(request.note) !== text(saved.note) ||
+    !sameDate(request.requiredBy, saved.requiredBy) ||
+    !sameDate(request.plannedTransferDate, saved.plannedTransferDate) ||
+    request.items.length !== saved.items.length
+  )
+    return false
+  return request.items.every((input) => {
+    const item = saved.items.find((candidate) => candidate.productId === input.productId)
+    return (
+      item !== undefined &&
+      (!input.itemId || input.itemId === item.id) &&
+      (input.unitId || item.baseUnitId) === item.unitId &&
+      input.quantity === item.requestedQuantity &&
+      (input.destinationSlotId ?? null) === item.destinationSlotId &&
+      (input.sourceSlotId ?? null) === item.sourceSlotId
+    )
+  })
 }
 
 export function toUpdateTransferRequest(

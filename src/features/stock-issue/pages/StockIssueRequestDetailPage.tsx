@@ -9,6 +9,13 @@ import { StockIssueWorkflowDialogs } from '../components/StockIssueWorkflow'
 import { useStockIssueRequestQuery } from '../hooks/use-stock-issue-requests'
 import { useStockIssueWorkflow } from '../hooks/use-stock-issue-workflow'
 import { CrossDockSection } from '../components/CrossDockPanel'
+import {
+  useStockIssueEditingActions,
+  useWithdrawStockIssue,
+} from '../hooks/use-stock-issue-editing'
+import { ReturnDocumentActionDialog } from '@/components/operations/ReturnDocumentActions'
+import { Button } from '@/components/ui/button'
+import { RotateCcw } from 'lucide-react'
 
 export default function StockIssueRequestDetailPage({
   stockIssueRequestId,
@@ -17,6 +24,8 @@ export default function StockIssueRequestDetailPage({
 }) {
   const detailQuery = useStockIssueRequestQuery(stockIssueRequestId)
   const order = detailQuery.data
+  const actions = useStockIssueEditingActions(stockIssueRequestId)
+  const withdraw = useWithdrawStockIssue(order)
   const workflow = useStockIssueWorkflow(order?.warehouseId)
 
   if (detailQuery.isLoading) return <OperationalLoadingState rows={8} />
@@ -31,6 +40,18 @@ export default function StockIssueRequestDetailPage({
   return (
     <div className="min-w-0 shrink-0 pb-3">
       <StockIssueRequestDetail
+        canEdit={actions.data?.allowedActions.includes('Update') ?? false}
+        editingActions={
+          actions.data?.allowedActions.includes('Withdraw') ? (
+            <Button
+              variant="outline"
+              disabled={actions.isFetching || withdraw.dialog.isPending}
+              onClick={withdraw.open}
+            >
+              <RotateCcw /> Thu hồi để sửa
+            </Button>
+          ) : null
+        }
         order={order}
         capabilities={workflow.capabilities}
         handlers={workflow.handlers}
@@ -44,6 +65,10 @@ export default function StockIssueRequestDetailPage({
         pickingPlan={<CrossDockSection key={`${order.id}:${order.version}`} order={order} />}
       />
       <StockIssueWorkflowDialogs workflow={workflow} />
+      <ReturnDocumentActionDialog
+        {...withdraw.dialog}
+        description="Yêu cầu về Chờ xử lý để sửa. Lượng giữ riêng của yêu cầu được nhả, nhân viên không tiếp tục lấy theo phân công cũ. Sau khi sửa cần giao việc lại."
+      />
     </div>
   )
 }

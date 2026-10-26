@@ -191,19 +191,22 @@ describe('Receiving hands off to putaway', () => {
     )
     expect(mock.detailReads.mock.calls.every(([id]) => id === null)).toBe(true)
   })
-  it('does not open putaway when fresh flow 2 receipt keeps stock at receiving', async () => {
-    mock.compact = true
-    mock.receiptFlowVersion = 2
-    mock.freshReceipt = {
-      ...receiptFixture({ status: 'Received', receiptFlowVersion: 2 }),
-      execution,
-      keptAtReceiving: true,
+  it.each(['Received', 'ReceivedWithDiscrepancy', 'AwaitingPutAway'] as const)(
+    'does not automatically open putaway for kept stock even with %s from an older API',
+    async (status) => {
+      mock.compact = true
+      mock.receiptFlowVersion = 2
+      mock.freshReceipt = {
+        ...receiptFixture({ status, receiptFlowVersion: 2 }),
+        execution,
+        keptAtReceiving: true,
+      }
+      render(<TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
+      fireEvent.click(screen.getByText('Xác nhận kiểm hàng'))
+      await waitFor(() => expect(mock.accept).toHaveBeenCalled())
+      expect(mock.push).not.toHaveBeenCalled()
     }
-    render(<TransferReceiveTaskPage transferId={transfer.id} shipmentId={shipment.id} />)
-    fireEvent.click(screen.getByText('Xác nhận kiểm hàng'))
-    await waitFor(() => expect(mock.accept).toHaveBeenCalled())
-    expect(mock.push).not.toHaveBeenCalled()
-  })
+  )
   it('uses fresh compact receipt context without fetching full detail before navigation', async () => {
     mock.compact = true
     mock.freshReceipt = { ...receiptFixture({ status: 'AwaitingPutAway' }), execution }

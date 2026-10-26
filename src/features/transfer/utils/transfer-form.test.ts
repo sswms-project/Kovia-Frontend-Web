@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { TransferReceiveSheet } from '../types/transfer.types'
+import type { TransferDetail, TransferReceiveSheet } from '../types/transfer.types'
 import {
   dispatchedInEnteredUnit,
   emptyTransferForm,
@@ -7,6 +7,7 @@ import {
   toUpdateTransferRequest,
   transferToFormValues,
   visibleTransferItems,
+  matchesSavedTransferDraft,
 } from './transfer-form'
 import {
   buildExpectedReceiptQuantities,
@@ -16,6 +17,57 @@ import {
   toReceiveRequest,
 } from './transfer-receive'
 import { buildTransfer, buildTransferItem } from './transfer-test-fixtures'
+
+describe('saved draft content verification', () => {
+  const changed: Array<[string, Partial<TransferDetail>]> = [
+    ['status', { status: 'PendingSourceAcceptance' }],
+    ['source', { sourceWarehouseId: 'different' }],
+    ['destination', { destinationWarehouseId: 'different' }],
+    ['code', { transferCode: 'DIFFERENT' }],
+    ['requester', { requesterName: 'Another person' }],
+    ['department', { requestingDepartment: 'Another department' }],
+    ['reason', { reason: 'Another reason' }],
+    ['note', { note: 'Another note' }],
+    ['arrival date', { requiredBy: '2026-10-29T08:00:00+07:00' }],
+    ['transfer date', { plannedTransferDate: '2026-10-29T08:00:00+07:00' }],
+    ['removed line', { items: [] }],
+    ['quantity', { items: [buildTransferItem({ requestedQuantity: 11 })] }],
+    ['unit', { items: [buildTransferItem({ unitId: 'different-unit' })] }],
+    ['receiving slot', { items: [buildTransferItem({ destinationSlotId: 'different-slot' })] }],
+    ['source slot', { items: [buildTransferItem({ sourceSlotId: 'different-slot' })] }],
+  ]
+  it.each(changed)('refuses a later version with a changed %s', (_, override) => {
+    const saved = buildTransfer({ status: 'Draft' })
+    const request = toSaveDraftRequest(transferToFormValues(saved), 'original', saved)
+    expect(matchesSavedTransferDraft(request, { ...saved, ...override, version: 'later' })).toBe(
+      false
+    )
+  })
+
+  it('accepts server normalization, generated code and resolved base unit without confusing dates', () => {
+    const saved = buildTransfer({
+      status: 'Draft',
+      reason: 'Lý do',
+      requiredBy: '2026-10-28T01:00:00.1234567Z',
+      note: null,
+    })
+    const request = toSaveDraftRequest(transferToFormValues(saved), null, saved)
+    request.transferCode = null
+    request.reason = ' Lý do '
+    request.note = '  '
+    request.items[0]!.unitId = null
+    expect(matchesSavedTransferDraft(request, saved)).toBe(true)
+    expect(
+      matchesSavedTransferDraft(request, {
+        ...saved,
+        requiredBy: '2026-10-28T08:00:00.1234567+07:00',
+      })
+    ).toBe(true)
+    expect(
+      matchesSavedTransferDraft(request, { ...saved, requiredBy: '2026-10-28T01:00:00.1234568Z' })
+    ).toBe(false)
+  })
+})
 
 describe('transfer form conversion', () => {
   it('starts with one empty line', () => {

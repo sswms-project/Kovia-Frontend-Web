@@ -222,15 +222,14 @@ describe('inbound row navigation and bulk checkboxes', () => {
       screen.getByRole('checkbox', { name: 'Chọn tất cả yêu cầu nhập kho trên trang' })
     ).toBeDisabled()
   })
-  it('allows the backend-authorized owner to delete draft and approved selections together', async () => {
+  it('does not delete an approved selection together with drafts even with the legacy flag', () => {
     const options = directoryProps()
     render(
       <InboundRequestDirectory {...options} canDeleteApproved selectedIds={['draft', 'approved']} />
     )
     const button = screen.getByRole('button', { name: 'Xóa chứng từ' })
-    expect(button).toBeEnabled()
-    await userEvent.setup().click(button)
-    expect(options.onDeleteMany).toHaveBeenCalledExactlyOnceWith(['draft', 'approved'])
+    expect(button).toBeDisabled()
+    expect(options.onDeleteMany).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Gửi duyệt' })).not.toBeInTheDocument()
     expect(screen.queryByText(/^\d+ đơn$/)).not.toBeInTheDocument()
     expect(screen.getByText('Tổng số:')).toBeInTheDocument()

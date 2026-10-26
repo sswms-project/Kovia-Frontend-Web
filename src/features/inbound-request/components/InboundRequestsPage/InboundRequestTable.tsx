@@ -27,6 +27,7 @@ import { InboundRequestStatusBadge, SupplierResponseHint } from './InboundReques
 import { InboundRequestRowActions } from './InboundRequestRowActions'
 
 interface InboundRequestTableProps {
+  readonly currentUserId?: string | null
   readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canDelete: boolean
@@ -104,6 +105,7 @@ export function InboundRequestTableSkeleton() {
 }
 
 export function InboundRequestTable({
+  currentUserId,
   onOpen,
   items,
   canDelete,
@@ -229,6 +231,7 @@ export function InboundRequestTable({
               </TableCell>
               <TableCell data-row-ignore className="text-right">
                 <InboundRequestRowActions
+                  currentUserId={currentUserId}
                   item={item}
                   canCreate={canCreate}
                   canSubmit={canSubmit}

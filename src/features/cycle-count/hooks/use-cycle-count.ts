@@ -31,11 +31,12 @@ export function useCycleCountsQuery(params: CycleCountListQuery) {
   })
 }
 
-export function useNextCycleCountCodeQuery(sessionKey: string) {
+export function useNextCycleCountCodeQuery(sessionKey: string, enabled = true) {
   return useQuery({
     queryKey: [...queryKeys.cycleCounts.all, 'next-code', sessionKey],
     queryFn: () => cycleCountService.getNextCode().then((response) => response.data),
     staleTime: 0,
+    enabled,
   })
 }
 
@@ -99,6 +100,23 @@ export function useCreateCycleCountMutation() {
   const invalidate = useInvalidateCycleCount()
   return useMutation<ApiResponse<string>, ApiErrorResponse, CreateCycleCountRequest>({
     mutationFn: cycleCountService.createCycleCount,
+    onSuccess: async () => invalidate(),
+    onError: (error) => logger.error(error),
+  })
+}
+
+export function useUpdateCycleCountMutation() {
+  const invalidate = useInvalidateCycleCount()
+  return useMutation({
+    mutationFn: ({
+      id,
+      expectedVersion,
+      request,
+    }: {
+      id: string
+      expectedVersion: string
+      request: CreateCycleCountRequest
+    }) => cycleCountService.updateCycleCount(id, expectedVersion, request),
     onSuccess: async () => invalidate(),
     onError: (error) => logger.error(error),
   })

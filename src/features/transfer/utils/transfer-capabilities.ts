@@ -154,12 +154,43 @@ export function getTransferCapabilities(
       has(viewer, P.TRANSFERS_DISPATCH) &&
       manages(viewer, transfer.sourceWarehouseId),
     canWithdrawRequest:
-      transfer.status === 'PendingSourceAcceptance' &&
+      ['PendingSourceAcceptance', 'Rejected', 'InProgress'].includes(transfer.status) &&
+      !transfer.shipments?.length &&
+      !transfer.hasOpenFeedback &&
+      !hasOpenFeedback(transfer.feedbacks) &&
+      !transfer.dispatchedAt &&
+      !transfer.receivedAt &&
+      transfer.items.every(
+        (item) =>
+          item.batchedQuantity === 0 &&
+          item.pickedQuantity === 0 &&
+          item.dispatchedQuantity === 0 &&
+          item.receivedQuantity === 0 &&
+          item.damagedQuantity === 0 &&
+          item.missingQuantity === 0 &&
+          (item.putAwayQuantity ?? 0) === 0 &&
+          item.stoppedQuantity === 0
+      ) &&
       canCreate &&
       isCreator &&
       manages(viewer, transfer.destinationWarehouseId),
-    canEditDraft: canCreate && isOwnDraft,
-    canEdit: canCreate && mayChange && isInProgress && !transfer.approvedAt,
+    canEditDraft: canCreate && isOwnDraft && manages(viewer, transfer.destinationWarehouseId),
+    canEdit:
+      canCreate &&
+      mayChange &&
+      isInProgress &&
+      !transfer.approvedAt &&
+      !transfer.shipments?.length &&
+      transfer.items.every(
+        (item) =>
+          item.pickedQuantity === 0 &&
+          item.dispatchedQuantity === 0 &&
+          item.receivedQuantity === 0 &&
+          item.damagedQuantity === 0 &&
+          item.missingQuantity === 0 &&
+          (item.putAwayQuantity ?? 0) === 0 &&
+          item.stoppedQuantity === 0
+      ),
     canGiveFeedback:
       isOpen &&
       ((has(viewer, P.TRANSFERS_DISPATCH) && manages(viewer, transfer.sourceWarehouseId)) ||

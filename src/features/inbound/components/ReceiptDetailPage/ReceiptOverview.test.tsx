@@ -4,21 +4,48 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { GoodsReceiptDetail } from '../../types/inbound.types'
 import { ReceiptOverview } from './ReceiptOverview'
 
-// Only the receipt overview's read fields are needed; no actions or quantities are mutated here.
-const receipt = {
+const receipt: GoodsReceiptDetail = {
   id: 'receipt',
+  receiptCode: 'GR000010',
+  inboundRequestId: 'request',
   inboundRequestCode: 'NK000010',
+  warehouseId: 'warehouse',
+  warehouseCode: 'KHO',
   warehouseName: 'Kho nhận',
   status: 'Approved',
+  receivingAssignedTo: 'receiver',
   receivingAssignedToName: 'Nhân viên nhận',
+  createdBy: 'creator',
   createdByName: 'Người tạo phiếu',
   createdAt: '2026-10-25T08:00:00Z',
+  putAwayAssignedTo: 'putaway-staff',
   putAwayAssignedToName: 'Nhân viên cất',
+  putAwayAssignedAt: null,
+  putAwayTaskPriority: 'Normal',
+  putAwayTaskDueAt: null,
+  putAwayTaskExecutionStatus: 'Queued',
+  putAwayTaskCancelledAt: null,
+  putAwayTaskCancellationReason: null,
+  putAwayTaskRequiresReconciliation: false,
+  putAwayTaskReconciledAt: null,
+  putAwayTaskReconciliationNote: null,
+  putAwayPlanUpdatedAt: null,
+  approvedBy: 'manager',
   approvedByName: 'Quản lý',
+  modifiedAt: null,
+  submittedAt: null,
+  approvedAt: null,
+  arrivalConfirmedBy: null,
+  arrivalConfirmedAt: null,
+  receivingSlotId: null,
+  arrivalStockPostedAt: null,
+  sourceRequestVersion: null,
+  version: 'AQ==',
+  history: [],
   receivingFlowVersion: 1,
   items: [],
   rejectionReason: 'Cần kiểm tra lại số lượng',
-} as GoodsReceiptDetail
+}
 
 afterEach(cleanup)
 

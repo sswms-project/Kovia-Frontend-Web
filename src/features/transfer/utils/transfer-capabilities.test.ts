@@ -65,12 +65,13 @@ describe('getTransferCapabilities', () => {
     })
   })
 
-  it('lets the creator edit and cancel an in-progress transfer that has not shipped', () => {
+  it('preserves editing for older requests without acceptance or execution', () => {
     const result = getTransferCapabilities(
       viewer([P.TRANSFERS_CREATE, P.TRANSFERS_CANCEL]),
       buildTransfer()
     )
     expect(result.canEdit).toBe(true)
+    expect(result.canWithdrawRequest).toBe(true)
     expect(result.closingAction).toBe('cancel')
   })
 

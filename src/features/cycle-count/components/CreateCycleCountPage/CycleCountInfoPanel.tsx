@@ -25,7 +25,7 @@ interface CycleCountInfoPanelProps {
   readonly staff: readonly SelectOption[]
   readonly hasWarehouse: boolean
   readonly selectedCount: number
-  readonly selectedQuantity: number
+  readonly selectedQuantity: number | null
 }
 
 export function CycleCountInfoPanel({
@@ -187,8 +187,14 @@ export function CycleCountInfoPanel({
           />
         </div>
         <p className="bg-muted/50 border p-3 text-sm">
-          Đã chọn <span className="font-semibold">{selectedCount}</span> dòng · tổng tồn hệ thống{' '}
-          <span className="font-mono font-semibold">{selectedQuantity}</span>
+          Đã chọn <span className="font-semibold">{selectedCount}</span> dòng
+          {selectedQuantity !== null ? (
+            <>
+              {' '}
+              · tổng tồn hệ thống{' '}
+              <span className="font-mono font-semibold">{selectedQuantity}</span>
+            </>
+          ) : null}
         </p>
       </div>
     </aside>

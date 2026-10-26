@@ -1,9 +1,39 @@
 import { describe, expect, it } from 'vitest'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { notificationCreatedEventSchema } from '../schemas/platform-services.schema'
-import { getNotificationReferenceRoute, notificationActionRoutes } from './platform-services-format'
+import {
+  getArchivedDocumentHref,
+  getNotificationReferenceRoute,
+  notificationActionRoutes,
+} from './platform-services-format'
 
 const id = '11111111-1111-4111-8111-111111111111'
+
+describe('deleted document audit links', () => {
+  it.each(['InboundRequest', 'StockTransfer', 'GoodsReturnRequest', 'SupplierReturnRequest'])(
+    'links supported deleted %s documents to a read-only page',
+    (entityType) => {
+      expect(getArchivedDocumentHref({ entityType, entityId: id, action: 'DeleteDraft' })).toBe(
+        APP_ROUTES.archivedDocument(entityType, id)
+      )
+    }
+  )
+  it('does not link non-delete actions, unrelated entities or invalid ids', () => {
+    expect(
+      getArchivedDocumentHref({ entityType: 'InboundRequest', entityId: id, action: 'Update' })
+    ).toBeNull()
+    expect(
+      getArchivedDocumentHref({ entityType: 'User', entityId: id, action: 'Delete' })
+    ).toBeNull()
+    expect(
+      getArchivedDocumentHref({
+        entityType: 'InboundRequest',
+        entityId: '../other',
+        action: 'Delete',
+      })
+    ).toBeNull()
+  })
+})
 
 describe('getNotificationReferenceRoute', () => {
   it.each([null, 'ViewStockIssueRequests', 'UnknownFutureAction'])(
@@ -196,7 +226,7 @@ describe('getNotificationReferenceRoute', () => {
         referenceType: 'SupplierReturnRequest',
         referenceId: id,
       })
-    ).toBe(`${APP_ROUTES.supplierReturns}?id=${id}`)
+    ).toBe(APP_ROUTES.supplierReturnDetail(id))
   })
 
   it('accepts realtime supplier return events', () => {
