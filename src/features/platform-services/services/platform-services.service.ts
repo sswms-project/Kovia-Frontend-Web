@@ -1,6 +1,7 @@
 import { axiosClient } from '@/lib/axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse } from '@/types/api'
+import type { ArchivedDocument } from '../types/archived-document.types'
 import type {
   AuditLogListResponse,
   AuditLogQuery,
@@ -9,6 +10,10 @@ import type {
 } from '../types/platform-services.types'
 
 export const platformServicesService = {
+  getArchivedDocument: (documentType: string, id: string) =>
+    axiosClient
+      .get<ApiResponse<ArchivedDocument>>(API_ENDPOINTS.archivedDocument(documentType, id))
+      .then((response) => response.data.data),
   getNotifications: (params: NotificationQuery) =>
     axiosClient
       .get<ApiResponse<NotificationListResponse>>(API_ENDPOINTS.notifications.list, { params })

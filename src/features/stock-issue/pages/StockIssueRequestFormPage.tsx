@@ -56,6 +56,7 @@ import {
 import { stockIssueService } from '../services/stock-issue.service'
 import type { StockIssueProductOption } from '../types/stock-issue.types'
 import { canEditStockIssueRequest, formatStockIssueQuantity } from '../utils/stock-issue-format'
+import { useStockIssueEditingActions } from '../hooks/use-stock-issue-editing'
 
 const EMPTY_LINE = { productId: '', quantity: 1, unitId: '', note: '' }
 const LOOKUP_PAGE_SIZE = 20
@@ -123,6 +124,7 @@ export default function StockIssueRequestFormPage({
   const selectedRecipientId = useWatch({ control: form.control, name: 'stockRecipientId' })
 
   const detailQuery = useStockIssueRequestQuery(stockIssueRequestId ?? null)
+  const editingActions = useStockIssueEditingActions(stockIssueRequestId ?? '')
   const warehousesQuery = useWarehousesQuery({
     top: LOOKUP_PAGE_SIZE,
     skip: 0,
@@ -469,7 +471,8 @@ export default function StockIssueRequestFormPage({
   }
 
   if (isEditing) {
-    if (detailQuery.isLoading) return <OperationalLoadingState rows={8} />
+    if (detailQuery.isLoading || editingActions.isLoading)
+      return <OperationalLoadingState rows={8} />
     if (detailQuery.isError || !detailQuery.data)
       return (
         <OperationalErrorState
@@ -477,7 +480,10 @@ export default function StockIssueRequestFormPage({
           onRetry={() => void detailQuery.refetch()}
         />
       )
-    if (!canEditStockIssueRequest(detailQuery.data.status))
+    if (
+      !canEditStockIssueRequest(detailQuery.data.status) ||
+      !editingActions.data?.allowedActions.includes('Update')
+    )
       return (
         <div className="flex flex-col items-start gap-3 border p-4">
           <p className="text-sm font-medium">Phiếu xuất này không còn chỉnh sửa được</p>

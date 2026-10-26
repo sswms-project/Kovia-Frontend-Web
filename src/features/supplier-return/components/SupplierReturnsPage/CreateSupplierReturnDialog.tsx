@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { InventoryStock } from '@/features/inventory/types/inventory.types'
 import {
   formatEligibilityStatus,
+  formatInventoryLocation,
   formatInventoryQuantity,
   formatQualityStatus,
 } from '@/features/inventory/utils/inventory-format'
@@ -38,7 +39,7 @@ function describeStock(stock: InventoryStock): string {
   return [
     stock.sku,
     stock.productName,
-    stock.slotCode,
+    formatInventoryLocation(stock),
     stock.lotNumber ? `Lô ${stock.lotNumber}` : null,
     stock.qualityStatus === 'Good' && stock.eligibilityStatus === 'Available'
       ? null
@@ -50,6 +51,7 @@ function describeStock(stock: InventoryStock): string {
 }
 
 export function CreateSupplierReturnDialog({
+  isEditing = false,
   open,
   form,
   warehouses,
@@ -65,6 +67,7 @@ export function CreateSupplierReturnDialog({
   onOpenChange,
   onSubmit,
 }: {
+  readonly isEditing?: boolean
   readonly open: boolean
   readonly form: UseFormReturn<CreateSupplierReturnFormValues>
   readonly warehouses: readonly Option[]
@@ -95,7 +98,7 @@ export function CreateSupplierReturnDialog({
     if (!stock || chosenIds.has(stock.id)) return
     lines.append({
       inventoryStockId: stock.id,
-      label: `${stock.sku} · ${stock.productName} · ${stock.slotCode}${stock.lotNumber ? ` · Lô ${stock.lotNumber}` : ''}`,
+      label: `${stock.sku} · ${stock.productName} · ${formatInventoryLocation(stock)}${stock.lotNumber ? ` · Lô ${stock.lotNumber}` : ''}`,
       maxQuantity: returnableQuantity(stock),
       unit: stock.unitName ?? '',
       quantity: returnableQuantity(stock),
@@ -109,10 +112,11 @@ export function CreateSupplierReturnDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Lập phiếu trả hàng NCC</DialogTitle>
+          <DialogTitle>{isEditing ? 'Sửa nháp trả NCC' : 'Lập phiếu trả hàng NCC'}</DialogTitle>
           <DialogDescription>
-            Số lượng trả được giữ trên tồn kho ngay khi lập phiếu. Có thể trả = tồn − đã giữ, kể cả
-            hàng đang bị giữ do hư hỏng.
+            {isEditing
+              ? 'Lưu nháp chưa giữ tồn. Hệ thống kiểm tra lại tồn khả dụng khi bạn gửi duyệt lại.'
+              : 'Số lượng trả được giữ trên tồn kho ngay khi lập phiếu. Có thể trả = tồn − đã giữ, kể cả hàng đang bị giữ do hư hỏng.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
@@ -258,7 +262,7 @@ export function CreateSupplierReturnDialog({
                     className="grid gap-3 border p-3 sm:grid-cols-[1fr_9rem_auto] sm:items-start"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-medium break-words">{line.label}</p>
+                      <p className="text-sm font-medium wrap-anywhere">{line.label}</p>
                       <p className="text-muted-foreground text-xs">
                         Có thể trả: {formatInventoryQuantity(line.maxQuantity)} {line.unit}
                       </p>
@@ -300,7 +304,7 @@ export function CreateSupplierReturnDialog({
             </Button>
             <Button type="submit" disabled={isPending}>
               {isPending ? <Spinner data-icon="inline-start" /> : null}
-              Lập phiếu
+              {isEditing ? 'Lưu nháp' : 'Lập phiếu'}
             </Button>
           </DialogFooter>
         </form>

@@ -1,5 +1,9 @@
 'use client'
 
+import Link from 'next/link'
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
+
 import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import { Check, Eye, MoreHorizontal, Plus, Search, Undo2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -47,6 +51,7 @@ import { RETURN_STATUS_LABELS, formatStockIssueDate } from '../../utils/stock-is
 import { GoodsReturnRequestStatusBadge } from './GoodsReturnRequestStatusBadge'
 
 interface GoodsReturnRequestDirectoryProps {
+  readonly detailHref?: (id: string) => string
   readonly items: readonly GoodsReturnRequestSummary[]
   readonly totalCount: number
   readonly page: number
@@ -78,6 +83,7 @@ interface GoodsReturnRequestDirectoryProps {
 }
 
 export function GoodsReturnRequestDirectory({
+  detailHref = APP_ROUTES.goodsReturnRequestDetail,
   items,
   totalCount,
   page,
@@ -254,7 +260,12 @@ export function GoodsReturnRequestDirectory({
                   >
                     <ItemContent className="min-w-0">
                       <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
-                        <span className="font-mono">{item.goodsReturnRequestCode}</span>
+                        <Link
+                          className="font-mono underline-offset-4 hover:underline"
+                          href={detailHref(item.id) as Route}
+                        >
+                          {item.goodsReturnRequestCode}
+                        </Link>
                         <GoodsReturnRequestStatusBadge status={item.status} />
                       </ItemTitle>
                       <ItemDescription>
@@ -284,7 +295,14 @@ export function GoodsReturnRequestDirectory({
               <TableBody>
                 {items.map((item) => (
                   <ClickableTableRow key={item.id} onActivate={() => onInspect(item)}>
-                    <TableCell className="font-mono">{item.goodsReturnRequestCode}</TableCell>
+                    <TableCell className="font-mono">
+                      <Link
+                        className="underline-offset-4 hover:underline"
+                        href={detailHref(item.id) as Route}
+                      >
+                        {item.goodsReturnRequestCode}
+                      </Link>
+                    </TableCell>
                     <TableCell className="font-mono">{item.stockIssueRequestCode}</TableCell>
                     <TableCell className="max-w-64 truncate">{item.reason}</TableCell>
                     <TableCell>

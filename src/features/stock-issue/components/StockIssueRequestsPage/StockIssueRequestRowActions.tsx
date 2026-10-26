@@ -64,7 +64,9 @@ export function StockIssueRequestRowActions({
             Xem chi tiết
           </Link>
         </DropdownMenuItem>
-        {capabilities.canCreate && canEditStockIssueRequest(order.status) ? (
+        {capabilities.canCreate &&
+        capabilities.currentUserId === order.createdBy &&
+        canEditStockIssueRequest(order.status) ? (
           <DropdownMenuItem asChild>
             <Link href={APP_ROUTES.stockIssueRequestEdit(order.id) as Route}>
               <Pencil aria-hidden="true" />

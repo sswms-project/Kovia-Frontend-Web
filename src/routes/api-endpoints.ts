@@ -1,5 +1,7 @@
 export const API_ENDPOINTS = {
   listExports: '/list-exports',
+  archivedDocument: (documentType: string, id: string) =>
+    `/archived-documents/${encodeURIComponent(documentType)}/${encodeURIComponent(id)}`,
   dashboard: {
     stockThresholdAlerts: '/dashboard/stock-alerts/thresholds',
     stockExpiryAlerts: '/dashboard/stock-alerts/expiry',
@@ -248,6 +250,7 @@ export const API_ENDPOINTS = {
     update: (inboundRequestId: string) => `/inbound-requests/${inboundRequestId}`,
     delete: (inboundRequestId: string) => `/inbound-requests/${inboundRequestId}`,
     deleteMany: '/inbound-requests/batch',
+    withdraw: (id: string) => `/inbound-requests/${id}/withdraw`,
     submit: (inboundRequestId: string) => `/inbound-requests/${inboundRequestId}/submit`,
     submitMany: '/inbound-requests/batch/submit',
     approve: (inboundRequestId: string) => `/inbound-requests/${inboundRequestId}/approve`,
@@ -387,6 +390,7 @@ export const API_ENDPOINTS = {
     invoiceData: (paymentId: string) => `/payments/${paymentId}/invoice-data`,
   },
   transfers: {
+    deleteDraft: (id: string) => `/transfers/drafts/${id}`,
     assignmentSnapshot: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/assignment-snapshot`,
     decision: (id: string) => `/transfers/${id}/decision`,
@@ -468,6 +472,8 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/discrepancies/${discrepancyId}/resolve`,
   },
   stockIssueRequests: {
+    allowedActions: (id: string) => `/stock-issue-requests/${id}/allowed-actions`,
+    withdraw: (id: string) => `/stock-issue-requests/${id}/withdraw`,
     nextCode: '/stock-issue-requests/next-code',
     importPreview: '/stock-issue-requests/import/preview',
     importInspect: '/stock-issue-requests/import/inspect',
@@ -512,6 +518,12 @@ export const API_ENDPOINTS = {
     restock: (goodsReturnRequestId: string) =>
       `/goods-return-requests/${goodsReturnRequestId}/restock`,
   },
+  returnDocumentAction: (
+    kind: 'goodsReturnRequests' | 'supplierReturns',
+    id: string,
+    action: 'Withdraw' | 'Submit' | 'DeleteDraft' | 'Cancel'
+  ) =>
+    `/${kind === 'goodsReturnRequests' ? 'goods-return-requests' : 'supplier-returns'}/${id}/${action === 'DeleteDraft' ? 'draft' : action.toLowerCase()}`,
   supplierReturns: {
     list: '/supplier-returns',
     detail: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}`,

@@ -68,6 +68,18 @@ function renderDetail(
 }
 
 describe('inbound document information disclosure', () => {
+  it('deletes a draft without requiring an invisible reason field', async () => {
+    const user = userEvent.setup()
+    const handlers = renderDetail(request({ status: 'Draft', version: 'original-version' }), [
+      'Delete',
+    ])
+    await user.click(screen.getByRole('button', { name: 'Xóa nháp' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Xác nhận' }))
+    expect(handlers.onReconcile).toHaveBeenCalledWith('Delete', '', 'original-version')
+  })
+
   it('keeps progress and correction instructions visible while the shared toggle hides metadata', async () => {
     const user = userEvent.setup()
     render(

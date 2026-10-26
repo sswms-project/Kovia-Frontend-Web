@@ -23,6 +23,7 @@ import { InboundRequestTable, InboundRequestTableSkeleton } from './InboundReque
 import { InboundRequestMobileList } from './InboundRequestMobileList'
 
 interface InboundRequestDirectoryProps {
+  readonly currentUserId?: string | null
   readonly previewId?: string
   readonly onPreview?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
@@ -72,6 +73,7 @@ interface InboundRequestDirectoryProps {
 }
 
 export function InboundRequestDirectory({
+  currentUserId,
   previewId,
   onPreview,
   items,
@@ -129,10 +131,8 @@ export function InboundRequestDirectory({
   const deletableIds = selectedItems
     .filter(
       (item) =>
-        item.status === INBOUND_REQUEST_STATUS.Draft ||
-        (canDeleteApproved &&
-          item.status === INBOUND_REQUEST_STATUS.Approved &&
-          item.receivedQuantity === 0)
+        item.status === INBOUND_REQUEST_STATUS.Draft &&
+        (canDelete || (canCreate && item.createdBy === currentUserId))
     )
     .map((item) => item.id)
   const selectedDraftIds = selectedStatus === INBOUND_REQUEST_STATUS.Draft ? visibleSelectedIds : []
@@ -141,7 +141,8 @@ export function InboundRequestDirectory({
   const allSelected =
     selectAllIds.length > 0 && selectAllIds.every((id) => selectedIds.includes(id))
   const showDraftActions =
-    selectedStatus === INBOUND_REQUEST_STATUS.Draft && (canSubmit || canDelete)
+    selectedStatus === INBOUND_REQUEST_STATUS.Draft &&
+    (canSubmit || canDelete || deletableIds.length > 0)
   const showApproveAction = selectedStatus === INBOUND_REQUEST_STATUS.PendingApproval && canApprove
 
   return (
@@ -169,7 +170,7 @@ export function InboundRequestDirectory({
                     }
                     showDraftActions={showDraftActions}
                     showApproveAction={showApproveAction}
-                    canDelete={canDelete}
+                    canDelete={canDelete || deletableIds.length > 0}
                     canSubmit={canSubmit}
                     draftIds={selectedDraftIds}
                     deletableIds={deletableIds}
@@ -225,6 +226,7 @@ export function InboundRequestDirectory({
               />
             </div>
             <InboundRequestTable
+              currentUserId={currentUserId}
               previewId={previewId}
               onPreview={onPreview}
               items={items}

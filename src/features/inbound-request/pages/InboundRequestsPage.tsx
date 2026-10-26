@@ -53,7 +53,11 @@ import {
 
 type DeleteIntent =
   | { readonly kind: 'single'; readonly item: InboundRequestSummary }
-  | { readonly kind: 'many'; readonly ids: readonly string[] }
+  | {
+      readonly kind: 'many'
+      readonly ids: readonly string[]
+      readonly expectedVersions: Record<string, string>
+    }
 type WorkflowIntent = {
   readonly action: 'submit' | 'approve'
   readonly ids: readonly string[]
@@ -107,23 +111,30 @@ export default function InboundRequestsPage() {
     if (!intent) return
 
     if (intent.kind === 'single') {
-      deleteMutation.mutate(intent.item.id, {
-        onSuccess: () => {
-          setSelectedIds((ids) => ids.filter((id) => id !== intent.item.id))
-          toast.success('Đã xoá yêu cầu nhập kho.')
-        },
-        onError: (error) => toast.error(error.message || 'Không thể xoá yêu cầu nhập kho.'),
-      })
+      deleteMutation.mutate(
+        { id: intent.item.id, expectedVersion: intent.item.version ?? '' },
+        {
+          onSuccess: () => {
+            setSelectedIds((ids) => ids.filter((id) => id !== intent.item.id))
+            toast.success('Đã xoá yêu cầu nhập kho.')
+          },
+          onError: (error) => toast.error(error.message || 'Không thể xoá yêu cầu nhập kho.'),
+        }
+      )
       return
     }
 
-    deleteManyMutation.mutate(intent.ids, {
-      onSuccess: () => {
-        setSelectedIds([])
-        toast.success('Đã xoá các phiếu nhập kho đã chọn.')
-      },
-      onError: (error) => toast.error(error.message || 'Không thể xoá các phiếu nhập kho đã chọn.'),
-    })
+    deleteManyMutation.mutate(
+      { ids: intent.ids, expectedVersions: intent.expectedVersions },
+      {
+        onSuccess: () => {
+          setSelectedIds([])
+          toast.success('Đã xoá các phiếu nhập kho đã chọn.')
+        },
+        onError: (error) =>
+          toast.error(error.message || 'Không thể xoá các phiếu nhập kho đã chọn.'),
+      }
+    )
   }
 
   function confirmWorkflowAction(event: React.MouseEvent<HTMLButtonElement>) {
@@ -228,6 +239,7 @@ export default function InboundRequestsPage() {
             isStatsError={query.isError}
             isFetching={query.isFetching}
             isError={query.isError}
+            currentUserId={meQuery.data?.id}
             canDelete={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_DELETE) ?? false}
             canDeleteApproved={query.data?.canDeleteApprovedRequests ?? false}
             canEdit={query.data?.canEditRequests ?? false}
@@ -285,7 +297,18 @@ export default function InboundRequestsPage() {
                   toast.error(error.message || 'Không thể sao chép yêu cầu nhập kho.'),
               })
             }
-            onDeleteMany={(ids) => ids.length > 0 && setDeleteIntent({ kind: 'many', ids })}
+            onDeleteMany={(ids) =>
+              ids.length > 0 &&
+              setDeleteIntent({
+                kind: 'many',
+                ids,
+                expectedVersions: Object.fromEntries(
+                  (query.data?.items ?? [])
+                    .filter((item) => ids.includes(item.id))
+                    .map((item) => [item.id, item.version ?? ''])
+                ),
+              })
+            }
             onSubmitMany={(ids) => ids.length > 0 && setWorkflowIntent({ action: 'submit', ids })}
             onApproveMany={(ids) => ids.length > 0 && setWorkflowIntent({ action: 'approve', ids })}
           />

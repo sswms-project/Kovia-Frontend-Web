@@ -18,6 +18,8 @@ export const STOCK_ISSUE_REQUEST_STATUS_LABELS: Record<StockIssueRequestStatus, 
 }
 
 export const RETURN_STATUS_LABELS: Record<GoodsReturnRequestStatus, string> = {
+  Draft: 'Nháp',
+  Cancelled: 'Đã hủy',
   Requested: 'Chờ duyệt',
   Approved: 'Đã duyệt',
   Rejected: 'Bị từ chối',

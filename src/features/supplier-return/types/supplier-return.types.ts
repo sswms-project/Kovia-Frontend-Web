@@ -4,9 +4,21 @@ import type {
 } from '@/features/inventory/types/inventory.types'
 
 // Mirrors Kovia_BE Contract/Models/SupplierReturn/SupplierReturnResponses.cs.
-export type SupplierReturnStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' | 'Completed'
+export const SUPPLIER_RETURN_STATUSES = [
+  'Pending',
+  'Approved',
+  'Rejected',
+  'Cancelled',
+  'Completed',
+  'Draft',
+] as const
+export type SupplierReturnStatus = (typeof SUPPLIER_RETURN_STATUSES)[number]
 
 export interface SupplierReturnItem {
+  readonly availableQuantity?: number | null
+  readonly zoneCode?: string | null
+  readonly rackCode?: string | null
+  readonly isSystemDefaultSlot?: boolean
   readonly quantityPrecision?: number | null
   readonly id: string
   readonly inventoryStockId: string
@@ -25,6 +37,8 @@ export interface SupplierReturnItem {
 }
 
 export interface SupplierReturn {
+  allowedActions?: readonly string[] | null
+  history?: readonly import('@/types/return-document').ReturnDocumentEvent[] | null
   readonly version?: string | null
   readonly id: string
   readonly code: string
@@ -86,9 +100,11 @@ export interface CreateSupplierReturnRequest {
 }
 
 export interface SupplierReturnReasonRequest {
+  readonly expectedVersion?: string | null
   readonly reason: string
 }
 
 export interface ConfirmSupplierReturnDeliveryRequest {
+  readonly expectedVersion?: string | null
   readonly lines: readonly { itemId: string; deliveredQuantity: number }[]
 }

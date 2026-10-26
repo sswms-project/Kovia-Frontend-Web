@@ -27,6 +27,7 @@ import { InboundRequestStatusBadge } from './InboundRequestStatusBadge'
 import { InboundRequestRowActions } from './InboundRequestRowActions'
 
 interface InboundRequestTableProps {
+  readonly currentUserId?: string | null
   readonly previewId?: string
   readonly onPreview?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
@@ -105,6 +106,7 @@ export function InboundRequestTableSkeleton() {
 }
 
 export function InboundRequestTable({
+  currentUserId,
   previewId,
   onPreview,
   items,
@@ -231,6 +233,7 @@ export function InboundRequestTable({
               </TableCell>
               <TableCell data-row-ignore className="text-right">
                 <InboundRequestRowActions
+                  currentUserId={currentUserId}
                   item={item}
                   canCreate={canCreate}
                   canSubmit={canSubmit}

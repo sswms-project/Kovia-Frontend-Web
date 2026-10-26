@@ -2,9 +2,21 @@ import { queryKeys } from '@/lib/query-keys'
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { NotificationItem, NotificationType } from '../types/platform-services.types'
+import type { AuditLogItem } from '../types/platform-services.types'
+import { ARCHIVED_DOCUMENT_LABELS } from '../types/archived-document.types'
 
 const TZ = 'Asia/Ho_Chi_Minh'
 const notificationReferenceIdSchema = nonEmptyDotNetGuidSchema('Tham chiếu không hợp lệ.')
+
+export function getArchivedDocumentHref(
+  log: Pick<AuditLogItem, 'entityType' | 'entityId' | 'action'>
+) {
+  return ['Delete', 'DeleteDraft'].includes(log.action) &&
+    Object.hasOwn(ARCHIVED_DOCUMENT_LABELS, log.entityType) &&
+    notificationReferenceIdSchema.safeParse(log.entityId).success
+    ? APP_ROUTES.archivedDocument(log.entityType, log.entityId)
+    : null
+}
 
 const dateTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
   day: '2-digit',
@@ -55,6 +67,20 @@ export function getNotificationReferenceRoute(
   // Old assignment notifications point at a management-only document instead of the task.
   if (notification.type === 'TaskAssigned' && referenceType === 'InboundRequest')
     return APP_ROUTES.myTasks
+
+  if (
+    (referenceType === 'GoodsReturnRequest' || referenceType === 'SupplierReturnRequest') &&
+    (!action || action === 'ViewGoodsReturnRequests' || !notificationActionRoutes[action])
+  ) {
+    const list =
+      referenceType === 'GoodsReturnRequest'
+        ? APP_ROUTES.goodsReturnRequests
+        : APP_ROUTES.supplierReturns
+    if (!referenceId || !notificationReferenceIdSchema.safeParse(referenceId).success) return list
+    return referenceType === 'GoodsReturnRequest'
+      ? APP_ROUTES.goodsReturnRequestDetail(referenceId)
+      : APP_ROUTES.supplierReturnDetail(referenceId)
+  }
 
   // The backend's legacy list action still carries the exact outbound request reference.
   if (
@@ -131,6 +157,7 @@ const notificationReferenceDetailKeys: Record<string, (id: string) => readonly s
   GoodsReceipt: queryKeys.goodsReceipts.detail,
   Product: queryKeys.products.detail,
   SupplierReturnRequest: queryKeys.supplierReturns.detail,
+  GoodsReturnRequest: queryKeys.goodsReturnRequests.detail,
 }
 
 /**
@@ -164,8 +191,8 @@ const notificationReferenceRoutes: Record<string, (id: string) => string> = {
   StockTransfer: APP_ROUTES.transferDetail,
   WarehouseTask: () => APP_ROUTES.myTasks,
   StockIssueRequest: (id) => APP_ROUTES.stockIssueRequestDetail(id),
-  GoodsReturnRequest: () => APP_ROUTES.goodsReturnRequests,
-  SupplierReturnRequest: (id) => `${APP_ROUTES.supplierReturns}?id=${id}`,
+  GoodsReturnRequest: APP_ROUTES.goodsReturnRequestDetail,
+  SupplierReturnRequest: APP_ROUTES.supplierReturnDetail,
   DamageCase: () => APP_ROUTES.inventoryDamageCases,
   OpeningStockRecord: () => APP_ROUTES.inventoryOpeningStocks,
   StockDiscrepancyReport: () => APP_ROUTES.inventoryDiscrepancies,

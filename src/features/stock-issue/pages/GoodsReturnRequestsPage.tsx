@@ -1,6 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
+import { useReturnListState } from '@/hooks/use-return-list-state'
+import { useReturnDocumentEditing } from '@/hooks/use-return-document-editing'
+import {
+  ReturnDocumentActions,
+  ReturnDocumentActionDialog,
+} from '@/components/operations/ReturnDocumentActions'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -19,7 +28,7 @@ import {
   SelectStockIssueForReturnDialog,
   SelfApproveGoodsReturnDialog,
   RestockReturnDialog,
-  GoodsReturnRequestDetailSheet,
+  GoodsReturnRequestDetail,
   GoodsReturnRequestDirectory,
 } from '../components/GoodsReturnRequestsPage'
 import { useCreateGoodsReturn } from '../hooks/use-create-goods-return'
@@ -36,42 +45,64 @@ import {
   type RejectGoodsReturnRequestFormValues,
 } from '../schemas/reject-return.schema'
 import { restockReturnSchema, type RestockReturnFormValues } from '../schemas/restock-return.schema'
-import type {
-  GoodsReturnRequestStatus,
-  GoodsReturnRequestSummary,
+import {
+  GOODS_RETURN_REQUEST_STATUSES,
+  type GoodsReturnRequestSummary,
 } from '../types/stock-issue.types'
+import { P } from '@/config/permissionCodes'
 
-export default function GoodsReturnRequestsPage() {
+export default function GoodsReturnRequestsPage({ returnId }: { readonly returnId?: string }) {
+  const router = useRouter()
+  const list = useReturnListState(APP_ROUTES.goodsReturnRequests, GOODS_RETURN_REQUEST_STATUSES)
+  const {
+    page,
+    pageSize,
+    searchText,
+    status,
+    warehouseId,
+    dateFrom,
+    dateTo,
+    setPage,
+    setPageSize,
+    setSearchText,
+    setStatus,
+    setWarehouseId,
+    setDateFrom,
+    setDateTo,
+  } = list
   const meQuery = useMeQuery()
   const createReturn = useCreateGoodsReturn()
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [searchText, setSearchText] = useState('')
-  const [status, setStatus] = useState<GoodsReturnRequestStatus | ''>('')
-  const [warehouseId, setWarehouseId] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [inspectedItem, setInspectedItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [rejectingItem, setRejectingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [selfApprovingItem, setSelfApprovingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [restockingItem, setRestockingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const debouncedSearchText = useDebouncedValue(searchText, 350)
-  const goodsReturnRequestsQuery = useGoodsReturnRequestsQuery({
-    pageNumber: page,
-    pageSize,
-    ...(debouncedSearchText.trim() ? { searchTerm: debouncedSearchText.trim() } : {}),
-    ...(status ? { status } : {}),
-    ...(warehouseId ? { warehouseId } : {}),
-    ...(dateFrom ? { dateFrom } : {}),
-    ...(dateTo ? { dateTo } : {}),
-  })
-  const warehousesQuery = useWarehousesQuery({
-    top: 100,
-    skip: 0,
-    needTotalCount: true,
-    isActive: true,
-  })
-  const returnDetailQuery = useGoodsReturnRequestQuery(inspectedItem?.id ?? null)
+  const goodsReturnRequestsQuery = useGoodsReturnRequestsQuery(
+    {
+      pageNumber: page,
+      pageSize,
+      ...(debouncedSearchText.trim() ? { searchTerm: debouncedSearchText.trim() } : {}),
+      ...(status ? { status } : {}),
+      ...(warehouseId ? { warehouseId } : {}),
+      ...(dateFrom ? { dateFrom } : {}),
+      ...(dateTo ? { dateTo } : {}),
+    },
+    !returnId
+  )
+  const warehousesQuery = useWarehousesQuery(
+    {
+      top: 100,
+      skip: 0,
+      needTotalCount: true,
+      isActive: true,
+    },
+    !returnId
+  )
+  const returnDetailQuery = useGoodsReturnRequestQuery(returnId ?? null)
+  const editing = useReturnDocumentEditing(
+    'goodsReturnRequests',
+    returnDetailQuery.data,
+    list.listHref
+  )
   const restockDetailQuery = useGoodsReturnRequestQuery(restockingItem?.id ?? null)
   const restockStockIssueQuery = useStockIssueRequestQuery(
     restockingItem?.stockIssueRequestId ?? null
@@ -117,7 +148,11 @@ export default function GoodsReturnRequestsPage() {
       return
     }
     try {
-      await approveMutation.mutateAsync({ goodsReturnRequestId: item.id, selfApprovalAcknowledged })
+      await approveMutation.mutateAsync({
+        goodsReturnRequestId: item.id,
+        selfApprovalAcknowledged,
+        expectedVersion: item.version,
+      })
       toast.success('Đã duyệt yêu cầu trả hàng. Kho sẽ được báo để nhập lại kho.')
       setSelfApprovingItem(null)
     } catch (error) {
@@ -128,7 +163,10 @@ export default function GoodsReturnRequestsPage() {
   async function reject(values: RejectGoodsReturnRequestFormValues) {
     if (!rejectingItem) return
     try {
-      await rejectMutation.mutateAsync({ goodsReturnRequestId: rejectingItem.id, request: values })
+      await rejectMutation.mutateAsync({
+        goodsReturnRequestId: rejectingItem.id,
+        request: { ...values, expectedVersion: rejectingItem.version },
+      })
       toast.success('Đã từ chối yêu cầu trả hàng.')
       setRejectingItem(null)
       rejectForm.reset()
@@ -142,7 +180,10 @@ export default function GoodsReturnRequestsPage() {
     try {
       await restockMutation.mutateAsync({
         goodsReturnRequestId: restockingItem.id,
-        request: values,
+        request: {
+          ...values,
+          expectedVersion: restockDetailQuery.data?.version ?? restockingItem.version,
+        },
       })
       toast.success('Đã nhập lại kho theo kết quả kiểm tra thực tế.')
       setRestockingItem(null)
@@ -165,69 +206,102 @@ export default function GoodsReturnRequestsPage() {
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <GoodsReturnRequestDirectory
-        items={goodsReturnRequestsQuery.data?.items ?? []}
-        totalCount={goodsReturnRequestsQuery.data?.totalCount ?? 0}
-        page={page}
-        pageSize={pageSize}
-        searchText={searchText}
-        status={status}
-        warehouseId={warehouseId}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        warehouses={(warehousesQuery.data?.items ?? []).map((warehouse) => ({
-          id: warehouse.id,
-          label: `${warehouse.warehouseCode} · ${warehouse.warehouseName}`,
-        }))}
-        permissions={meQuery.data?.permissions ?? []}
-        currentUserId={meQuery.data?.id ?? null}
-        isLoading={goodsReturnRequestsQuery.isLoading}
-        isFetching={goodsReturnRequestsQuery.isFetching}
-        isError={goodsReturnRequestsQuery.isError}
-        onSearchChange={(value) => {
-          setSearchText(value)
-          setPage(1)
-        }}
-        onStatusChange={(value) => {
-          setStatus(value)
-          setPage(1)
-        }}
-        onWarehouseChange={(value) => {
-          setWarehouseId(value)
-          setPage(1)
-        }}
-        onDateFromChange={(value) => {
-          setDateFrom(value)
-          setPage(1)
-        }}
-        onDateToChange={(value) => {
-          setDateTo(value)
-          setPage(1)
-        }}
-        onPageChange={setPage}
-        onPageSizeChange={(value) => {
-          setPageSize(value)
-          setPage(1)
-        }}
-        onInspect={setInspectedItem}
-        onApprove={(item) => void approve(item)}
-        onReject={setRejectingItem}
-        onRestock={setRestockingItem}
-        onCreate={createReturn.openPicker}
-        onRetry={() => void goodsReturnRequestsQuery.refetch()}
-      />
+    <div
+      className={
+        returnId ? 'flex w-full min-w-0 flex-col gap-4 pb-3' : 'flex h-full min-h-0 flex-col gap-4'
+      }
+    >
+      {returnId ? (
+        <GoodsReturnRequestDetail
+          editingActions={
+            <ReturnDocumentActions
+              allowedActions={returnDetailQuery.data?.allowedActions ?? []}
+              disabled={
+                editing.isPending || returnDetailQuery.isFetching || createReturn.dialog.isPending
+              }
+              onEdit={() => {
+                if (returnDetailQuery.data) createReturn.openForEdit(returnDetailQuery.data)
+              }}
+              onAction={editing.open}
+            />
+          }
+          item={returnDetailQuery.data ?? null}
+          isLoading={returnDetailQuery.isLoading}
+          isError={returnDetailQuery.isError}
+          listHref={list.listHref}
+          canApprove={
+            Boolean(meQuery.data?.permissions.includes(P.GOODS_RETURN_REQUESTS_APPROVE)) &&
+            !meQuery.isFetching &&
+            !returnDetailQuery.isFetching
+          }
+          canSelfApprove={Boolean(
+            meQuery.data?.permissions.includes(P.GOODS_RETURN_REQUESTS_SELF_APPROVE)
+          )}
+          canRestock={
+            Boolean(meQuery.data?.permissions.includes(P.GOODS_RETURN_REQUESTS_RESTOCK)) &&
+            !meQuery.isFetching &&
+            !returnDetailQuery.isFetching
+          }
+          currentUserId={meQuery.data?.id ?? null}
+          isPending={
+            approveMutation.isPending || rejectMutation.isPending || restockMutation.isPending
+          }
+          onApprove={(item) => void approve(item)}
+          onReject={setRejectingItem}
+          onRestock={setRestockingItem}
+          onRetry={() => void returnDetailQuery.refetch()}
+        />
+      ) : (
+        <GoodsReturnRequestDirectory
+          items={goodsReturnRequestsQuery.data?.items ?? []}
+          totalCount={goodsReturnRequestsQuery.data?.totalCount ?? 0}
+          page={page}
+          pageSize={pageSize}
+          searchText={searchText}
+          status={status}
+          warehouseId={warehouseId}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          warehouses={(warehousesQuery.data?.items ?? []).map((warehouse) => ({
+            id: warehouse.id,
+            label: `${warehouse.warehouseCode} · ${warehouse.warehouseName}`,
+          }))}
+          permissions={meQuery.data?.permissions ?? []}
+          currentUserId={meQuery.data?.id ?? null}
+          isLoading={goodsReturnRequestsQuery.isLoading}
+          isFetching={goodsReturnRequestsQuery.isFetching}
+          isError={goodsReturnRequestsQuery.isError}
+          onSearchChange={(value) => {
+            setSearchText(value)
+          }}
+          onStatusChange={(value) => {
+            setStatus(value)
+          }}
+          onWarehouseChange={(value) => {
+            setWarehouseId(value)
+          }}
+          onDateFromChange={(value) => {
+            setDateFrom(value)
+          }}
+          onDateToChange={(value) => {
+            setDateTo(value)
+          }}
+          onPageChange={setPage}
+          onPageSizeChange={(value) => {
+            setPageSize(value)
+          }}
+          detailHref={list.detailHref}
+          onInspect={(item) => router.push(list.detailHref(item.id) as Route)}
+          onApprove={(item) => void approve(item)}
+          onReject={setRejectingItem}
+          onRestock={setRestockingItem}
+          onCreate={createReturn.openPicker}
+          onRetry={() => void goodsReturnRequestsQuery.refetch()}
+        />
+      )}
       <SelectStockIssueForReturnDialog {...createReturn.picker} />
       <CreateGoodsReturnRequestDialog {...createReturn.dialog} />
-      <GoodsReturnRequestDetailSheet
-        item={returnDetailQuery.data ?? null}
-        isLoading={returnDetailQuery.isLoading}
-        isError={returnDetailQuery.isError}
-        onRetry={() => void returnDetailQuery.refetch()}
-        onOpenChange={(open) => {
-          if (!open) setInspectedItem(null)
-        }}
-      />
+      <ReturnDocumentActionDialog {...editing.dialog} />
       <SelfApproveGoodsReturnDialog
         item={selfApprovingItem}
         isPending={approveMutation.isPending}

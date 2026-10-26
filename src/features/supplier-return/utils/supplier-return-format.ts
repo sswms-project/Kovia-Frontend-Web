@@ -1,6 +1,7 @@
 import type { SupplierReturnStatus } from '../types/supplier-return.types'
 
 export const SUPPLIER_RETURN_STATUS_LABELS: Record<SupplierReturnStatus, string> = {
+  Draft: 'Nháp',
   Pending: 'Chờ duyệt',
   Approved: 'Đã duyệt',
   Rejected: 'Từ chối',
