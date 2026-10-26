@@ -95,11 +95,11 @@ export function useWarehousesQuery(params: WarehouseListQuery, enabled = true) {
   })
 }
 
-export function useWarehouseQuery(warehouseId: string) {
+export function useWarehouseQuery(warehouseId: string, enabled = true) {
   return useQuery<WarehouseDetailResponse, ApiErrorResponse>({
     queryKey: queryKeys.warehouses.detail(warehouseId),
     queryFn: () => warehouseService.getWarehouse(warehouseId).then((response) => response.data),
-    enabled: Boolean(warehouseId),
+    enabled: Boolean(warehouseId) && enabled,
   })
 }
 
