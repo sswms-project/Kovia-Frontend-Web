@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { WarehouseLayoutEditorScene } from '../types/warehouse-layout-scene.types'
-import type { RackEditingControls } from '../components/WarehouseDesigner/rack-editing.types'
+import type { RackEditingControls } from '../types/rack-editing.types'
 import { getLayoutGeometryBounds, type LayoutBounds } from '../utils/layout-grid'
 import {
   eligibleLayoutRacks,
