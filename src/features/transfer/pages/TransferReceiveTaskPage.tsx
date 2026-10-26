@@ -161,6 +161,7 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
           : freshDetail?.data?.shipments?.find((row) => row.id === shipmentId)
         if (
           continueToPutAway &&
+          !fresh.data.keptAtReceiving &&
           fresh.data.status === 'AwaitingPutAway' &&
           !freshDetail?.isError &&
           nextShipment?.putAwayAssigneeId === viewer.currentUserId &&
