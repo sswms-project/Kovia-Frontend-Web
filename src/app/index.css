@@ -54,6 +54,12 @@
   --diagram-outline: #2f80ed;
   --diagram-viewer-selected: #ff9800;
   --diagram-zone-fill: #dce9ff;
+  --diagram-canvas-surface: #eef1f5;
+  --diagram-canvas-background: #ffffff;
+  --diagram-canvas-foreground: #1f2937;
+  --diagram-canvas-muted: #f2f4f7;
+  --diagram-canvas-border: #cbd5e1;
+  --diagram-canvas-card: #ffffff;
   --canvas-selection-fill: #f1e9dc;
   --canvas-selection-foreground: #18232f;
   --canvas-heat-low: #cfe8dc;
@@ -233,6 +239,8 @@
   --color-surface-tint: var(--surface-tint);
   --color-diagram-outline: var(--diagram-outline);
   --color-diagram-zone-fill: var(--diagram-zone-fill);
+  --color-diagram-canvas-surface: var(--diagram-canvas-surface);
+  --color-diagram-viewer-selected: var(--diagram-viewer-selected);
   --color-primary: var(--primary);
   --color-canvas-selection-fill: var(--canvas-selection-fill);
   --color-canvas-selection-foreground: var(--canvas-selection-foreground);
@@ -336,6 +344,12 @@
   --surface-tint: #9fcf94;
   --diagram-outline: #5b9bf0;
   --diagram-zone-fill: #1e3350;
+  --diagram-canvas-surface: #020617;
+  --diagram-canvas-background: #111827;
+  --diagram-canvas-foreground: #e5e7eb;
+  --diagram-canvas-muted: #1f2937;
+  --diagram-canvas-border: #475569;
+  --diagram-canvas-card: #172033;
   --canvas-selection-fill: #f1e9dc;
   --canvas-selection-foreground: #18232f;
   --canvas-heat-low: #1f3d31;

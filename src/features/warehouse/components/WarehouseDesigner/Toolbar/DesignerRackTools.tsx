@@ -13,19 +13,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import type { RackOperation } from '../../utils/layout-rack-operations'
+import type { DesignerRackToolsProps } from './types'
 
-interface DesignerRackToolsProps {
-  readonly count: number
-  readonly referenceCode?: string
-  readonly snapObjects: boolean
-  readonly disabled: boolean
-  readonly canArrange: (operation: RackOperation) => boolean
-  readonly onToggleSnap: () => void
-  readonly onArrange: (operation: RackOperation) => void
-  readonly onFit: () => void
-  readonly onClear: () => void
-}
 const operations = [
   ['left', 'Căn trái', AlignHorizontalJustifyStart],
   ['center-x', 'Căn giữa ngang', AlignHorizontalJustifyCenter],

@@ -6,65 +6,11 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import type { WarehouseLayoutSelection } from '../../types/warehouse-layout-scene.types'
-import { LAYOUT_COLOR_SWATCHES } from './designer-constants'
+import { LAYOUT_COLOR_SWATCHES } from '../../../utils/layout-decoration-options'
+import { ContextAction } from './ContextAction'
+import type { DesignerContextToolbarProps } from './types'
 
-interface DesignerContextToolbarProps {
-  readonly selection: WarehouseLayoutSelection
-  readonly color: string | null
-  readonly canConfigure: boolean
-  readonly canCreateRack: boolean
-  readonly canDuplicate: boolean
-  readonly canRemove: boolean
-  readonly removeDisabled?: boolean
-  readonly removeDisabledReason?: string
-  readonly removeLabel: string
-  readonly onOpenDetails: () => void
-  readonly onPlacePending?: () => void
-  readonly onCreateRack: () => void
-  readonly onColorChange: (color: string | null) => void
-  readonly onRotate: () => void
-  readonly onDuplicate: () => void
-  readonly onRemove: () => void
-}
-
-function ContextAction({
-  label,
-  disabled,
-  destructive = false,
-  tooltipText,
-  onClick,
-  children,
-}: {
-  readonly label: string
-  readonly disabled?: boolean
-  readonly destructive?: boolean
-  readonly tooltipText?: string
-  readonly onClick: () => void
-  readonly children: React.ReactNode
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          className={
-            destructive
-              ? 'text-destructive hover:bg-destructive/10 hover:text-destructive h-14 min-w-16 flex-col gap-1 rounded-none px-3 text-[11px]'
-              : 'h-14 min-w-16 flex-col gap-1 rounded-none px-3 text-[11px]'
-          }
-          disabled={disabled}
-          onClick={onClick}
-        >
-          {children}
-          <span>{label}</span>
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{tooltipText ?? label}</TooltipContent>
-    </Tooltip>
-  )
-}
+const DEFAULT_DECORATION_COLOR = LAYOUT_COLOR_SWATCHES[0]
 
 export function DesignerContextToolbar({
   selection,
@@ -158,14 +104,14 @@ export function DesignerContextToolbar({
               <div className="mt-3 flex items-center gap-2">
                 <Input
                   type="color"
-                  value={color ?? '#99B9FE'}
+                  value={color ?? DEFAULT_DECORATION_COLOR}
                   className="h-9 w-12 cursor-pointer p-1"
                   aria-label="Chọn màu tùy chỉnh"
                   onChange={(event) => onColorChange(event.target.value.toUpperCase())}
                 />
                 <Input
                   key={color ?? 'default-color'}
-                  placeholder="#99B9FE"
+                  placeholder={DEFAULT_DECORATION_COLOR}
                   maxLength={7}
                   className="font-mono uppercase"
                   aria-label="Mã màu HEX"
