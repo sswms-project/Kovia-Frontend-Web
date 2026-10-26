@@ -78,6 +78,12 @@ function renderDirectory(
 }
 
 describe('InventoryDirectory', () => {
+  it('distinguishes reserved-for-document quantities from held inventory', () => {
+    renderDirectory(stock)
+    expect(screen.getByRole('columnheader', { name: 'Đã giữ cho phiếu' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Tạm khóa' })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Đặt trước' })).not.toBeInTheDocument()
+  })
   it('offers an accessible, controlled option to include depleted stock', () => {
     const onShowDepletedChange = vi.fn()
     renderDirectory(stock, undefined, { onShowDepletedChange })

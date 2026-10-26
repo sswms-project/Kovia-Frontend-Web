@@ -263,6 +263,16 @@ export interface ProductOption {
   status: string
 }
 
+export interface InboundProductAvailabilityQuery {
+  warehouseId: string
+  productIds: readonly string[]
+}
+
+export interface InboundProductAvailability {
+  productId: string
+  availableQuantity: number
+}
+
 export interface SupplierOption {
   id: string
   supplierName: string

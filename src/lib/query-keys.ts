@@ -209,6 +209,8 @@ export const queryKeys = {
     nextCode: ['suppliers', 'next-code'] as const,
   },
   inboundRequests: {
+    productAvailability: (warehouseId: string, productIds: readonly string[]) =>
+      ['inbound-product-availability', warehouseId, productIds] as const,
     nextCode: ['inbound-requests', 'next-code'] as const,
     all: ['inbound-requests'] as const,
     lists: ['inbound-requests', 'list'] as const,

@@ -9,6 +9,7 @@ import { OperationalMasterDetail } from '@/components/operations/OperationalMast
 import { InboundMasterDetail, INBOUND_DETAIL_STORAGE_KEY } from './InboundMasterDetail'
 
 const resizeMock = vi.hoisted(() => ({
+  isMobile: false,
   masterId: '',
   detailId: '',
   onLayoutChange: undefined as ((layout: Record<string, number>) => void) | undefined,
@@ -21,7 +22,7 @@ const resizeMock = vi.hoisted(() => ({
   collapse: vi.fn(),
 }))
 
-vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }))
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => resizeMock.isMobile }))
 vi.mock('@/components/ui/resizable', () => ({
   ResizablePanelGroup: ({
     children,
@@ -92,11 +93,48 @@ function PersistedWorkspace() {
 
 afterEach(() => {
   cleanup()
+  resizeMock.isMobile = false
   localStorage.removeItem(INBOUND_DETAIL_STORAGE_KEY)
   vi.clearAllMocks()
 })
 
 describe('inbound master/detail persistent expand button', () => {
+  it.each(['chi tiết hàng hóa', 'chi tiết xuất kho', 'chi tiết điều chuyển'])(
+    'keeps %s in natural document flow on phones and restores resizing on desktop',
+    (detailLabel) => {
+      resizeMock.isMobile = true
+      const onExpandedChange = vi.fn()
+      const workspace = (expanded: boolean) => (
+        <OperationalMasterDetail
+          expanded={expanded}
+          detailId="mobile-detail"
+          detailLabel={detailLabel}
+          onExpandedChange={onExpandedChange}
+          detail={<section id="mobile-detail">Items</section>}
+        >
+          Orders
+        </OperationalMasterDetail>
+      )
+      const view = render(workspace(true))
+      const button = screen.getByRole('button', { name: `Thu gọn ${detailLabel}` })
+      expect(button).toHaveClass('min-h-11')
+      expect(button.parentElement).toHaveClass('shrink-0', 'min-h-fit')
+      expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('panel-group')).not.toBeInTheDocument()
+      expect(screen.getByText('Orders')).toBeVisible()
+      expect(screen.getByText('Items')).toBeVisible()
+      fireEvent.click(button)
+      expect(onExpandedChange).toHaveBeenCalledExactlyOnceWith(false)
+      view.rerender(workspace(false))
+      expect(screen.getByText('Items')).not.toBeVisible()
+      expect(screen.getByText('Orders')).toBeVisible()
+      resizeMock.isMobile = false
+      view.rerender(workspace(true))
+      expect(screen.getByTestId('panel-group')).toBeInTheDocument()
+      expect(screen.getByRole('separator')).toBeInTheDocument()
+      expect(resizeMock.resize).toHaveBeenLastCalledWith('35%')
+    }
+  )
   it('tracks the divider immediately in both resize directions', () => {
     render(
       <InboundMasterDetail expanded onExpandedChange={vi.fn()} detail="Goods">

@@ -41,7 +41,7 @@ it('exposes reservation filters directly in the toolbar and retains callbacks', 
   )
   expect(screen.getByLabelText('Bộ lọc giữ hàng')).not.toContainElement(reload)
   expect(screen.queryByText('Danh sách giữ hàng')).not.toBeInTheDocument()
-  expect(screen.getByRole('region', { name: 'Tồn đang giữ' })).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Hàng giữ cho phiếu' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^Bộ lọc/ })).not.toBeInTheDocument()
   expect(
     screen.queryByText('Mỗi dòng thuộc một tồn kho và chứng từ cụ thể.')

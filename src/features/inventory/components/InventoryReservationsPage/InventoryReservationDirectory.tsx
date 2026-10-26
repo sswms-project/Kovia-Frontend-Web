@@ -70,7 +70,7 @@ function parseStatus(value: string): InventoryReservationStatus {
 function statusLabel(status: InventoryReservationStatus) {
   if (status === 'Released') return 'Đã giải phóng'
   if (status === 'Consumed') return 'Đã sử dụng'
-  return 'Đang giữ'
+  return 'Đang giữ cho phiếu'
 }
 
 function qualityStatusLabel(status: InventoryReservation['qualityStatus']) {
@@ -97,7 +97,7 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
 
       <InventoryWorkspaceNavigation currentView="reservations" permissions={props.permissions} />
 
-      <OperationalListPanel aria-label="Tồn đang giữ">
+      <OperationalListPanel aria-label="Hàng giữ cho phiếu">
         <div className="grid w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b p-3">
           <FieldGroup
             aria-label="Bộ lọc giữ hàng"
@@ -113,7 +113,7 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
                 value={props.status}
                 onChange={(event) => props.onStatusChange(parseStatus(event.target.value))}
               >
-                <NativeSelectOption value="Active">Đang giữ</NativeSelectOption>
+                <NativeSelectOption value="Active">Đang giữ cho phiếu</NativeSelectOption>
                 <NativeSelectOption value="Released">Đã giải phóng</NativeSelectOption>
                 <NativeSelectOption value="Consumed">Đã sử dụng</NativeSelectOption>
               </NativeSelect>

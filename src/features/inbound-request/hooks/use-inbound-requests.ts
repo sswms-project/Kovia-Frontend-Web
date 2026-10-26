@@ -11,6 +11,8 @@ import type {
   LookupQuery,
   InboundRequestListResponse,
   ProductOption,
+  InboundProductAvailability,
+  InboundProductAvailabilityQuery,
   InboundRequestDetail,
   InboundRequestListQuery,
   SaveInboundRequestRequest,
@@ -105,6 +107,21 @@ export function useProductOptionsQuery(params: LookupQuery) {
     queryKey: queryKeys.inboundRequests.products(params),
     queryFn: () => inboundRequestService.getProducts(params).then((response) => response.data),
     placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useInboundProductAvailabilityQuery(
+  params: InboundProductAvailabilityQuery,
+  enabled: boolean
+) {
+  return useQuery<InboundProductAvailability[], ApiErrorResponse>({
+    queryKey: queryKeys.inboundRequests.productAvailability(params.warehouseId, params.productIds),
+    queryFn: () =>
+      inboundRequestService
+        .getProductAvailability(params.warehouseId, params.productIds)
+        .then((response) => response.data),
+    enabled: enabled && Boolean(params.warehouseId) && params.productIds.length > 0,
+    retry: false,
   })
 }
 

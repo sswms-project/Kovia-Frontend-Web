@@ -26,6 +26,7 @@ import {
 import { useAuthStore } from '@/stores/auth.store'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { productStockOption } from '@/lib/product-stock-option'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useUnitsQuery } from '@/features/product/hooks/use-products'
 import type {
@@ -40,6 +41,7 @@ import {
   useInboundRequestQuery,
   useInboundRequestUnitConversions,
   useProductOptionsQuery,
+  useInboundProductAvailabilityQuery,
   useSubmitInboundRequestMutation,
   useSupplierOptionsQuery,
   useUpdateInboundRequestMutation,
@@ -154,6 +156,16 @@ export default function InboundRequestFormPage({
     status: RECORD_STATUS.Active,
     ...(debouncedProductSearch ? { searchTerm: debouncedProductSearch } : {}),
   })
+  const availabilityProductIds = [
+    ...new Set([...(productsQuery.data?.items ?? []).map((product) => product.id), ...productIds]),
+  ]
+    .slice(0, 100)
+    .sort()
+  const canViewInventory = meQuery.data?.permissions.includes(P.INVENTORY_VIEW) ?? false
+  const availabilityQuery = useInboundProductAvailabilityQuery(
+    { warehouseId: selectedWarehouseId, productIds: availabilityProductIds },
+    canViewInventory
+  )
   const suppliersQuery = useSupplierOptionsQuery({
     pageNumber: 1,
     pageSize: LOOKUP_PAGE_SIZE,
@@ -393,19 +405,35 @@ export default function InboundRequestFormPage({
         ]
       : []
   )
+  const availableByProduct = new Map(
+    (!canViewInventory || !selectedWarehouseId || availabilityQuery.isError
+      ? []
+      : (availabilityQuery.data ?? [])
+    ).map((item) => [item.productId, item.availableQuantity])
+  )
+  const stockMessage = !selectedWarehouseId
+    ? 'Chọn kho nhận để xem tồn'
+    : !canViewInventory
+      ? 'Chưa có quyền xem tồn khả dụng'
+      : availabilityQuery.isFetching
+        ? 'Đang tải tồn khả dụng…'
+        : 'Chưa tải được tồn khả dụng'
   const productOptions = mergeLookupOptions(
-    (productsQuery.data?.items ?? []).map(
-      (product): LookupOption => ({
-        value: product.id,
-        label: `${product.sku} - ${product.productName}`,
-      })
+    (productsQuery.data?.items ?? []).map((product) =>
+      productStockOption(product, availableByProduct.get(product.id), stockMessage)
     ),
-    detail?.lines.map(
-      (line): LookupOption => ({
-        value: line.productId,
-        label: `${line.productSKU} - ${line.productName}`,
-      })
-    ) ?? []
+    (detail?.lines ?? []).map((line) =>
+      productStockOption(
+        {
+          id: line.productId,
+          sku: line.productSKU,
+          productName: line.productName,
+          unitName: line.unitName ?? '',
+        },
+        availableByProduct.get(line.productId),
+        stockMessage
+      )
+    )
   )
   if (isLoading) return <OperationalLoadingState rows={8} />
   if (isError) {
