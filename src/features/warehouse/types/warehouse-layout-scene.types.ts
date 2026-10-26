@@ -68,6 +68,9 @@ export interface WarehouseLayoutRackSceneResponse
   allowsMixedProducts?: boolean
   capacity?: number | null
   currentOccupancy?: number | null
+  /** Tổng tồn thực tế và số mã hàng của cả kệ; thiếu khi BE chưa trả (bản cũ). */
+  onHandQuantity?: number
+  skuCount?: number
   rowVersion?: string | null
   x: number | null
   y: number | null
@@ -92,6 +95,8 @@ export interface WarehouseLayoutSlotSceneResponse
   allowsMixedProducts?: boolean
   capacity: number | null
   currentOccupancy: number
+  onHandQuantity?: number
+  skuCount?: number
   rowVersion?: string | null
 }
 

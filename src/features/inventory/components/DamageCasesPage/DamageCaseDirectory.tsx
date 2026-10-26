@@ -277,11 +277,18 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                         {item.reportedByName} · {formatInventoryDate(item.createdAt)}
                       </ItemDescription>
                     </ItemContent>
-                    {canDecideCase(item) ? (
+                    {canDecideCase(item) || canAddEvidenceToCase(item) ? (
                       <ItemActions>
-                        <Button size="sm" onClick={() => openDecision(item)}>
-                          Chọn xử lý
-                        </Button>
+                        {canDecideCase(item) ? (
+                          <Button size="sm" onClick={() => openDecision(item)}>
+                            Chọn xử lý
+                          </Button>
+                        ) : null}
+                        {canAddEvidenceToCase(item) ? (
+                          <Button size="sm" variant="outline" onClick={() => openEvidence(item)}>
+                            Bổ sung bằng chứng
+                          </Button>
+                        ) : null}
                       </ItemActions>
                     ) : null}
                   </Item>
