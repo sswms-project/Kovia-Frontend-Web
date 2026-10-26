@@ -17,7 +17,9 @@ import type {
 export function useCurrentSubscriptionQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.subscription.me,
-    queryFn: () => subscriptionService.getCurrentSubscription().then((response) => response.data),
+    // BE omits `data` when the tenant has no subscription; React Query rejects undefined.
+    queryFn: () =>
+      subscriptionService.getCurrentSubscription().then((response) => response.data ?? null),
     enabled,
   })
 }

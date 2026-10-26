@@ -22,6 +22,21 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useRackCanvasGestures } from '../../hooks/use-rack-canvas-gestures'
 import { rackGroupBounds, selectedLayoutRacks } from '../../utils/layout-rack-operations'
 import { getLayoutLocationLabel } from '../../utils/layout-placement'
+import {
+  SLOT_CELL_MIN_SCREEN_HEIGHT,
+  SLOT_CELL_MIN_SCREEN_WIDTH,
+  SLOT_VALUE_MIN_SCREEN_WIDTH,
+  RACK_HEADER_TWO_LINE_SCREEN_HEIGHT,
+  getMaximumStock,
+  getRackHeaderScreenHeight,
+  getRackLabelMode,
+  getRackMetricLabel,
+  getSlotMetricLabel,
+  type LayoutHeatBand,
+  type LayoutMetric,
+  type LayoutMetricLabel,
+  type RackLabelMode,
+} from '../../utils/layout-rack-metrics'
 import type { RackEditingControls } from './rack-editing.types'
 import type {
   WarehouseLayoutDecorationType,
@@ -66,6 +81,9 @@ interface CanvasPalette {
   selectionForeground: string
   viewerSelected: string
   viewerOccupied: string
+  heatLow: string
+  heatMid: string
+  heatHigh: string
 }
 
 interface CanvasHoverInfo {
@@ -83,6 +101,8 @@ interface WarehouseCanvasProps {
   readonly selection: WarehouseLayoutSelection | null
   readonly canConfigure: boolean
   readonly mode?: 'designer' | 'viewer'
+  /** Chỉ số vẽ trực tiếp lên kệ và ô; chỉ có tác dụng ở chế độ xem. */
+  readonly metric?: LayoutMetric
   readonly isGridVisible: boolean
   readonly onSelect: (selection: WarehouseLayoutSelection | null) => void
   readonly onGeometryChange: (
@@ -126,6 +146,9 @@ function readCanvasPalette(): CanvasPalette {
     selectionForeground: read('--canvas-selection-foreground'),
     viewerSelected: read('--diagram-viewer-selected') || '#FF9800',
     viewerOccupied: read('--secondary-container'),
+    heatLow: read('--canvas-heat-low'),
+    heatMid: read('--canvas-heat-mid'),
+    heatHigh: read('--canvas-heat-high'),
   }
 }
 
@@ -456,6 +479,7 @@ export function WarehouseCanvas({
   selection,
   canConfigure,
   mode = 'designer',
+  metric = 'off',
   isGridVisible,
   onSelect,
   onGeometryChange,
@@ -749,6 +773,9 @@ export function WarehouseCanvas({
     }
     return result
   }, [scene.slots])
+  const maximumRackStock = useMemo(() => getMaximumStock(scene.racks), [scene.racks])
+  const maximumSlotStock = useMemo(() => getMaximumStock(scene.slots), [scene.slots])
+  const activeMetric: LayoutMetric = mode === 'viewer' ? metric : 'off'
 
   if (!palette) {
     return (
@@ -891,6 +918,32 @@ export function WarehouseCanvas({
     const hasStock = isZone
       ? scene.slots.some((slot) => slot.zoneId === object.id && slot.currentOccupancy > 0)
       : rackSlots.some((slot) => slot.currentOccupancy > 0)
+    const metricLabel =
+      rack && activeMetric !== 'off'
+        ? getRackMetricLabel(activeMetric, rack, rackSlots, maximumRackStock)
+        : null
+    const labelMode =
+      rack && metricLabel
+        ? getRackLabelMode(rack.width * viewport.scale, rack.height * viewport.scale, rack.rotation)
+        : 'none'
+    const headerScreenHeight =
+      rack && labelMode === 'header'
+        ? getRackHeaderScreenHeight(
+            rack.width * viewport.scale,
+            rack.height * viewport.scale,
+            metricLabel?.secondary != null
+          )
+        : null
+    const showHeaderSecondary = headerScreenHeight === RACK_HEADER_TWO_LINE_SCREEN_HEIGHT
+    const metricHeaderHeight = headerScreenHeight
+      ? headerScreenHeight / viewport.scale
+      : RACK_HEADER_HEIGHT
+    const slotCellsReadable =
+      rack !== null &&
+      activeMetric !== 'off' &&
+      isSlotGridReadable(getRackSlotGrid(rack, rackSlots, metricHeaderHeight), viewport.scale)
+    const rackHeatFill =
+      metricLabel?.band && !slotCellsReadable ? getHeatFill(metricLabel.band, canvasPalette) : null
     const objectFill =
       mode === 'viewer'
         ? object.status === 'Inactive'
@@ -899,9 +952,11 @@ export function WarehouseCanvas({
             ? canvasPalette.selectionFill
             : isZone
               ? canvasPalette.accent
-              : hasStock
-                ? canvasPalette.viewerOccupied
-                : canvasPalette.card
+              : metricLabel
+                ? (rackHeatFill ?? canvasPalette.card)
+                : hasStock
+                  ? canvasPalette.viewerOccupied
+                  : canvasPalette.card
         : isZone
           ? canvasPalette.accent
           : (object.color ?? canvasPalette.card)
@@ -1074,8 +1129,28 @@ export function WarehouseCanvas({
               mode,
               showHoverInfo,
               () => setHoverInfo(null),
-              (shift) => rackGestures.isClickSuppressed() || rackGestures.selectRack(rack.id, shift)
+              (shift) =>
+                rackGestures.isClickSuppressed() || rackGestures.selectRack(rack.id, shift),
+              {
+                metric: activeMetric,
+                scale: viewport.scale,
+                maximumStock: maximumSlotStock,
+                headerHeight: metricHeaderHeight,
+              }
             )
+          : null}
+        {rack && metricLabel
+          ? renderRackMetricLabel({
+              rack,
+              label: metricLabel,
+              labelMode,
+              headerHeight: metricHeaderHeight,
+              showSecondary: showHeaderSecondary,
+              fill: objectFill,
+              slotCellsReadable,
+              scale: viewport.scale,
+              palette: canvasPalette,
+            })
           : null}
         {mode === 'viewer' && selected && target === 'rack' ? (
           <Group
@@ -1474,6 +1549,191 @@ export function WarehouseCanvas({
   )
 }
 
+const SLOT_GRID_GAP = 3
+const RACK_HEADER_HEIGHT = 42
+const METRIC_FONT_SCREEN_PX = 11
+const FLOATING_LABEL_CODE_MIN_SCREEN_WIDTH = 70
+
+interface RackSlotGrid {
+  readonly columns: number
+  readonly slotWidth: number
+  readonly slotHeight: number
+  readonly headerHeight: number
+  readonly visibleSlots: WarehouseLayoutEditorScene['slots']
+}
+
+interface RackSlotMetricOptions {
+  readonly metric: LayoutMetric
+  readonly scale: number
+  readonly maximumStock: number
+  readonly headerHeight: number
+}
+
+/** Lưới ô nằm dưới dải tiêu đề của kệ; chiều cao dải (đơn vị thế giới) do nơi gọi quyết định. */
+function getRackSlotGrid(
+  rack: WarehouseLayoutEditorScene['racks'][number],
+  slots: WarehouseLayoutEditorScene['slots'],
+  headerHeight: number
+): RackSlotGrid | null {
+  if (slots.length === 0 || rack.width < 60 || rack.height < 45) return null
+  const availableWidth = Math.max(rack.width - 20, 1)
+  const availableHeight = Math.max(rack.height - headerHeight - 10, 1)
+  const visibleSlots = slots.slice(0, 60)
+  const columns = Math.min(
+    visibleSlots.length,
+    Math.max(1, Math.ceil(Math.sqrt(visibleSlots.length * (availableWidth / availableHeight))))
+  )
+  const rows = Math.ceil(visibleSlots.length / columns)
+  const slotWidth = (availableWidth - SLOT_GRID_GAP * (columns - 1)) / columns
+  const slotHeight = (availableHeight - SLOT_GRID_GAP * (rows - 1)) / rows
+  if (slotWidth < 7 || slotHeight < 7) return null
+  return { columns, slotWidth, slotHeight, headerHeight, visibleSlots }
+}
+
+function isSlotGridReadable(grid: RackSlotGrid | null, scale: number) {
+  return (
+    grid !== null &&
+    grid.slotWidth * scale >= SLOT_CELL_MIN_SCREEN_WIDTH &&
+    grid.slotHeight * scale >= SLOT_CELL_MIN_SCREEN_HEIGHT
+  )
+}
+
+function getHeatFill(band: LayoutHeatBand, palette: CanvasPalette) {
+  switch (band) {
+    case 'empty':
+      return palette.card
+    case 'low':
+      return palette.heatLow
+    case 'mid':
+      return palette.heatMid
+    case 'high':
+      return palette.heatHigh
+    case 'full':
+      return palette.destructive
+  }
+}
+
+function getMetricForeground(fill: string, palette: CanvasPalette) {
+  return fill === palette.destructive ? palette.card : getReadableCanvasColor(fill, palette)
+}
+
+function renderRackMetricLabel({
+  rack,
+  label,
+  labelMode,
+  headerHeight,
+  showSecondary,
+  fill,
+  slotCellsReadable,
+  scale,
+  palette,
+}: {
+  readonly rack: WarehouseLayoutEditorScene['racks'][number]
+  readonly label: LayoutMetricLabel
+  readonly labelMode: RackLabelMode
+  readonly headerHeight: number
+  readonly showSecondary: boolean
+  readonly fill: string
+  readonly slotCellsReadable: boolean
+  readonly scale: number
+  readonly palette: CanvasPalette
+}) {
+  if (labelMode === 'none') return null
+  const foreground = getMetricForeground(fill, palette)
+  const isHeader = labelMode === 'header'
+  const fontSize = METRIC_FONT_SCREEN_PX / scale
+  const padding = (isHeader ? 3 : 6) / scale
+  const lineHeight = fontSize * (isHeader ? 1.15 : 1.25)
+
+  if (!isHeader) {
+    // Kệ quá nhỏ hoặc bị xoay không có chỗ cho dải tiêu đề: nổi nhãn ở giữa kệ.
+    const horizontalExtent = rack.rotation % 180 === 0 ? rack.width : rack.height
+    const text =
+      rack.width * scale >= FLOATING_LABEL_CODE_MIN_SCREEN_WIDTH
+        ? `${rack.rackCode}  ${label.primary}`
+        : label.primary
+    const pillWidth = Math.min(horizontalExtent, text.length * fontSize * 0.62 + padding * 2)
+    return (
+      <Group x={rack.width / 2} y={rack.height / 2} rotation={-rack.rotation} listening={false}>
+        {slotCellsReadable ? (
+          <Rect
+            x={-pillWidth / 2}
+            y={-lineHeight / 2 - padding / 3}
+            width={pillWidth}
+            height={lineHeight + (padding * 2) / 3}
+            cornerRadius={4 / scale}
+            fill={palette.card}
+            opacity={0.92}
+            stroke={palette.border}
+            strokeWidth={1 / scale}
+          />
+        ) : null}
+        <Text
+          x={-pillWidth / 2}
+          y={-lineHeight / 2}
+          width={pillWidth}
+          align="center"
+          text={text}
+          fontSize={fontSize}
+          fontStyle="bold"
+          fill={slotCellsReadable ? palette.foreground : foreground}
+          wrap="none"
+          ellipsis
+        />
+      </Group>
+    )
+  }
+
+  return (
+    <Group listening={false}>
+      {slotCellsReadable ? (
+        <Line
+          points={[0, headerHeight, rack.width, headerHeight]}
+          stroke={palette.border}
+          strokeWidth={1 / scale}
+          opacity={0.6}
+        />
+      ) : null}
+      <Text
+        x={padding}
+        y={padding}
+        width={(rack.width - padding * 2) * 0.5}
+        text={rack.rackCode}
+        fontSize={fontSize}
+        fontStyle="bold"
+        fill={foreground}
+        wrap="none"
+        ellipsis
+      />
+      <Text
+        x={rack.width / 2}
+        y={padding}
+        width={rack.width / 2 - padding}
+        align="right"
+        text={label.primary}
+        fontSize={fontSize}
+        fontStyle="bold"
+        fill={foreground}
+        wrap="none"
+        ellipsis
+      />
+      {showSecondary ? (
+        <Text
+          x={padding}
+          y={padding + lineHeight}
+          width={rack.width - padding * 2}
+          text={label.secondary ?? ''}
+          fontSize={fontSize}
+          fill={foreground}
+          opacity={0.85}
+          wrap="none"
+          ellipsis
+        />
+      ) : null}
+    </Group>
+  )
+}
+
 function renderRackSlots(
   rack: WarehouseLayoutEditorScene['racks'][number],
   slots: WarehouseLayoutEditorScene['slots'],
@@ -1483,35 +1743,37 @@ function renderRackSlots(
   mode: 'designer' | 'viewer',
   onHover: (event: KonvaEventObject<MouseEvent>, code: string, name: string) => void,
   onHoverEnd: () => void,
-  onRackSelect?: (shift: boolean) => boolean
+  onRackSelect: ((shift: boolean) => boolean) | undefined,
+  metricOptions: RackSlotMetricOptions
 ) {
-  if (slots.length === 0 || rack.width < 60 || rack.height < 45) return null
-  const gap = 3
-  const availableWidth = Math.max(rack.width - 20, 1)
-  const availableHeight = Math.max(rack.height - 52, 1)
-  const visibleSlots = slots.slice(0, 60)
-  const columns = Math.min(
-    visibleSlots.length,
-    Math.max(1, Math.ceil(Math.sqrt(visibleSlots.length * (availableWidth / availableHeight))))
-  )
-  const rows = Math.ceil(visibleSlots.length / columns)
-  const slotWidth = (availableWidth - gap * (columns - 1)) / columns
-  const slotHeight = (availableHeight - gap * (rows - 1)) / rows
-  if (slotWidth < 7 || slotHeight < 7) return null
+  const { metric, scale, maximumStock } = metricOptions
+  const grid = getRackSlotGrid(rack, slots, metricOptions.headerHeight)
+  if (!grid) return null
+  if (metric !== 'off' && !isSlotGridReadable(grid, scale)) return null
+  const { columns, slotWidth, slotHeight, headerHeight, visibleSlots } = grid
+  const gap = SLOT_GRID_GAP
 
   return visibleSlots.map((slot, index) => {
     const x = 10 + (index % columns) * (slotWidth + gap)
-    const y = 42 + Math.floor(index / columns) * (slotHeight + gap)
+    const y = headerHeight + Math.floor(index / columns) * (slotHeight + gap)
     const selected = isSelected(selection, 'slot', slot.id)
+    const slotLabel = getSlotMetricLabel(metric, slot, maximumStock)
+    const slotHeatFill = slotLabel?.band ? getHeatFill(slotLabel.band, palette) : null
+    const showSlotValue =
+      slotLabel !== null &&
+      slotLabel.band !== null &&
+      slotLabel.band !== 'empty' &&
+      slot.isActive &&
+      !selected &&
+      slotWidth * scale >= SLOT_VALUE_MIN_SCREEN_WIDTH &&
+      slotHeight * scale >= METRIC_FONT_SCREEN_PX + 2
     const fill =
       mode === 'viewer'
         ? !slot.isActive
           ? palette.errorContainer
           : selected
             ? palette.selectionFill
-            : slot.currentOccupancy > 0
-              ? palette.viewerOccupied
-              : palette.card
+            : (slotHeatFill ?? (slot.currentOccupancy > 0 ? palette.viewerOccupied : palette.card))
         : !slot.isActive
           ? palette.muted
           : slot.occupancyStatus === 'Vacant'
@@ -1555,6 +1817,20 @@ function renderRackSlots(
           strokeWidth={selected ? (mode === 'viewer' ? 1.5 : 1.25) : 1}
           cornerRadius={2}
         />
+        {showSlotValue && slotLabel ? (
+          <Text
+            y={(slotHeight - METRIC_FONT_SCREEN_PX / scale) / 2}
+            width={slotWidth}
+            align="center"
+            text={slotLabel.primary}
+            fontSize={METRIC_FONT_SCREEN_PX / scale}
+            fontStyle="bold"
+            fill={getMetricForeground(fill, palette)}
+            wrap="none"
+            ellipsis
+            listening={false}
+          />
+        ) : null}
         {mode === 'viewer' && selected && slotWidth >= 14 && slotHeight >= 10 ? (
           <Line
             points={[

@@ -56,6 +56,9 @@
   --diagram-zone-fill: #dce9ff;
   --canvas-selection-fill: #f1e9dc;
   --canvas-selection-foreground: #18232f;
+  --canvas-heat-low: #cfe8dc;
+  --canvas-heat-mid: #86c3a4;
+  --canvas-heat-high: #2f7a5a;
   --primary: #2e5a2a;
   --on-primary: #f9fff6;
   --primary-container: #60f040;
@@ -233,6 +236,9 @@
   --color-primary: var(--primary);
   --color-canvas-selection-fill: var(--canvas-selection-fill);
   --color-canvas-selection-foreground: var(--canvas-selection-foreground);
+  --color-canvas-heat-low: var(--canvas-heat-low);
+  --color-canvas-heat-mid: var(--canvas-heat-mid);
+  --color-canvas-heat-high: var(--canvas-heat-high);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-container: var(--primary-container);
   --color-on-primary-container: var(--on-primary-container);
@@ -332,6 +338,9 @@
   --diagram-zone-fill: #1e3350;
   --canvas-selection-fill: #f1e9dc;
   --canvas-selection-foreground: #18232f;
+  --canvas-heat-low: #1f3d31;
+  --canvas-heat-mid: #2f6b52;
+  --canvas-heat-high: #6fbf9a;
   --primary: #9fcf94;
   --on-primary: #12290f;
   --primary-container: #2f4d2b;
