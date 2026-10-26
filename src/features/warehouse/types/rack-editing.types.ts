@@ -1,4 +1,4 @@
-import type { RackPosition } from '../../utils/layout-rack-operations'
+import type { RackPosition } from '../utils/layout-rack-operations'
 
 export interface RackEditingControls {
   readonly singleRackId?: string
