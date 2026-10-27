@@ -1,5 +1,16 @@
 # AI Review Handoff
 
+## 2026-10-27 — Read-only goods previews for both return lists
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; no independent review, commit, push or deployment.
+
+- Added a resizable/collapsible goods panel to customer and supplier return directories using OperationalMasterDetail/ListPanel/Pagination. Non-control row activation selects the preview; code links and customer menu Chi tiết retain standalone detail navigation. Mobile has an explicit Xem hàng hóa action and stacked goods cards.
+- Shared useGoodsPreviewSelection extracted from inbound selection; inbound wrapper keeps its API/storage keys and regression tests. Separate customer/supplier boolean preferences, storage-write failure fallback, filter/page/user-scoped selection, placeholder/error masking and removed-row reset. No document content or selected ID persisted.
+- Page-owned detail hooks enabled only for a valid selected document in an open panel; existing detail query cache and mutation invalidation reused. Integration tests use real query hooks and fake services to verify closed-panel gating, filter/permission changes, A-to-B loading and cached refetch failure without stale rows. Customer mapper separates requested/actual condition and marks actual Scrap as Không nhập kho; supplier mapper preserves null vs zero delivery quantities. Existing DTOs suffice; no BE/schema/business mutation changes.
+- Verification: 53/53 tests across 14 files, scoped ESLint, production typecheck and final isolated Next build passed. Playwright fixture with real components at 360/390/1024/1440px plus 1152x720 and 720x450: no document horizontal overflow, mobile explicit-open scroll verified, dark theme inspected. Screenshots: outputs/returns-preview-qa-20261027/. Temporary fixture code removed, browser and port4319 closed. Physical phone/authenticated deployed flow and actual browser zoom remain manual acceptance items.
+- GitNexus symbol impacts LOW for the two pages/directories. Inbound hook is newer than the index, so impact lookup was unavailable and direct callers/tests were inspected. detect_changes aggregate HIGH includes protected pre-existing AGENTS.md/CLAUDE.md changes and broad page hunks; manual diff confirms mutation implementations unchanged. New untracked source reviewed manually. Protected files and backend appsettings were not modified by this task. No production API calls, migration, seed or DB writes.
+- Plan/results: docs/features/returns-goods-preview-plan-20261027.md. Workspace logs: outputs/returns-goods-preview-tests-20261027.log and outputs/returns-goods-preview-build-20261027.log (one level above this repository).
+
 ## 2026-10-27 — Goods return restock placement and responsive dialog
 
 State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification; no independent review or deployment performed.
