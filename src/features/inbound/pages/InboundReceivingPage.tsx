@@ -1,6 +1,7 @@
 'use client'
 
 import { OrderType } from '@/types/api'
+import { Button } from '@/components/ui/button'
 
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
@@ -25,7 +26,13 @@ import {
 import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDialog'
-import { InboundPageHeader } from '../components/InboundWorkspace'
+import {
+  InboundPageHeader,
+  InboundMasterDetail,
+  InboundStageGoodsPreview,
+} from '../components/InboundWorkspace'
+import { useInboundGoodsSelection } from '../hooks/use-inbound-goods-selection'
+import { receivingStageGoodsRows } from '../utils/inbound-goods-preview'
 import {
   InboundDocumentImportDialog,
   ReceiveGoodsDialog,
@@ -109,6 +116,16 @@ export default function InboundReceivingPage() {
     ...(canAssign && assignmentFilter === 'unassigned' ? { unassigned: true } : {}),
   }
   const query = useReceivingTasksQuery(exportFilters)
+  const preview = useInboundGoodsSelection(
+    'receiving',
+    JSON.stringify([exportFilters, searchText]),
+    (query.data?.items ?? []).map((item) => item.inboundRequestId),
+    !query.isError && !query.isPlaceholderData && searchText.trim() === debouncedSearchText.trim()
+  )
+  const previewItem = preview.id
+    ? query.data?.items.find((item) => item.inboundRequestId === preview.id)
+    : undefined
+
   const createMutation = useCreateGoodsReceiptMutation(true)
   const submitMutation = useSubmitGoodsReceiptMutation()
   const importQuery = useInboundDocumentImportQuery(importId)
@@ -421,55 +438,89 @@ export default function InboundReceivingPage() {
         isLoading={query.isFetching}
         isError={query.isError}
       />
-      <ReceivingTaskDirectory
-        exportAction={
-          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      <InboundMasterDetail
+        title="Hàng hóa còn chờ nhận"
+        detailAnchorId={preview.anchorId}
+        expanded={preview.expanded}
+        onExpandedChange={preview.setExpanded}
+        referenceCode={previewItem?.inboundRequestCode}
+        detail={
+          <InboundStageGoodsPreview
+            key={preview.id || 'empty'}
+            stage="receiving"
+            rows={receivingStageGoodsRows(previewItem?.lines ?? [])}
+            selected={Boolean(previewItem)}
+            isLoading={query.isLoading}
+            isError={query.isError}
+            onRetry={() => void query.refetch()}
+          />
         }
-        canViewRequest={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_VIEW) ?? false}
-        items={query.data?.items ?? []}
-        totalCount={query.data?.totalCount ?? 0}
-        page={page}
-        pageSize={pageSize}
-        searchText={searchText}
-        createdFrom={createdFrom}
-        createdTo={createdTo}
-        sortDirection={sortDirection}
-        onSortDirectionChange={(value) => {
-          setSortDirection(value)
-          setPage(1)
-        }}
-        isLoading={query.isFetching}
-        isFetching={query.isFetching}
-        isError={query.isError}
-        onSearchChange={(value) => {
-          setSearchText(value)
-          setPage(1)
-        }}
-        onCreatedFromChange={(value) => {
-          setCreatedFrom(value)
-          setPage(1)
-        }}
-        onCreatedToChange={(value) => {
-          setCreatedTo(value)
-          setPage(1)
-        }}
-        onPageChange={setPage}
-        onPageSizeChange={(value) => {
-          setPageSize(value)
-          setPage(1)
-        }}
-        onReceive={openReceive}
-        onImportDocument={openDocumentImport}
-        onRetry={() => void query.refetch()}
-        currentUserId={currentUserId}
-        canAssign={canAssign}
-        assignmentFilter={assignmentFilter}
-        onAssignmentFilterChange={(value) => {
-          setAssignmentFilter(value)
-          setPage(1)
-        }}
-        onAssign={openAssign}
-      />
+      >
+        <ReceivingTaskDirectory
+          previewId={preview.id}
+          onPreview={(item, open) => preview.select(item.inboundRequestId, open)}
+          previewAction={
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!previewItem}
+              aria-label={
+                previewItem ? `Xem hàng hóa ${previewItem.inboundRequestCode}` : 'Xem hàng hóa'
+              }
+              onClick={() => preview.select(preview.id, true)}
+            >
+              Xem hàng hóa
+            </Button>
+          }
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
+          canViewRequest={meQuery.data?.permissions.includes(P.INBOUND_REQUESTS_VIEW) ?? false}
+          items={query.data?.items ?? []}
+          totalCount={query.data?.totalCount ?? 0}
+          page={page}
+          pageSize={pageSize}
+          searchText={searchText}
+          createdFrom={createdFrom}
+          createdTo={createdTo}
+          sortDirection={sortDirection}
+          onSortDirectionChange={(value) => {
+            setSortDirection(value)
+            setPage(1)
+          }}
+          isLoading={query.isFetching}
+          isFetching={query.isFetching}
+          isError={query.isError}
+          onSearchChange={(value) => {
+            setSearchText(value)
+            setPage(1)
+          }}
+          onCreatedFromChange={(value) => {
+            setCreatedFrom(value)
+            setPage(1)
+          }}
+          onCreatedToChange={(value) => {
+            setCreatedTo(value)
+            setPage(1)
+          }}
+          onPageChange={setPage}
+          onPageSizeChange={(value) => {
+            setPageSize(value)
+            setPage(1)
+          }}
+          onReceive={openReceive}
+          onImportDocument={openDocumentImport}
+          onRetry={() => void query.refetch()}
+          currentUserId={currentUserId}
+          canAssign={canAssign}
+          assignmentFilter={assignmentFilter}
+          onAssignmentFilterChange={(value) => {
+            setAssignmentFilter(value)
+            setPage(1)
+          }}
+          onAssign={openAssign}
+        />
+      </InboundMasterDetail>
       <AssignWarehouseTaskDialog
         target={assignment.target}
         form={assignment.form}
