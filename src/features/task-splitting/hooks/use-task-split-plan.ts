@@ -2,8 +2,8 @@ import { useState } from 'react'
 import type { TaskSplitStateResponse } from '../types/task-splitting.types'
 import { useTaskSplitSuggestionQuery } from './use-task-splitting'
 
-// The plan must not be swapped under a manager who is editing it after switching windows.
-const KEEP_ON_FOCUS = { refetchOnWindowFocus: false }
+// The plan must not be swapped under a manager who is editing it after switching windows or reconnecting.
+const KEEP_PLAN_STABLE = { refetchOnWindowFocus: false, refetchOnReconnect: false }
 
 /**
  * Split dialog workflow before editing: pick staff (preselected by the backend) → ask the backend for a plan.
@@ -16,13 +16,13 @@ export function useTaskSplitPlan(state: TaskSplitStateResponse) {
   const [suggestionCount, setSuggestionCount] = useState(0)
 
   const { sourceType, sourceId } = state
-  const staffQuery = useTaskSplitSuggestionQuery(sourceType, sourceId, null, true, KEEP_ON_FOCUS)
+  const staffQuery = useTaskSplitSuggestionQuery(sourceType, sourceId, null, true, KEEP_PLAN_STABLE)
   const planQuery = useTaskSplitSuggestionQuery(
     sourceType,
     sourceId,
     requestedStaffIds,
     requestedStaffIds !== null,
-    KEEP_ON_FOCUS
+    KEEP_PLAN_STABLE
   )
 
   const staff = staffQuery.data?.staff ?? []

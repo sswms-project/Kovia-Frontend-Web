@@ -25,6 +25,11 @@ import {
   useTaskSplitSuggestionQuery,
 } from './use-task-splitting'
 
+interface SubmittedView {
+  readonly target: TaskPartActionTarget
+  readonly mergeTargets: readonly TaskPartMergeTarget[]
+}
+
 /** Only ids are kept: the part itself is read from the latest state so a retry sends the reloaded version. */
 interface OpenAction {
   readonly action: TaskPartDialogAction
@@ -90,13 +95,22 @@ export function useTaskPartActions(
   const isPending =
     cancelSplit.isPending || Object.values(mutations).some((mutation) => mutation.isPending)
   const resolved = resolveTarget(openAction, activeParts, state.canCancelSplit)
-  // While a write is in flight the state reloads under it; the dialog closes on success, so no stale flash.
-  const target = resolved && isPending ? { ...resolved, isStale: false } : resolved
-  const mergeTargets: TaskPartMergeTarget[] = target?.part
-    ? activeParts
-        .map((part, index) => ({ part, rank: index + 1 }))
-        .filter(({ part }) => part.id !== target.part?.id && part.allowedActions.includes('merge'))
-    : []
+  const liveView: SubmittedView | null = resolved && {
+    target: resolved,
+    mergeTargets: resolved.part
+      ? activeParts
+          .map((part, index) => ({ part, rank: index + 1 }))
+          .filter(
+            ({ part }) => part.id !== resolved.part?.id && part.allowedActions.includes('merge')
+          )
+      : [],
+  }
+  // The state reloads while a write is in flight; showing what was submitted avoids a flash of the reloaded
+  // (cancelled or merged) part before the dialog closes on success.
+  const [submittedView, setSubmittedView] = useState<SubmittedView | null>(null)
+  const view = isPending && submittedView ? submittedView : liveView
+  const target = view?.target ?? null
+  const mergeTargets = view?.mergeTargets ?? []
 
   const open = (action: TaskPartDialogAction, part: TaskPartView | null) => {
     form.reset(defaultValues(action, part))
@@ -115,6 +129,7 @@ export function useTaskPartActions(
 
   const submit = form.handleSubmit((values) => {
     if (!target || target.isStale) return
+    setSubmittedView(liveView)
     const { action, part } = target
     if (action === 'cancelSplit') {
       cancelSplit.mutate(

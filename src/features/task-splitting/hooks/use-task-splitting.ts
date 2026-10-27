@@ -38,7 +38,10 @@ export function useTaskSplitSuggestionQuery(
   sourceId: string,
   staffIds: readonly string[] | null,
   enabled: boolean,
-  { refetchOnWindowFocus = true }: { readonly refetchOnWindowFocus?: boolean } = {}
+  {
+    refetchOnWindowFocus = true,
+    refetchOnReconnect = true,
+  }: { readonly refetchOnWindowFocus?: boolean; readonly refetchOnReconnect?: boolean } = {}
 ) {
   return useQuery<TaskSplitSuggestionResponse, ApiErrorResponse>({
     queryKey: queryKeys.taskSplits.suggestion(type, sourceId, staffIds),
@@ -47,6 +50,7 @@ export function useTaskSplitSuggestionQuery(
     // Staff load moves with every assignment, so a cached plan is never trusted on reopen.
     staleTime: 0,
     refetchOnWindowFocus,
+    refetchOnReconnect,
   })
 }
 

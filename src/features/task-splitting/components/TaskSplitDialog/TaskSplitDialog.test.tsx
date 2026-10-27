@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { TaskSplitStateResponse } from '../../types/task-splitting.types'
 import { buildState, buildSuggestion, SOURCE_ID } from '../task-splitting.fixtures'
 import { TaskSplitDialog } from './TaskSplitDialog'
 
@@ -23,27 +24,30 @@ afterEach(() => {
   vi.resetAllMocks()
 })
 
-function renderDialog() {
+function renderDialog(state = buildState()) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   const onOpenChange = vi.fn()
-  render(
+  const view = (current: TaskSplitStateResponse) => (
     <QueryClientProvider client={client}>
-      <TaskSplitDialog open onOpenChange={onOpenChange} state={buildState()} />
+      <TaskSplitDialog open onOpenChange={onOpenChange} state={current} />
     </QueryClientProvider>
   )
-  return { onOpenChange }
+  const { rerender } = render(view(state))
+  // The page re-renders the dialog with the reloaded split state.
+  return { onOpenChange, showState: (next: TaskSplitStateResponse) => rerender(view(next)) }
 }
 
-async function openPlan() {
+async function openPlan({ expectValid = true } = {}) {
   const user = userEvent.setup()
   const suggest = await screen.findByRole('button', { name: 'Gợi ý chia' })
   await waitFor(() => expect(suggest).toBeEnabled())
   await user.click(suggest)
   await screen.findByRole('spinbutton', { name: 'Số lượng Gạo ST25 cho phần 1' })
   // The plan form validates asynchronously after mounting.
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeEnabled())
+  if (expectValid)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeEnabled())
   return user
 }
 
@@ -178,5 +182,23 @@ describe('TaskSplitDialog', () => {
     finish(['part-1', 'part-2'])
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(toastMock.success).toHaveBeenCalledWith('Đã chia việc.')
+  })
+
+  it('shows an overflow as soon as the plan opens and clears it when the lines reload', async () => {
+    // Someone assigned 2 of line 1 elsewhere after the suggestion was computed.
+    const shrunk = buildState({
+      lines: buildState().lines.map((line) =>
+        line.sourceLineId === 'line-1' ? { ...line, unassigned: 8 } : line
+      ),
+    })
+    const { showState } = renderDialog(shrunk)
+    await openPlan({ expectValid: false })
+
+    expect(await screen.findByText('Vượt 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeDisabled()
+
+    showState(buildState())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeEnabled())
+    expect(screen.queryByText('Vượt 2')).not.toBeInTheDocument()
   })
 })

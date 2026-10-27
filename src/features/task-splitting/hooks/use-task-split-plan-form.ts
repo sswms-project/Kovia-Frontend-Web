@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -49,11 +50,18 @@ export function useTaskSplitPlanForm(
   createSplit: CreateTaskSplitMutation,
   onDone: () => void
 ) {
+  // Read once: the form is remounted per suggestion and must not reset while the manager edits.
+  const [defaultValues] = useState(() => toFormValues(state, suggestion))
   const form = useForm<TaskSplitPlanFormValues>({
     resolver: zodResolver(buildTaskSplitPlanSchema(state.lines)),
-    defaultValues: toFormValues(state, suggestion),
+    defaultValues,
     mode: 'onChange',
   })
+  // Sync the validity with the plan as opened and with every reload of the lines' unassigned quantity;
+  // field changes alone would leave an overflow present on open (or fixed by a reload) undetected.
+  useEffect(() => {
+    void form.trigger()
+  }, [form, state.lines])
   const values = useWatch({ control: form.control })
   const { errors, isValid } = form.formState
 

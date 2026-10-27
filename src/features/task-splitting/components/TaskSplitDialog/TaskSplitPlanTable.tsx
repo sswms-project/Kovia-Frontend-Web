@@ -110,6 +110,9 @@ interface RemainingBadgeProps {
 
 function RemainingBadge({ row }: RemainingBadgeProps) {
   if (row.overflowMessage) return <Badge variant="destructive">{row.overflowMessage}</Badge>
+  // Validation runs right after a change; the watched values already show the overflow.
+  if (row.remaining < 0)
+    return <Badge variant="destructive">Vượt {formatQuantity(-row.remaining)}</Badge>
   if (row.remaining > 0)
     return <Badge variant="outline">Còn {formatQuantity(row.remaining)} chưa giao</Badge>
   return <span className="text-muted-foreground">0</span>
