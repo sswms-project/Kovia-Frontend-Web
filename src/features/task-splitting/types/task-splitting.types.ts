@@ -78,23 +78,23 @@ export interface UpdateTaskSplitSettingsRequest {
   items: TaskSplitSettingsItem[]
 }
 
-/** One editable part in the split dialog: quantities are the raw input text per source line. */
-export interface TaskSplitDraftPart {
-  readonly staffId: string
-  readonly quantities: Readonly<Record<string, string>>
-}
-
+/** One source line of the split plan grid, derived from the plan form. */
 export interface TaskSplitPlanRow {
   readonly line: TaskSplitLineView
-  /** Unassigned after this split; negative means the parts overflow the line. */
+  /** Unassigned after this split counting only valid cells; positive means "Còn n chưa giao". */
   readonly remaining: number
+  /** "Vượt n" from the plan schema when the parts exceed the line. */
+  readonly overflowMessage: string | undefined
+  /** Per part: the cell failed the plan schema. */
+  readonly invalidQuantities: readonly boolean[]
 }
 
 export interface TaskSplitPlanColumn {
   readonly staffId: string
   readonly staffName: string
   readonly total: number
-  readonly hasInvalidQuantity: boolean
+  /** "Phần trống" from the plan schema when the part has nothing to do. */
+  readonly emptyMessage: string | undefined
   /** Points and load after the split as planned by the backend suggestion. */
   readonly points: number | undefined
   readonly loadAfter: number | undefined

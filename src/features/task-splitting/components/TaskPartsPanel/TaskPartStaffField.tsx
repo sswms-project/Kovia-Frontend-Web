@@ -54,6 +54,7 @@ export function TaskPartStaffField({
               className="w-full"
               disabled={disabled || isLoading}
               aria-invalid={Boolean(error)}
+              ref={field.ref}
               name={field.name}
               value={field.value}
               onChange={field.onChange}

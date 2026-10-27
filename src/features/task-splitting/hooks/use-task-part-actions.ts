@@ -87,7 +87,11 @@ export function useTaskPartActions(
   })
 
   const activeParts = state.parts.filter((part) => part.executionStatus !== 'Cancelled')
-  const target = resolveTarget(openAction, activeParts, state.canCancelSplit)
+  const isPending =
+    cancelSplit.isPending || Object.values(mutations).some((mutation) => mutation.isPending)
+  const resolved = resolveTarget(openAction, activeParts, state.canCancelSplit)
+  // While a write is in flight the state reloads under it; the dialog closes on success, so no stale flash.
+  const target = resolved && isPending ? { ...resolved, isStale: false } : resolved
   const mergeTargets: TaskPartMergeTarget[] = target?.part
     ? activeParts
         .map((part, index) => ({ part, rank: index + 1 }))
@@ -156,9 +160,6 @@ export function useTaskPartActions(
         break
     }
   })
-
-  const isPending =
-    cancelSplit.isPending || Object.values(mutations).some((mutation) => mutation.isPending)
 
   return {
     activeParts,

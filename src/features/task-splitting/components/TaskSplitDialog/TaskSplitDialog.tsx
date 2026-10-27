@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Check, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Sparkles } from 'lucide-react'
 import type { QueryKey } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useTaskSplitPlan } from '../../hooks/use-task-split-plan'
 import { useCreateTaskSplitMutation } from '../../hooks/use-task-splitting'
 import type { TaskSplitStateResponse } from '../../types/task-splitting.types'
-import { TaskSplitPlanTable } from './TaskSplitPlanTable'
+import { TaskSplitPlanStep } from './TaskSplitPlanStep'
 import { TaskSplitStaffPicker } from './TaskSplitStaffPicker'
 
 export interface TaskSplitDialogProps {
@@ -63,7 +63,7 @@ interface TaskSplitDialogBodyProps {
 }
 
 function TaskSplitDialogBody({ state, createSplit, onClose }: TaskSplitDialogBodyProps) {
-  const plan = useTaskSplitPlan(state, createSplit, onClose)
+  const plan = useTaskSplitPlan(state)
   const activeQuery = plan.step === 'staff' ? plan.staffQuery : plan.planQuery
 
   return (
@@ -79,84 +79,74 @@ function TaskSplitDialogBody({ state, createSplit, onClose }: TaskSplitDialogBod
         </DialogDescription>
       </DialogHeader>
 
-      <div className="max-h-[60vh] min-w-0 overflow-y-auto" data-scrollbar="slim">
-        {activeQuery.isPending ? (
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} className="h-12 w-full" />
-            ))}
+      {/* Keyed on data, not status: a failed background refetch must not unmount the edited plan. */}
+      {plan.step === 'plan' && plan.planQuery.data ? (
+        <TaskSplitPlanStep
+          // A new suggestion starts a new form; a refetch of the same one never resets the edits.
+          key={plan.suggestionCount}
+          state={state}
+          suggestion={plan.planQuery.data}
+          staff={plan.staff}
+          createSplit={createSplit}
+          onBack={plan.backToStaff}
+          onDone={onClose}
+        />
+      ) : (
+        <>
+          <div className="max-h-[60vh] min-w-0 overflow-y-auto" data-scrollbar="slim">
+            {activeQuery.isPending ? (
+              <div className="flex flex-col gap-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={index} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : activeQuery.isError ? (
+              <div className="flex flex-col items-start gap-2 border p-3 text-sm">
+                <span>Không thể tải gợi ý chia việc.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={activeQuery.isFetching}
+                  onClick={() => void activeQuery.refetch()}
+                >
+                  <RefreshCw aria-hidden="true" />
+                  Thử lại
+                </Button>
+              </div>
+            ) : (
+              <TaskSplitStaffPicker
+                staff={plan.staff}
+                checkedStaffIds={plan.checkedStaffIds}
+                preselectedStaffIds={plan.preselectedStaffIds}
+                onToggle={plan.toggleStaff}
+              />
+            )}
           </div>
-        ) : activeQuery.isError ? (
-          <div className="flex flex-col items-start gap-2 border p-3 text-sm">
-            <span>Không thể tải gợi ý chia việc.</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={activeQuery.isFetching}
-              onClick={() => void activeQuery.refetch()}
-            >
-              <RefreshCw aria-hidden="true" />
-              Thử lại
-            </Button>
-          </div>
-        ) : plan.step === 'staff' ? (
-          <TaskSplitStaffPicker
-            staff={plan.staff}
-            checkedStaffIds={plan.checkedStaffIds}
-            preselectedStaffIds={plan.preselectedStaffIds}
-            onToggle={plan.toggleStaff}
-          />
-        ) : (
-          <TaskSplitPlanTable
-            rows={plan.rows}
-            columns={plan.columns}
-            draft={plan.draft}
-            idleStaffNames={plan.idleStaffNames}
-            hasInvalidQuantity={plan.hasInvalidQuantity}
-            disabled={plan.isPending}
-            onChangeQuantity={plan.changeQuantity}
-          />
-        )}
-      </div>
-
-      <DialogFooter>
-        {plan.step === 'staff' ? (
-          <>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Đóng
-            </Button>
-            <Button
-              type="button"
-              disabled={!plan.staffQuery.isSuccess || plan.checkedStaffIds.length === 0}
-              onClick={plan.suggest}
-            >
-              <Sparkles aria-hidden="true" />
-              Gợi ý chia
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={plan.isPending}
-              onClick={plan.backToStaff}
-            >
-              <ArrowLeft aria-hidden="true" />
-              Quay lại
-            </Button>
-            <Button type="button" disabled={!plan.canConfirm} onClick={plan.confirm}>
-              {plan.isPending ? (
-                <LoaderCircle className="animate-spin" aria-hidden="true" />
-              ) : (
-                <Check aria-hidden="true" />
-              )}
-              Xác nhận
-            </Button>
-          </>
-        )}
-      </DialogFooter>
+          <DialogFooter>
+            {plan.step === 'staff' ? (
+              <>
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Đóng
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!plan.staffQuery.isSuccess || plan.checkedStaffIds.length === 0}
+                  onClick={plan.suggest}
+                >
+                  <Sparkles aria-hidden="true" />
+                  Gợi ý chia
+                </Button>
+              </>
+            ) : (
+              <Button type="button" variant="outline" onClick={plan.backToStaff}>
+                <ArrowLeft aria-hidden="true" />
+                Quay lại
+              </Button>
+            )}
+          </DialogFooter>
+        </>
+      )}
     </>
   )
 }

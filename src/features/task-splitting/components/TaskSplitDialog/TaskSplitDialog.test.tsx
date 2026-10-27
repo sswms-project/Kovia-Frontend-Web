@@ -42,6 +42,8 @@ async function openPlan() {
   await waitFor(() => expect(suggest).toBeEnabled())
   await user.click(suggest)
   await screen.findByRole('spinbutton', { name: 'Số lượng Gạo ST25 cho phần 1' })
+  // The plan form validates asynchronously after mounting.
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeEnabled())
   return user
 }
 
@@ -83,19 +85,24 @@ describe('TaskSplitDialog', () => {
     renderDialog()
     const user = await openPlan()
     const confirm = screen.getByRole('button', { name: 'Xác nhận' })
-    expect(confirm).toBeEnabled()
 
     await setQuantity(user, quantityInput('Gạo ST25', 1), '12')
-    expect(screen.getByText('Vượt 2')).toBeInTheDocument()
+    expect(await screen.findByText('Vượt 2')).toBeInTheDocument()
     expect(confirm).toBeDisabled()
 
     await setQuantity(user, quantityInput('Gạo ST25', 1), '10')
-    expect(confirm).toBeEnabled()
+    await waitFor(() => expect(confirm).toBeEnabled())
 
-    // Phần 2 bị bỏ trống: lượng trở về chưa giao và phần rỗng không được xác nhận.
-    await setQuantity(user, quantityInput('Đường cát', 2), '')
+    // Phần 2 về 0: lượng trở về chưa giao và phần rỗng không được xác nhận.
+    await setQuantity(user, quantityInput('Đường cát', 2), '0')
+    expect(await screen.findByText('Phần trống')).toBeInTheDocument()
     expect(screen.getByText('Còn 7 chưa giao')).toBeInTheDocument()
     expect(confirm).toBeDisabled()
+
+    // A cleared number input is not 0.
+    await setQuantity(user, quantityInput('Gạo ST25', 1), '')
+    expect(await screen.findByText('Số lượng không hợp lệ')).toBeInTheDocument()
+    expect(quantityInput('Gạo ST25', 1)).toHaveAttribute('aria-invalid', 'true')
   })
 
   it('keeps edits after API error', async () => {
@@ -105,7 +112,9 @@ describe('TaskSplitDialog', () => {
 
     await setQuantity(user, quantityInput('Gạo ST25', 1), '6')
     await setQuantity(user, quantityInput('Gạo ST25', 2), '4')
-    await user.click(screen.getByRole('button', { name: 'Xác nhận' }))
+    const confirm = screen.getByRole('button', { name: 'Xác nhận' })
+    await waitFor(() => expect(confirm).toBeEnabled())
+    await user.click(confirm)
 
     await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Dữ liệu đã thay đổi.'))
     expect(api.create).toHaveBeenCalledWith(
@@ -146,7 +155,7 @@ describe('TaskSplitDialog', () => {
     expect(within(pointsRow).getByText('9')).toBeInTheDocument()
 
     fireEvent.change(quantityInput('Gạo ST25', 1), { target: { value: '-5' } })
-    expect(screen.getByText('Số lượng không hợp lệ')).toBeInTheDocument()
+    expect(await screen.findByText('Số lượng không hợp lệ')).toBeInTheDocument()
     expect(quantityInput('Gạo ST25', 1)).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeDisabled()
   })

@@ -24,9 +24,11 @@ export function TaskSplitPlanFooter({ rows, columns }: TaskSplitPlanFooterProps)
         {columns.map((column, index) => (
           <TableCell
             key={index}
-            className={column.total > 0 ? 'text-right tabular-nums' : 'text-destructive text-right'}
+            className={
+              column.emptyMessage ? 'text-destructive text-right' : 'text-right tabular-nums'
+            }
           >
-            {column.total > 0 ? formatQuantity(column.total) : 'Phần trống'}
+            {column.emptyMessage ?? formatQuantity(column.total)}
           </TableCell>
         ))}
         <TableCell className="text-right tabular-nums">

@@ -1,5 +1,6 @@
 'use client'
 
+import type { UseFormRegisterReturn } from 'react-hook-form'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
@@ -10,12 +11,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type {
-  TaskSplitDraftPart,
-  TaskSplitPlanColumn,
-  TaskSplitPlanRow,
-} from '../../types/task-splitting.types'
-import { formatQuantity, parseQuantity } from '../../utils/task-split-quantity'
+import { INVALID_PLAN_QUANTITY_MESSAGE } from '../../schemas/task-split-plan.schema'
+import type { TaskSplitPlanColumn, TaskSplitPlanRow } from '../../types/task-splitting.types'
+import { formatQuantity } from '../../utils/task-split-quantity'
 import { TaskSplitPlanFooter } from './TaskSplitPlanFooter'
 
 const INVALID_MESSAGE_ID = 'task-split-invalid-quantity'
@@ -23,21 +21,19 @@ const INVALID_MESSAGE_ID = 'task-split-invalid-quantity'
 interface TaskSplitPlanTableProps {
   readonly rows: readonly TaskSplitPlanRow[]
   readonly columns: readonly TaskSplitPlanColumn[]
-  readonly draft: readonly TaskSplitDraftPart[]
   readonly idleStaffNames: readonly string[]
   readonly hasInvalidQuantity: boolean
   readonly disabled: boolean
-  readonly onChangeQuantity: (partIndex: number, lineId: string, value: string) => void
+  readonly registerQuantity: (rowIndex: number, partIndex: number) => UseFormRegisterReturn
 }
 
 export function TaskSplitPlanTable({
   rows,
   columns,
-  draft,
   idleStaffNames,
   hasInvalidQuantity,
   disabled,
-  onChangeQuantity,
+  registerQuantity,
 }: TaskSplitPlanTableProps) {
   return (
     <div className="flex flex-col gap-2">
@@ -58,40 +54,36 @@ export function TaskSplitPlanTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map(({ line, remaining }) => (
-            <TableRow key={line.sourceLineId}>
-              <TableCell className="font-medium">{line.label}</TableCell>
-              <TableCell>{line.zoneName ?? '—'}</TableCell>
-              <TableCell className="font-mono">{line.slotCode ?? '—'}</TableCell>
+          {rows.map((row, rowIndex) => (
+            <TableRow key={row.line.sourceLineId}>
+              <TableCell className="font-medium">{row.line.label}</TableCell>
+              <TableCell>{row.line.zoneName ?? '—'}</TableCell>
+              <TableCell className="font-mono">{row.line.slotCode ?? '—'}</TableCell>
               <TableCell className="text-right tabular-nums">
-                {formatQuantity(line.unassigned)}
+                {formatQuantity(row.line.unassigned)}
               </TableCell>
-              {draft.map((part, index) => {
-                const value = part.quantities[line.sourceLineId] ?? ''
-                const isInvalid = parseQuantity(value) === null
+              {columns.map((_, partIndex) => {
+                const isInvalid = row.invalidQuantities[partIndex] ?? false
                 return (
-                  <TableCell key={index} className="text-right">
+                  <TableCell key={partIndex} className="text-right">
                     <Input
                       type="number"
                       inputMode="decimal"
                       min={0}
                       // The line view carries no unit precision; the backend rejects excess decimals per line.
                       step="any"
-                      aria-label={`Số lượng ${line.label} cho phần ${index + 1}`}
+                      aria-label={`Số lượng ${row.line.label} cho phần ${partIndex + 1}`}
                       aria-invalid={isInvalid}
                       aria-describedby={isInvalid ? INVALID_MESSAGE_ID : undefined}
                       className="h-7 text-right tabular-nums"
                       disabled={disabled}
-                      value={value}
-                      onChange={(event) =>
-                        onChangeQuantity(index, line.sourceLineId, event.target.value)
-                      }
+                      {...registerQuantity(rowIndex, partIndex)}
                     />
                   </TableCell>
                 )
               })}
               <TableCell className="text-right">
-                <RemainingBadge remaining={remaining} />
+                <RemainingBadge row={row} />
               </TableCell>
             </TableRow>
           ))}
@@ -100,7 +92,7 @@ export function TaskSplitPlanTable({
       </Table>
       {hasInvalidQuantity ? (
         <p id={INVALID_MESSAGE_ID} role="alert" className="text-destructive text-xs">
-          Số lượng không hợp lệ
+          {INVALID_PLAN_QUANTITY_MESSAGE}
         </p>
       ) : null}
       {idleStaffNames.length > 0 ? (
@@ -113,12 +105,12 @@ export function TaskSplitPlanTable({
 }
 
 interface RemainingBadgeProps {
-  readonly remaining: number
+  readonly row: TaskSplitPlanRow
 }
 
-function RemainingBadge({ remaining }: RemainingBadgeProps) {
-  if (remaining < 0) return <Badge variant="destructive">Vượt {formatQuantity(-remaining)}</Badge>
-  if (remaining > 0)
-    return <Badge variant="outline">Còn {formatQuantity(remaining)} chưa giao</Badge>
+function RemainingBadge({ row }: RemainingBadgeProps) {
+  if (row.overflowMessage) return <Badge variant="destructive">{row.overflowMessage}</Badge>
+  if (row.remaining > 0)
+    return <Badge variant="outline">Còn {formatQuantity(row.remaining)} chưa giao</Badge>
   return <span className="text-muted-foreground">0</span>
 }
