@@ -1,4 +1,9 @@
+import { useRef } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import {
+  receiptCommandId,
+  type ReceiptCommandSnapshot,
+} from '@/features/inbound/utils/receipt-command-id'
 import { isApiErrorResponse, logApiError } from '@/lib/api-error'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse } from '@/types/api'
@@ -38,6 +43,8 @@ export function useTaskSplitSuggestionQuery(
     queryKey: queryKeys.taskSplits.suggestion(type, sourceId, staffIds),
     queryFn: () => taskSplittingService.getSuggestion(type, sourceId, staffIds),
     enabled: enabled && Boolean(sourceId),
+    // Staff load moves with every assignment, so a cached plan is never trusted on reopen.
+    staleTime: 0,
   })
 }
 
@@ -58,8 +65,26 @@ function useSplitMutationHandlers(
       ]),
     onError: (error: ApiErrorResponse) => {
       logApiError(error)
-      // A conflict means the version we sent is stale; reload it so the next attempt can succeed.
-      if (isApiErrorResponse(error) && error.statusCode === 409) void refreshState()
+      // Stale version or vanished source/part: reload so the screen and the next attempt see the truth.
+      if (isApiErrorResponse(error) && (error.statusCode === 409 || error.statusCode === 404))
+        void refreshState()
+    },
+  }
+}
+
+/**
+ * Keeps one command id per payload until it succeeds, so retrying after a lost response is replayed by the
+ * backend instead of rejected as a conflict.
+ */
+function useCommandId() {
+  const snapshot = useRef<ReceiptCommandSnapshot | null>(null)
+  return {
+    next: (body: unknown) => {
+      snapshot.current = receiptCommandId(snapshot.current, body)
+      return snapshot.current.commandId
+    },
+    reset: () => {
+      snapshot.current = null
     },
   }
 }
@@ -69,10 +94,19 @@ export function useCreateTaskSplitMutation(
   sourceId: string,
   invalidateKeys: readonly QueryKey[] = []
 ) {
+  const handlers = useSplitMutationHandlers(type, sourceId, invalidateKeys)
+  const command = useCommandId()
   return useMutation<string[], ApiErrorResponse, Omit<CreateTaskSplitRequest, 'commandId'>>({
     mutationFn: (request) =>
-      taskSplittingService.create(type, sourceId, { ...request, commandId: crypto.randomUUID() }),
-    ...useSplitMutationHandlers(type, sourceId, invalidateKeys),
+      taskSplittingService.create(type, sourceId, {
+        ...request,
+        commandId: command.next({ type, sourceId, ...request }),
+      }),
+    ...handlers,
+    onSuccess: () => {
+      command.reset()
+      return handlers.onSuccess()
+    },
   })
 }
 
@@ -81,10 +115,19 @@ export function useCancelTaskSplitMutation(
   sourceId: string,
   invalidateKeys: readonly QueryKey[] = []
 ) {
+  const handlers = useSplitMutationHandlers(type, sourceId, invalidateKeys)
+  const command = useCommandId()
   return useMutation<unknown, ApiErrorResponse, Omit<CancelTaskSplitRequest, 'commandId'>>({
     mutationFn: (request) =>
-      taskSplittingService.cancel(type, sourceId, { ...request, commandId: crypto.randomUUID() }),
-    ...useSplitMutationHandlers(type, sourceId, invalidateKeys),
+      taskSplittingService.cancel(type, sourceId, {
+        ...request,
+        commandId: command.next({ type, sourceId, ...request }),
+      }),
+    ...handlers,
+    onSuccess: () => {
+      command.reset()
+      return handlers.onSuccess()
+    },
   })
 }
 
@@ -138,8 +181,12 @@ export function useUpdateTaskSplitSettingsMutation() {
   const queryClient = useQueryClient()
   return useMutation<unknown, ApiErrorResponse, UpdateTaskSplitSettingsRequest>({
     mutationFn: (request) => taskSplittingService.updateSettings(request),
-    // Chờ tải lại để form nhận phiên bản mới trước khi cho lưu tiếp.
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.taskSplitSettings }),
+    // Chờ tải lại để form nhận phiên bản mới trước khi cho lưu tiếp; gợi ý chia chứa giới hạn nên cũng làm mới.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.taskSplitSettings }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.taskSplits.all }),
+      ]),
     onError: logApiError,
   })
 }

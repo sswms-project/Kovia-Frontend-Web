@@ -1,6 +1,8 @@
+import type { z } from 'zod'
 import { axiosClient } from '@/lib/axios'
+import { logger } from '@/lib/logger'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
-import type { ApiResponse } from '@/types/api'
+import type { ApiErrorResponse, ApiResponse } from '@/types/api'
 import {
   taskSplitSettingsResponseSchema,
   taskSplitStateResponseSchema,
@@ -20,18 +22,30 @@ import type {
 
 const { taskSplits, taskParts, taskSplitSettings } = API_ENDPOINTS
 
+const INVALID_RESPONSE_MESSAGE =
+  'Dữ liệu chia việc từ máy chủ không hợp lệ. Vui lòng tải lại trang.'
+
+/** Validates a response; on mismatch logs the zod detail and rejects with the same shape as an API error. */
+function parseResponse<T>(schema: z.ZodType<T>, data: unknown): T {
+  const result = schema.safeParse(data)
+  if (result.success) return result.data
+  logger.error(result.error)
+  const error: ApiErrorResponse = { statusCode: 500, message: INVALID_RESPONSE_MESSAGE }
+  throw error
+}
+
 export const taskSplittingService = {
   getState: (type: SplittableTaskType, sourceId: string) =>
     axiosClient
       .get<ApiResponse<unknown>>(taskSplits.state(type, sourceId))
-      .then((response) => taskSplitStateResponseSchema.parse(response.data.data)),
+      .then((response) => parseResponse(taskSplitStateResponseSchema, response.data.data)),
   getSuggestion: (type: SplittableTaskType, sourceId: string, staffIds: readonly string[] | null) =>
     axiosClient
       .get<ApiResponse<unknown>>(taskSplits.suggestion(type, sourceId), {
         // Axios would send `staffIds[]=…`, which ASP.NET does not bind; the backend accepts a comma list.
         params: staffIds?.length ? { staffIds: staffIds.join(',') } : undefined,
       })
-      .then((response) => taskSplitSuggestionResponseSchema.parse(response.data.data)),
+      .then((response) => parseResponse(taskSplitSuggestionResponseSchema, response.data.data)),
   create: (type: SplittableTaskType, sourceId: string, request: CreateTaskSplitRequest) =>
     axiosClient
       .post<ApiResponse<string[]>>(taskSplits.create(type, sourceId), request)
@@ -67,7 +81,7 @@ export const taskSplittingService = {
   getSettings: () =>
     axiosClient
       .get<ApiResponse<unknown>>(taskSplitSettings)
-      .then((response) => taskSplitSettingsResponseSchema.parse(response.data.data)),
+      .then((response) => parseResponse(taskSplitSettingsResponseSchema, response.data.data)),
   updateSettings: (request: UpdateTaskSplitSettingsRequest) =>
     axiosClient
       .put<ApiResponse<unknown>>(taskSplitSettings, request)

@@ -57,7 +57,15 @@ const taskPartViewSchema = z.object({
   dueAt: z.string().nullable(),
   version: z.string(),
   lines: z.array(taskPartLineViewSchema),
-  allowedActions: z.array(taskPartActionSchema),
+  // Unknown actions from a newer backend are dropped so the rest of the split still renders.
+  allowedActions: z
+    .array(z.string())
+    .transform((actions) =>
+      actions.filter(
+        (action): action is z.infer<typeof taskPartActionSchema> =>
+          taskPartActionSchema.safeParse(action).success
+      )
+    ),
 })
 
 export const taskSplitStateResponseSchema = z.object({

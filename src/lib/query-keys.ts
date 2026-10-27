@@ -103,9 +103,17 @@ export const queryKeys = {
   },
   // `state` prefixes `suggestion`, so invalidating the state also drops stale suggestions.
   taskSplits: {
+    all: ['task-splits'] as const,
     state: (type: SplittableTaskType, sourceId: string) => ['task-splits', type, sourceId] as const,
+    // Staff order and "none" vs "empty" do not change the backend answer, so they share one entry.
     suggestion: (type: SplittableTaskType, sourceId: string, staffIds: readonly string[] | null) =>
-      ['task-splits', type, sourceId, 'suggestion', staffIds] as const,
+      [
+        'task-splits',
+        type,
+        sourceId,
+        'suggestion',
+        staffIds?.length ? [...staffIds].sort() : null,
+      ] as const,
   },
   taskSplitSettings: ['task-split-settings'] as const,
   staff: {

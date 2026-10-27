@@ -82,6 +82,11 @@ const settingsResponse = {
   items: [{ sourceType: 'PutAway', maxLinesPerPart: 20, maxPointsPerPart: 0, version: 1 }],
 }
 
+const INVALID_RESPONSE = {
+  statusCode: 500,
+  message: 'Dữ liệu chia việc từ máy chủ không hợp lệ. Vui lòng tải lại trang.',
+}
+
 const originalAdapter = axiosClient.defaults.adapter
 afterEach(() => {
   axiosClient.defaults.adapter = originalAdapter
@@ -129,10 +134,21 @@ describe('taskSplittingService reads', () => {
     })
   })
 
-  it('rejects a state response missing a required field', async () => {
+  it('rejects a state response missing a required field with a short message', async () => {
     respondWith(without(stateResponse, 'canSplit'))
 
-    await expect(taskSplittingService.getState('Receiving', SOURCE_ID)).rejects.toThrow()
+    await expect(taskSplittingService.getState('Receiving', SOURCE_ID)).rejects.toEqual(
+      INVALID_RESPONSE
+    )
+  })
+
+  it('drops part actions this client does not know instead of rejecting the state', async () => {
+    const part = { ...stateResponse.parts[0]!, allowedActions: ['edit', 'pause', 'cancel'] }
+    respondWith({ ...stateResponse, parts: [part] })
+
+    const state = await taskSplittingService.getState('Receiving', SOURCE_ID)
+
+    expect(state.parts[0]?.allowedActions).toEqual(['edit', 'cancel'])
   })
 
   it('sends chosen staff as one comma-separated parameter the backend can bind', async () => {
@@ -160,7 +176,9 @@ describe('taskSplittingService reads', () => {
   it('rejects a suggestion response missing a required field', async () => {
     respondWith(without(suggestionResponse, 'recommendedPeople'))
 
-    await expect(taskSplittingService.getSuggestion('Receiving', SOURCE_ID, null)).rejects.toThrow()
+    await expect(taskSplittingService.getSuggestion('Receiving', SOURCE_ID, null)).rejects.toEqual(
+      INVALID_RESPONSE
+    )
   })
 
   it('gets and parses split settings', async () => {
@@ -168,6 +186,12 @@ describe('taskSplittingService reads', () => {
 
     await expect(taskSplittingService.getSettings()).resolves.toEqual(settingsResponse)
     expect(sentRequest(adapter)).toMatchObject({ method: 'get', url: '/task-split-settings' })
+  })
+
+  it('rejects a settings response missing a required field with a short message', async () => {
+    respondWith({ items: [without(settingsResponse.items[0]!, 'version')] })
+
+    await expect(taskSplittingService.getSettings()).rejects.toEqual(INVALID_RESPONSE)
   })
 })
 
