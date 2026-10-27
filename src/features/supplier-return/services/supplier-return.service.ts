@@ -8,9 +8,60 @@ import type {
   SupplierReturnListQuery,
   SupplierReturnListResponse,
   SupplierReturnReasonRequest,
+  SupplierReturnReceiptOption,
+  SupplierReturnStockOption,
 } from '../types/supplier-return.types'
+import type { InventoryStock } from '@/features/inventory/types/inventory.types'
 
 export const supplierReturnService = {
+  getSourceReceipts: (params: {
+    warehouseId: string
+    supplierId: string
+    search: string
+    page: number
+  }) =>
+    axiosClient
+      .get<
+        ApiResponse<{ items: SupplierReturnReceiptOption[]; totalCount: number }>
+      >(`${API_ENDPOINTS.supplierReturns.list}/source-receipts`, { params })
+      .then((response) => response.data),
+
+  getSourceStocks: (params: {
+    warehouseId: string
+    supplierId: string
+    sourceGoodsReceiptId: string
+    search: string
+    page: number
+  }) =>
+    axiosClient
+      .get<
+        ApiResponse<{
+          items: {
+            stock: InventoryStock
+            sourceReceivedQuantity: number
+            sourceRemainingQuantity: number
+            returnableQuantity: number
+            unattributedReturnedQuantity: number
+          }[]
+          totalCount: number
+        }>
+      >(`${API_ENDPOINTS.supplierReturns.list}/source-stocks`, { params })
+      .then((response) => ({
+        ...response.data,
+        data: {
+          ...response.data.data,
+          items: response.data.data.items.map(
+            (entry): SupplierReturnStockOption => ({
+              ...entry.stock,
+              sourceReceivedQuantity: entry.sourceReceivedQuantity,
+              sourceRemainingQuantity: entry.sourceRemainingQuantity,
+              returnableQuantity: entry.returnableQuantity,
+              unattributedReturnedQuantity: entry.unattributedReturnedQuantity,
+            })
+          ),
+        },
+      })),
+
   getSupplierReturns: (params: SupplierReturnListQuery) =>
     axiosClient
       .get<ApiResponse<SupplierReturnListResponse>>(API_ENDPOINTS.supplierReturns.list, { params })

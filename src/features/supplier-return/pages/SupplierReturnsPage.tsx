@@ -20,7 +20,6 @@ import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
 import { USER_ROLES } from '@/config/roles'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
-import { useInventoryQuery } from '@/features/inventory/hooks/use-inventory'
 import { useSuppliersQuery } from '@/features/supplier/hooks/use-suppliers'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -40,6 +39,8 @@ import {
   useCreateSupplierReturnMutation,
   useRejectSupplierReturnMutation,
   useSupplierReturnQuery,
+  useSupplierReturnSourcesQuery,
+  useSupplierReturnSourceStocksQuery,
   useSupplierReturnsQuery,
 } from '../hooks/use-supplier-returns'
 import {
@@ -58,6 +59,7 @@ const STOCK_PAGE_SIZE = 100
 const EMPTY_CREATE_VALUES: CreateSupplierReturnFormValues = {
   warehouseId: '',
   supplierId: '',
+  sourceGoodsReceiptId: '',
   reason: '',
   negotiationNote: '',
   lines: [],
@@ -102,6 +104,8 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
   const canSelfApprove = canApprove && permissions.includes(P.SUPPLIER_RETURNS_SELF_APPROVE)
   const canDispatch = permissions.includes(P.SUPPLIER_RETURNS_DISPATCH)
   const [stockSearch, setStockSearch] = useState('')
+  const [receiptSearch, setReceiptSearch] = useState('')
+  const [receiptPaging, setReceiptPaging] = useState({ key: '', page: 1 })
   const [decision, setDecision] = useState<{
     type: SupplierReturnDecision
     item: SupplierReturn
@@ -109,6 +113,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
   const [deliveringItem, setDeliveringItem] = useState<SupplierReturn | null>(null)
   const debouncedSearchText = useDebouncedValue(searchText.trim(), 350)
   const debouncedStockSearch = useDebouncedValue(stockSearch.trim(), 350)
+  const debouncedReceiptSearch = useDebouncedValue(receiptSearch.trim(), 350)
 
   const listQuery = useSupplierReturnsQuery(
     {
@@ -152,19 +157,35 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     defaultValues: { items: [] },
   })
   const createWarehouseId = useWatch({ control: createForm.control, name: 'warehouseId' })
+  const createSupplierId = useWatch({ control: createForm.control, name: 'supplierId' })
+  const sourceGoodsReceiptId = useWatch({
+    control: createForm.control,
+    name: 'sourceGoodsReceiptId',
+  })
+  const receiptPageKey = `${createWarehouseId}|${createSupplierId}|${debouncedReceiptSearch}`
+  const receiptPage = receiptPaging.key === receiptPageKey ? receiptPaging.page : 1
+  const receiptsQuery = useSupplierReturnSourcesQuery(
+    {
+      warehouseId: createWarehouseId,
+      supplierId: createSupplierId,
+      search: debouncedReceiptSearch,
+      page: receiptPage,
+    },
+    isCreateOpen
+  )
   // Trang tồn quay về 1 khi đổi kho hoặc từ khoá tìm (không cần effect).
-  const stockPageKey = `${createWarehouseId}|${debouncedStockSearch}`
+  const stockPageKey = `${createWarehouseId}|${createSupplierId}|${sourceGoodsReceiptId}|${debouncedStockSearch}`
   const [stockPaging, setStockPaging] = useState({ key: stockPageKey, page: 1 })
   const stockPage = stockPaging.key === stockPageKey ? stockPaging.page : 1
-  const stocksQuery = useInventoryQuery(
+  const stocksQuery = useSupplierReturnSourceStocksQuery(
     {
-      pageNumber: stockPage,
-      pageSize: STOCK_PAGE_SIZE,
       warehouseId: createWarehouseId,
-      inStockOnly: true,
-      ...(debouncedStockSearch ? { searchTerm: debouncedStockSearch } : {}),
+      supplierId: createSupplierId,
+      sourceGoodsReceiptId,
+      search: debouncedStockSearch,
+      page: stockPage,
     },
-    isCreateOpen && Boolean(createWarehouseId)
+    isCreateOpen
   )
 
   const createMutation = useCreateSupplierReturnMutation()
@@ -195,6 +216,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
   function openCreate() {
     createForm.reset(EMPTY_CREATE_VALUES)
     setStockSearch('')
+    setReceiptSearch('')
     navigate({ create: '1' })
   }
 
@@ -212,6 +234,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     createForm.reset({
       warehouseId: document.warehouseId,
       supplierId: document.supplierId,
+      sourceGoodsReceiptId: document.sourceGoodsReceiptId ?? '',
       reason: document.reason,
       negotiationNote: document.negotiationNote ?? '',
       lines: document.items.map((item) => ({
@@ -231,6 +254,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
       const content = {
         warehouseId: values.warehouseId,
         supplierId: values.supplierId,
+        sourceGoodsReceiptId: values.sourceGoodsReceiptId,
         reason: values.reason,
         ...(values.negotiationNote ? { negotiationNote: values.negotiationNote } : {}),
         lines: values.lines.map((line) => ({
@@ -370,6 +394,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
           listHref={list.listHref}
           canApprove={canApprove && !meQuery.isFetching && !detailQuery.isFetching}
           canSelfApprove={canSelfApprove}
+          canViewSourceReceipt={permissions.includes(P.GOODS_RECEIPTS_VIEW)}
           canDispatch={canDispatch && !meQuery.isFetching && !detailQuery.isFetching}
           isPending={
             meQuery.isFetching ||
@@ -422,14 +447,45 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
         />
       )}
       <CreateSupplierReturnDialog
+        key={`${isCreateOpen}:${editingDocument?.id ?? 'new'}`}
         isEditing={Boolean(editingDocument)}
         open={isCreateOpen}
         form={createForm}
         warehouses={warehouseOptions}
         suppliers={supplierOptions}
+        receipts={(receiptsQuery.data?.items ?? []).map((receipt) => ({
+          id: receipt.id,
+          label: receipt.receiptCode,
+        }))}
+        selectedReceipt={
+          editingDocument?.sourceGoodsReceiptId
+            ? {
+                id: editingDocument.sourceGoodsReceiptId,
+                label: editingDocument.sourceGoodsReceiptCode ?? 'Phiếu nhận đã chọn',
+              }
+            : undefined
+        }
+        onReceiptSearchChange={setReceiptSearch}
+        receiptPage={receiptPage}
+        receiptPageCount={Math.max(1, Math.ceil((receiptsQuery.data?.totalCount ?? 0) / 20))}
+        onReceiptPageChange={(page) => setReceiptPaging({ key: receiptPageKey, page })}
+        isReceiptsLoading={receiptsQuery.isFetching}
+        receiptsError={
+          receiptsQuery.isError
+            ? getApiErrorMessage(receiptsQuery.error, 'Không thể tải phiếu nhận nguồn.')
+            : null
+        }
+        stocksError={
+          stocksQuery.isError
+            ? getApiErrorMessage(stocksQuery.error, 'Không thể tải hàng từ phiếu nguồn.')
+            : null
+        }
+        onRetrySources={() => {
+          void receiptsQuery.refetch()
+          if (sourceGoodsReceiptId) void stocksQuery.refetch()
+        }}
         stocks={stocksQuery.data?.items ?? []}
-        stockSearch={stockSearch}
-        isStocksLoading={stocksQuery.isLoading}
+        isStocksLoading={stocksQuery.isFetching || stockSearch.trim() !== debouncedStockSearch}
         isPending={createMutation.isPending || saveMutation.isPending}
         onStockSearchChange={setStockSearch}
         stockPage={stockPage}

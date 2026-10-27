@@ -394,8 +394,12 @@ export interface RejectGoodsReturnRequestRequest {
 
 export interface RestockGoodsReturnRequestItem {
   returnItemId: string
-  condition: GoodsReturnRequestItemCondition
   restockSlotId: string | null
+}
+
+export interface GoodsReturnRestockOptions {
+  version: string
+  items: { returnItemId: string; options: GoodsReturnSlotSuggestion[] }[]
 }
 
 export interface RestockGoodsReturnRequest {

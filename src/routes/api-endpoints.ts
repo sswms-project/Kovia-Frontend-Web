@@ -144,7 +144,6 @@ export const API_ENDPOINTS = {
       `/warehouses/${warehouseId}/locations/${locationType.toLowerCase()}/${locationId}/barcode`,
     deactivate: (warehouseId: string) => `/warehouses/${warehouseId}/deactivate`,
     reactivate: (warehouseId: string) => `/warehouses/${warehouseId}/reactivate`,
-    quarantineSlot: (warehouseId: string) => `/warehouses/${warehouseId}/quarantine-slot`,
   },
   inventoryAnomalies: {
     list: '/inventory-anomalies',

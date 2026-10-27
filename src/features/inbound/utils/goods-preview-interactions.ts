@@ -18,8 +18,9 @@ export function goodsPreviewInteractions(
       if (
         event.target instanceof Element &&
         event.currentTarget.contains(event.target) &&
+        !window.getSelection()?.toString() &&
         !event.target.closest(
-          'a, button, input, select, textarea, [role="checkbox"], [data-preview-ignore]'
+          'a, button, input, select, textarea, label, [role="button"], [role="menuitem"], [role="checkbox"], [data-preview-ignore], [data-row-ignore]'
         )
       ) {
         onPreview()

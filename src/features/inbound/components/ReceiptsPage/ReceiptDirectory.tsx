@@ -2,8 +2,6 @@ import { OperationalDateSort } from '@/components/operations/OperationalDateSort
 import type { OrderType } from '@/types/api'
 import type { ReactNode } from 'react'
 import { Check, Eye, RefreshCw, Search } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import type { Route } from 'next'
 import Link from 'next/link'
 import {
@@ -40,10 +38,13 @@ import {
   OperationalCellStack,
   OperationalQuantityProgress,
 } from '@/components/operations/OperationalCells'
-import { rowActivationProps } from '../../utils/row-activation-props'
+import { goodsPreviewInteractions } from '../../utils/goods-preview-interactions'
 import { TaskAssigneeCell } from '../TaskAssignment'
 
 interface ReceiptDirectoryProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: GoodsReceiptSummary, open?: boolean) => void
+  readonly previewAction?: ReactNode
   readonly items: readonly GoodsReceiptSummary[]
   readonly totalCount: number
   readonly page: number
@@ -71,6 +72,9 @@ interface ReceiptDirectoryProps {
 }
 
 export function ReceiptDirectory({
+  previewId,
+  onPreview,
+  previewAction,
   items,
   totalCount,
   page,
@@ -96,7 +100,6 @@ export function ReceiptDirectory({
   exportAction,
   onApprove,
 }: ReceiptDirectoryProps) {
-  const router = useRouter()
   return (
     <OperationalListPanel aria-label="Danh sách phiếu nhận hàng">
       <div className="flex shrink-0 flex-col gap-3 border-b p-3 lg:flex-row lg:items-center lg:justify-between">
@@ -138,6 +141,7 @@ export function ReceiptDirectory({
               onCreatedToChange(to)
             }}
           />
+          {previewAction}
           {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -173,8 +177,9 @@ export function ReceiptDirectory({
             {items.map((item) => (
               <Item
                 key={item.id}
-                {...rowActivationProps(
-                  () => router.push(APP_ROUTES.goodsReceiptDetail(item.id) as Route),
+                {...goodsPreviewInteractions(
+                  onPreview ? () => onPreview(item) : undefined,
+                  previewId === item.id,
                   'border-b last:border-b-0'
                 )}
               >
@@ -182,7 +187,7 @@ export function ReceiptDirectory({
                   <ItemTitle className="flex flex-wrap items-center gap-2">
                     <Link
                       href={APP_ROUTES.goodsReceiptDetail(item.id) as Route}
-                      className="font-mono font-semibold hover:underline"
+                      className="font-mono font-semibold underline-offset-4 hover:underline focus-visible:underline"
                     >
                       {item.receiptCode}
                     </Link>
@@ -207,6 +212,17 @@ export function ReceiptDirectory({
                       />
                     </div>
                   )}
+                  {onPreview ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2 min-h-11 w-fit"
+                      aria-label={`Xem hàng hóa ${item.receiptCode}`}
+                      onClick={() => onPreview(item, true)}
+                    >
+                      Xem hàng hóa
+                    </Button>
+                  ) : null}
                 </ItemContent>
                 {canApprove && item.status === 'PendingApproval' ? (
                   <Button
@@ -240,14 +256,17 @@ export function ReceiptDirectory({
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
-                  <ClickableTableRow
+                  <TableRow
                     key={item.id}
-                    href={APP_ROUTES.goodsReceiptDetail(item.id) as Route}
+                    {...goodsPreviewInteractions(
+                      onPreview ? () => onPreview(item) : undefined,
+                      previewId === item.id
+                    )}
                   >
                     <TableCell>
                       <Link
                         href={APP_ROUTES.goodsReceiptDetail(item.id) as Route}
-                        className="font-mono font-semibold hover:underline"
+                        className="font-mono font-semibold underline-offset-4 hover:underline focus-visible:underline"
                       >
                         {item.receiptCode}
                       </Link>
@@ -321,7 +340,7 @@ export function ReceiptDirectory({
                         </Button>
                       </div>
                     </TableCell>
-                  </ClickableTableRow>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>

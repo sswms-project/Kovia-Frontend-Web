@@ -2,8 +2,6 @@ import { OperationalDateSort } from '@/components/operations/OperationalDateSort
 import type { OrderType } from '@/types/api'
 import type { ReactNode } from 'react'
 import { PackagePlus, RefreshCw, Search, UserCheck, UserRoundCog } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -35,7 +33,7 @@ import {
   OperationalCellStack,
   OperationalQuantityProgress,
 } from '@/components/operations/OperationalCells'
-import { rowActivationProps } from '../../utils/row-activation-props'
+import { goodsPreviewInteractions } from '../../utils/goods-preview-interactions'
 import {
   formatOperationalDate,
   formatOperationalDateTime,
@@ -43,6 +41,9 @@ import {
 } from '@/features/inbound-request/utils/inbound-request-format'
 
 interface ReceivingTaskDirectoryProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: ReceivingTask, open?: boolean) => void
+  readonly previewAction?: ReactNode
   readonly canViewRequest?: boolean
   readonly items: readonly ReceivingTask[]
   readonly totalCount: number
@@ -75,6 +76,9 @@ interface ReceivingTaskDirectoryProps {
 export type ReceivingAssignmentFilter = 'all' | 'unassigned'
 
 export function ReceivingTaskDirectory({
+  previewId,
+  onPreview,
+  previewAction,
   canViewRequest,
   items,
   totalCount,
@@ -103,7 +107,6 @@ export function ReceivingTaskDirectory({
   onAssignmentFilterChange,
   onAssign,
 }: ReceivingTaskDirectoryProps) {
-  const router = useRouter()
   function renderActions(item: ReceivingTask, layout: 'row' | 'stack') {
     const isMine = Boolean(currentUserId) && item.assignedTo === currentUserId
     const receiptPendingApproval = item.activeGoodsReceiptStatus === 'PendingApproval'
@@ -201,6 +204,7 @@ export function ReceivingTaskDirectory({
               onChange={(event) => onSearchChange(event.target.value)}
             />
           </InputGroup>
+          {previewAction}
           {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -242,9 +246,9 @@ export function ReceivingTaskDirectory({
             {items.map((item) => (
               <Item
                 key={item.inboundRequestId}
-                {...rowActivationProps(
-                  () =>
-                    router.push(APP_ROUTES.inboundRequestDetail(item.inboundRequestId) as Route),
+                {...goodsPreviewInteractions(
+                  onPreview ? () => onPreview(item) : undefined,
+                  previewId === item.inboundRequestId,
                   'border-b last:border-b-0'
                 )}
               >
@@ -253,7 +257,7 @@ export function ReceivingTaskDirectory({
                     {canViewRequest ? (
                       <Link
                         href={APP_ROUTES.inboundRequestDetail(item.inboundRequestId) as Route}
-                        className="text-primary font-semibold hover:underline"
+                        className="text-primary font-semibold underline-offset-4 hover:underline focus-visible:underline"
                       >
                         {item.inboundRequestCode}
                       </Link>
@@ -287,6 +291,17 @@ export function ReceivingTaskDirectory({
                       isCurrentUser={Boolean(currentUserId) && item.assignedTo === currentUserId}
                     />
                   </div>
+                  {onPreview ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2 min-h-11 w-fit"
+                      aria-label={`Xem hàng hóa ${item.inboundRequestCode}`}
+                      onClick={() => onPreview(item, true)}
+                    >
+                      Xem hàng hóa
+                    </Button>
+                  ) : null}
                 </ItemContent>
                 {renderActions(item, 'stack')}
               </Item>
@@ -306,15 +321,18 @@ export function ReceivingTaskDirectory({
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
-                  <ClickableTableRow
+                  <TableRow
                     key={item.inboundRequestId}
-                    href={APP_ROUTES.inboundRequestDetail(item.inboundRequestId) as Route}
+                    {...goodsPreviewInteractions(
+                      onPreview ? () => onPreview(item) : undefined,
+                      previewId === item.inboundRequestId
+                    )}
                   >
                     <TableCell className="font-mono font-semibold" translate="no">
                       {canViewRequest ? (
                         <Link
                           href={APP_ROUTES.inboundRequestDetail(item.inboundRequestId) as Route}
-                          className="text-primary hover:underline"
+                          className="text-primary underline-offset-4 hover:underline focus-visible:underline"
                         >
                           {item.inboundRequestCode}
                         </Link>
@@ -364,7 +382,7 @@ export function ReceivingTaskDirectory({
                       />
                     </TableCell>
                     <TableCell className="text-right">{renderActions(item, 'row')}</TableCell>
-                  </ClickableTableRow>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -17,11 +17,7 @@ import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
-import {
-  useWarehouseLayoutQuery,
-  useWarehouseQuery,
-  useWarehousesQuery,
-} from '@/features/warehouse/hooks/use-warehouse'
+import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import {
   CreateGoodsReturnRequestDialog,
   RejectGoodsReturnRequestDialog,
@@ -38,8 +34,8 @@ import {
   useGoodsReturnRequestsQuery,
   useGoodsReturnRequestQuery,
   useRestockGoodsReturnRequestMutation,
-  useStockIssueRequestQuery,
 } from '../hooks/use-stock-issue-requests'
+import { useGoodsReturnRestockOptionsQuery } from '../hooks/use-goods-return-restock-options'
 import {
   rejectGoodsReturnRequestSchema,
   type RejectGoodsReturnRequestFormValues,
@@ -75,6 +71,8 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
   const [rejectingItem, setRejectingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [selfApprovingItem, setSelfApprovingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [restockingItem, setRestockingItem] = useState<GoodsReturnRequestSummary | null>(null)
+  const restockSubmitting = useRef(false)
+  const restockHydrated = useRef('')
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const goodsReturnRequestsQuery = useGoodsReturnRequestsQuery(
     {
@@ -104,14 +102,9 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
     list.listHref
   )
   const restockDetailQuery = useGoodsReturnRequestQuery(restockingItem?.id ?? null)
-  const restockStockIssueQuery = useStockIssueRequestQuery(
-    restockingItem?.stockIssueRequestId ?? null
-  )
-  const restockWarehouseId = restockStockIssueQuery.data?.warehouseId ?? ''
-  const restockWarehouseQuery = useWarehouseQuery(restockWarehouseId)
-  const restockLayoutQuery = useWarehouseLayoutQuery(
-    restockWarehouseId,
-    Boolean(restockWarehouseId)
+  const restockOptionsQuery = useGoodsReturnRestockOptionsQuery(
+    restockDetailQuery.data?.id === restockingItem?.id ? (restockingItem?.id ?? null) : null,
+    restockDetailQuery.data?.version
   )
   const approveMutation = useApproveGoodsReturnRequestMutation()
   const rejectMutation = useRejectGoodsReturnRequestMutation()
@@ -126,20 +119,56 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
   })
 
   useEffect(() => {
-    if (!restockDetailQuery.data) return
+    if (!restockDetailQuery.data || restockDetailQuery.data.id !== restockingItem?.id) return
+    const session = `${restockingItem.id}:${restockDetailQuery.data.version ?? ''}`
+    if (restockHydrated.current === session) return
+    restockHydrated.current = session
     restockForm.reset({
       items: restockDetailQuery.data.items.map((item) => ({
         returnItemId: item.id,
         condition: item.condition,
-        restockSlotId:
-          item.condition === 'Scrap'
-            ? null
-            : item.condition === 'Damaged' || item.condition === 'Expired'
-              ? (restockWarehouseQuery.data?.quarantineSlotId ?? null)
-              : item.restockSlotId,
+        restockSlotId: item.condition === 'Scrap' ? null : item.restockSlotId,
       })),
     })
-  }, [restockDetailQuery.data, restockForm, restockWarehouseQuery.data?.quarantineSlotId])
+  }, [restockDetailQuery.data, restockForm, restockingItem?.id])
+
+  const restockVersionMismatch = Boolean(
+    restockOptionsQuery.data &&
+    restockOptionsQuery.data.version !== (restockDetailQuery.data?.version ?? '')
+  )
+
+  useEffect(() => {
+    if (
+      !restockOptionsQuery.data ||
+      restockOptionsQuery.isFetching ||
+      restockOptionsQuery.isError ||
+      restockVersionMismatch
+    )
+      return
+    restockForm.getValues('items').forEach((line, index) => {
+      if (
+        line.condition === 'Scrap' ||
+        restockForm.getFieldState(`items.${index}.restockSlotId`).isDirty
+      )
+        return
+      const options =
+        restockOptionsQuery.data.items.find((item) => item.returnItemId === line.returnItemId)
+          ?.options ?? []
+      const selected =
+        options.find((option) => option.slotId === line.restockSlotId) ??
+        options.find((option) => option.isOriginalSlot) ??
+        options[0]
+      restockForm.setValue(`items.${index}.restockSlotId`, selected?.slotId ?? null)
+    })
+  }, [
+    restockForm,
+    restockOptionsQuery.data,
+    restockOptionsQuery.isFetching,
+    restockOptionsQuery.isError,
+    restockVersionMismatch,
+    restockingItem?.id,
+    restockDetailQuery.data?.version,
+  ])
 
   async function approve(item: GoodsReturnRequestSummary, selfApprovalAcknowledged = false) {
     // Phiếu do chính mình lập phải được xác nhận rõ trước khi tự duyệt.
@@ -176,12 +205,27 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
   }
 
   async function restock(values: RestockReturnFormValues) {
-    if (!restockingItem) return
+    if (
+      !restockingItem ||
+      restockSubmitting.current ||
+      restockMutation.isPending ||
+      restockDetailQuery.isFetching ||
+      restockDetailQuery.isError ||
+      restockOptionsQuery.isFetching ||
+      restockOptionsQuery.isError ||
+      !restockOptionsQuery.data ||
+      restockVersionMismatch
+    )
+      return
+    restockSubmitting.current = true
     try {
       await restockMutation.mutateAsync({
         goodsReturnRequestId: restockingItem.id,
         request: {
-          ...values,
+          items: values.items.map(({ returnItemId, restockSlotId }) => ({
+            returnItemId,
+            restockSlotId,
+          })),
           expectedVersion: restockDetailQuery.data?.version ?? restockingItem.version,
         },
       })
@@ -191,19 +235,10 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
     } catch (error) {
       logger.error(formatApiError(error))
       toast.error(getApiErrorMessage(error, 'Không thể nhập lại kho.'))
+    } finally {
+      restockSubmitting.current = false
     }
   }
-
-  const restockSlots = (restockLayoutQuery.data ?? []).flatMap((zone) =>
-    zone.racks.flatMap((rack) =>
-      rack.slots
-        .filter((slot) => slot.isActive)
-        .map((slot) => ({
-          id: slot.id,
-          label: `${zone.zoneCode} · ${rack.rackCode} · ${slot.slotCode}`,
-        }))
-    )
-  )
 
   return (
     <div
@@ -323,18 +358,40 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
         onSubmit={(values) => void reject(values)}
       />
       <RestockReturnDialog
-        item={restockDetailQuery.data ?? null}
+        key={restockingItem?.id ?? 'closed'}
+        item={
+          restockingItem
+            ? restockDetailQuery.data?.id === restockingItem.id
+              ? restockDetailQuery.data
+              : restockingItem
+            : null
+        }
         form={restockForm}
-        slots={restockSlots}
-        quarantineSlotId={restockWarehouseQuery.data?.quarantineSlotId ?? null}
+        options={restockOptionsQuery.data?.items ?? []}
+        isLoading={restockOptionsQuery.isFetching || restockDetailQuery.isFetching}
+        error={
+          restockVersionMismatch
+            ? 'Phiếu đã thay đổi. Hãy tải lại trước khi nhập kho.'
+            : restockOptionsQuery.isError || restockDetailQuery.isError
+              ? getApiErrorMessage(
+                  restockOptionsQuery.error ?? restockDetailQuery.error,
+                  'Không thể tải vị trí nhập lại kho. Vui lòng thử lại.'
+                )
+              : null
+        }
+        onRetry={() => {
+          void restockDetailQuery.refetch()
+          void restockOptionsQuery.refetch()
+        }}
         isPending={restockMutation.isPending}
         onOpenChange={(open) => {
           if (!open && !restockMutation.isPending) {
+            restockHydrated.current = ''
             setRestockingItem(null)
             restockForm.reset({ items: [] })
           }
         }}
-        onSubmit={(values) => void restock(values)}
+        onSubmit={restock}
       />
     </div>
   )

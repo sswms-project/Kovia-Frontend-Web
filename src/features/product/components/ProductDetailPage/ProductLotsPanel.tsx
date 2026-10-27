@@ -248,7 +248,6 @@ export function ProductLotsPanel(props: ProductLotsPanelProps) {
                     <TableHead>Kho</TableHead>
                     <TableHead className="text-right">Tồn</TableHead>
                     <TableHead className="text-right">Đang giữ</TableHead>
-                    <TableHead>Quarantine</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -261,7 +260,6 @@ export function ProductLotsPanel(props: ProductLotsPanelProps) {
                       <TableCell className="text-right tabular-nums">
                         {lotQuantityFormatter.format(warehouse.reservedQuantity)}
                       </TableCell>
-                      <TableCell>{warehouse.quarantineSlotCode ?? 'Chưa cấu hình'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -297,7 +295,7 @@ export function ProductLotsPanel(props: ProductLotsPanelProps) {
             <DialogDescription>
               {isUnlocking
                 ? 'Chỉ Chủ doanh nghiệp được mở khóa. Lý do sẽ được lưu vào lịch sử kiểm toán.'
-                : 'Lô sẽ bị chặn xuất ở toàn bộ kho. Mỗi kho còn tồn lô phải có vị trí quarantine đã cấu hình.'}
+                : 'Lô sẽ bị chặn xuất ở toàn bộ kho. Thao tác được lưu vào lịch sử kiểm toán.'}
             </DialogDescription>
           </DialogHeader>
           <Textarea
