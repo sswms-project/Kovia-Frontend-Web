@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -45,6 +46,10 @@ interface RelocationTaskDialogProps {
   readonly onAssign: () => void
   readonly onLineChange: (lineId: string) => void
   readonly onExecute: (values: ExecuteWarehouseRelocationFormValues) => void
+  /** "Chia việc" action of the task, shown in the footer. */
+  readonly taskSplitAction?: ReactNode
+  /** Split reminder and parts of the task. */
+  readonly taskSplitSection?: ReactNode
 }
 
 export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
@@ -98,6 +103,8 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
                 <p className="text-sm">{detail.reason}</p>
               </div>
             </div>
+
+            {props.taskSplitSection}
 
             {props.canAssign && props.scope === 'managed' ? (
               <section className="space-y-3 border p-3">
@@ -350,6 +357,7 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
           </div>
         )}
         <DialogFooter>
+          {detail ? props.taskSplitAction : null}
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             Đóng
           </Button>

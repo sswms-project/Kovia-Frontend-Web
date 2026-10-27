@@ -59,6 +59,10 @@ export interface ShipmentCapabilities {
   /** Quản lý kho nhập giao việc nhận hàng. */
   readonly canAssignReceive: boolean
   readonly canResolveEscalation: boolean
+  /** Quản lý chia việc lấy/nhận/cất của đợt cho nhiều người (theo trạng thái chia của từng việc). */
+  readonly canSplitPick?: boolean
+  readonly canSplitReceive?: boolean
+  readonly canSplitPutAway?: boolean
 }
 
 /** Một lối giao việc ở kho nhập; sau khi kiểm nhận xong chỉ còn giao việc cất. */

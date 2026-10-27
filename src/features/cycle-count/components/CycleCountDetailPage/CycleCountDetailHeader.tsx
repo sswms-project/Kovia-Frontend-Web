@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { ArrowLeft, Ban, CheckCircle2, FileDown, Play, RotateCcw, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -20,6 +21,7 @@ interface CycleCountDetailHeaderProps {
   readonly onFinalize: () => Promise<void>
   readonly onExport: () => Promise<void>
   readonly onOpenDialog: (dialog: CycleCountDialog) => void
+  readonly taskSplitAction?: ReactNode
 }
 
 export function CycleCountDetailHeader({
@@ -32,6 +34,7 @@ export function CycleCountDetailHeader({
   onFinalize,
   onExport,
   onOpenDialog,
+  taskSplitAction,
 }: CycleCountDetailHeaderProps) {
   return (
     <header className="flex shrink-0 flex-wrap items-center gap-2 border-b pb-2">
@@ -65,6 +68,7 @@ export function CycleCountDetailHeader({
             Huỷ phiếu
           </Button>
         ) : null}
+        {taskSplitAction}
         {allowedActions.includes('RequestRecount') ? (
           <Button
             variant="outline"

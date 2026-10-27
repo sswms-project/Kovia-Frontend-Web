@@ -16,6 +16,7 @@ import {
 import { useWarehouseLayoutQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
+import { TaskSplitButton, TaskSplitSection, useTaskSplitQuery } from '@/features/task-splitting'
 import { getApiErrorCode, getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
@@ -142,6 +143,10 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
   const heldSlotsQuery = usePutawayHeldSlotsQuery(receiptId)
   const { currentUserId, canAssign } = useWarehouseTaskAssignmentAccess()
   const assignment = useAssignWarehouseTask()
+  const split = useTaskSplitQuery('PutAway', receiptId)
+  const [isSplitOpen, setIsSplitOpen] = useState(false)
+  // Split work is handed out per part, so the single put-away assignee is no longer offered.
+  const canAssignSingle = canAssign && !split.data?.isSplit
   const savePlanMutation = useSavePutawayPlanMutation()
   const planEditor = usePutawayPlanEditor(receiptQuery.data)
   const layoutQuery = useWarehouseLayoutQuery(
@@ -416,7 +421,7 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
         toast.success(`Đã lưu vị trí cất và báo cho ${receipt.putAwayAssignedToName}.`)
       } else {
         toast.success('Đã lưu vị trí cất. Hãy chọn nhân viên thực hiện.')
-        if (canAssign) openAssign(receipt)
+        if (canAssignSingle) openAssign(receipt)
       }
     } catch (error) {
       toast.error(
@@ -625,7 +630,7 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
                   lastSavedPlan?.receiptId === receiptId
                 ),
                 canSavePlan: canPlan,
-                canAssign,
+                canAssign: canAssignSingle,
                 onSavePlan: () => void savePlanAndNotify(receipt),
                 onAssign: () => openAssign(receipt),
               }
@@ -642,6 +647,19 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
         onRemove={fieldArray.remove}
         onSubmit={() =>
           hasUncertainSubmission ? void submit(form.getValues()) : void form.handleSubmit(submit)()
+        }
+        taskSplitAction={
+          <TaskSplitButton state={split.data} onSplit={() => setIsSplitOpen(true)} />
+        }
+        taskSplitSection={
+          <TaskSplitSection
+            state={split.data}
+            isError={split.isError}
+            onRetry={() => void split.refetch()}
+            open={isSplitOpen}
+            onOpenChange={setIsSplitOpen}
+            invalidateKeys={[queryKeys.goodsReceipts.detail(receiptId)]}
+          />
         }
       />
       <PutawayPlanSheet

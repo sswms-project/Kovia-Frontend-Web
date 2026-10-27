@@ -49,6 +49,10 @@ interface StockIssueRequestDetailProps {
   readonly onAssignPicker: (staffId: string) => void
   readonly onRemovePickDetail: (pickDetailId: string) => void
   readonly pickingPlan?: ReactNode
+  /** Picking is split into parts: the single picker block gives way to the parts panel. */
+  readonly isSplit?: boolean
+  /** Split reminder and parts of the picking task. */
+  readonly taskSplitSection?: ReactNode
 }
 
 export function StockIssueRequestDetail({
@@ -63,6 +67,8 @@ export function StockIssueRequestDetail({
   onAssignPicker,
   onRemovePickDetail,
   pickingPlan,
+  isSplit = false,
+  taskSplitSection,
 }: StockIssueRequestDetailProps) {
   const canPickNow = capabilities.canPick && canRecordStockPicking(order.status)
   const canReassignPicker =
@@ -163,6 +169,8 @@ export function StockIssueRequestDetail({
         />
       </section>
 
+      {taskSplitSection}
+
       <div className="flex min-w-0 flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <div className="order-2 flex w-full min-w-0 flex-col gap-4 xl:order-1">
           <StockIssueRequestOverview order={order} />
@@ -194,36 +202,38 @@ export function StockIssueRequestDetail({
         </div>
 
         <aside className="contents xl:order-2 xl:flex xl:min-w-0 xl:flex-col xl:gap-4">
-          <section
-            className="bg-card order-1 w-full border"
-            aria-labelledby="stock-issue-request-picker"
-          >
-            <div className="border-b p-4">
-              <h2 id="stock-issue-request-picker" className="text-sm font-semibold">
-                Người phụ trách lấy hàng
-              </h2>
-            </div>
-            <div className="flex flex-col gap-3 p-4">
-              <p className="text-sm">
-                {order.assignedStaffName ?? (
-                  <span className="text-muted-foreground">
-                    {capabilities.canAssignPicker && order.status === 'Pending'
-                      ? 'Chưa phân công. Dùng “Giao việc lấy hàng” ở đầu trang để chọn nhân viên.'
-                      : 'Chưa phân công. Chờ quản lý kho giao việc.'}
-                  </span>
-                )}
-              </p>
-              {canReassignPicker ? (
-                <StockIssuePickerAssignment
-                  key={`${order.id}:${order.assignedStaffId ?? ''}`}
-                  options={pickerOptions}
-                  currentStaffId={order.assignedStaffId}
-                  isPending={isAssigningPicker}
-                  onAssign={onAssignPicker}
-                />
-              ) : null}
-            </div>
-          </section>
+          {isSplit ? null : (
+            <section
+              className="bg-card order-1 w-full border"
+              aria-labelledby="stock-issue-request-picker"
+            >
+              <div className="border-b p-4">
+                <h2 id="stock-issue-request-picker" className="text-sm font-semibold">
+                  Người phụ trách lấy hàng
+                </h2>
+              </div>
+              <div className="flex flex-col gap-3 p-4">
+                <p className="text-sm">
+                  {order.assignedStaffName ?? (
+                    <span className="text-muted-foreground">
+                      {capabilities.canAssignPicker && order.status === 'Pending'
+                        ? 'Chưa phân công. Dùng “Giao việc lấy hàng” ở đầu trang để chọn nhân viên.'
+                        : 'Chưa phân công. Chờ quản lý kho giao việc.'}
+                    </span>
+                  )}
+                </p>
+                {canReassignPicker ? (
+                  <StockIssuePickerAssignment
+                    key={`${order.id}:${order.assignedStaffId ?? ''}`}
+                    options={pickerOptions}
+                    currentStaffId={order.assignedStaffId}
+                    isPending={isAssigningPicker}
+                    onAssign={onAssignPicker}
+                  />
+                ) : null}
+              </div>
+            </section>
+          )}
           <StockIssueAuditCard key={order.id} order={order} />
         </aside>
       </div>

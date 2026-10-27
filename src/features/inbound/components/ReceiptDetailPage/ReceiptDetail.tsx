@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -45,6 +45,10 @@ interface ReceiptDetailProps {
   readonly onAssignPutAway?: () => void
   readonly onPlanPutAway?: () => void
   readonly onDownloadEvidence?: (evidence: InventoryEvidence) => void
+  /** "Chia việc" action of the put-away task, shown with the other actions. */
+  readonly taskSplitAction?: ReactNode
+  /** Split reminder and parts of the put-away task. */
+  readonly taskSplitSection?: ReactNode
 }
 
 export function ReceiptDetail({
@@ -59,6 +63,8 @@ export function ReceiptDetail({
   onAssignPutAway,
   onPlanPutAway,
   onDownloadEvidence,
+  taskSplitAction,
+  taskSplitSection,
 }: ReceiptDetailProps) {
   const [confirmationAction, setConfirmationAction] = useState<
     'Submit' | 'Approve' | 'ApproveKeep' | null
@@ -184,6 +190,7 @@ export function ReceiptDetail({
                 {receipt.putAwayAssignedTo ? 'Giao lại cất hàng' : 'Giao việc cất hàng'}
               </Button>
             ) : null}
+            {taskSplitAction}
             {allowedActions.includes('PlanPutAway') && onPlanPutAway ? (
               <Button type="button" variant="outline" onClick={onPlanPutAway}>
                 <MapPinned aria-hidden="true" />
@@ -203,6 +210,7 @@ export function ReceiptDetail({
       </header>
 
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 max-md:min-h-fit">
+        {taskSplitSection}
         <ReceiptOverview receipt={receipt} />
 
         {showPutAwayProgress ? (

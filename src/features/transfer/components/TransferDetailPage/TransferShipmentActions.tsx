@@ -23,6 +23,7 @@ interface Props {
   readonly onAssign: (shipment: TransferShipment, kind: TransferTaskKind) => void
   readonly onCancel: (shipment: TransferShipment) => void
   readonly onReopen: (shipment: TransferShipment) => void
+  readonly onSplit?: (shipment: TransferShipment, kind: TransferTaskKind) => void
   readonly onOpenPlan?: () => void
   readonly isStartingReceive?: boolean
 }
@@ -37,6 +38,7 @@ export function TransferShipmentActions({
   onAssign,
   onCancel,
   onReopen,
+  onSplit,
   onOpenPlan,
   isStartingReceive,
 }: Props) {
@@ -70,6 +72,7 @@ export function TransferShipmentActions({
     (allowed?.canAssignPick && shipment.pickTaskId) ||
     (allowed?.canAssignReceive && shipment.receiveTaskId) ||
     (allowed?.canAssignPutAway && shipment.putAwayTaskId) ||
+    (onSplit && (allowed?.canSplitPick || allowed?.canSplitReceive || allowed?.canSplitPutAway)) ||
     onOpenPlan ||
     allowed?.canReopenPicking ||
     allowed?.canCancel
@@ -139,6 +142,21 @@ export function TransferShipmentActions({
               {allowed?.canAssignPutAway && shipment.putAwayTaskId ? (
                 <DropdownMenuItem onSelect={() => onAssign(shipment, 'putaway')}>
                   Giao việc cất hàng
+                </DropdownMenuItem>
+              ) : null}
+              {onSplit && allowed?.canSplitPick ? (
+                <DropdownMenuItem onSelect={() => onSplit(shipment, 'pick')}>
+                  Chia việc lấy hàng
+                </DropdownMenuItem>
+              ) : null}
+              {onSplit && allowed?.canSplitReceive ? (
+                <DropdownMenuItem onSelect={() => onSplit(shipment, 'receive')}>
+                  Chia việc nhận hàng
+                </DropdownMenuItem>
+              ) : null}
+              {onSplit && allowed?.canSplitPutAway ? (
+                <DropdownMenuItem onSelect={() => onSplit(shipment, 'putaway')}>
+                  Chia việc cất hàng
                 </DropdownMenuItem>
               ) : null}
               {onOpenPlan ? (

@@ -21,6 +21,8 @@ import {
   isApiErrorResponse,
 } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
+import { queryKeys } from '@/lib/query-keys'
+import { TaskSplitButton, TaskSplitSection, useTaskSplitQuery } from '@/features/task-splitting'
 import { PutawayPlanSheet, ReceiptDetail } from '../components/ReceiptDetailPage'
 import { ReceiveGoodsDialog } from '../components/ReceivingPage'
 import { AssignWarehouseTaskDialog } from '../components/TaskAssignment'
@@ -72,6 +74,8 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
   const rejectMutation = useRejectGoodsReceiptMutation()
   const updateMutation = useUpdateGoodsReceiptMutation()
   const assignment = useAssignWarehouseTask()
+  const split = useTaskSplitQuery('PutAway', receiptId)
+  const [isSplitOpen, setIsSplitOpen] = useState(false)
   const planEditor = usePutawayPlanEditor(detailQuery.data)
   const form = useForm<GoodsReceiptFormValues>({
     resolver: zodResolver(goodsReceiptSchema),
@@ -401,7 +405,20 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
         onSubmit={() => perform('submit')}
         onApprove={(keepAtReceiving) => perform('approve', undefined, keepAtReceiving)}
         onReject={(reason) => perform('reject', reason)}
-        onAssignPutAway={openAssignPutAway}
+        onAssignPutAway={split.data?.isSplit ? undefined : openAssignPutAway}
+        taskSplitAction={
+          <TaskSplitButton state={split.data} onSplit={() => setIsSplitOpen(true)} />
+        }
+        taskSplitSection={
+          <TaskSplitSection
+            state={split.data}
+            isError={split.isError}
+            onRetry={() => void split.refetch()}
+            open={isSplitOpen}
+            onOpenChange={setIsSplitOpen}
+            invalidateKeys={[queryKeys.goodsReceipts.detail(receiptId)]}
+          />
+        }
         onPlanPutAway={planEditor.open}
         onDownloadEvidence={(evidence) => void downloadEvidence(evidence)}
       />

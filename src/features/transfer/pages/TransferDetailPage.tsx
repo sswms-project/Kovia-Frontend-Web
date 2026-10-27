@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useId, useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { LifecycleTimeline } from '@/components/operations/LifecycleTimeline'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
@@ -29,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { P } from '@/config/permissionCodes'
+import { TaskSplitSection, useTaskSplitQueries } from '@/features/task-splitting'
+import { queryKeys } from '@/lib/query-keys'
 import { useTransferAssignableStaffQuery } from '../hooks/use-transfer-receipt'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
@@ -78,6 +80,7 @@ import { visibleTransferItems } from '../utils/transfer-form'
 import { transferGoodsRows } from '../utils/transfer-goods-rows'
 import { transferTabIds } from '../utils/transfer-tabs'
 import { buildTransferHistory } from '../utils/transfer-history'
+import { applyTaskSplits, getTransferTaskSplitSources } from '../utils/transfer-task-splits'
 
 import {
   parseTransferDetailTab,
@@ -116,6 +119,15 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
   const capabilities = getTransferCapabilities(viewer, transfer)
   const receiving = useTransferStartReceiving(transferId)
   const shipments = useMemo(() => transfer?.shipments ?? [], [transfer?.shipments])
+  const splitSources = useMemo(() => shipments.flatMap(getTransferTaskSplitSources), [shipments])
+  const splitQueries = useTaskSplitQueries(splitSources)
+  const splitQueryByTaskId = Object.fromEntries(
+    splitSources.map((source, index) => [source.sourceId, splitQueries[index]])
+  )
+  const splitStates = Object.fromEntries(
+    splitSources.map((source, index) => [source.sourceId, splitQueries[index]?.data])
+  )
+  const [splitTaskId, setSplitTaskId] = useState<string | null>(null)
   const discrepancies = transfer?.discrepancies ?? []
   const feedbacks = transfer?.feedbacks ?? []
   const shipmentCapabilities = useMemo(
@@ -123,10 +135,14 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
       Object.fromEntries(
         shipments.map((shipment) => [
           shipment.id,
-          getShipmentCapabilities(viewer, shipment, transfer),
+          applyTaskSplits(
+            getShipmentCapabilities(viewer, shipment, transfer),
+            shipment,
+            splitStates
+          ),
         ])
       ),
-    [shipments, viewer, transfer]
+    [shipments, viewer, transfer, splitStates]
   )
   const nextSteps = useMemo(
     () =>
@@ -405,6 +421,29 @@ export default function TransferDetailPage({ transferId }: { readonly transferId
                           isStartingReceive={receiving.isPending}
                           onResolveEscalation={resolutionActions.escalation.open}
                           unitsByItem={unitsByItem}
+                          onSplitTask={(shipment, kind) =>
+                            setSplitTaskId(
+                              getTransferTaskSplitSources(shipment).find(
+                                (source) => source.kind === kind
+                              )?.sourceId ?? null
+                            )
+                          }
+                          renderTaskSplits={(shipment) =>
+                            getTransferTaskSplitSources(shipment).map(({ sourceId }) => {
+                              const split = splitQueryByTaskId[sourceId]
+                              return (
+                                <TaskSplitSection
+                                  key={sourceId}
+                                  state={split?.data}
+                                  isError={split?.isError ?? false}
+                                  onRetry={() => void split?.refetch()}
+                                  open={splitTaskId === sourceId}
+                                  onOpenChange={(open) => setSplitTaskId(open ? sourceId : null)}
+                                  invalidateKeys={[queryKeys.transfers.detail(transferId)]}
+                                />
+                              )
+                            })
+                          }
                         />
                       ) : null}
                       {discrepancies.length > 0 || feedbacks.length > 0 ? (

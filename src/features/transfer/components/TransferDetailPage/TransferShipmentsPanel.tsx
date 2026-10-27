@@ -1,5 +1,6 @@
 import { ChevronDown, PackageCheck, PackageSearch, UserPlus } from 'lucide-react'
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
@@ -47,6 +48,9 @@ interface TransferShipmentsPanelProps {
   readonly planLabels?: Readonly<Record<string, string>>
   readonly onOpenPlan?: () => void
   readonly currentUserId?: string | null
+  readonly onSplitTask?: (shipment: TransferShipment, kind: TransferTaskKind) => void
+  /** Split reminders and parts of the shipment's tasks. */
+  readonly renderTaskSplits?: (shipment: TransferShipment) => ReactNode
 }
 
 /** Mã công việc kho (TPK-…) chỉ dùng nội bộ nên không hiện; người xem cần biết việc đang ở đâu và giao cho ai. */
@@ -128,6 +132,8 @@ export function TransferShipmentsPanel({
   currentUserId,
   onStartReceiving,
   isStartingReceive,
+  onSplitTask,
+  renderTaskSplits,
 }: TransferShipmentsPanelProps) {
   if (shipments.length === 0) {
     return (
@@ -193,6 +199,7 @@ export function TransferShipmentsPanel({
                       onAssign={onAssignTask}
                       onCancel={onCancelShipment}
                       onReopen={onReopenPicking}
+                      onSplit={onSplitTask}
                       onOpenPlan={onOpenPlan}
                       isStartingReceive={isStartingReceive}
                     />
@@ -407,6 +414,12 @@ export function TransferShipmentsPanel({
                   </div>
                 ) : null}
               </div>
+              {renderTaskSplits ? (
+                // `empty:hidden` drops the frame while no task of the shipment shows split content.
+                <div className="flex flex-col gap-3 border-t px-3 py-3 empty:hidden">
+                  {renderTaskSplits(shipment)}
+                </div>
+              ) : null}
               {shipment.cancellationReason ? (
                 <p className="text-muted-foreground border-t px-3 py-2 text-xs">
                   Lý do hủy đợt: {shipment.cancellationReason}

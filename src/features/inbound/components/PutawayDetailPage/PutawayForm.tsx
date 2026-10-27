@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useWatch, type FieldArrayWithId, type UseFormReturn } from 'react-hook-form'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -97,6 +97,10 @@ interface PutawayFormProps {
   readonly onAdd: (itemId?: string) => void
   readonly onRemove: (index: number) => void
   readonly onSubmit: () => void
+  /** "Chia việc" action of the put-away task, shown with the other actions. */
+  readonly taskSplitAction?: ReactNode
+  /** Split reminder and parts of the put-away task. */
+  readonly taskSplitSection?: ReactNode
 }
 
 export function PutawayForm({
@@ -122,6 +126,8 @@ export function PutawayForm({
   onAdd,
   onRemove,
   onSubmit,
+  taskSplitAction,
+  taskSplitSection,
 }: PutawayFormProps) {
   const {
     formState: { errors, isSubmitted, touchedFields },
@@ -271,6 +277,7 @@ export function PutawayForm({
                   {planning.assigneeName ? 'Giao lại nhân viên' : 'Giao nhân viên'}
                 </Button>
               ) : null}
+              {taskSplitAction}
               {canCancel ? (
                 <Button
                   type="button"
@@ -318,6 +325,7 @@ export function PutawayForm({
               )}
             </p>
           ) : null}
+          {taskSplitSection}
           <PutawayPlanNotice
             receipt={receipt}
             slots={slots}

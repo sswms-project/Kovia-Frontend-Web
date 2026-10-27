@@ -1,5 +1,11 @@
 import { useRef } from 'react'
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  type QueryKey,
+} from '@tanstack/react-query'
 import {
   receiptCommandId,
   type ReceiptCommandSnapshot,
@@ -25,11 +31,30 @@ import type {
 
 type PartVariables<TRequest> = TRequest & { partId: string }
 
-export function useTaskSplitQuery(type: SplittableTaskType, sourceId: string, enabled = true) {
-  return useQuery<TaskSplitStateResponse, ApiErrorResponse>({
+function taskSplitStateOptions(type: SplittableTaskType, sourceId: string, enabled: boolean) {
+  return {
     queryKey: queryKeys.taskSplits.state(type, sourceId),
     queryFn: () => taskSplittingService.getState(type, sourceId),
     enabled: enabled && Boolean(sourceId),
+  }
+}
+
+export function useTaskSplitQuery(type: SplittableTaskType, sourceId: string, enabled = true) {
+  return useQuery<TaskSplitStateResponse, ApiErrorResponse>(
+    taskSplitStateOptions(type, sourceId, enabled)
+  )
+}
+
+export interface TaskSplitSource {
+  readonly type: SplittableTaskType
+  readonly sourceId: string
+}
+
+/** Split state of a variable number of sources (one page listing several tasks), in source order. */
+export function useTaskSplitQueries(sources: readonly TaskSplitSource[]) {
+  return useQueries({
+    // Same cache entries as useTaskSplitQuery, so split mutations refresh both.
+    queries: sources.map(({ type, sourceId }) => taskSplitStateOptions(type, sourceId, true)),
   })
 }
 

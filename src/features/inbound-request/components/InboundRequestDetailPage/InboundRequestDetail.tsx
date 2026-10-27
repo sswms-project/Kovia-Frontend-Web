@@ -3,7 +3,7 @@
 import { ArrowLeft, CalendarCheck, Check, Edit3, Mail, Send, UserPlus, X } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { LifecycleTimeline } from '@/components/operations/LifecycleTimeline'
 import {
   AlertDialog,
@@ -67,6 +67,10 @@ interface InboundRequestDetailProps {
   readonly selfApprovalRequired: boolean
   readonly isPending: boolean
   readonly onAssignReceiving?: () => void
+  /** "Chia việc" action of the receiving task, shown with the other actions. */
+  readonly taskSplitAction?: ReactNode
+  /** Split reminder and parts of the receiving task. */
+  readonly taskSplitSection?: ReactNode
   readonly onSubmit: () => Promise<boolean>
   readonly onApprove: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onApproveAndSend: (selfApprovalAcknowledged: boolean) => Promise<boolean>
@@ -130,6 +134,8 @@ export function InboundRequestDetail({
   onReject,
   onReconcile,
   onAssignReceiving,
+  taskSplitAction,
+  taskSplitSection,
 }: InboundRequestDetailProps) {
   const [confirmationAction, setConfirmationAction] = useState<InboundRequestAction | null>(null)
   const [isRejectOpen, setIsRejectOpen] = useState(false)
@@ -255,6 +261,7 @@ export function InboundRequestDetail({
               Phân công nhân viên
             </Button>
           ) : null}
+          {taskSplitAction}
           {allowedActions.includes(INBOUND_REQUEST_ACTION.Update) ||
           allowedActions.includes('UpdateCode') ? (
             <Button asChild variant="outline">
@@ -396,6 +403,8 @@ export function InboundRequestDetail({
           cấp trước.
         </p>
       ) : null}
+
+      {taskSplitSection}
 
       <InboundRequestOverview request={inboundRequest} />
 

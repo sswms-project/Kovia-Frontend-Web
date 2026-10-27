@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import type {
@@ -41,6 +41,10 @@ interface CycleCountDetailViewProps {
   readonly onExport: () => Promise<void>
   readonly onCancel: (reason: string) => Promise<boolean>
   readonly onCreateVoucher: (itemIds: string[], reason: string) => Promise<boolean>
+  /** "Chia việc" action of the count, shown with the other actions. */
+  readonly taskSplitAction?: ReactNode
+  /** Split reminder and parts of the count. */
+  readonly taskSplitSection?: ReactNode
 }
 
 export function CycleCountDetailView({
@@ -64,6 +68,8 @@ export function CycleCountDetailView({
   onExport,
   onCancel,
   onCreateVoucher,
+  taskSplitAction,
+  taskSplitSection,
 }: CycleCountDetailViewProps) {
   const [dialog, setDialog] = useState<CycleCountDialog | null>(null)
   // Dòng được chọn sẵn từ panel hàng hỏng chỉ giữ lại nếu quản lý xác nhận đếm lại.
@@ -145,6 +151,7 @@ export function CycleCountDetailView({
         pendingDamageCount={pendingDamageCount}
         onFinalize={onFinalize}
         onExport={onExport}
+        taskSplitAction={taskSplitAction}
         onOpenDialog={(next) => {
           if (next === 'recount') setIsRecountFromPanel(false)
           setDialog(next)
@@ -182,6 +189,7 @@ export function CycleCountDetailView({
           setDialog('recount')
         }}
       />
+      {taskSplitSection}
       <CycleCountInfoSection
         detail={detail}
         countedCount={countedCount}

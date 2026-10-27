@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 import {
   OperationalErrorState,
   OperationalLoadingState,
@@ -16,6 +18,8 @@ import {
 import { ReturnDocumentActionDialog } from '@/components/operations/ReturnDocumentActions'
 import { Button } from '@/components/ui/button'
 import { RotateCcw } from 'lucide-react'
+import { queryKeys } from '@/lib/query-keys'
+import { TaskSplitButton, TaskSplitSection, useTaskSplitQuery } from '@/features/task-splitting'
 
 export default function StockIssueRequestDetailPage({
   stockIssueRequestId,
@@ -27,6 +31,8 @@ export default function StockIssueRequestDetailPage({
   const actions = useStockIssueEditingActions(stockIssueRequestId)
   const withdraw = useWithdrawStockIssue(order)
   const workflow = useStockIssueWorkflow(order?.warehouseId)
+  const split = useTaskSplitQuery('StockIssuePick', stockIssueRequestId)
+  const [isSplitOpen, setIsSplitOpen] = useState(false)
 
   if (detailQuery.isLoading) return <OperationalLoadingState rows={8} />
   if (detailQuery.isError || !order)
@@ -42,15 +48,29 @@ export default function StockIssueRequestDetailPage({
       <StockIssueRequestDetail
         canEdit={actions.data?.allowedActions.includes('Update') ?? false}
         editingActions={
-          actions.data?.allowedActions.includes('Withdraw') ? (
-            <Button
-              variant="outline"
-              disabled={actions.isFetching || withdraw.dialog.isPending}
-              onClick={withdraw.open}
-            >
-              <RotateCcw /> Thu hồi để sửa
-            </Button>
-          ) : null
+          <>
+            {actions.data?.allowedActions.includes('Withdraw') ? (
+              <Button
+                variant="outline"
+                disabled={actions.isFetching || withdraw.dialog.isPending}
+                onClick={withdraw.open}
+              >
+                <RotateCcw /> Thu hồi để sửa
+              </Button>
+            ) : null}
+            <TaskSplitButton state={split.data} onSplit={() => setIsSplitOpen(true)} />
+          </>
+        }
+        isSplit={split.data?.isSplit}
+        taskSplitSection={
+          <TaskSplitSection
+            state={split.data}
+            isError={split.isError}
+            onRetry={() => void split.refetch()}
+            open={isSplitOpen}
+            onOpenChange={setIsSplitOpen}
+            invalidateKeys={[queryKeys.stockIssueRequests.detail(stockIssueRequestId)]}
+          />
         }
         order={order}
         capabilities={workflow.capabilities}

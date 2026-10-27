@@ -33,6 +33,7 @@ import { useTransferRealtime } from '@/features/transfer/hooks/use-transfer-real
 import { useWarehouseLocationsQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { TaskSplitButton, TaskSplitSection, useTaskSplitQuery } from '@/features/task-splitting'
 import {
   CreateRelocationTaskDialog,
   RelocationTaskDialog,
@@ -176,6 +177,8 @@ export default function MyWarehouseTasksPage({
   const assignMutation = useAssignWarehouseTaskMutation(selectedTaskId)
   const executeMutation = useExecuteWarehouseRelocationMutation(selectedTaskId)
   const scheduleMutation = useUpdateWarehouseTaskScheduleMutation(scheduleTask)
+  const split = useTaskSplitQuery('Relocation', selectedTaskId ?? '')
+  const [isSplitOpen, setIsSplitOpen] = useState(false)
 
   const scheduleForm = useForm<WarehouseTaskScheduleFormValues>({
     resolver: zodResolver(warehouseTaskScheduleSchema),
@@ -637,7 +640,7 @@ export default function MyWarehouseTasksPage({
         isLoading={detailQuery.isLoading}
         isError={detailQuery.isError}
         scope={scope}
-        canAssign={canAssignRelocation}
+        canAssign={canAssignRelocation && !split.data?.isSplit}
         canExecute={canManageOwnTasks && detailQuery.data?.assignedTo === meQuery.data?.id}
         canOverrideDestination={canAssignRelocation}
         staffOptions={assignableStaff}
@@ -651,6 +654,7 @@ export default function MyWarehouseTasksPage({
         onOpenChange={(open) => {
           if (!open) {
             setSelectedTaskId(null)
+            setIsSplitOpen(false)
             setAssignmentStaffId('')
             setAssignmentReason('')
           }
@@ -661,6 +665,19 @@ export default function MyWarehouseTasksPage({
         onAssign={() => void assignRelocation()}
         onLineChange={changeExecuteLine}
         onExecute={(values) => void executeRelocation(values)}
+        taskSplitAction={
+          <TaskSplitButton state={split.data} onSplit={() => setIsSplitOpen(true)} />
+        }
+        taskSplitSection={
+          <TaskSplitSection
+            state={split.data}
+            isError={split.isError}
+            onRetry={() => void split.refetch()}
+            open={isSplitOpen}
+            onOpenChange={setIsSplitOpen}
+            invalidateKeys={[['warehouse-tasks']]}
+          />
+        }
       />
       <Dialog
         open={Boolean(pendingReason)}

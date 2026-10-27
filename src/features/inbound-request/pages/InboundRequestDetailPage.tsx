@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import type { Route } from 'next'
 import { APP_ROUTES } from '@/routes/app-routes'
 
@@ -10,6 +11,8 @@ import {
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
 import { getApiErrorMessage, logApiError } from '@/lib/api-error'
+import { queryKeys } from '@/lib/query-keys'
+import { TaskSplitButton, TaskSplitSection, useTaskSplitQuery } from '@/features/task-splitting'
 import { InboundRequestDetail } from '../components/InboundRequestDetailPage'
 import { AssignWarehouseTaskDialog } from '@/features/inbound/components/TaskAssignment'
 import { useAssignWarehouseTask } from '@/features/inbound/hooks/use-assign-warehouse-task'
@@ -62,6 +65,9 @@ export default function InboundRequestDetailPage({
   const acceptProposedDateMutation = useAcceptSupplierProposedDateMutation()
   const rejectMutation = useRejectInboundRequestMutation()
   const reconcileMutation = useReconcileInboundRequestMutation()
+  const split = useTaskSplitQuery('Receiving', inboundRequestId)
+  const [isSplitOpen, setIsSplitOpen] = useState(false)
+  const isSplit = split.data?.isSplit === true
 
   async function runAction(
     action: InboundRequestAction,
@@ -171,6 +177,27 @@ export default function InboundRequestDetailPage({
     }
   }
 
+  function openAssignReceiving() {
+    const request = detailQuery.data
+    if (
+      !request?.warehouseId ||
+      request.receivingAssignedTo ||
+      !actionsQuery.data?.allowedActions.includes(INBOUND_REQUEST_ACTION.AssignReceivingTask)
+    )
+      return
+    assignment.open({
+      kind: 'Receiving',
+      id: request.id,
+      referenceCode: request.inboundRequestCode,
+      warehouseId: request.warehouseId,
+      warehouseName: request.warehouseName ?? '',
+      currentAssigneeId: null,
+      currentAssigneeName: null,
+      currentPriority: 'Normal',
+      currentDueAt: null,
+    })
+  }
+
   if (detailQuery.isLoading || actionsQuery.isLoading) return <OperationalLoadingState rows={8} />
   if (detailQuery.isError || actionsQuery.isError || !detailQuery.data)
     return (
@@ -215,26 +242,20 @@ export default function InboundRequestDetailPage({
           runAction(INBOUND_REQUEST_ACTION.Reject, reason, acknowledged)
         }
         onReconcile={(action, reason, version) => runAction(action, reason, false, version)}
-        onAssignReceiving={() => {
-          const request = detailQuery.data
-          if (
-            !request?.warehouseId ||
-            request.receivingAssignedTo ||
-            !actionsQuery.data?.allowedActions.includes(INBOUND_REQUEST_ACTION.AssignReceivingTask)
-          )
-            return
-          assignment.open({
-            kind: 'Receiving',
-            id: request.id,
-            referenceCode: request.inboundRequestCode,
-            warehouseId: request.warehouseId,
-            warehouseName: request.warehouseName ?? '',
-            currentAssigneeId: null,
-            currentAssigneeName: null,
-            currentPriority: 'Normal',
-            currentDueAt: null,
-          })
-        }}
+        taskSplitAction={
+          <TaskSplitButton state={split.data} onSplit={() => setIsSplitOpen(true)} />
+        }
+        taskSplitSection={
+          <TaskSplitSection
+            state={split.data}
+            isError={split.isError}
+            onRetry={() => void split.refetch()}
+            open={isSplitOpen}
+            onOpenChange={setIsSplitOpen}
+            invalidateKeys={[queryKeys.inboundRequests.detail(inboundRequestId)]}
+          />
+        }
+        onAssignReceiving={isSplit ? undefined : openAssignReceiving}
       />
       <AssignWarehouseTaskDialog
         target={

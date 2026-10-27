@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,6 +13,8 @@ import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
+import { queryKeys } from '@/lib/query-keys'
+import { TaskSplitButton, TaskSplitSection, useTaskSplitQuery } from '@/features/task-splitting'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { CycleCountDetailView } from '../components/CycleCountDetailPage'
 import { cycleCountService } from '../services/cycle-count.service'
@@ -42,6 +45,8 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
   const detail = useCycleCountQuery(cycleCountId)
   const actions = useCycleCountAllowedActionsQuery(cycleCountId)
   const me = useMeQuery()
+  const split = useTaskSplitQuery('CycleCount', cycleCountId)
+  const [isSplitOpen, setIsSplitOpen] = useState(false)
   const record = useRecordCycleCountItemsMutation()
   const uploadEvidence = useUploadCycleCountEvidenceMutation()
   const start = useStartCycleCountMutation()
@@ -115,6 +120,23 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
       detail={detail.data}
       allowedActions={actions.data?.allowedActions ?? []}
       isPending={pending}
+      taskSplitAction={
+        <TaskSplitButton
+          state={split.data}
+          disabled={pending}
+          onSplit={() => setIsSplitOpen(true)}
+        />
+      }
+      taskSplitSection={
+        <TaskSplitSection
+          state={split.data}
+          isError={split.isError}
+          onRetry={() => void split.refetch()}
+          open={isSplitOpen}
+          onOpenChange={setIsSplitOpen}
+          invalidateKeys={[queryKeys.cycleCounts.detail(cycleCountId)]}
+        />
+      }
       isBeforeSchedule={actions.data?.denialReasonCode === 'NOT_YET_SCHEDULED'}
       canConfirmDamage={actions.data?.allowedActions.includes('ConfirmDamage') ?? false}
       canOpenDamageCases={me.data?.permissions.includes(P.INVENTORY_VIEW) ?? false}
