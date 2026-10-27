@@ -3,7 +3,13 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Route } from 'next'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
+import { useGoodsPreviewSelection } from '@/hooks/use-goods-preview-selection'
+import { ReturnGoodsPreview } from '@/components/operations/ReturnGoodsPreview'
+import {
+  SUPPLIER_RETURN_GOODS_COLUMNS,
+  supplierReturnGoodsRows,
+} from '../utils/return-goods-preview'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { useReturnListState } from '@/hooks/use-return-list-state'
 import {
@@ -129,6 +135,35 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     !returnId && !legacyDetailId
   )
   const detailQuery = useSupplierReturnQuery(returnId ?? null)
+  const previewPanelId = useId()
+  const preview = useGoodsPreviewSelection(
+    'return-goods-detail:supplier:v1',
+    JSON.stringify([
+      meQuery.data?.id,
+      returnId,
+      page,
+      pageSize,
+      searchText,
+      status,
+      warehouseId,
+      supplierId,
+      dateFrom,
+      dateTo,
+    ]),
+    (listQuery.data?.items ?? []).map((item) => item.id),
+    !returnId &&
+      !legacyDetailId &&
+      listQuery.isSuccess &&
+      !listQuery.isError &&
+      !listQuery.isPlaceholderData &&
+      searchText.trim() === debouncedSearchText &&
+      !meQuery.isError &&
+      permissions.includes(P.SUPPLIER_RETURNS_VIEW)
+  )
+  const previewQuery = useSupplierReturnQuery(preview.expanded && preview.id ? preview.id : null)
+  const previewDocument =
+    !previewQuery.isError && previewQuery.data?.id === preview.id ? previewQuery.data : null
+  const previewCode = (listQuery.data?.items ?? []).find((item) => item.id === preview.id)?.code
   const editing = useReturnDocumentEditing('supplierReturns', detailQuery.data, list.listHref)
   const warehousesQuery = useWarehousesQuery(
     {
@@ -243,6 +278,8 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
         maxQuantity: item.availableQuantity ?? 0,
         unit: item.unit,
         quantityPrecision: item.quantityPrecision ?? 2,
+        sourceGroupKey: `${item.productId}:${item.lotId ?? ''}`,
+        sourceRemainingQuantity: item.sourceRemainingQuantity ?? 0,
         label: `${item.sku} · ${item.productName} · ${formatInventoryLocation(item)}`,
       })),
     })
@@ -413,6 +450,43 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
         />
       ) : (
         <SupplierReturnDirectory
+          goodsPreview={{
+            selectedId: preview.id,
+            onSelect: preview.select,
+            expanded: preview.expanded,
+            onExpandedChange: preview.setExpanded,
+            detailId: previewPanelId,
+            detail: (
+              <ReturnGoodsPreview
+                key={preview.id || 'empty'}
+                id={previewPanelId}
+                anchorId={preview.anchorId}
+                expanded={preview.expanded}
+                selected={Boolean(preview.id)}
+                referenceCode={previewCode}
+                description={
+                  previewDocument
+                    ? [
+                        previewDocument.warehouseName,
+                        previewDocument.supplierName,
+                        previewDocument.sourceGoodsReceiptCode
+                          ? `Phiếu nhận: ${previewDocument.sourceGoodsReceiptCode}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : undefined
+                }
+                columns={SUPPLIER_RETURN_GOODS_COLUMNS}
+                rows={previewDocument ? supplierReturnGoodsRows(previewDocument) : []}
+                isLoading={previewQuery.isPending || (!previewDocument && !previewQuery.isError)}
+                isError={previewQuery.isError}
+                onRetry={() => {
+                  if (preview.id && preview.expanded) void previewQuery.refetch()
+                }}
+              />
+            ),
+          }}
           items={listQuery.data?.items ?? []}
           totalCount={listQuery.data?.totalCount ?? 0}
           page={page}

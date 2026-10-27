@@ -138,7 +138,17 @@ beforeEach(() => {
       },
     ],
   }
+  if (state.options)
+    state.options.items.forEach((line) => {
+      line.conditionOptions = [
+        { condition: 'Good', options: line.options },
+        { condition: 'Damaged', options: [] },
+        { condition: 'Expired', options: [] },
+        { condition: 'Scrap', options: [] },
+      ]
+    })
 })
+
 afterEach(cleanup)
 function openPage() {
   const view = render(<GoodsReturnRequestsPage />)
@@ -170,7 +180,13 @@ it('autofills the original location, preserves a manual alternative on backgroun
       goodsReturnRequestId: state.detail?.id,
       request: {
         expectedVersion: 'AQ==',
-        items: [{ returnItemId: state.detail?.items[0]?.id, restockSlotId: alternative }],
+        items: [
+          {
+            returnItemId: state.detail?.items[0]?.id,
+            restockSlotId: alternative,
+            condition: 'Good',
+          },
+        ],
       },
     })
   )

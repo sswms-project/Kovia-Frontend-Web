@@ -232,9 +232,7 @@ export function ReceiveGoodsDialog({
                       </Field>
                       <Field data-invalid={Boolean(errors.lines?.[index]?.receivedQty)}>
                         <FieldLabel htmlFor={`received-${index}`}>
-                          {acceptanceFirst
-                            ? 'Số lượng chấp nhận nhận'
-                            : 'Số lượng thực nhận lịch sử'}
+                          {acceptanceFirst ? 'SL thực nhận' : 'SL thực nhận đã ghi'}
                         </FieldLabel>
                         <Input
                           id={`received-${index}`}
@@ -258,7 +256,7 @@ export function ReceiveGoodsDialog({
                       <Field data-invalid={Boolean(classificationError)}>
                         <FieldLabel htmlFor={`damaged-${index}`}>
                           {acceptanceFirst && canEditReceivedQuantity
-                            ? 'Số từ chối trước nhận'
+                            ? 'SL từ chối nhận'
                             : 'Hỏng sau khi đã nhận'}
                         </FieldLabel>
                         <Input
@@ -279,7 +277,7 @@ export function ReceiveGoodsDialog({
                       </Field>
                     </div>
                     <p className="text-muted-foreground mt-2 text-xs" aria-live="polite">
-                      Phần chấp nhận: {formatQuantity(Math.max(0, received - damaged))} {unit.name}
+                      Hàng đạt: {formatQuantity(Math.max(0, received - damaged))} {unit.name}
                       {editsRefusal ? ` · Từ chối: ${formatQuantity(refused)} ${unit.name}` : ''}
                       {' · '}Quy đổi: {formatQuantity(received * unit.factor)}{' '}
                       {line.baseUnitName ?? '—'}

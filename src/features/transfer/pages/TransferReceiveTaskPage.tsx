@@ -98,7 +98,12 @@ export default function TransferReceiveTaskPage({ transferId, shipmentId }: Prop
   const [slotSearch, setSlotSearch] = useState('')
   const debouncedSlotSearch = useDebouncedValue(slotSearch, 300)
   const locations = useTransferPutAwaySlotsQuery(
-    { warehouseId: warehouses?.destinationWarehouseId ?? '', search: debouncedSlotSearch, top: 30 },
+    {
+      warehouseId: warehouses?.destinationWarehouseId ?? '',
+      search: debouncedSlotSearch,
+      top: 30,
+      includeIsolation: sheet?.status === 'Receiving' && sheet.receiptFlowVersion === 2,
+    },
     mayReceive &&
       !!warehouses &&
       ((!staged && sheet?.status === 'InTransit') || sheet?.status === 'Receiving')

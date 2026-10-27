@@ -1,10 +1,14 @@
-import { CalendarDays, MapPin, Warehouse } from 'lucide-react'
+import { CalendarDays, MapPin, Warehouse, Settings2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type { WarehouseDetailResponse } from '@/types/warehouse'
 import { formatWarehouseStatus } from '../../utils/warehouse-labels'
 
 interface WarehouseOverviewProps {
   readonly warehouse: WarehouseDetailResponse
+  readonly isolationLabel: string
+  readonly canConfigureIsolation: boolean
+  readonly onConfigureIsolation: () => void
 }
 
 function formatDateTime(value: string | null) {
@@ -16,7 +20,12 @@ function formatDateTime(value: string | null) {
   }).format(new Date(value))
 }
 
-export function WarehouseOverview({ warehouse }: WarehouseOverviewProps) {
+export function WarehouseOverview({
+  warehouse,
+  isolationLabel,
+  canConfigureIsolation,
+  onConfigureIsolation,
+}: WarehouseOverviewProps) {
   const metadata = [
     { label: 'Mã kho', value: warehouse.warehouseCode, mono: true },
     { label: 'Địa chỉ', value: warehouse.address || 'Chưa cập nhật', icon: MapPin },
@@ -48,6 +57,18 @@ export function WarehouseOverview({ warehouse }: WarehouseOverviewProps) {
         <Badge variant={warehouse.status === 'Active' ? 'outline' : 'destructive'}>
           {formatWarehouseStatus(warehouse.status)}
         </Badge>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-t p-3 sm:px-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-muted-foreground text-xs">Khu vực cách ly</p>
+          <p className="mt-1 text-sm break-words">{isolationLabel}</p>
+        </div>
+        {canConfigureIsolation ? (
+          <Button type="button" variant="outline" onClick={onConfigureIsolation}>
+            <Settings2 aria-hidden="true" />
+            Cấu hình
+          </Button>
+        ) : null}
       </div>
     </div>
   )

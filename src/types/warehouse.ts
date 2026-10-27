@@ -30,6 +30,7 @@ export interface SlotResponse extends WarehousePhysicalDetailsResponse, StorageC
   status: string
   isActive: boolean
   isOutboundStaging?: boolean
+  isIsolationPoint?: boolean
   allowsMixedProducts?: boolean
   capacity: number | null
   currentOccupancy: number
@@ -38,6 +39,7 @@ export interface SlotResponse extends WarehousePhysicalDetailsResponse, StorageC
 }
 
 export interface RackResponse extends WarehousePhysicalDetailsResponse, StorageCapacityResponse {
+  isIsolationPoint?: boolean
   id: string
   rackCode: string
   rackName: string
@@ -54,6 +56,7 @@ export interface RackResponse extends WarehousePhysicalDetailsResponse, StorageC
 
 export interface ZoneResponse extends WarehousePhysicalDetailsResponse {
   isDefaultReceivingPoint?: boolean
+  isDefaultIsolationPoint?: boolean
   isDefaultOutboundStagingPoint?: boolean
   id: string
   zoneCode: string

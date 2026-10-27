@@ -256,6 +256,7 @@ export interface TransferReceivableSlotOption {
 }
 
 export interface TransferReceivableSlotsQuery {
+  includeIsolation?: boolean
   warehouseId: string
   search?: string
   top?: number

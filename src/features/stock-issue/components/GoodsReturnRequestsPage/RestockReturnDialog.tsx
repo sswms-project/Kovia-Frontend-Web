@@ -1,3 +1,4 @@
+import { GOODS_RETURN_REQUEST_ITEM_CONDITIONS } from '../../types/stock-issue.types'
 import type { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
@@ -59,6 +60,7 @@ export function RestockReturnDialog({
         line.condition !== 'Scrap' &&
         !options
           .find((entry) => entry.returnItemId === line.returnItemId)
+          ?.conditionOptions?.find((entry) => entry.condition === line.condition)
           ?.options.some((option) => option.slotId === line.restockSlotId)
     )
 
@@ -70,8 +72,8 @@ export function RestockReturnDialog({
             Nhập lại kho {item?.goodsReturnRequestCode}
           </DialogTitle>
           <DialogDescription>
-            Kiểm tra vị trí nhận hàng theo nội dung đã duyệt. Hàng hỏng hoặc hết hạn phải đặt cách
-            biệt hàng tốt.
+            Ghi nhận tình trạng thực tế. Hàng hỏng hoặc hết hạn chỉ nhập vào điểm cách ly đã cấu
+            hình.
           </DialogDescription>
         </DialogHeader>
         {item ? (
@@ -94,16 +96,19 @@ export function RestockReturnDialog({
                   <TableRow>
                     <TableHead>Sản phẩm</TableHead>
                     <TableHead className="text-right">Số lượng</TableHead>
-                    <TableHead>Tình trạng đã duyệt</TableHead>
+                    <TableHead>Tình trạng thực tế</TableHead>
                     <TableHead>Vị trí nhập</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="max-sm:block">
                   {item.items.map((line, index) => {
-                    const condition = line.condition
+                    const condition = lines[index]?.condition ?? line.condition
                     const requiresSlot = condition !== 'Scrap'
                     const slotOptions =
-                      options.find((entry) => entry.returnItemId === line.id)?.options ?? []
+                      options
+                        .find((entry) => entry.returnItemId === line.id)
+                        ?.conditionOptions?.find((entry) => entry.condition === condition)
+                        ?.options ?? []
                     const fieldError = form.formState.errors.items?.[index]?.restockSlotId?.message
                     return (
                       <TableRow
@@ -122,9 +127,43 @@ export function RestockReturnDialog({
                         </TableCell>
                         <TableCell className="max-sm:p-0">
                           <span className="text-muted-foreground block text-xs sm:sr-only">
-                            Tình trạng đã duyệt
+                            Tình trạng thực tế
                           </span>
-                          {RETURN_ITEM_CONDITION_LABELS[line.condition]}
+                          <NativeSelect
+                            aria-label={`Tình trạng thực tế ${line.productName}`}
+                            value={condition}
+                            disabled={isPending || isLoading || Boolean(error)}
+                            onChange={(event) => {
+                              const next = GOODS_RETURN_REQUEST_ITEM_CONDITIONS.find(
+                                (value) => value === event.target.value
+                              )
+                              if (!next) return
+                              const candidates =
+                                options
+                                  .find((entry) => entry.returnItemId === line.id)
+                                  ?.conditionOptions?.find((entry) => entry.condition === next)
+                                  ?.options ?? []
+                              const selected =
+                                candidates.find((option) => option.isOriginalSlot) ?? candidates[0]
+                              form.setValue(`items.${index}.condition`, next, { shouldDirty: true })
+                              form.setValue(
+                                `items.${index}.restockSlotId`,
+                                next === 'Scrap' ? null : (selected?.slotId ?? null),
+                                { shouldDirty: true, shouldValidate: true }
+                              )
+                            }}
+                          >
+                            {GOODS_RETURN_REQUEST_ITEM_CONDITIONS.map((value) => (
+                              <NativeSelectOption key={value} value={value}>
+                                {RETURN_ITEM_CONDITION_LABELS[value]}
+                              </NativeSelectOption>
+                            ))}
+                          </NativeSelect>
+                          {condition !== line.condition ? (
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Đã duyệt: {RETURN_ITEM_CONDITION_LABELS[line.condition]}
+                            </p>
+                          ) : null}
                         </TableCell>
                         <TableCell className="max-sm:col-span-2 max-sm:p-0">
                           <span className="text-muted-foreground mb-1 block text-xs sm:sr-only">
@@ -161,7 +200,9 @@ export function RestockReturnDialog({
                               </NativeSelect>
                               {!isLoading && !error && slotOptions.length === 0 ? (
                                 <p className="text-destructive mt-1 text-xs">
-                                  Chưa có vị trí đủ điều kiện nhận toàn bộ dòng hàng này.
+                                  {condition === 'Damaged' || condition === 'Expired'
+                                    ? 'Chưa có điểm cách ly phù hợp. Nhờ quản lý cấu hình Khu vực cách ly tại chi tiết kho.'
+                                    : 'Chưa có vị trí đủ điều kiện nhận toàn bộ dòng hàng này.'}
                                 </p>
                               ) : null}
                               {fieldError ? (
@@ -191,8 +232,8 @@ export function RestockReturnDialog({
               </Table>
             </div>
             <p className="text-muted-foreground shrink-0">
-              Nếu số lượng hoặc tình trạng thực tế khác phiếu, cần thu hồi để sửa và duyệt lại trước
-              khi nhập kho.
+              Tình trạng thực nhận được lưu vết; hàng hủy bỏ không nhập tồn. Muốn đổi số lượng, cần
+              thu hồi phiếu để sửa và duyệt lại.
             </p>
             <DialogFooter className="shrink-0">
               <Button

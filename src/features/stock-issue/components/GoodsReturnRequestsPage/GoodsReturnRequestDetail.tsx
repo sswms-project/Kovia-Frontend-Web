@@ -180,7 +180,7 @@ export function GoodsReturnRequestDetail({
                       {formatStockIssueQuantity(line.quantity)} {line.unitName}
                     </ReturnDetailField>
                     <ReturnDetailField label="Tình trạng">
-                      {RETURN_ITEM_CONDITION_LABELS[line.condition]}
+                      {RETURN_ITEM_CONDITION_LABELS[line.actualCondition ?? line.condition]}
                     </ReturnDetailField>
                     <ReturnDetailField label="Lô hàng">
                       {line.lotNumber ?? 'Không theo lô'}
@@ -213,7 +213,9 @@ export function GoodsReturnRequestDetail({
                       <TableCell className="max-w-48 wrap-anywhere whitespace-normal">
                         {line.lotNumber ?? 'Không theo lô'}
                       </TableCell>
-                      <TableCell>{RETURN_ITEM_CONDITION_LABELS[line.condition]}</TableCell>
+                      <TableCell>
+                        {RETURN_ITEM_CONDITION_LABELS[line.actualCondition ?? line.condition]}
+                      </TableCell>
                       <TableCell className="text-right">
                         {formatStockIssueQuantity(line.quantity)} {line.unitName}
                       </TableCell>
