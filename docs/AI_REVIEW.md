@@ -1,5 +1,17 @@
 # AI Review Handoff
 
+## 2026-10-27 — Goods return restock placement and responsive dialog
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification; no independent review or deployment performed.
+
+- Replaced quarantine-default dependency with document-bound BE options and actual placement payload. Approved quantity/condition are read-only; differences require withdrawal/edit/reapproval. Prefers valid saved location, then original source, then eligible BE option; preserves manual selection across same-version refetches and blocks mismatched versions/loading/errors.
+- Removed unsupported quarantine warehouse settings and their unused mutation/route/service, plus misleading quarantine-default column/instructions in the lot panel. Existing Cách ly inventory statuses are retained. Unrelated legacy lot-impact/block endpoint alignment is not implemented here.
+- Restock dialog now explicitly overrides sm width, contains scrolling and retains reachable actions. Desktop uses a table; narrow screens use the same rows as stacked cards with quantity, condition and destination labels. Does not await unrelated query refetches before completing a successful restock.
+- Validation: full remaining FE suite 77/77 (12 files), scoped ESLint and production Next build including TypeScript/static generation passed. New integration tests cover autofill, saved slot preference, dirty selection persistence, exact placement payload and stale version blocking.
+- Playwright used only a temporary Vite fixture importing the real dialog, with fake data and no business API. At 390x844, 1024x576 and 1280x720, dialog/footer stay within viewport and no body horizontal overflow. Screenshots in workspace outputs/goods-return-popup-\*-20261027.png. Fixture source removed, browser and port 4319 closed. Actual device/125% browser zoom and authenticated deployed flow remain manual acceptance items.
+- Kept prior requested ProductDetailSidebar white-card change. Preserved pre-existing local AGENTS.md/CLAUDE.md edits. No commit/push requested in this turn; no production API calls or DB writes.
+- Deploy compatible BE restock/restock-options before FE. See workspace outputs/ke-hoach-sua-nhap-lai-hang-tra-20261027.md.
+
 ## 2026-10-25 — Pre-PR integration and final check of mixed-item fix
 
 State: APPROVED_FINAL for dev integration based on implementer self-review/local verification; not independent review or production deployment approval.

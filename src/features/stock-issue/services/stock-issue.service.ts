@@ -31,6 +31,7 @@ import type {
   GoodsReturnRequestSummary,
   ReleaseStockIssueRequestRequest,
   RestockGoodsReturnRequest,
+  GoodsReturnRestockOptions,
 } from '../types/stock-issue.types'
 
 function downloadBlob(blob: Blob, fileName: string) {
@@ -265,6 +266,13 @@ export const stockIssueService = {
       .post<
         ApiResponse<unknown>
       >(API_ENDPOINTS.goodsReturnRequests.reject(goodsReturnRequestId), request)
+      .then((response) => response.data),
+
+  getGoodsReturnRestockOptions: (goodsReturnRequestId: string) =>
+    axiosClient
+      .get<
+        ApiResponse<GoodsReturnRestockOptions>
+      >(`${API_ENDPOINTS.goodsReturnRequests.restock(goodsReturnRequestId)}-options`)
       .then((response) => response.data),
 
   restockGoodsReturnRequest: (goodsReturnRequestId: string, request: RestockGoodsReturnRequest) =>

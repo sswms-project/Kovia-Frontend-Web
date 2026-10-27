@@ -380,12 +380,11 @@ export function useRestockGoodsReturnRequestMutation() {
   return useMutation<ApiResponse<unknown>, ApiErrorResponse, RestockGoodsReturnRequestVariables>({
     mutationFn: ({ goodsReturnRequestId, request }) =>
       stockIssueService.restockGoodsReturnRequest(goodsReturnRequestId, request),
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.goodsReturnRequests.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
-      ]),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.goodsReturnRequests.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all })
+    },
     onError: (error) => logger.error(error),
   })
 }
