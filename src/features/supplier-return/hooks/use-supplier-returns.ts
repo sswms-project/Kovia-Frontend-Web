@@ -22,6 +22,32 @@ export function useSupplierReturnsQuery(params: SupplierReturnListQuery, enabled
   })
 }
 
+export function useSupplierReturnSourcesQuery(
+  params: Parameters<typeof supplierReturnService.getSourceReceipts>[0],
+  enabled: boolean
+) {
+  return useQuery({
+    queryKey: [...queryKeys.supplierReturns.all, 'source-receipts', params],
+    queryFn: () =>
+      supplierReturnService.getSourceReceipts(params).then((response) => response.data),
+    enabled: enabled && Boolean(params.warehouseId && params.supplierId),
+    retry: false,
+  })
+}
+
+export function useSupplierReturnSourceStocksQuery(
+  params: Parameters<typeof supplierReturnService.getSourceStocks>[0],
+  enabled: boolean
+) {
+  return useQuery({
+    queryKey: [...queryKeys.supplierReturns.all, 'source-stocks', params],
+    queryFn: () => supplierReturnService.getSourceStocks(params).then((response) => response.data),
+    enabled:
+      enabled && Boolean(params.warehouseId && params.supplierId && params.sourceGoodsReceiptId),
+    retry: false,
+  })
+}
+
 export function useSupplierReturnQuery(supplierReturnId: string | null) {
   return useQuery<SupplierReturn, ApiErrorResponse>({
     queryKey: queryKeys.supplierReturns.detail(supplierReturnId ?? ''),

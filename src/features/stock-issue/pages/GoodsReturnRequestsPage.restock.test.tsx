@@ -147,8 +147,8 @@ function openPage() {
 }
 it('autofills the original location, preserves a manual alternative on background refresh, and sends only actual placement', async () => {
   const view = openPage()
-  const original = state.options?.items[0].options[0].slotId
-  const alternative = state.options?.items[0].options[1].slotId
+  const original = state.options?.items[0]?.options[0]?.slotId
+  const alternative = state.options?.items[0]?.options[1]?.slotId
   await waitFor(() =>
     expect(screen.getByRole('combobox', { name: 'Vị trí nhập Bia' })).toHaveValue(original)
   )
@@ -170,13 +170,13 @@ it('autofills the original location, preserves a manual alternative on backgroun
       goodsReturnRequestId: state.detail?.id,
       request: {
         expectedVersion: 'AQ==',
-        items: [{ returnItemId: state.detail?.items[0].id, restockSlotId: alternative }],
+        items: [{ returnItemId: state.detail?.items[0]?.id, restockSlotId: alternative }],
       },
     })
   )
 })
 it('prefers a saved location over the original suggestion when it is still valid', async () => {
-  const saved = state.options?.items[0].options[1].slotId ?? null
+  const saved = state.options?.items[0]?.options[1]?.slotId ?? null
   if (state.detail)
     state.detail = {
       ...state.detail,

@@ -50,7 +50,7 @@ export function CreateGoodsReturnRequestDialog({
 }) {
   return (
     <Dialog open={Boolean(order)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[85dvh] min-w-0 overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? 'Sửa nháp khách trả hàng' : 'Tạo yêu cầu trả hàng'}
@@ -85,7 +85,7 @@ export function CreateGoodsReturnRequestDialog({
               {form.watch('lines').map((line, index) => (
                 <FieldGroup
                   key={line.stockIssuePickDetailId}
-                  className="grid gap-3 border p-3 sm:grid-cols-3"
+                  className="grid min-w-0 gap-3 border p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_8rem_minmax(0,2fr)]"
                 >
                   <div>
                     <p className="text-sm font-medium">{line.productName}</p>
@@ -115,7 +115,7 @@ export function CreateGoodsReturnRequestDialog({
                     />
                     <FieldError errors={[form.formState.errors.lines?.[index]?.quantity]} />
                   </Field>
-                  <FieldGroup className="gap-2">
+                  <FieldGroup className="min-w-0 gap-2 sm:col-span-2 lg:col-span-1">
                     <Field>
                       <FieldLabel htmlFor={`return-condition-${index}`}>Tình trạng</FieldLabel>
                       <NativeSelect

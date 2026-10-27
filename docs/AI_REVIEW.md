@@ -2572,3 +2572,20 @@ READY_FOR_CODEX_REVIEW (assigned integrator; self-verification).
 - Full currently present suite:67/67 tests in10files passed. The earlier138-test evidence predates dev's removals and is not claimed for this merged tree. Scoped ESLint and whitespace checks passed. GitNexus staged analysis MEDIUM; indexed flows include warehouse designer/directory, supplemented by direct diff inspection for incoming refactors.
 - Production build tracked in workspace outputs/pr253-conflict-build-20261026.log; final result recorded after completion. Local AGENTS.md/CLAUDE.md and outputs kept outside merge commit. No application server, business API, DB write, migration or BE source change. PR283 is already merged by the user; PR253 remains for the user to merge after this branch update.
 - Final production webpack build completed successfully (exit0), including TypeScript and all74pages. Six retained test files remain unchanged from the pre-merge reviewed versions; no unresolved Git entries. Protected local instruction hashes verified before commit.
+
+## 2026-10-27 — Supplier return receiving-source selection
+
+READY_FOR_CODEX_REVIEW (implementer self-verification; not independent approval).
+
+- Create/edit dialog now follows Warehouse → Supplier → Source receipt → Current stock → Reason/Note. Reuses LookupCombobox and existing UI primitives, server pagination/search, SKU - product labels and zone/rack/slot descriptions. Choosing another warehouse/supplier/source clears incompatible lines. Query keys include all source context; no cross-source placeholder data, and failures/loading prevent stale additions.
+- UI requires source receipt and checks aggregate product/lot allowance across selected positions, with BE as final authority. Receipt-based options do not require catalog ProductSupplier mapping. Current-stock sources, pooled non-lot attribution and conservative old-return deduction are explained. Detail shows receipt source/link only when page supplies view capability.
+- Full existing FE suite84/84 passed; scoped ESLint, production-config TypeScript and production build passed. Three new test files cover schema, source switching/error states and form selection/allowance behavior. Also corrected optional indexing in the preceding restock test exposed by production typechecking; no restock business change.
+- Real dialog verified in browser using fake fixtures only at390×844,1280×720,1024×576: dialog/content within viewport width, scroll reaches footer. Screenshots in shared outputs/supplier-return-popup-\*-20261027.png. Own temporary fixture/browser/server cleaned up; no business API/login/QA data or deployment. Only browser error was the fixture favicon404.
+- GitNexus aggregate scope LOW, with direct source review for new symbols. Matching BE and migration20261027053838_AddSupplierReturnReceiptSource are required before feature runtime. Migration NOT applied; production SQL concurrency and deployed integration remain unverified. Local instruction/configuration files retained; no commit/push for this addition.
+
+## 2026-10-27 — Customer return create-dialog width
+
+READY_FOR_CODEX_REVIEW (implementer self-verification).
+
+- Increased create/edit dialog maximum width from2xl to4xl, kept viewport-height scrolling, and allocated a larger desktop column to condition/return location. At intermediate widths that column spans its own row; phone layout remains stacked. No payload, validation or business behavior changed.
+- GitNexus pre-change impact LOW: one direct page caller. Scoped ESLint and whitespace checks passed. Real component with fake data inspected at1280×900 and390×844: desktop dialog896px, location450px; mobile dialog358px, location298px; no horizontal page overflow. Temporary browser/server/fixture removed. Screenshots in shared outputs/customer-return-width-\*.png; no live API/DB calls.

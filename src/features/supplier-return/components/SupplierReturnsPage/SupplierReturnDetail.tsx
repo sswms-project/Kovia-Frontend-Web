@@ -1,6 +1,9 @@
 'use client'
 
 import { Check, PackageCheck, X } from 'lucide-react'
+import Link from 'next/link'
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
 import { useId, useState, type ReactNode } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
@@ -40,6 +43,7 @@ interface SupplierReturnDetailProps {
   readonly canApprove: boolean
   readonly canSelfApprove?: boolean
   readonly canDispatch: boolean
+  readonly canViewSourceReceipt?: boolean
   readonly currentUserId: string | null
   readonly onRetry: () => void
   readonly onApprove: (item: SupplierReturn, selfApprovalAcknowledged?: boolean) => void
@@ -58,6 +62,7 @@ export function SupplierReturnDetail({
   canApprove,
   canSelfApprove = false,
   canDispatch,
+  canViewSourceReceipt = false,
   currentUserId,
   onRetry,
   onApprove,
@@ -170,6 +175,19 @@ export function SupplierReturnDetail({
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <ReturnDetailField label="Nhà cung cấp">{item.supplierName}</ReturnDetailField>
             <ReturnDetailField label="Kho xuất trả">{item.warehouseName}</ReturnDetailField>
+            <ReturnDetailField label="Phiếu nhận hàng nguồn">
+              {canViewSourceReceipt && item.sourceGoodsReceiptId ? (
+                // The centralized helper builds a dynamic route; Next cannot infer its literal type.
+                <Link
+                  className="underline underline-offset-4"
+                  href={APP_ROUTES.goodsReceiptDetail(item.sourceGoodsReceiptId) as Route}
+                >
+                  {item.sourceGoodsReceiptCode ?? 'Xem phiếu nhận hàng'}
+                </Link>
+              ) : (
+                (item.sourceGoodsReceiptCode ?? 'Phiếu cũ/chưa gắn nguồn')
+              )}
+            </ReturnDetailField>
             <ReturnDetailField label="Người lập">{item.createdByName}</ReturnDetailField>
             <ReturnDetailField label="Ngày lập">
               {formatStockIssueDate(item.createdAt)}
