@@ -152,8 +152,9 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
       )
         return
       const options =
-        restockOptionsQuery.data.items.find((item) => item.returnItemId === line.returnItemId)
-          ?.options ?? []
+        restockOptionsQuery.data.items
+          .find((item) => item.returnItemId === line.returnItemId)
+          ?.conditionOptions?.find((entry) => entry.condition === line.condition)?.options ?? []
       const selected =
         options.find((option) => option.slotId === line.restockSlotId) ??
         options.find((option) => option.isOriginalSlot) ??
@@ -222,7 +223,8 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
       await restockMutation.mutateAsync({
         goodsReturnRequestId: restockingItem.id,
         request: {
-          items: values.items.map(({ returnItemId, restockSlotId }) => ({
+          items: values.items.map(({ returnItemId, restockSlotId, condition }) => ({
+            condition,
             returnItemId,
             restockSlotId,
           })),

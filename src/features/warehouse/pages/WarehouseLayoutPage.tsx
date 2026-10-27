@@ -501,6 +501,7 @@ export function WarehouseLayoutPage({ warehouseId }: WarehouseLayoutPageProps) {
               ? {
                   receiving: zoneFormTarget.zone.isDefaultReceivingPoint,
                   outbound: zoneFormTarget.zone.isDefaultOutboundStagingPoint,
+                  isolation: zoneFormTarget.zone.isDefaultIsolationPoint,
                 }
               : undefined
           }
