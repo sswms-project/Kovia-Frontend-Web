@@ -250,8 +250,13 @@ export default function InboundReceivingPage() {
       })
       setImportId(response.data)
     } catch (error) {
-      logger.error(error)
-      toast.error('Không thể phân tích chứng từ. Bạn vẫn có thể nhập hàng thủ công.')
+      if (isApiErrorResponse(error)) logger.warn(formatApiError(error))
+      else logger.error(error)
+      toast.error(
+        isApiErrorResponse(error) && error.statusCode === 429
+          ? 'Đã hết hạn mức phân tích AI tạm thời. Vui lòng thử lại sau hoặc nhập hàng thủ công.'
+          : 'Không thể phân tích chứng từ. Bạn vẫn có thể nhập hàng thủ công.'
+      )
     }
   }
 

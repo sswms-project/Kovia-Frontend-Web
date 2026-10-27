@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 import { ImportState } from './ImportState'
 import { ReviewStep } from './ReviewStep'
 import type { InboundDocumentImportDialogProps } from './types'
@@ -38,7 +39,12 @@ export function InboundDocumentImportDialog({
 
   return (
     <Dialog open={Boolean(task)} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92dvh] flex-col overflow-hidden overscroll-contain sm:max-w-6xl">
+      <DialogContent
+        className={cn(
+          'flex max-h-[92dvh] flex-col overflow-hidden overscroll-contain sm:max-w-6xl',
+          canReview && 'lg:max-w-[min(96vw,1600px)]'
+        )}
+      >
         <DialogHeader className="shrink-0">
           <DialogTitle>Nhập hàng từ chứng từ</DialogTitle>
           <DialogDescription>

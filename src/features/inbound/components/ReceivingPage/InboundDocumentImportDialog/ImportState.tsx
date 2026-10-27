@@ -65,13 +65,19 @@ export function ImportState({
   }
 
   if (importData.status === 'Failed') {
+    const isQuotaExceeded = importData.failureCode === 'ProviderQuotaExceeded'
     return (
       <div className="flex flex-col gap-4">
         <Alert variant="destructive">
           <AlertCircle aria-hidden="true" />
-          <AlertTitle>Không thể phân tích chứng từ</AlertTitle>
+          <AlertTitle>
+            {isQuotaExceeded ? 'Đã hết hạn mức phân tích AI' : 'Không thể phân tích chứng từ'}
+          </AlertTitle>
           <AlertDescription>
-            {importData.failureMessage ?? 'Bạn có thể thử lại hoặc tiếp tục nhập hàng thủ công.'}
+            {isQuotaExceeded
+              ? 'Hạn mức phân tích chứng từ tạm thời đã hết. Vui lòng thử lại sau ít phút hoặc tiếp tục nhập hàng thủ công.'
+              : (importData.failureMessage ??
+                'Bạn có thể thử lại hoặc tiếp tục nhập hàng thủ công.')}
           </AlertDescription>
         </Alert>
         <div className="flex justify-end">
