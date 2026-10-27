@@ -10,7 +10,6 @@ interface TaskSplitStaffPickerProps {
   readonly staff: readonly TaskSplitStaff[]
   readonly checkedStaffIds: readonly string[]
   readonly preselectedStaffIds: readonly string[]
-  readonly disabled: boolean
   readonly onToggle: (staffId: string, checked: boolean) => void
 }
 
@@ -18,7 +17,6 @@ export function TaskSplitStaffPicker({
   staff,
   checkedStaffIds,
   preselectedStaffIds,
-  disabled,
   onToggle,
 }: TaskSplitStaffPickerProps) {
   if (staff.length === 0) {
@@ -44,14 +42,12 @@ export function TaskSplitStaffPicker({
               htmlFor={inputId}
               className={cn(
                 'flex cursor-pointer items-center gap-3 border p-3 transition-colors',
-                isChecked ? 'border-primary bg-primary/5' : 'hover:bg-muted',
-                disabled && 'cursor-not-allowed opacity-60'
+                isChecked ? 'border-primary bg-primary/5' : 'hover:bg-muted'
               )}
             >
               <Checkbox
                 id={inputId}
                 checked={isChecked}
-                disabled={disabled}
                 onCheckedChange={(checked) => onToggle(person.id, checked === true)}
               />
               <span className="min-w-0 flex-1">

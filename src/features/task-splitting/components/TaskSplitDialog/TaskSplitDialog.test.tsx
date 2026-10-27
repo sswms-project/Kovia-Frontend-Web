@@ -1,12 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildState, buildSuggestion, SOURCE_ID } from '../task-splitting.fixtures'
 import { TaskSplitDialog } from './TaskSplitDialog'
 
 const api = vi.hoisted(() => ({
-  getState: vi.fn(),
   getSuggestion: vi.fn(),
   create: vi.fn(),
 }))
@@ -16,7 +15,6 @@ const toastMock = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
 vi.mock('sonner', () => ({ toast: toastMock }))
 
 beforeEach(() => {
-  api.getState.mockResolvedValue(buildState())
   api.getSuggestion.mockResolvedValue(buildSuggestion())
 })
 
@@ -32,12 +30,7 @@ function renderDialog() {
   const onOpenChange = vi.fn()
   render(
     <QueryClientProvider client={client}>
-      <TaskSplitDialog
-        open
-        onOpenChange={onOpenChange}
-        sourceType="Receiving"
-        sourceId={SOURCE_ID}
-      />
+      <TaskSplitDialog open onOpenChange={onOpenChange} state={buildState()} />
     </QueryClientProvider>
   )
   return { onOpenChange }
@@ -135,5 +128,46 @@ describe('TaskSplitDialog', () => {
     expect(quantityInput('Gạo ST25', 1)).toHaveValue(6)
     expect(quantityInput('Gạo ST25', 2)).toHaveValue(4)
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
+  })
+
+  it('flags an invalid quantity and shows the planned points and idle staff', async () => {
+    api.getSuggestion.mockImplementation(
+      (_sourceType: string, _sourceId: string, staffIds: string[] | null) =>
+        Promise.resolve(
+          staffIds ? { ...buildSuggestion(), idleStaffIds: ['staff-chi'] } : buildSuggestion()
+        )
+    )
+    renderDialog()
+    await openPlan()
+
+    expect(screen.getByText('Không nhận phần nào: Lê Văn Chi')).toBeInTheDocument()
+    const pointsRow = screen.getByRole('row', { name: /Điểm mỗi phần/ })
+    expect(within(pointsRow).getByText('12')).toBeInTheDocument()
+    expect(within(pointsRow).getByText('9')).toBeInTheDocument()
+
+    fireEvent.change(quantityInput('Gạo ST25', 1), { target: { value: '-5' } })
+    expect(screen.getByText('Số lượng không hợp lệ')).toBeInTheDocument()
+    expect(quantityInput('Gạo ST25', 1)).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('button', { name: 'Xác nhận' })).toBeDisabled()
+  })
+
+  it('cannot be closed while the split is being created', async () => {
+    let finish: (value: string[]) => void = () => {}
+    api.create.mockReturnValue(
+      new Promise<string[]>((resolve) => {
+        finish = resolve
+      })
+    )
+    const { onOpenChange } = renderDialog()
+    const user = await openPlan()
+
+    await user.click(screen.getByRole('button', { name: 'Xác nhận' }))
+    await waitFor(() => expect(api.create).toHaveBeenCalled())
+    await user.keyboard('{Escape}')
+    expect(onOpenChange).not.toHaveBeenCalled()
+
+    finish(['part-1', 'part-2'])
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(toastMock.success).toHaveBeenCalledWith('Đã chia việc.')
   })
 })

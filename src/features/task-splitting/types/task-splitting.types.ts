@@ -8,6 +8,7 @@ import type {
   taskSplitStateResponseSchema,
   taskSplitSuggestionResponseSchema,
 } from '../schemas/task-splitting.schema'
+import type { TaskPartDialogAction } from '../schemas/task-part-action.schema'
 
 // Response shapes come from the zod schemas that validate them, so the two cannot drift.
 export type SplittableTaskType = z.infer<typeof splittableTaskTypeSchema>
@@ -75,4 +76,41 @@ export interface TaskPartReasonRequest {
 
 export interface UpdateTaskSplitSettingsRequest {
   items: TaskSplitSettingsItem[]
+}
+
+/** One editable part in the split dialog: quantities are the raw input text per source line. */
+export interface TaskSplitDraftPart {
+  readonly staffId: string
+  readonly quantities: Readonly<Record<string, string>>
+}
+
+export interface TaskSplitPlanRow {
+  readonly line: TaskSplitLineView
+  /** Unassigned after this split; negative means the parts overflow the line. */
+  readonly remaining: number
+}
+
+export interface TaskSplitPlanColumn {
+  readonly staffId: string
+  readonly staffName: string
+  readonly total: number
+  readonly hasInvalidQuantity: boolean
+  /** Points and load after the split as planned by the backend suggestion. */
+  readonly points: number | undefined
+  readonly loadAfter: number | undefined
+}
+
+/** The part action dialog, resolved against the latest split state on every render. */
+export interface TaskPartActionTarget {
+  readonly action: TaskPartDialogAction
+  /** `null` for `cancelSplit`, which acts on the whole split. */
+  readonly part: TaskPartView | null
+  readonly rank: number
+  /** The part is gone or no longer allows the action after the state reloaded. */
+  readonly isStale: boolean
+}
+
+export interface TaskPartMergeTarget {
+  readonly part: TaskPartView
+  readonly rank: number
 }

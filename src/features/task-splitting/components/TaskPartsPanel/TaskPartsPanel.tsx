@@ -1,6 +1,6 @@
 'use client'
 
-import { Ban, RefreshCw } from 'lucide-react'
+import { Ban } from 'lucide-react'
 import type { QueryKey } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,9 +14,9 @@ import {
 } from '@/components/ui/table'
 import { useTaskPartActions } from '../../hooks/use-task-part-actions'
 import type {
-  SplittableTaskType,
   TaskPartExecutionStatus,
   TaskPartView,
+  TaskSplitStateResponse,
 } from '../../types/task-splitting.types'
 import { formatQuantity, sumQuantities } from '../../utils/task-split-quantity'
 import { TaskPartActionDialog } from './TaskPartActionDialog'
@@ -31,35 +31,17 @@ const STATUS_LABELS: Record<TaskPartExecutionStatus, string> = {
 }
 
 export interface TaskPartsPanelProps {
-  readonly sourceType: SplittableTaskType
-  readonly sourceId: string
+  /** Split state owned by the page (`useTaskSplitQuery`); the panel renders nothing until the task is split. */
+  readonly state: TaskSplitStateResponse
   /** Query keys of the source page to refresh after any part change. */
   readonly invalidateKeys?: readonly QueryKey[]
 }
 
-/** "Phần việc" block; renders nothing while the task is not split. */
-export function TaskPartsPanel({ sourceType, sourceId, invalidateKeys }: TaskPartsPanelProps) {
-  const actions = useTaskPartActions(sourceType, sourceId, invalidateKeys)
-  const { stateQuery, activeParts } = actions
-
-  if (stateQuery.isError) {
-    return (
-      <section className="flex flex-col items-start gap-2 border p-3 text-sm">
-        <span>Không thể tải các phần việc.</span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={stateQuery.isFetching}
-          onClick={() => void stateQuery.refetch()}
-        >
-          <RefreshCw aria-hidden="true" />
-          Thử lại
-        </Button>
-      </section>
-    )
-  }
-  if (!stateQuery.data?.isSplit) return null
+/** "Phần việc" block. Orchestrator for part actions: owns their dialog, staff list and mutations. */
+export function TaskPartsPanel({ state, invalidateKeys }: TaskPartsPanelProps) {
+  const actions = useTaskPartActions(state, invalidateKeys)
+  if (!state.isSplit) return null
+  const { activeParts, staffQuery } = actions
 
   return (
     <section
@@ -70,7 +52,7 @@ export function TaskPartsPanel({ sourceType, sourceId, invalidateKeys }: TaskPar
         <h2 id="task-parts-heading" className="text-base font-semibold">
           Phần việc
         </h2>
-        {stateQuery.data.canCancelSplit ? (
+        {state.canCancelSplit ? (
           <Button
             type="button"
             size="sm"
@@ -96,35 +78,39 @@ export function TaskPartsPanel({ sourceType, sourceId, invalidateKeys }: TaskPar
           </TableRow>
         </TableHeader>
         <TableBody>
-          {activeParts.map((part, index) => (
-            <TableRow key={part.id}>
-              <TableCell className="font-medium">
-                Phần {index + 1}/{activeParts.length}
-              </TableCell>
-              <TableCell>{part.assigneeName}</TableCell>
-              <TableCell>
-                <Badge variant={part.executionStatus === 'InProgress' ? 'default' : 'outline'}>
-                  {STATUS_LABELS[part.executionStatus]}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{describeProgress(part)}</TableCell>
-              <TableCell className="text-right">
-                <TaskPartActions
-                  allowedActions={part.allowedActions}
-                  disabled={actions.isPending}
-                  onSelect={(action) => actions.open(action, part, index + 1)}
-                />
-              </TableCell>
-            </TableRow>
-          ))}
+          {activeParts.map((part, index) => {
+            const partLabel = `Phần ${index + 1}/${activeParts.length}`
+            return (
+              <TableRow key={part.id}>
+                <TableCell className="font-medium">{partLabel}</TableCell>
+                <TableCell>{part.assigneeName}</TableCell>
+                <TableCell>
+                  <Badge variant={part.executionStatus === 'InProgress' ? 'default' : 'outline'}>
+                    {STATUS_LABELS[part.executionStatus]}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{describeProgress(part)}</TableCell>
+                <TableCell className="text-right">
+                  <TaskPartActions
+                    allowedActions={part.allowedActions}
+                    partLabel={partLabel}
+                    disabled={actions.isPending}
+                    onSelect={(action) => actions.open(action, part)}
+                  />
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
 
       <TaskPartActionDialog
-        pending={actions.pending}
+        target={actions.target}
         form={actions.form}
-        staff={actions.staffQuery.data?.staff ?? []}
-        isLoadingStaff={actions.staffQuery.isFetching}
+        staff={staffQuery.data?.staff ?? []}
+        isLoadingStaff={staffQuery.isFetching}
+        isStaffError={staffQuery.isError}
+        onRetryStaff={() => void staffQuery.refetch()}
         mergeTargets={actions.mergeTargets}
         isPending={actions.isPending}
         onClose={actions.close}

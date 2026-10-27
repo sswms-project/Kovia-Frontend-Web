@@ -37,7 +37,8 @@ export function useTaskSplitSuggestionQuery(
   type: SplittableTaskType,
   sourceId: string,
   staffIds: readonly string[] | null,
-  enabled: boolean
+  enabled: boolean,
+  { refetchOnWindowFocus = true }: { readonly refetchOnWindowFocus?: boolean } = {}
 ) {
   return useQuery<TaskSplitSuggestionResponse, ApiErrorResponse>({
     queryKey: queryKeys.taskSplits.suggestion(type, sourceId, staffIds),
@@ -45,6 +46,7 @@ export function useTaskSplitSuggestionQuery(
     enabled: enabled && Boolean(sourceId),
     // Staff load moves with every assignment, so a cached plan is never trusted on reopen.
     staleTime: 0,
+    refetchOnWindowFocus,
   })
 }
 

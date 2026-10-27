@@ -12,90 +12,55 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
-import type { PendingTaskPartAction } from '../../hooks/use-task-part-actions'
 import {
-  QUANTITY_ACTIONS,
   REASON_ACTIONS,
   STAFF_ACTIONS,
   type TaskPartActionFormValues,
-  type TaskPartDialogAction,
 } from '../../schemas/task-part-action.schema'
-import type { TaskPartView, TaskSplitStaff } from '../../types/task-splitting.types'
-import { formatQuantity, formatScore } from '../../utils/task-split-quantity'
+import type {
+  TaskPartActionTarget,
+  TaskPartMergeTarget,
+  TaskSplitStaff,
+} from '../../types/task-splitting.types'
+import { TASK_PART_ACTION_COPY } from './task-part-action-copy'
+import { TaskPartMergeTargetField } from './TaskPartMergeTargetField'
+import { TaskPartQuantityFields } from './TaskPartQuantityFields'
+import { TaskPartStaffField } from './TaskPartStaffField'
 
-const COPY: Record<TaskPartDialogAction, { title: string; description: string; submit: string }> = {
-  edit: {
-    title: 'Sửa phần',
-    description: 'Đổi người hoặc số lượng của phần chưa bắt đầu. Số lượng 0 sẽ bỏ dòng khỏi phần.',
-    submit: 'Lưu',
-  },
-  reassign: {
-    title: 'Giao lại phần',
-    description: 'Phần về hàng đợi của người mới. Lý do được gửi cho cả hai người.',
-    submit: 'Giao lại',
-  },
-  splitRemaining: {
-    title: 'Tách phần còn lại',
-    description: 'Nhập lượng chưa làm muốn chuyển sang một phần mới cho người khác.',
-    submit: 'Tách phần',
-  },
-  merge: {
-    title: 'Gộp phần',
-    description: 'Số lượng của phần này được cộng vào phần được chọn; phần này bị huỷ.',
-    submit: 'Gộp',
-  },
-  cancel: {
-    title: 'Huỷ phần',
-    description: 'Lượng của phần trở về chưa giao.',
-    submit: 'Huỷ phần',
-  },
-  complete: {
-    title: 'Hoàn tất phần',
-    description: 'Chốt phần với lượng đã làm; phần thiếu trở về chưa giao.',
-    submit: 'Hoàn tất phần',
-  },
-  cancelSplit: {
-    title: 'Huỷ chia việc',
-    description: 'Huỷ mọi phần chưa bắt đầu; việc trở về hàng đợi chưa giao.',
-    submit: 'Huỷ chia',
-  },
-}
+const STALE_MESSAGE = 'Phần việc đã thay đổi, thao tác này không còn thực hiện được.'
 
 interface TaskPartActionDialogProps {
-  readonly pending: PendingTaskPartAction | null
+  readonly target: TaskPartActionTarget | null
   readonly form: UseFormReturn<TaskPartActionFormValues>
   readonly staff: readonly TaskSplitStaff[]
   readonly isLoadingStaff: boolean
-  readonly mergeTargets: readonly { readonly part: TaskPartView; readonly rank: number }[]
+  readonly isStaffError: boolean
+  readonly onRetryStaff: () => void
+  readonly mergeTargets: readonly TaskPartMergeTarget[]
   readonly isPending: boolean
   readonly onClose: () => void
   readonly onSubmit: () => void
 }
 
 export function TaskPartActionDialog({
-  pending,
+  target,
   form,
   staff,
   isLoadingStaff,
+  isStaffError,
+  onRetryStaff,
   mergeTargets,
   isPending,
   onClose,
   onSubmit,
 }: TaskPartActionDialogProps) {
-  const {
-    register,
-    formState: { errors },
-  } = form
-  const action = pending?.action
-  const copy = action ? COPY[action] : null
+  const reasonError = form.formState.errors.reason
 
   return (
-    <Dialog open={pending !== null} onOpenChange={(open) => !open && !isPending && onClose()}>
+    <Dialog open={target !== null} onOpenChange={(open) => !open && !isPending && onClose()}>
       <DialogContent className="sm:max-w-lg">
-        {pending && action && copy ? (
+        {target ? (
           <form
             className="flex flex-col gap-4"
             noValidate
@@ -106,123 +71,83 @@ export function TaskPartActionDialog({
           >
             <DialogHeader>
               <DialogTitle>
-                {copy.title}
-                {pending.part ? ` ${pending.rank} · ${pending.part.assigneeName}` : ''}
+                {TASK_PART_ACTION_COPY[target.action].title}
+                {target.part ? ` ${target.rank} · ${target.part.assigneeName}` : ''}
               </DialogTitle>
-              <DialogDescription>{copy.description}</DialogDescription>
+              <DialogDescription>
+                {target.isStale ? STALE_MESSAGE : TASK_PART_ACTION_COPY[target.action].description}
+              </DialogDescription>
             </DialogHeader>
 
-            {STAFF_ACTIONS.has(action) ? (
-              <Field data-invalid={Boolean(errors.staffId)}>
-                <FieldLabel htmlFor="task-part-staff">Nhân viên nhận phần</FieldLabel>
-                <NativeSelect
-                  id="task-part-staff"
-                  className="w-full"
-                  disabled={isPending || isLoadingStaff}
-                  aria-invalid={Boolean(errors.staffId)}
-                  {...register('staffId')}
-                >
-                  <NativeSelectOption value="">
-                    {isLoadingStaff ? 'Đang tải nhân viên…' : 'Chọn nhân viên'}
-                  </NativeSelectOption>
-                  {staff.map((person) => (
-                    <NativeSelectOption key={person.id} value={person.id}>
-                      {person.fullName} · điểm tải {formatScore(person.workloadScore)}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-                <FieldError>{errors.staffId?.message}</FieldError>
-              </Field>
-            ) : null}
+            {target.isStale ? null : (
+              <>
+                {STAFF_ACTIONS.has(target.action) ? (
+                  <TaskPartStaffField
+                    form={form}
+                    staff={staff}
+                    excludedStaffId={
+                      target.action === 'reassign' ? target.part?.assignedTo : undefined
+                    }
+                    isLoading={isLoadingStaff}
+                    isError={isStaffError}
+                    onRetry={onRetryStaff}
+                    disabled={isPending}
+                  />
+                ) : null}
 
-            {QUANTITY_ACTIONS.has(action) && pending.part ? (
-              <Field data-invalid={Boolean(errors.quantities)}>
-                <FieldLabel>
-                  {action === 'edit' ? 'Số lượng của phần' : 'Số lượng chuyển sang phần mới'}
-                </FieldLabel>
-                {pending.part.lines.map((line) => (
-                  <div key={line.sourceLineId} className="flex items-center gap-3">
-                    <span className="min-w-0 flex-1 text-sm">
-                      <span className="block truncate font-medium">{line.label}</span>
-                      <span className="text-muted-foreground block text-xs tabular-nums">
-                        Đã xong {formatQuantity(line.completedQuantity)}/
-                        {formatQuantity(line.quantity)}
-                      </span>
-                    </span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step="any"
-                      aria-label={`Số lượng ${line.label}`}
-                      className="w-28 text-right tabular-nums"
+                {(target.action === 'edit' || target.action === 'splitRemaining') && target.part ? (
+                  <TaskPartQuantityFields
+                    form={form}
+                    part={target.part}
+                    mode={target.action}
+                    disabled={isPending}
+                  />
+                ) : null}
+
+                {target.action === 'merge' ? (
+                  <TaskPartMergeTargetField
+                    form={form}
+                    mergeTargets={mergeTargets}
+                    disabled={isPending}
+                  />
+                ) : null}
+
+                {REASON_ACTIONS.has(target.action) ? (
+                  <Field data-invalid={Boolean(reasonError)}>
+                    <FieldLabel htmlFor="task-part-reason">Lý do</FieldLabel>
+                    <Textarea
+                      id="task-part-reason"
+                      rows={3}
+                      maxLength={500}
                       disabled={isPending}
-                      {...register(`quantities.${line.sourceLineId}`)}
+                      aria-invalid={Boolean(reasonError)}
+                      {...form.register('reason')}
                     />
-                  </div>
-                ))}
-                {/* A record field's error type also allows nested entries; the schema only reports at the record. */}
-                <FieldError>
-                  {typeof errors.quantities?.message === 'string'
-                    ? errors.quantities.message
-                    : null}
-                </FieldError>
-              </Field>
-            ) : null}
-
-            {action === 'merge' ? (
-              <Field data-invalid={Boolean(errors.intoPartId)}>
-                <FieldLabel htmlFor="task-part-merge-target">Gộp vào phần</FieldLabel>
-                <NativeSelect
-                  id="task-part-merge-target"
-                  className="w-full"
-                  disabled={isPending}
-                  aria-invalid={Boolean(errors.intoPartId)}
-                  {...register('intoPartId')}
-                >
-                  <NativeSelectOption value="">
-                    {mergeTargets.length ? 'Chọn phần' : 'Không có phần nào gộp được'}
-                  </NativeSelectOption>
-                  {mergeTargets.map(({ part, rank }) => (
-                    <NativeSelectOption key={part.id} value={part.id}>
-                      Phần {rank} · {part.assigneeName}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-                <FieldError>{errors.intoPartId?.message}</FieldError>
-              </Field>
-            ) : null}
-
-            {REASON_ACTIONS.has(action) ? (
-              <Field data-invalid={Boolean(errors.reason)}>
-                <FieldLabel htmlFor="task-part-reason">Lý do</FieldLabel>
-                <Textarea
-                  id="task-part-reason"
-                  rows={3}
-                  maxLength={500}
-                  disabled={isPending}
-                  aria-invalid={Boolean(errors.reason)}
-                  {...register('reason')}
-                />
-                <FieldDescription>Lý do được ghi vào nhật ký hoạt động.</FieldDescription>
-                <FieldError>{errors.reason?.message}</FieldError>
-              </Field>
-            ) : null}
+                    <FieldDescription>Lý do được ghi vào nhật ký hoạt động.</FieldDescription>
+                    <FieldError>{reasonError?.message}</FieldError>
+                  </Field>
+                ) : null}
+              </>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" disabled={isPending} onClick={onClose}>
                 Đóng
               </Button>
-              <Button
-                type="submit"
-                variant={
-                  action === 'cancel' || action === 'cancelSplit' ? 'destructive' : 'default'
-                }
-                disabled={isPending}
-              >
-                {isPending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
-                {copy.submit}
-              </Button>
+              {target.isStale ? null : (
+                <Button
+                  type="submit"
+                  variant={
+                    target.action === 'cancel' || target.action === 'cancelSplit'
+                      ? 'destructive'
+                      : 'default'
+                  }
+                  disabled={isPending}
+                >
+                  {isPending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
+                  {TASK_PART_ACTION_COPY[target.action].submit}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         ) : null}

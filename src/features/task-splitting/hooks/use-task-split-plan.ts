@@ -1,38 +1,21 @@
 import { useState } from 'react'
-import type { QueryKey } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/api-error'
 import type {
   PlannedPart,
-  SplittableTaskType,
-  TaskSplitLineView,
+  TaskSplitDraftPart,
   TaskSplitPartRequest,
+  TaskSplitPlanColumn,
+  TaskSplitPlanRow,
+  TaskSplitStateResponse,
 } from '../types/task-splitting.types'
 import { parseQuantity, roundQuantity, sumQuantities } from '../utils/task-split-quantity'
-import {
-  useCreateTaskSplitMutation,
-  useTaskSplitQuery,
-  useTaskSplitSuggestionQuery,
-} from './use-task-splitting'
+import { useCreateTaskSplitMutation, useTaskSplitSuggestionQuery } from './use-task-splitting'
 
-/** One editable part: quantities are the raw input text per source line. */
-export interface TaskSplitDraftPart {
-  readonly staffId: string
-  readonly quantities: Readonly<Record<string, string>>
-}
+type CreateTaskSplitMutation = ReturnType<typeof useCreateTaskSplitMutation>
 
-export interface TaskSplitPlanRow {
-  readonly line: TaskSplitLineView
-  /** Unassigned after this split; negative means the parts overflow the line. */
-  readonly remaining: number
-}
-
-export interface TaskSplitPlanColumn {
-  readonly staffId: string
-  readonly staffName: string
-  readonly total: number
-  readonly loadAfter: number | undefined
-}
+// The plan must not be swapped under a manager who is editing it after switching windows.
+const KEEP_ON_FOCUS = { refetchOnWindowFocus: false }
 
 function toDraft(parts: readonly PlannedPart[]): TaskSplitDraftPart[] {
   return parts.map((part) => ({
@@ -47,33 +30,34 @@ const quantityOf = (part: TaskSplitDraftPart, lineId: string) =>
   parseQuantity(part.quantities[lineId] ?? '')
 
 /**
- * Dialog workflow: pick staff (preselected by the backend) → ask the backend for a plan → edit quantities → confirm.
- * Staff and plan come only from the suggestion endpoint; the backend re-validates everything on confirm.
+ * Split dialog workflow: pick staff (preselected by the backend) → ask the backend for a plan → edit quantities →
+ * confirm. Staff and plan come only from the suggestion endpoint; the backend re-validates everything on confirm.
+ * The create mutation is owned by the dialog shell so a pending request keeps the dialog (and its callbacks) alive.
  */
 export function useTaskSplitPlan(
-  sourceType: SplittableTaskType,
-  sourceId: string,
-  invalidateKeys: readonly QueryKey[] | undefined,
+  state: TaskSplitStateResponse,
+  createSplit: CreateTaskSplitMutation,
   onDone: () => void
 ) {
   const [checkedOverride, setCheckedOverride] = useState<string[] | null>(null)
   const [requestedStaffIds, setRequestedStaffIds] = useState<string[] | null>(null)
   const [draftOverride, setDraftOverride] = useState<TaskSplitDraftPart[] | null>(null)
 
-  const stateQuery = useTaskSplitQuery(sourceType, sourceId)
-  const staffQuery = useTaskSplitSuggestionQuery(sourceType, sourceId, null, true)
+  const { sourceType, sourceId } = state
+  const staffQuery = useTaskSplitSuggestionQuery(sourceType, sourceId, null, true, KEEP_ON_FOCUS)
   const planQuery = useTaskSplitSuggestionQuery(
     sourceType,
     sourceId,
     requestedStaffIds,
-    requestedStaffIds !== null
+    requestedStaffIds !== null,
+    KEEP_ON_FOCUS
   )
-  const createSplit = useCreateTaskSplitMutation(sourceType, sourceId, invalidateKeys)
 
   const staff = staffQuery.data?.staff ?? []
   const checkedStaffIds = checkedOverride ?? staffQuery.data?.preselectedStaffIds ?? []
-  const lines = (stateQuery.data?.lines ?? []).filter((line) => line.unassigned > 0)
-  const draft = draftOverride ?? toDraft(planQuery.data?.parts ?? [])
+  const lines = state.lines.filter((line) => line.unassigned > 0)
+  const plannedParts = planQuery.data?.parts ?? []
+  const draft = draftOverride ?? toDraft(plannedParts)
 
   const staffNames = new Map(staff.map((person) => [person.id, person.fullName]))
   const rows: TaskSplitPlanRow[] = lines.map((line) => ({
@@ -82,15 +66,18 @@ export function useTaskSplitPlan(
       line.unassigned - sumQuantities(draft.map((part) => quantityOf(part, line.sourceLineId) ?? 0))
     ),
   }))
-  const columns: TaskSplitPlanColumn[] = draft.map((part) => ({
+  const columns: TaskSplitPlanColumn[] = draft.map((part, index) => ({
     staffId: part.staffId,
     staffName: staffNames.get(part.staffId) ?? '',
     total: sumQuantities(lines.map((line) => quantityOf(part, line.sourceLineId) ?? 0)),
+    hasInvalidQuantity: lines.some((line) => quantityOf(part, line.sourceLineId) === null),
+    points: plannedParts[index]?.points,
     loadAfter: planQuery.data?.loadAfter[part.staffId],
   }))
-  const hasInvalidQuantity = draft.some((part) =>
-    lines.some((line) => quantityOf(part, line.sourceLineId) === null)
+  const idleStaffNames = (planQuery.data?.idleStaffIds ?? []).map(
+    (staffId) => staffNames.get(staffId) ?? staffId
   )
+  const hasInvalidQuantity = columns.some((column) => column.hasInvalidQuantity)
   const canConfirm =
     draft.length > 0 &&
     !hasInvalidQuantity &&
@@ -136,8 +123,9 @@ export function useTaskSplitPlan(
         }))
         .filter((line) => line.quantity > 0),
     }))
+    // The mutation hook logs the error; here the manager only needs the message.
     createSplit.mutate(
-      { expectedVersion: stateQuery.data?.version ?? null, parts },
+      { expectedVersion: state.version, parts },
       {
         onSuccess: () => {
           toast.success('Đã chia việc.')
@@ -150,7 +138,6 @@ export function useTaskSplitPlan(
   }
 
   return {
-    code: stateQuery.data?.code,
     step: requestedStaffIds === null ? ('staff' as const) : ('plan' as const),
     staffQuery,
     planQuery,
@@ -161,6 +148,8 @@ export function useTaskSplitPlan(
     rows,
     columns,
     draft,
+    idleStaffNames,
+    hasInvalidQuantity,
     canConfirm,
     isPending: createSplit.isPending,
     toggleStaff,
@@ -170,5 +159,3 @@ export function useTaskSplitPlan(
     confirm,
   }
 }
-
-export type TaskSplitPlan = ReturnType<typeof useTaskSplitPlan>

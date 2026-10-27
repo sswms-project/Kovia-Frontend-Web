@@ -13,47 +13,63 @@ import {
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTaskSplitPlan } from '../../hooks/use-task-split-plan'
-import type { SplittableTaskType } from '../../types/task-splitting.types'
+import { useCreateTaskSplitMutation } from '../../hooks/use-task-splitting'
+import type { TaskSplitStateResponse } from '../../types/task-splitting.types'
 import { TaskSplitPlanTable } from './TaskSplitPlanTable'
 import { TaskSplitStaffPicker } from './TaskSplitStaffPicker'
 
 export interface TaskSplitDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
-  readonly sourceType: SplittableTaskType
-  readonly sourceId: string
+  /** Split state owned by the page (`useTaskSplitQuery`); its version and lines drive the split. */
+  readonly state: TaskSplitStateResponse
   /** Query keys of the source page to refresh after the split is created. */
   readonly invalidateKeys?: readonly QueryKey[]
 }
 
-export function TaskSplitDialog({ open, onOpenChange, ...source }: TaskSplitDialogProps) {
+/** Orchestrator for the split sub-domain: owns the suggestion queries and the create mutation. */
+export function TaskSplitDialog({
+  open,
+  onOpenChange,
+  state,
+  invalidateKeys,
+}: TaskSplitDialogProps) {
+  const createSplit = useCreateTaskSplitMutation(state.sourceType, state.sourceId, invalidateKeys)
+  // A pending create keeps the dialog open so its success/error toast is never dropped.
+  const changeOpen = (next: boolean) => {
+    if (!createSplit.isPending) onOpenChange(next)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent className="sm:max-w-4xl">
         {/* Mounted only while open, so every opening starts from a fresh suggestion. */}
-        {open ? <TaskSplitDialogBody {...source} onClose={() => onOpenChange(false)} /> : null}
+        {open ? (
+          <TaskSplitDialogBody
+            state={state}
+            createSplit={createSplit}
+            onClose={() => changeOpen(false)}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   )
 }
 
-interface TaskSplitDialogBodyProps extends Omit<TaskSplitDialogProps, 'open' | 'onOpenChange'> {
+interface TaskSplitDialogBodyProps {
+  readonly state: TaskSplitStateResponse
+  readonly createSplit: ReturnType<typeof useCreateTaskSplitMutation>
   readonly onClose: () => void
 }
 
-function TaskSplitDialogBody({
-  sourceType,
-  sourceId,
-  invalidateKeys,
-  onClose,
-}: TaskSplitDialogBodyProps) {
-  const plan = useTaskSplitPlan(sourceType, sourceId, invalidateKeys, onClose)
+function TaskSplitDialogBody({ state, createSplit, onClose }: TaskSplitDialogBodyProps) {
+  const plan = useTaskSplitPlan(state, createSplit, onClose)
   const activeQuery = plan.step === 'staff' ? plan.staffQuery : plan.planQuery
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Chia việc {plan.code}</DialogTitle>
+        <DialogTitle>Chia việc {state.code}</DialogTitle>
         <DialogDescription>
           {plan.step === 'staff'
             ? `Chọn người nhận phần việc. Người nhẹ việc được xếp trước${
@@ -89,7 +105,6 @@ function TaskSplitDialogBody({
             staff={plan.staff}
             checkedStaffIds={plan.checkedStaffIds}
             preselectedStaffIds={plan.preselectedStaffIds}
-            disabled={false}
             onToggle={plan.toggleStaff}
           />
         ) : (
@@ -97,6 +112,8 @@ function TaskSplitDialogBody({
             rows={plan.rows}
             columns={plan.columns}
             draft={plan.draft}
+            idleStaffNames={plan.idleStaffNames}
+            hasInvalidQuantity={plan.hasInvalidQuantity}
             disabled={plan.isPending}
             onChangeQuantity={plan.changeQuantity}
           />

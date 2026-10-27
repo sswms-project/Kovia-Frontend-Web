@@ -12,23 +12,23 @@ import {
   STAFF_ACTIONS,
 } from '../schemas/task-part-action.schema'
 import type {
-  SplittableTaskType,
+  TaskPartActionTarget,
+  TaskPartMergeTarget,
   TaskPartView,
   TaskSplitLineRequest,
+  TaskSplitStateResponse,
 } from '../types/task-splitting.types'
 import { parseQuantity } from '../utils/task-split-quantity'
 import {
   useCancelTaskSplitMutation,
   useTaskPartMutations,
-  useTaskSplitQuery,
   useTaskSplitSuggestionQuery,
 } from './use-task-splitting'
 
-export interface PendingTaskPartAction {
+/** Only ids are kept: the part itself is read from the latest state so a retry sends the reloaded version. */
+interface OpenAction {
   readonly action: TaskPartDialogAction
-  /** `null` only for `cancelSplit`, which acts on the whole split. */
-  readonly part: TaskPartView | null
-  readonly rank: number
+  readonly partId: string | null
 }
 
 const SUCCESS_MESSAGES: Record<TaskPartDialogAction, string> = {
@@ -63,76 +63,75 @@ function toLines(quantities: Record<string, string>): TaskSplitLineRequest[] {
 }
 
 /**
- * Parts panel workflow: one dialog at a time for a part action or "Huỷ chia". Every write carries the version the
- * screen was rendered from so a concurrent change is rejected instead of overwritten.
+ * Parts panel workflow: one dialog at a time for a part action or "Huỷ chia". The split state is owned by the page;
+ * every write carries the version of the latest state so a concurrent change is rejected instead of overwritten.
  */
 export function useTaskPartActions(
-  sourceType: SplittableTaskType,
-  sourceId: string,
+  state: TaskSplitStateResponse,
   invalidateKeys: readonly QueryKey[] | undefined
 ) {
-  const [pending, setPending] = useState<PendingTaskPartAction | null>(null)
-  const stateQuery = useTaskSplitQuery(sourceType, sourceId)
+  const { sourceType, sourceId } = state
+  const [openAction, setOpenAction] = useState<OpenAction | null>(null)
   const mutations = useTaskPartMutations(sourceType, sourceId, invalidateKeys)
   const cancelSplit = useCancelTaskSplitMutation(sourceType, sourceId, invalidateKeys)
-  // Staff choices come from the backend's eligible list for this task; the frontend never filters it.
+  // Staff choices come from the backend's eligible list for this task; the frontend never filters eligibility.
   const staffQuery = useTaskSplitSuggestionQuery(
     sourceType,
     sourceId,
     null,
-    pending !== null && STAFF_ACTIONS.has(pending.action)
+    openAction !== null && STAFF_ACTIONS.has(openAction.action)
   )
   const form = useForm<TaskPartActionFormValues>({
     resolver: zodResolver(taskPartActionFormSchema),
     defaultValues: defaultValues('cancelSplit', null),
   })
 
-  const activeParts = (stateQuery.data?.parts ?? []).filter(
-    (part) => part.executionStatus !== 'Cancelled'
-  )
-  const mergeTargets = pending?.part
+  const activeParts = state.parts.filter((part) => part.executionStatus !== 'Cancelled')
+  const target = resolveTarget(openAction, activeParts, state.canCancelSplit)
+  const mergeTargets: TaskPartMergeTarget[] = target?.part
     ? activeParts
         .map((part, index) => ({ part, rank: index + 1 }))
-        .filter(({ part }) => part.id !== pending.part?.id && part.allowedActions.includes('merge'))
+        .filter(({ part }) => part.id !== target.part?.id && part.allowedActions.includes('merge'))
     : []
 
-  const open = (action: TaskPartDialogAction, part: TaskPartView | null, rank = 0) => {
+  const open = (action: TaskPartDialogAction, part: TaskPartView | null) => {
     form.reset(defaultValues(action, part))
-    setPending({ action, part, rank })
+    setOpenAction({ action, partId: part?.id ?? null })
   }
-  const close = () => setPending(null)
+  const close = () => setOpenAction(null)
 
   const callbacks = (action: TaskPartDialogAction) => ({
     onSuccess: () => {
       toast.success(SUCCESS_MESSAGES[action])
       close()
     },
+    // The mutation hook already logs the error; the dialog stays open for a retry.
     onError: (error: ApiErrorResponse) => toast.error(getApiErrorMessage(error)),
   })
 
   const submit = form.handleSubmit((values) => {
-    if (!pending) return
-    const { action, part } = pending
+    if (!target || target.isStale) return
+    const { action, part } = target
     if (action === 'cancelSplit') {
       cancelSplit.mutate(
-        { expectedVersion: stateQuery.data?.version ?? null, reason: values.reason },
+        { expectedVersion: state.version, reason: values.reason },
         callbacks(action)
       )
       return
     }
     if (!part) return
-    const target = { partId: part.id, expectedVersion: part.version }
+    const request = { partId: part.id, expectedVersion: part.version }
     switch (action) {
       case 'edit':
         mutations.update.mutate(
-          { ...target, staffId: values.staffId, lines: toLines(values.quantities) },
+          { ...request, staffId: values.staffId, lines: toLines(values.quantities) },
           callbacks(action)
         )
         break
       case 'reassign':
         mutations.reassign.mutate(
           {
-            ...target,
+            ...request,
             staffId: values.staffId,
             expectedStaffId: part.assignedTo,
             reason: values.reason,
@@ -142,18 +141,18 @@ export function useTaskPartActions(
         break
       case 'splitRemaining':
         mutations.splitRemaining.mutate(
-          { ...target, staffId: values.staffId, lines: toLines(values.quantities) },
+          { ...request, staffId: values.staffId, lines: toLines(values.quantities) },
           callbacks(action)
         )
         break
       case 'merge':
-        mutations.merge.mutate({ ...target, intoPartId: values.intoPartId }, callbacks(action))
+        mutations.merge.mutate({ ...request, intoPartId: values.intoPartId }, callbacks(action))
         break
       case 'cancel':
-        mutations.cancel.mutate({ ...target, reason: values.reason }, callbacks(action))
+        mutations.cancel.mutate({ ...request, reason: values.reason }, callbacks(action))
         break
       case 'complete':
-        mutations.complete.mutate({ ...target, reason: values.reason }, callbacks(action))
+        mutations.complete.mutate({ ...request, reason: values.reason }, callbacks(action))
         break
     }
   })
@@ -162,9 +161,8 @@ export function useTaskPartActions(
     cancelSplit.isPending || Object.values(mutations).some((mutation) => mutation.isPending)
 
   return {
-    stateQuery,
     activeParts,
-    pending,
+    target,
     mergeTargets,
     staffQuery,
     form,
@@ -173,4 +171,19 @@ export function useTaskPartActions(
     close,
     submit,
   }
+}
+
+function resolveTarget(
+  openAction: OpenAction | null,
+  activeParts: readonly TaskPartView[],
+  canCancelSplit: boolean
+): TaskPartActionTarget | null {
+  if (!openAction) return null
+  const { action, partId } = openAction
+  if (partId === null) return { action, part: null, rank: 0, isStale: !canCancelSplit }
+  const index = activeParts.findIndex((part) => part.id === partId)
+  const part = activeParts[index] ?? null
+  const isAllowed =
+    action !== 'cancelSplit' && part !== null && part.allowedActions.includes(action)
+  return { action, part, rank: index + 1, isStale: !isAllowed }
 }

@@ -27,11 +27,18 @@ const ACTION_ICONS: Record<TaskPartAction, LucideIcon> = {
 interface TaskPartActionsProps {
   /** Exactly what the backend allows for this part; nothing else is offered. */
   readonly allowedActions: readonly TaskPartAction[]
+  /** e.g. "Phần 2/3"; names each button for screen readers since every row repeats the same labels. */
+  readonly partLabel: string
   readonly disabled: boolean
   readonly onSelect: (action: TaskPartAction) => void
 }
 
-export function TaskPartActions({ allowedActions, disabled, onSelect }: TaskPartActionsProps) {
+export function TaskPartActions({
+  allowedActions,
+  partLabel,
+  disabled,
+  onSelect,
+}: TaskPartActionsProps) {
   const actions = taskPartActionSchema.options.filter((action) => allowedActions.includes(action))
   if (actions.length === 0) return <span className="text-muted-foreground">—</span>
 
@@ -46,6 +53,7 @@ export function TaskPartActions({ allowedActions, disabled, onSelect }: TaskPart
             size="sm"
             variant={action === 'cancel' ? 'ghost' : 'outline'}
             className={action === 'cancel' ? 'text-destructive' : undefined}
+            aria-label={`${TASK_PART_ACTION_LABELS[action]} (${partLabel})`}
             disabled={disabled}
             onClick={() => onSelect(action)}
           >
