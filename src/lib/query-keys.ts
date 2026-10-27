@@ -27,6 +27,7 @@ import type {
 } from '@/features/inventory/types/inventory.types'
 import type { InventoryAnomalyListQuery } from '@/features/inventory-anomaly/types/inventory-anomaly.types'
 import type { ProductListQuery, ProductLotQuery } from '@/features/product/types/product.types'
+import type { SplittableTaskType } from '@/features/task-splitting/types/task-splitting.types'
 import type {
   TransferAvailabilityQuery,
   TransferReceivableSlotsQuery,
@@ -100,6 +101,13 @@ export const queryKeys = {
     me: ['organization', 'me'] as const,
     taskAssignmentScoring: ['organization', 'task-assignment-scoring'] as const,
   },
+  // `state` prefixes `suggestion`, so invalidating the state also drops stale suggestions.
+  taskSplits: {
+    state: (type: SplittableTaskType, sourceId: string) => ['task-splits', type, sourceId] as const,
+    suggestion: (type: SplittableTaskType, sourceId: string, staffIds: readonly string[] | null) =>
+      ['task-splits', type, sourceId, 'suggestion', staffIds] as const,
+  },
+  taskSplitSettings: ['task-split-settings'] as const,
   staff: {
     all: ['staff'] as const,
     lists: ['staff', 'lists'] as const,

@@ -74,6 +74,23 @@ export const API_ENDPOINTS = {
     me: '/organization',
     taskAssignmentScoring: '/organization/task-assignment-scoring',
   },
+  taskSplits: {
+    state: (sourceType: string, sourceId: string) => `/task-splits/${sourceType}/${sourceId}`,
+    suggestion: (sourceType: string, sourceId: string) =>
+      `/task-splits/${sourceType}/${sourceId}/suggestion`,
+    create: (sourceType: string, sourceId: string) => `/task-splits/${sourceType}/${sourceId}`,
+    cancel: (sourceType: string, sourceId: string) =>
+      `/task-splits/${sourceType}/${sourceId}/cancel`,
+  },
+  taskParts: {
+    update: (partId: string) => `/task-parts/${partId}`,
+    reassign: (partId: string) => `/task-parts/${partId}/reassign`,
+    splitRemaining: (partId: string) => `/task-parts/${partId}/split-remaining`,
+    merge: (partId: string) => `/task-parts/${partId}/merge`,
+    cancel: (partId: string) => `/task-parts/${partId}/cancel`,
+    complete: (partId: string) => `/task-parts/${partId}/complete`,
+  },
+  taskSplitSettings: '/task-split-settings',
   myWarehouseTasks: {
     current: '/my-warehouse-tasks',
     list: '/my-warehouse-tasks',
