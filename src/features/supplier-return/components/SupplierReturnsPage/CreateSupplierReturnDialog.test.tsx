@@ -53,7 +53,7 @@ const stocks: SupplierReturnStockOption[] = ['A', 'B'].map((code) => ({
   returnableQuantity: 12,
   unattributedReturnedQuantity: 0,
 }))
-function Harness() {
+function Harness({ savedLines = [] }: { savedLines?: CreateSupplierReturnFormValues['lines'] }) {
   const form = useForm<CreateSupplierReturnFormValues>({
     defaultValues: {
       warehouseId: 'W',
@@ -61,7 +61,7 @@ function Harness() {
       sourceGoodsReceiptId: receiptId,
       reason: 'Trả hàng',
       negotiationNote: '',
-      lines: [],
+      lines: savedLines,
     },
   })
   return (
@@ -74,7 +74,7 @@ function Harness() {
         { id: 'T', label: 'NCC T' },
       ]}
       receipts={[{ id: receiptId, label: 'PN-001' }]}
-      stocks={stocks}
+      stocks={savedLines.length ? stocks.filter((stock) => stock.id !== 'A') : stocks}
       isStocksLoading={false}
       isReceiptsLoading={false}
       receiptsError={null}
@@ -131,4 +131,29 @@ it('reduces the next location default to the source remainder already selected o
   const quantities = screen.getAllByRole('spinbutton', { name: 'Số lượng trả' })
   expect(quantities[0]).toHaveValue(7)
   expect(quantities[1]).toHaveValue(5)
+})
+
+it('subtracts a saved draft line even when its stock is absent from the current picker page', () => {
+  render(
+    <Harness
+      savedLines={[
+        {
+          inventoryStockId: 'A',
+          label: 'SKU - Bia Tiger · Vị trí A',
+          quantity: 8,
+          maxQuantity: 12,
+          unit: 'Cái',
+          sourceGroupKey: `${stocks[0]?.productId}:${stocks[0]?.lotId ?? ''}`,
+          sourceRemainingQuantity: 12,
+        },
+      ]}
+    />
+  )
+  fireEvent.change(screen.getByRole('combobox', { name: 'Chọn hàng trả' }), {
+    target: { value: 'B' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Thêm dòng' }))
+  const quantities = screen.getAllByRole('spinbutton', { name: 'Số lượng trả' })
+  expect(quantities[0]).toHaveValue(8)
+  expect(quantities[1]).toHaveValue(4)
 })

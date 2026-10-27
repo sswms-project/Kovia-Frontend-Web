@@ -59,7 +59,7 @@ it('shows the configured rack-level isolation point even though its technical sl
   expect(screen.getByText('Khu vực cách ly')).toBeVisible()
   expect(screen.getByText('Khu CL - Khu vực cách ly / CACH-LY-01 · Mặc định')).toBeVisible()
   expect(screen.queryByText('Chưa cấu hình')).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Cấu hình', exact: true }))
+  fireEvent.click(screen.getByRole('button', { name: 'Cấu hình' }))
   expect(screen.getByRole('heading', { name: 'Cấu hình khu vực cách ly' })).toBeVisible()
 })
 
@@ -67,5 +67,5 @@ it('keeps isolation information visible without granting configuration access', 
   state.permissions = []
   render(<WarehouseDetailPage warehouseId="warehouse" />)
   expect(screen.getByText('Khu CL - Khu vực cách ly / CACH-LY-01 · Mặc định')).toBeVisible()
-  expect(screen.queryByRole('button', { name: 'Cấu hình', exact: true })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Cấu hình' })).not.toBeInTheDocument()
 })

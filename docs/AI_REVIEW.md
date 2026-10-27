@@ -2612,3 +2612,26 @@ READY_FOR_CODEX_REVIEW (implementer self-review; not independent approval).
 - GitNexus primary FE component/page impact LOW; return and warehouse shared BE impact warnings recorded in matching BE handoff. Full FE suite100/100 passed, final focused12/12, scoped feature ESLint, production TypeScript and production build passed. Updated tests assert all actual choices, isolation destination reset, missing isolation blocking, Scrap, version mismatch, preserved manual choice after background refresh, condition payload and rack-level purpose visibility/permission. Warehouse row uses rack metadata because layout API deliberately hides technical default slots; matching BE projection test protects this regression.
 - Real components verified with fake fixtures only at390×844,768×844,1280×844: no restock dialog horizontal overflow, correct isolation autofill, warehouse configure→zone form with isolation preselected. Screenshots ../outputs/isolation-return-_.png and isolation-zone-_.png inspected. Only console error was fixture favicon404. Own QA browser/server/temporary fixture removed; no business API/login/database writes or deployment.
 - Requires matching BE and migration20261027081945_AddIsolationPointsAndReturnActualCondition before runtime. Migration NOT applied. No commit/push requested; protected local instructions/configuration and unrelated outputs preserved.
+
+## 2026-10-27 — Whole-day working-branch review, round 1
+
+APPROVED_FINAL for FE High/Blocker gate only; one Medium remains OPEN. Overall release blocked by paired BE High F1. Implementer self-review, not independent approval.
+
+- Scope5e4327c5..09cb4fcc, all four commits today, paired with BEacbe7012..6989ff12. User-requested source commit completed locally first; no push or source fixes in review.
+- OPEN F2 Medium/P2: SupplierReturnsPage.openEdit (line240) omits sourceGroupKey/sourceRemainingQuantity from hydrated saved lines. CreateSupplierReturnDialog computes selected source quantity only by that group, and schema validates aggregate only when metadata exists. Source allowance10, saved8 at A + new8 at B is accepted by frontend schema although total16 exceeds10. BE still rejects it before reserving/saving, so no inventory corruption; user gets misleading remaining quantity and a late conflict on save. Hydrate current source allowance/group for every saved line, including stocks outside the active picker page, and test edit round-trip.
+- Evidence/full findings: ../outputs/review-working-branches-20261027.md and today-review-fe-repro.log. Existing100 passing FE tests lack this case; new review probe fails as expected. Temporary test removed from default discovery after capture. No live API/DB/device workflow or deploy claimed. Review notes intentionally remain separate from committed source.
+
+## 2026-10-27 — Fix whole-day review findings F1/F2
+
+READY_FOR_FINAL_REVIEW (assigned implementer self-verification).
+
+- F1 fixed: shared getPutawaySlotOptions excludes rack-level and slot-level explicit isolation points for good-stock placement, affecting inbound plan/actual and transfer capacity choices. Transfer receiving sends IncludeIsolation only while checking receiving-flow-v2 damaged stock, retaining legitimate isolation options; normal storage lookup stays filtered. Paired BE enforces final placement purpose.
+- F2 fixed: openEdit hydrates sourceGroupKey from product/lot and SourceRemainingQuantity from matching BE detail for every existing draft line; no dependency on active search page. Existing picker and schema now count saved quantities towards the source allowance. Missing server metadata becomes0 rather than allowing an unchecked aggregate. Source context changes still clear incompatible lines, and BE rechecks current stock/source at save/submit.
+  -103tests passed in22files. New real-page hydration/schema test rejects8+8 against allowance10 and accepts8+2 with an empty stock-search response. Existing real-dialog test extended: saved8atA absent from current picker page lowers newBat12allowance to4. Rack/slot purpose filter regression test added. Production TypeScript and scoped lint pass; fixed two prior WarehouseDetailPage.test query typings (`exact` is unsupported by Testing Library getByRole) without changing test behavior. Production build checked separately. No visible layout redesign or new primitive; no live API/browser business workflow claimed.
+- No migration/schema/deployment or DB writes, no runtime restart, commit or push. Prior protected instructions/config/output files preserved. F1/F2 implementation ready for final focused self-review, not independent approval.
+
+### Final focused self-review
+
+APPROVED_FINAL for F1/F2 in the reviewed scope (self-review, not independent approval).
+
+- Rechecked actual page edit hydration, saved-line grouping, current picker-page independence, normal-location filters and damaged-receiving opt-in.103tests, production TypeScript, scoped ESLint and Next production build passed. No remaining High/Blocker or original Medium F2 in this focused review; no authenticated live application workflow claimed. F1/F2 CLOSED. Stop review loop.

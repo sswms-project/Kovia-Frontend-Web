@@ -243,6 +243,8 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
         maxQuantity: item.availableQuantity ?? 0,
         unit: item.unit,
         quantityPrecision: item.quantityPrecision ?? 2,
+        sourceGroupKey: `${item.productId}:${item.lotId ?? ''}`,
+        sourceRemainingQuantity: item.sourceRemainingQuantity ?? 0,
         label: `${item.sku} · ${item.productName} · ${formatInventoryLocation(item)}`,
       })),
     })
