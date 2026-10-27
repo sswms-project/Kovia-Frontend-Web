@@ -91,7 +91,7 @@ export function InventoryWorkspaceNavigation({
               aria-current={currentView === 'reservations' ? 'page' : undefined}
               className={linkClassName}
             >
-              Tồn đang giữ
+              Hàng giữ cho phiếu
             </Link>
             <Link
               href={APP_ROUTES.inventoryDamageCases}

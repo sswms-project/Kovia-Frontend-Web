@@ -15,6 +15,7 @@ import { inboundSourceLabels } from '../../schemas/inbound-request.schema'
 import { InboundRequestStatusBadge, SupplierResponseHint } from './InboundRequestStatusBadge'
 
 interface InboundRequestMobileListProps {
+  readonly previewId?: string
   readonly onOpen?: (item: InboundRequestSummary) => void
   readonly items: readonly InboundRequestSummary[]
   readonly canCreate: boolean
@@ -23,6 +24,7 @@ interface InboundRequestMobileListProps {
 }
 
 export function InboundRequestMobileList({
+  previewId,
   onOpen,
   items,
   canCreate,
@@ -36,7 +38,7 @@ export function InboundRequestMobileList({
           key={item.id}
           {...goodsPreviewInteractions(
             onOpen ? () => onOpen(item) : undefined,
-            false,
+            previewId === item.id,
             'border-b last:border-b-0'
           )}
         >

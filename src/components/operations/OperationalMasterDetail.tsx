@@ -39,9 +39,10 @@ export function OperationalMasterDetail({
   const isMobile = useIsMobile()
 
   useEffect(() => {
+    if (isMobile) return
     if (expanded) panelRef.current?.resize(`${lastExpandedSize.current}%`)
     else panelRef.current?.collapse()
-  }, [expanded])
+  }, [expanded, isMobile])
 
   function positionToggle() {
     const workspace = workspaceRef.current
@@ -51,6 +52,28 @@ export function OperationalMasterDetail({
     // Measure the committed layout, not a ratio emitted before the panels render.
     const gap = separator.getBoundingClientRect()
     toggle.style.top = `${gap.top - workspace.getBoundingClientRect().top + gap.height / 2}px`
+  }
+
+  if (isMobile) {
+    return (
+      <div className="flex min-h-fit min-w-0 shrink-0 flex-col gap-2">
+        <div className="min-w-0">{children}</div>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11 w-full"
+          aria-expanded={expanded}
+          aria-controls={detailId}
+          onClick={() => onExpandedChange(!expanded)}
+        >
+          {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
+          {expanded ? 'Thu gọn' : 'Mở'} {detailLabel}
+        </Button>
+        <div hidden={!expanded} className="min-w-0">
+          {detail}
+        </div>
+      </div>
+    )
   }
 
   return (

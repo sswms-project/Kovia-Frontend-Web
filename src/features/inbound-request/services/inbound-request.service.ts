@@ -7,6 +7,7 @@ import type {
   LookupQuery,
   InboundRequestListResponse,
   ProductOption,
+  InboundProductAvailability,
   InboundRequestDetail,
   InboundRequestListQuery,
   InboundDecisionRequest,
@@ -52,6 +53,12 @@ export const inboundRequestService = {
   getProducts: (params: LookupQuery) =>
     axiosClient
       .get<ApiResponse<LookupListResponse<ProductOption>>>(API_ENDPOINTS.products.list, { params })
+      .then((response) => response.data),
+  getProductAvailability: (warehouseId: string, productIds: readonly string[]) =>
+    axiosClient
+      .post<
+        ApiResponse<InboundProductAvailability[]>
+      >(API_ENDPOINTS.inboundRequests.productAvailability, { warehouseId, productIds })
       .then((response) => response.data),
   getSuppliers: (params: LookupQuery) =>
     axiosClient

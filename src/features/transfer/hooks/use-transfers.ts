@@ -147,7 +147,6 @@ export function useTransferSourceProductsQuery(query: TransferSourceProductsQuer
     queryKey: queryKeys.transfers.sourceProducts(query),
     queryFn: () => transferService.getSourceProducts(query).then((response) => response.data),
     enabled,
-    placeholderData: (previousData) => previousData,
   })
 }
 
