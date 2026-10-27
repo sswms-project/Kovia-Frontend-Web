@@ -88,6 +88,7 @@ export function WarehouseLocationFormSheets({ editor, scene }: WarehouseLocation
           stagingDefaults={{
             receiving: locationEditTarget.location.isDefaultReceivingPoint,
             outbound: locationEditTarget.location.isDefaultOutboundStagingPoint,
+            isolation: locationEditTarget.location.isDefaultIsolationPoint,
           }}
           defaultValues={{
             zoneCode: locationEditTarget.location.zoneCode,

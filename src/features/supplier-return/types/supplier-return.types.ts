@@ -16,6 +16,7 @@ export const SUPPLIER_RETURN_STATUSES = [
 export type SupplierReturnStatus = (typeof SUPPLIER_RETURN_STATUSES)[number]
 
 export interface SupplierReturnItem {
+  readonly sourceRemainingQuantity?: number | null
   readonly availableQuantity?: number | null
   readonly zoneCode?: string | null
   readonly rackCode?: string | null

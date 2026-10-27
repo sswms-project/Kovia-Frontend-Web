@@ -1,6 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { useGoodsPreviewSelection } from '@/hooks/use-goods-preview-selection'
+import { ReturnGoodsPreview } from '@/components/operations/ReturnGoodsPreview'
+import {
+  CUSTOMER_RETURN_GOODS_COLUMNS,
+  customerReturnGoodsRows,
+} from '../utils/return-goods-preview'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -96,6 +102,37 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
     !returnId
   )
   const returnDetailQuery = useGoodsReturnRequestQuery(returnId ?? null)
+  const previewPanelId = useId()
+  const preview = useGoodsPreviewSelection(
+    'return-goods-detail:customer:v1',
+    JSON.stringify([
+      meQuery.data?.id,
+      returnId,
+      page,
+      pageSize,
+      searchText,
+      status,
+      warehouseId,
+      dateFrom,
+      dateTo,
+    ]),
+    (goodsReturnRequestsQuery.data?.items ?? []).map((item) => item.id),
+    !returnId &&
+      goodsReturnRequestsQuery.isSuccess &&
+      !goodsReturnRequestsQuery.isError &&
+      !goodsReturnRequestsQuery.isPlaceholderData &&
+      searchText === debouncedSearchText &&
+      !meQuery.isError &&
+      Boolean(meQuery.data?.permissions.includes(P.GOODS_RETURN_REQUESTS_VIEW))
+  )
+  const previewQuery = useGoodsReturnRequestQuery(
+    preview.expanded && preview.id ? preview.id : null
+  )
+  const previewDocument =
+    !previewQuery.isError && previewQuery.data?.id === preview.id ? previewQuery.data : null
+  const previewCode = (goodsReturnRequestsQuery.data?.items ?? []).find(
+    (item) => item.id === preview.id
+  )?.goodsReturnRequestCode
   const editing = useReturnDocumentEditing(
     'goodsReturnRequests',
     returnDetailQuery.data,
@@ -152,8 +189,9 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
       )
         return
       const options =
-        restockOptionsQuery.data.items.find((item) => item.returnItemId === line.returnItemId)
-          ?.options ?? []
+        restockOptionsQuery.data.items
+          .find((item) => item.returnItemId === line.returnItemId)
+          ?.conditionOptions?.find((entry) => entry.condition === line.condition)?.options ?? []
       const selected =
         options.find((option) => option.slotId === line.restockSlotId) ??
         options.find((option) => option.isOriginalSlot) ??
@@ -222,7 +260,8 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
       await restockMutation.mutateAsync({
         goodsReturnRequestId: restockingItem.id,
         request: {
-          items: values.items.map(({ returnItemId, restockSlotId }) => ({
+          items: values.items.map(({ returnItemId, restockSlotId, condition }) => ({
+            condition,
             returnItemId,
             restockSlotId,
           })),
@@ -288,6 +327,41 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
         />
       ) : (
         <GoodsReturnRequestDirectory
+          goodsPreview={{
+            selectedId: preview.id,
+            onSelect: preview.select,
+            expanded: preview.expanded,
+            onExpandedChange: preview.setExpanded,
+            detailId: previewPanelId,
+            detail: (
+              <ReturnGoodsPreview
+                key={preview.id || 'empty'}
+                id={previewPanelId}
+                anchorId={preview.anchorId}
+                expanded={preview.expanded}
+                selected={Boolean(preview.id)}
+                referenceCode={previewCode}
+                description={
+                  previewDocument
+                    ? [
+                        previewDocument.warehouseName,
+                        previewDocument.recipientName,
+                        `Yêu cầu xuất: ${previewDocument.stockIssueRequestCode}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : undefined
+                }
+                columns={CUSTOMER_RETURN_GOODS_COLUMNS}
+                rows={previewDocument ? customerReturnGoodsRows(previewDocument) : []}
+                isLoading={previewQuery.isPending || (!previewDocument && !previewQuery.isError)}
+                isError={previewQuery.isError}
+                onRetry={() => {
+                  if (preview.id && preview.expanded) void previewQuery.refetch()
+                }}
+              />
+            ),
+          }}
           items={goodsReturnRequestsQuery.data?.items ?? []}
           totalCount={goodsReturnRequestsQuery.data?.totalCount ?? 0}
           page={page}

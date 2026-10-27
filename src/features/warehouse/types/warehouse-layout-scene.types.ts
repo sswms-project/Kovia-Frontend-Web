@@ -36,6 +36,7 @@ export interface WarehouseLayoutGeometry {
 
 export interface WarehouseLayoutZoneSceneResponse extends WarehousePhysicalDetailsResponse {
   isDefaultReceivingPoint?: boolean
+  isDefaultIsolationPoint?: boolean
   isDefaultOutboundStagingPoint?: boolean
   id: string
   zoneCode: string
@@ -92,6 +93,7 @@ export interface WarehouseLayoutSlotSceneResponse
   occupancyStatus: string
   isActive: boolean
   isOutboundStaging?: boolean
+  isIsolationPoint?: boolean
   allowsMixedProducts?: boolean
   capacity: number | null
   currentOccupancy: number

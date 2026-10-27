@@ -20,7 +20,7 @@ export function getPutawaySlotOptions(zones: readonly ZoneResponse[]): SlotOptio
     zone.status !== 'Active'
       ? []
       : zone.racks.flatMap((rack) => {
-          if (rack.status !== 'Active') return []
+          if (rack.status !== 'Active' || rack.isIsolationPoint) return []
           const zoneLabel = `${zone.zoneCode} - ${zone.zoneName}`
           if (rack.storageMode === 'RackLevel') {
             if (!rack.defaultSlotId) return []
@@ -43,7 +43,7 @@ export function getPutawaySlotOptions(zones: readonly ZoneResponse[]): SlotOptio
             ]
           }
           return rack.slots
-            .filter((slot) => slot.isActive && !slot.isOutboundStaging)
+            .filter((slot) => slot.isActive && !slot.isOutboundStaging && !slot.isIsolationPoint)
             .map((slot) => ({
               id: slot.id,
               code: slot.slotCode,

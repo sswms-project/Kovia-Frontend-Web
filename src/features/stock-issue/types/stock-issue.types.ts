@@ -334,6 +334,7 @@ export interface GoodsReturnLineSuggestion {
 
 export interface GoodsReturnRequestItem {
   unitName?: string | null
+  actualCondition?: GoodsReturnRequestItemCondition | null
   restockLocation?: string | null
   id: string
   stockIssuePickDetailId: string | null
@@ -393,13 +394,21 @@ export interface RejectGoodsReturnRequestRequest {
 }
 
 export interface RestockGoodsReturnRequestItem {
+  condition: GoodsReturnRequestItemCondition
   returnItemId: string
   restockSlotId: string | null
 }
 
 export interface GoodsReturnRestockOptions {
   version: string
-  items: { returnItemId: string; options: GoodsReturnSlotSuggestion[] }[]
+  items: {
+    returnItemId: string
+    options: GoodsReturnSlotSuggestion[]
+    conditionOptions?: {
+      condition: GoodsReturnRequestItemCondition
+      options: GoodsReturnSlotSuggestion[]
+    }[]
+  }[]
 }
 
 export interface RestockGoodsReturnRequest {
