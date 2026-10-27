@@ -4,6 +4,7 @@ export const createSupplierReturnSchema = z
   .object({
     warehouseId: z.string().min(1, 'Vui lòng chọn kho.'),
     supplierId: z.string().min(1, 'Vui lòng chọn nhà cung cấp.'),
+    sourceGoodsReceiptId: z.string().uuid('Vui lòng chọn phiếu nhận hàng nguồn.'),
     reason: z
       .string()
       .trim()
@@ -20,6 +21,8 @@ export const createSupplierReturnSchema = z
           unit: z.string(),
           quantity: z.number({ error: 'Vui lòng nhập số lượng.' }),
           quantityPrecision: z.number().int().min(0).max(6).optional(),
+          sourceGroupKey: z.string().optional(),
+          sourceRemainingQuantity: z.number().optional(),
         })
       )
       .min(1, 'Phiếu trả NCC cần ít nhất một dòng hàng.'),
@@ -27,6 +30,17 @@ export const createSupplierReturnSchema = z
   .superRefine((value, context) => {
     const seen = new Set<string>()
     value.lines.forEach((line, index) => {
+      if (line.sourceGroupKey && line.sourceRemainingQuantity !== undefined) {
+        const total = value.lines
+          .filter((other) => other.sourceGroupKey === line.sourceGroupKey)
+          .reduce((sum, other) => sum + other.quantity, 0)
+        if (total > line.sourceRemainingQuantity)
+          context.addIssue({
+            code: 'custom',
+            path: ['lines', index, 'quantity'],
+            message: 'Tổng lượng trả ở các vị trí vượt phần còn được trả theo phiếu nguồn.',
+          })
+      }
       if (seen.has(line.inventoryStockId)) {
         context.addIssue({
           code: 'custom',

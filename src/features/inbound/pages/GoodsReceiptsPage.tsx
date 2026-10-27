@@ -1,6 +1,7 @@
 'use client'
 
 import { OrderType } from '@/types/api'
+import { Button } from '@/components/ui/button'
 
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
@@ -28,7 +29,14 @@ import {
   toOperationalDateTimeStart,
 } from '@/features/inbound-request/utils/inbound-request-format'
 import { OperationalCountTile } from '@/components/operations/OperationalCountTile'
-import { InboundPageHeader } from '../components/InboundWorkspace'
+import {
+  InboundPageHeader,
+  InboundMasterDetail,
+  InboundStageGoodsPreview,
+} from '../components/InboundWorkspace'
+import { INBOUND_STATUS_LABELS } from '../utils/inbound-format'
+import { useInboundGoodsSelection } from '../hooks/use-inbound-goods-selection'
+import { receiptStageGoodsRows } from '../utils/inbound-goods-preview'
 import { ReceiptDirectory } from '../components/ReceiptsPage'
 import {
   useApproveGoodsReceiptMutation,
@@ -62,6 +70,25 @@ export default function GoodsReceiptsPage() {
     ...(createdTo ? { dateTo: toOperationalDateTimeEnd(createdTo) } : {}),
   }
   const query = useGoodsReceiptsQuery(exportFilters)
+  const preview = useInboundGoodsSelection(
+    'receipt',
+    JSON.stringify([exportFilters, searchText]),
+    (query.data?.items ?? []).map((item) => item.id),
+    !query.isError &&
+      !query.isPlaceholderData &&
+      searchText.trim() === debouncedSearchText.trim() &&
+      Boolean(meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW))
+  )
+  const previewItem = preview.id
+    ? query.data?.items.find((item) => item.id === preview.id)
+    : undefined
+  const previewQuery = useGoodsReceiptQuery(
+    preview.expanded && previewItem && meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW)
+      ? previewItem.id
+      : ''
+  )
+  const previewDetail =
+    previewItem && previewQuery.data?.id === previewItem.id ? previewQuery.data : undefined
 
   async function approveReceipt() {
     if (!approvalTarget) return
@@ -123,52 +150,87 @@ export default function GoodsReceiptsPage() {
             isError={query.isError}
           />
         </div>
-        <ReceiptDirectory
-          exportAction={
-            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+        <InboundMasterDetail
+          title="Chi tiết hàng hóa"
+          detailAnchorId={preview.anchorId}
+          expanded={preview.expanded}
+          onExpandedChange={preview.setExpanded}
+          referenceCode={previewItem?.receiptCode}
+          detail={
+            <InboundStageGoodsPreview
+              key={preview.id || 'empty'}
+              stage="receipt"
+              rows={receiptStageGoodsRows(previewDetail?.items ?? [], 'receipt')}
+              selected={Boolean(previewItem)}
+              isLoading={Boolean(previewItem) && !previewDetail && !previewQuery.isError}
+              isError={query.isError || previewQuery.isError}
+              statusLabel={previewDetail ? INBOUND_STATUS_LABELS[previewDetail.status] : undefined}
+              onRetry={() => void (query.isError ? query.refetch() : previewQuery.refetch())}
+            />
           }
-          items={query.data?.items ?? []}
-          totalCount={query.data?.totalCount ?? 0}
-          page={page}
-          pageSize={pageSize}
-          searchText={searchText}
-          status={status}
-          createdFrom={createdFrom}
-          createdTo={createdTo}
-          sortDirection={sortDirection}
-          onSortDirectionChange={(value) => {
-            setSortDirection(value)
-            setPage(1)
-          }}
-          isLoading={query.isFetching}
-          isFetching={query.isFetching}
-          isError={query.isError}
-          canApprove={meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_APPROVE) ?? false}
-          isApproving={approveMutation.isPending}
-          onSearchChange={(value) => {
-            setSearchText(value)
-            setPage(1)
-          }}
-          onStatusChange={(value) => {
-            setStatus(value)
-            setPage(1)
-          }}
-          onCreatedFromChange={(value) => {
-            setCreatedFrom(value)
-            setPage(1)
-          }}
-          onCreatedToChange={(value) => {
-            setCreatedTo(value)
-            setPage(1)
-          }}
-          onPageChange={setPage}
-          onPageSizeChange={(value) => {
-            setPageSize(value)
-            setPage(1)
-          }}
-          onRetry={() => void query.refetch()}
-          onApprove={setApprovalTarget}
-        />
+        >
+          <ReceiptDirectory
+            previewId={preview.id}
+            onPreview={(item, open) => preview.select(item.id, open)}
+            previewAction={
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!previewItem}
+                aria-label={
+                  previewItem ? `Xem hàng hóa ${previewItem.receiptCode}` : 'Xem hàng hóa'
+                }
+                onClick={() => preview.select(preview.id, true)}
+              >
+                Xem hàng hóa
+              </Button>
+            }
+            exportAction={
+              listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+            }
+            items={query.data?.items ?? []}
+            totalCount={query.data?.totalCount ?? 0}
+            page={page}
+            pageSize={pageSize}
+            searchText={searchText}
+            status={status}
+            createdFrom={createdFrom}
+            createdTo={createdTo}
+            sortDirection={sortDirection}
+            onSortDirectionChange={(value) => {
+              setSortDirection(value)
+              setPage(1)
+            }}
+            isLoading={query.isFetching}
+            isFetching={query.isFetching}
+            isError={query.isError}
+            canApprove={meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_APPROVE) ?? false}
+            isApproving={approveMutation.isPending}
+            onSearchChange={(value) => {
+              setSearchText(value)
+              setPage(1)
+            }}
+            onStatusChange={(value) => {
+              setStatus(value)
+              setPage(1)
+            }}
+            onCreatedFromChange={(value) => {
+              setCreatedFrom(value)
+              setPage(1)
+            }}
+            onCreatedToChange={(value) => {
+              setCreatedTo(value)
+              setPage(1)
+            }}
+            onPageChange={setPage}
+            onPageSizeChange={(value) => {
+              setPageSize(value)
+              setPage(1)
+            }}
+            onRetry={() => void query.refetch()}
+            onApprove={setApprovalTarget}
+          />
+        </InboundMasterDetail>
       </div>
       <AlertDialog
         open={approvalTarget !== null}

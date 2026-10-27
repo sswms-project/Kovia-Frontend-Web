@@ -10,8 +10,6 @@ import {
   UserCheck,
   UserRoundCog,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
 import type { Route } from 'next'
 import Link from 'next/link'
 import {
@@ -47,11 +45,14 @@ import {
   OperationalCellStack,
   OperationalQuantityProgress,
 } from '@/components/operations/OperationalCells'
-import { rowActivationProps } from '../../utils/row-activation-props'
+import { goodsPreviewInteractions } from '../../utils/goods-preview-interactions'
 
 export type PutawayAssignmentFilter = 'all' | 'unassigned'
 
 interface PutawayDirectoryProps {
+  readonly previewId?: string
+  readonly onPreview?: (item: GoodsReceiptSummary, open?: boolean) => void
+  readonly previewAction?: ReactNode
   readonly items: readonly GoodsReceiptSummary[]
   readonly totalCount: number
   readonly page: number
@@ -83,6 +84,9 @@ function remainingQuantity(item: GoodsReceiptSummary) {
 }
 
 export function PutawayDirectory({
+  previewId,
+  onPreview,
+  previewAction,
   items,
   totalCount,
   page,
@@ -108,7 +112,6 @@ export function PutawayDirectory({
   onAssignmentFilterChange,
   onAssign,
 }: PutawayDirectoryProps) {
-  const router = useRouter()
   function renderActions(item: GoodsReceiptSummary, compact: boolean) {
     const isMine = Boolean(currentUserId) && item.putAwayAssignedTo === currentUserId
     return (
@@ -199,6 +202,7 @@ export function PutawayDirectory({
               onChange={(event) => onSearchChange(event.target.value)}
             />
           </InputGroup>
+          {previewAction}
           {exportAction}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -240,8 +244,9 @@ export function PutawayDirectory({
             {items.map((item) => (
               <Item
                 key={item.id}
-                {...rowActivationProps(
-                  () => router.push(APP_ROUTES.inboundPutawayDetail(item.id) as Route),
+                {...goodsPreviewInteractions(
+                  onPreview ? () => onPreview(item) : undefined,
+                  previewId === item.id,
                   'border-b last:border-b-0'
                 )}
               >
@@ -250,7 +255,7 @@ export function PutawayDirectory({
                   <ItemTitle className="font-mono">
                     <Link
                       href={APP_ROUTES.inboundPutawayDetail(item.id) as Route}
-                      className="text-primary font-semibold hover:underline"
+                      className="text-primary font-semibold underline-offset-4 hover:underline focus-visible:underline"
                     >
                       {item.receiptCode}
                     </Link>
@@ -274,6 +279,17 @@ export function PutawayDirectory({
                       }
                     />
                   </div>
+                  {onPreview ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2 min-h-11 w-fit"
+                      aria-label={`Xem hàng hóa ${item.receiptCode}`}
+                      onClick={() => onPreview(item, true)}
+                    >
+                      Xem hàng hóa
+                    </Button>
+                  ) : null}
                 </ItemContent>
                 {renderActions(item, true)}
               </Item>
@@ -293,14 +309,17 @@ export function PutawayDirectory({
               </TableHeader>
               <TableBody>
                 {items.map((item) => (
-                  <ClickableTableRow
+                  <TableRow
                     key={item.id}
-                    href={APP_ROUTES.inboundPutawayDetail(item.id) as Route}
+                    {...goodsPreviewInteractions(
+                      onPreview ? () => onPreview(item) : undefined,
+                      previewId === item.id
+                    )}
                   >
                     <TableCell className="font-mono font-semibold">
                       <Link
                         href={APP_ROUTES.inboundPutawayDetail(item.id) as Route}
-                        className="text-primary hover:underline"
+                        className="text-primary underline-offset-4 hover:underline focus-visible:underline"
                       >
                         {item.receiptCode}
                       </Link>
@@ -339,7 +358,7 @@ export function PutawayDirectory({
                       />
                     </TableCell>
                     <TableCell className="text-right">{renderActions(item, false)}</TableCell>
-                  </ClickableTableRow>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>

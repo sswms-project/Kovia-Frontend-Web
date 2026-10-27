@@ -204,24 +204,6 @@ export function useReactivateWarehouseMutation() {
   })
 }
 
-export function useConfigureQuarantineSlotMutation() {
-  const queryClient = useQueryClient()
-  return useMutation<
-    ApiResponse<unknown>,
-    ApiErrorResponse,
-    { warehouseId: string; slotId: string }
-  >({
-    mutationFn: ({ warehouseId, slotId }) =>
-      warehouseService.configureQuarantineSlot(warehouseId, slotId),
-    onSuccess: async (_, variables) => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.warehouses.detail(variables.warehouseId),
-      })
-    },
-    onError: (error) => logger.error(error),
-  })
-}
-
 function useInvalidateWarehouseStructure() {
   const queryClient = useQueryClient()
 
