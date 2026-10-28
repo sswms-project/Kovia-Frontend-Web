@@ -1,72 +1,104 @@
-# ReactJS Coding Rules
+# Next.js Coding Rules (App Router) — Kovia WMS FE
+
+## Read the relevant source of truth
+
+This file holds the mandatory core rules. For the area being changed, read the linked document; do not copy its detailed rules into another document.
+
+| Work                                                                     | Required document                                                                |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| Folder layout, ownership, data flow, hooks, forms, refactor triggers     | [FOLDER_STRUCTURE.md](docs/FOLDER_STRUCTURE.md)                                  |
+| Reuse, shadcn/ui primitives, helpers, abstractions, clean code checklist | [CODING_GUIDELINES.md](docs/CODING_GUIDELINES.md)                                |
+| Visual system (Kovia UI)                                                 | [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)                                        |
+| List/table screens                                                       | [LIST_TABLE_DESIGN_GUIDELINES.md](docs/LIST_TABLE_DESIGN_GUIDELINES.md)          |
+| Design tokens                                                            | `src/app/index.css`                                                              |
+| Branches, commits, PRs                                                   | [GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)                                          |
+
+Authority: this file and FOLDER_STRUCTURE.md define code architecture and ownership. DESIGN_SYSTEM.md and LIST_TABLE_DESIGN_GUIDELINES.md own UI. A description of existing code is not an exemption from these rules.
 
 ## General
-- Correctness and clarity over speed. Accessibility is required.
+- Correctness and clarity over speed. Accessibility and preservation of user data are required.
 - Comments only explain *why*, never *what*.
-- Add to existing files before creating new ones.
-- No generic names like `index.tsx` at the feature root — use explicit names like `UserProfile.tsx`. Exception: `index.tsx` is allowed as the entry point of a named subfolder (the folder name IS the component name, e.g. `OrgHierarchyView/index.tsx`).
+- Reuse existing code/patterns. Add to an existing file when the change belongs to that file's responsibility; otherwise extract a focused module.
+- Prefer the smallest complete change. No speculative layers, generic controllers, wrappers, or dependencies.
+- No generic names like `index.tsx` at the feature root — use explicit names like `WarehouseOverview.tsx`. Exception: `index.tsx` is allowed as the entry point of a named subfolder (the folder name IS the component name, e.g. `TaskAssignmentScoring/index.tsx`). Next.js special filenames (`page.tsx`, `layout.tsx`, …) are also exceptions.
 - No abbreviated variable names (`error` not `err`, `button` not `btn`).
+- Before changing a boundary, identify callers, props/types, exports, schemas, services, query keys, and affected tests.
+- Keep existing validation, permission checks, error handling, and cleanup when moving code.
 
 ## File Naming
 | Type | Convention |
 |------|-----------|
-| Component / Page | `PascalCase.tsx` |
+| Feature folder | `kebab-case` (`stock-issue`, `inbound-request`) |
+| Component | `PascalCase.tsx` |
+| Feature page | `<Name>Page.tsx` in `pages/` |
 | Hook | `use-kebab-case.ts` |
 | Service | `kebab-case.service.ts` |
 | Store | `kebab-case.store.ts` |
 | Schema | `kebab-case.schema.ts` |
 | Types | `kebab-case.types.ts` |
+| Pure helper / mapper | `kebab-case.ts` in `utils/`, named by behavior (`stock-issue-format.ts`, `layout-scene-mapper.ts`) |
+| Next.js entry | As Next.js requires: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, … |
 
 ## Exports
-- **Pages only**: Default Export (required for `React.lazy()`).
+- **Feature pages only**: Default Export. Route `page.tsx` imports it directly or through the feature's `pages/index.ts` (`export { default as InventoryPage } from './InventoryPage'`).
+- **Next.js special files**: the export shape Next.js requires.
 - **Everything else**: Named Export.
-- **Component subdirectories** (`components/<PageName>/`): must have an `index.ts` barrel that re-exports all named exports. Pages import from the barrel (`../components/RolesPage`), not individual files.
+- **Component subdirectories** (`components/<PageName>/`): must have an `index.ts` barrel that re-exports all named exports. Pages import from the barrel (`../components/WarehouseDetailPage`), not individual files.
+- Inside a feature prefer relative imports; use `@/` for `src/components`, `src/lib`, `src/config`, `src/routes`, `src/hooks`, `src/stores`, `src/types` and other features.
 
 ## Folder Structure
 ```
 src/features/<feature>/
-├── pages/           # Default exports, lazy-loaded (thin shells — state + layout only)
+├── pages/           # Default exports, rendered by app/**/page.tsx (thin shells — compose + coordinate)
 ├── components/      # Feature UI components
-│   └── <PageName>/  # Sub-components for a specific page (dialogs, sheets, tables)
-│       └── <ViewName>/  # Nested subfolder when a sub-view grows beyond ~150 lines
+│   └── <PageName>/  # Sub-components for a specific page (dialogs, sheets, tables) + index.ts barrel
+│       └── <ViewName>/  # Nested subfolder when a sub-view has its own clear responsibility (review signal: ~150 lines)
 │           ├── index.tsx    # Entry point — named export of the view
 │           ├── types.ts     # Local types shared within this view only
-│           └── *.tsx        # Sub-components (ListView, TreeView, MembersPanel, ...)
-├── hooks/           # React Query hooks
+│           └── *.tsx        # Sub-components
+├── hooks/           # React Query hooks, form/behavior/workflow hooks
 ├── services/        # Axios wrappers (plain objects)
-├── schemas/         # Zod schemas
-├── types/           # TypeScript types
+├── schemas/         # Zod schemas + inferred types
+├── types/           # Feature DTO / view-model types
+└── utils/           # Pure feature-only helpers and mappers
 ```
-Shared primitives → `src/components/ui/`
+Route entries → `src/app/(private)/**/page.tsx`, `src/app/(public)/**/page.tsx`
+Shared primitives → `src/components/ui/`; shared app components → `src/components/{layout,operations,forms,barcode}/`
 Zustand stores → `src/stores/`
+Full map and ownership table: [docs/FOLDER_STRUCTURE.md](docs/FOLDER_STRUCTURE.md). Create only the folders a feature actually uses.
 
 ## No God-Class Pages
+- Route `page.tsx` stays thin: await/forward route params or `searchParams`, redirects, metadata, and render the feature page. No business logic, hooks, or API calls.
 - Pages must NOT contain component definitions. Each dialog, sheet, or complex sub-component gets its own file.
-- Place page sub-components in `components/<PageName>/` (e.g., `DepartmentsPage/DepartmentDialog.tsx`).
+- Place page sub-components in `components/<PageName>/` (e.g., `WarehouseDetailPage/WarehouseEditDialog.tsx`).
 - Pages are thin shells: fetch API data via hooks, pass data down as props, compose layout. No business logic in pages.
-- Orchestrator components (e.g., `RolesTab`) own UI state (dialogs, filters) and pass callbacks to children.
+- Orchestrator components (e.g., `TaskAssignmentScoring`) own UI state (dialogs, filters) and pass callbacks to children.
+- A hook owns one cohesive behavior/resource/workflow. Moving a whole page into one hook or one orchestrator does not solve a God Component.
 - Pages import from the barrel (`components/<PageName>`), not individual files.
 - Internal imports within the same `<PageName>/` folder stay relative (sibling-to-sibling).
-- Internal imports within a `<ViewName>/` subfolder also stay relative. Siblings import each other directly (`./MembersPanel`), not through the barrel.
+- Internal imports within a `<ViewName>/` subfolder also stay relative. Siblings import each other directly (`./StockIssueRequestLines`), not through the barrel.
 - Types shared only within a `<ViewName>/` folder go in `types.ts` inside that folder, not in `features/<feature>/types/`.
 
 ## Data Flow (bắt buộc)
 
 ```
-Page → owns all API hooks (useQuery / useMutation) + server state
-  └── Component → display only, receives data and callbacks via props
+app/**/page.tsx → features/<feature>/pages/<Name>Page
+  Page → owns API hooks (useQuery / useMutation) + server state
+    └── Component → display only, receives data and callbacks via props
+Page / orchestrator → feature hook → service → axiosClient → BE
 ```
 
 - **Pages** call all React Query hooks. Pass `data`, `isLoading`, `isPending`, and callback functions (`onSubmit`, `onDelete`, `onEdit`) as props to components.
-- **Components** (dialogs, sheets, tables) must NOT import or call any React Query hooks. They are pure UI — receive props, render, call callbacks.
-- **Exception**: Orchestrator components that own a distinct sub-domain (e.g., `RolesTab` managing its own dialogs and filters) may call hooks for that sub-domain only, as long as the parent page does not also manage the same data.
+- **Components** (dialogs, sheets, tables) must NOT import or call any React Query hooks or services. They are pure UI — receive props, render, call callbacks. Local UI state (open, focus, hover) is fine.
+- **Exception**: Orchestrator components that own a distinct sub-domain (e.g., `TaskAssignmentScoring` managing its own dialogs and filters) may call hooks for that sub-domain only, as long as the parent page does not also manage the same data.
+- Pages and orchestrators also reach HTTP only through hooks — never call `*Service.*` directly. Pure helpers/mappers from `utils/` may be called directly.
 
 ## Validation (Zod schemas)
 
 - All Zod schemas live in `features/<feature>/schemas/<name>.schema.ts`.
 - Schema file exports: the `z.object(...)` schema and the inferred TypeScript type (`type Foo = z.infer<typeof fooSchema>`).
-- Pages or orchestrators import the schema to wire `useForm({ resolver: zodResolver(schema) })`.
-- Components receive `form` (from `useForm`) as a prop — they do NOT call `useForm` themselves.
+- Pages or orchestrators import the schema to wire `useForm({ resolver: zodResolver(schema) })`, directly or through a focused form hook they call once.
+- Components receive `form` (from `useForm`) as a prop — they do NOT call `useForm` themselves. One logical form = one owner = one `useForm` instance; never a second instance for the same form.
 - Separate schemas per BE Command (Create vs Update use different schema files when the commands differ).
 
 ## Error Handling
@@ -74,32 +106,43 @@ Page → owns all API hooks (useQuery / useMutation) + server state
 - Always: `logger.error(error)` (from `@/lib/logger`) + `toast.error('...')` via Sonner. Never use `console.error` or `console.log` directly — use `logger.*` instead. `logger` strips stack traces in prod automatically.
 - All async operations handle 3 states: `loading`, `error`, `success`.
 - Use early returns for loading/error to keep render clean.
+- Load failures render `ErrorState` (`@/components/ErrorState`) or `OperationalState` with the original `unknown` error; do not treat any HTTP error as "no data".
+- Each failed user action has one reporting owner (the mutation or workflow hook); do not report the same error again in the caller.
+- Never show success after a failed step. Keep dirty input, block duplicate submission for the whole workflow, and surface partial success with a safe retry path.
 
 ## State
 - Never mutate state directly — use immutable setter patterns.
 - Minimize `useEffect`. Derive state during render when possible.
 - `useEffect` with subscriptions/timers must return a cleanup function.
+- Keep effect dependencies correct; do not disable `react-hooks/exhaustive-deps` to force a lifecycle.
+- Hooks run at the top level. Lazy data uses `enabled` or a conditionally mounted orchestrator, never conditional hook calls.
+- Do not mirror query data into local state or a store. An editable form draft is intentional local state.
 
 ## State Management
 - **Client/UI state** (auth, preferences, UI flags) → Zustand in `src/stores/`.
 - **Server state** (API data) → React Query. Never store server data in Zustand.
+- Local state stays local; state lives in the lowest owner that needs to coordinate it.
 - React Query hooks live in `features/<feature>/hooks/`.
-- Query keys must be arrays: `['resource', params]`.
+- Query keys must be arrays containing every relevant parameter: `['resource', params]`. Reuse `queryKeys` from `src/lib/query-keys.ts`; do not define the same query in two places.
 - Always handle `onError` in mutations.
+- Load only visible/needed data, filter at BE, and paginate with `OperationalPagination`; never "fetch everything" to count or filter on the client.
 
 ## Service Layer
 - Services are plain objects, not classes.
-- Import Axios instance from `src/lib/axios.ts` as `api`.
-- Return unwrapped `r.data`, not the full Axios response.
+- Import the Axios instance `axiosClient` from `src/lib/axios.ts`. Do not create another Axios instance or attach tokens in feature code.
+- Endpoint paths come from `API_ENDPOINTS` in `src/routes/api-endpoints.ts`; never hardcode hosts or paths in features.
+- Return business data by unwrapping the actual envelope (`response.data.data` for `ApiResponse<T>`, `response.data` for Blob); never return the full Axios response.
 - Do not catch errors in services — let React Query handle them.
+- Services do not own React state, toast, dialogs, or navigation.
 
 ## Forms
 - Use React Hook Form + Zod. Define Zod schema first, infer TS type from it.
-- No manual validation logic when Zod can express it.
-- Field errors from `form.formState.errors`, not global state.
+- No manual validation logic when Zod can express it. Cross-field rules live in the schema or a pure function.
+- Field errors from `form.formState.errors`, not global state. Map BE validation errors to the matching field.
+- Distinguish create/edit/duplicate; reset or remount deliberately when the entity changes; a background refetch must not overwrite dirty fields.
 
 ## Styling
-- Tailwind CSS **v4** (CSS-first config in `src/index.css` via `@theme`; no `tailwind.config.js`, no PostCSS config — uses `@tailwindcss/vite`).
+- Tailwind CSS **v4** (CSS-first config in `src/app/index.css` via `@theme`; no `tailwind.config.js` — uses `@tailwindcss/postcss`).
 - When copying components from shadcn/ui, use the Tailwind v4 versions (current default). v4 syntax like `w-(--var)` is valid here.
 - Tailwind CSS only. Class order: layout → spacing → typography → colors → states.
 - Conditional/merged classes always use `cn()` from `src/lib/utils.ts`.
@@ -108,7 +151,7 @@ Page → owns all API hooks (useQuery / useMutation) + server state
 
 ## Animation (bắt buộc)
 
-Animation library: `tw-animate-css` (imported in `src/index.css`). Use `data-[state=open]:` / `data-[state=closed]:` syntax — NOT `data-open:` / `data-closed:` — to match Radix UI's `data-state` attribute.
+Animation library: `tw-animate-css` (imported in `src/app/index.css`). Use `data-[state=open]:` / `data-[state=closed]:` syntax — NOT `data-open:` / `data-closed:` — to match Radix UI's `data-state` attribute.
 
 ### Mọi overlay / modal / dialog
 
@@ -165,7 +208,7 @@ Mọi page có bảng dữ liệu phải dùng cấu trúc sau — không để 
 ```tsx
 // Page root
 <div className="h-full flex flex-col bg-background text-foreground">
-  <HRPageHeader … />                         {/* shrink-0 tự động */}
+  {/* page header — shrink-0 */}
 
   <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-4 px-4 py-5 md:px-8">
     <div className="… shrink-0">             {/* title + actions */}
@@ -210,7 +253,7 @@ Mọi page có bảng dữ liệu phải dùng cấu trúc sau — không để 
 - No type assertions (`as SomeType`) unless unavoidable — add a comment explaining why.
 - Prefer `interface` for object shapes, `type` for unions/intersections/aliases.
 - Derive types from source of truth — never duplicate: use `z.infer<>` from Zod schemas, `ReturnType<>`, `Parameters<>`, `Awaited<>` when applicable.
-- Use `type` keyword for type-only imports: `import type { Task } from '../types/task.types'`.
+- Use `type` keyword for type-only imports: `import type { StockIssueRequest } from '../types/stock-issue.types'`.
 - Mark optional props explicitly with `?`. Never use `| undefined` manually when `?` suffices.
 - Use `readonly` for props/state that should not be mutated.
 - Avoid enums — use `as const` objects or Zod `z.enum()` instead.
@@ -220,18 +263,33 @@ Mọi page có bảng dữ liệu phải dùng cấu trúc sau — không để 
 - Destructure props in function signature.
 - Type-only imports use `import type { ... }`.
 
-## Routing
-- Lazy routes wrapped in `<Suspense fallback={<Spinner />}>`.
-- Protected routes use `ProtectedRoute` (checks `useAuthStore`).
-- `useNavigate` only inside components or hooks, never in services.
+## Routing, runtime and hydration
+- App Router only: `next/navigation` (`useRouter`, `redirect`), `next/link`. Route loading uses `loading.tsx` / `<Suspense>`.
+- URLs come from `APP_ROUTES` in `src/routes/app-routes.ts`; never hardcode feature URLs.
+- Pure navigation uses `Link` (or `Button asChild`) with `href`. Imperative navigation (`useRouter`) is only for action completion, confirmed discard, auth redirects, or URL-state sync — inside components or hooks, never in services.
+- Protected routes: reuse `src/proxy.ts`, `ProtectedRoute` (checks `useAuthStore`) in `app/(private)/layout.tsx`, and `src/config/route-permissions.ts`. Do not add a parallel guard. FE gating never replaces BE authorization.
+- Default to Server Components. Place `'use client'` at the smallest necessary interactive boundary (normally the feature page); never import server-only code into its subtree. Props crossing into client components must be serializable.
+- Keep server and first client render identical: no `window`/`document`/storage reads, current dates, or random values during shared render. Read browser values in effects/events; use `useId` for IDs.
+- `suppressHydrationWarning` only on the single intentionally differing element, never to hide a subtree mismatch.
+- Client env variables use `NEXT_PUBLIC_`; secrets stay server-only and out of git.
+
+## Role and permission codes
+- Declare frontend permission codes only in `src/config/permissionCodes.ts`; route access in `src/config/route-permissions.ts`. Components render from capability props (`canCreate`, `canUpdate`, …) supplied by their page. Full rules: `AGENTS.md` → "Role and permission changes".
 
 ## BE–FE Contract (bắt buộc)
 
-Before writing any form/service/schema for a feature, read the corresponding BE Command and Validator files. Then:
+Before writing any form/service/schema for a feature, read the corresponding BE Command, Validator and Response files. Then:
 
 1. **Field names must match exactly** — use the same casing as the BE DTO (camelCase in JSON). No aliases, no renaming.
-2. **Zod schema must mirror BE validator** — every `NotEmpty`, `MaximumLength`, `MinimumLength`, `GreaterThan`, `EmailAddress`, etc. must have an equivalent Zod rule.
-3. **Service payload must match the BE Command** — only send fields the BE Command declares. Never send extra fields; never omit required ones.
-4. **Separate Create vs Update schemas** when BE Commands differ (e.g. Create has `roleName` + `displayName`, Update has only `displayName`). Use `z.object` per command, not one shared schema.
-5. **`RoleResponse` / response types must include all fields the BE returns** — read the BE `*Response.cs` before writing the TS interface.
+2. **Zod schema must mirror BE validator** — every `NotEmpty`, `MaximumLength`, `MinimumLength`, `GreaterThan`, `EmailAddress`, etc. must have an equivalent Zod rule. Check handler/domain rules too, not only the validator file.
+3. **Service payload must match the BE Command** — only send fields the BE Command declares. Never send extra or UI-only fields; never omit required ones.
+4. **Separate Create vs Update schemas** when BE Commands differ (e.g. `createWarehouseSchema` has `warehouseCode` + `warehouseName`, `updateWarehouseSchema` has no `warehouseCode`). Use `z.object` per command, not one shared schema.
+5. **Response types must include all fields the BE returns** — read the BE `*Response.cs` before writing the TS interface.
 6. **When BE adds/removes a field, update in this order**: schema → types → service → hook → component.
+7. **PUT that replaces a child list** (e.g. document lines): send every row that remains; do not send line IDs the command does not accept.
+
+## Architecture quality gate
+- One responsibility per page/orchestrator/hook; one owner per state/form; no hidden whole-screen controller.
+- Review signals: page/orchestrator >~250 nonblank lines, hook/view >~150, >~10 top-level inputs/outputs, props passed through 3+ layers, several effects syncing the same data. They trigger review, not mechanical splitting; explain a cohesive exception.
+- Complete the detailed gate in [FOLDER_STRUCTURE.md](docs/FOLDER_STRUCTURE.md) §9 and the checklist in [CODING_GUIDELINES.md](docs/CODING_GUIDELINES.md).
+- Run `pnpm typecheck`, `pnpm lint` and relevant `pnpm test` (Vitest, setup `src/config/test-setup.ts`). Non-trivial new logic or workflows need a focused check. Report checks not run. Documentation-only changes need link, consistency and scope checks, not a full build.
