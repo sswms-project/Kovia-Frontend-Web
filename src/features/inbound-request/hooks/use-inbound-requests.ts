@@ -47,12 +47,13 @@ interface ReconcileInboundRequestVariables {
   expectedVersion: string
 }
 
-export function useInboundRequestsQuery(params: InboundRequestListQuery) {
+export function useInboundRequestsQuery(params: InboundRequestListQuery, enabled = true) {
   return useQuery<InboundRequestListResponse, ApiErrorResponse>({
     queryKey: queryKeys.inboundRequests.list(params),
     queryFn: () =>
       inboundRequestService.getInboundRequests(params).then((response) => response.data),
     placeholderData: (previousData) => previousData,
+    enabled,
   })
 }
 

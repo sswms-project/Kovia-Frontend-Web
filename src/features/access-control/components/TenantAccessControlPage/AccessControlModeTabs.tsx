@@ -9,6 +9,9 @@ interface AccessControlModeTabsProps {
   readonly onChange: (mode: AccessControlMode) => void
 }
 
+const modeTabClassName =
+  'h-11 flex-1 gap-2 px-3 sm:flex-none group-data-[variant=workspace]/tabs-list:data-[state=inactive]:border-border group-data-[variant=workspace]/tabs-list:data-[state=inactive]:bg-card group-data-[variant=workspace]/tabs-list:data-[state=inactive]:text-foreground group-data-[variant=workspace]/tabs-list:data-[state=inactive]:hover:border-primary group-data-[variant=workspace]/tabs-list:data-[state=inactive]:hover:bg-muted'
+
 export function AccessControlModeTabs({ value, disabled, onChange }: AccessControlModeTabsProps) {
   return (
     <Tabs
@@ -25,12 +28,16 @@ export function AccessControlModeTabs({ value, disabled, onChange }: AccessContr
           <h1 className="text-xl font-semibold text-balance">Phân quyền</h1>
         </div>
 
-        <TabsList variant="workspace" aria-label="Chế độ phân quyền" className="h-9 p-0">
-          <TabsTrigger value="role" disabled={disabled} className="h-9 flex-none gap-2 px-3">
+        <TabsList
+          variant="workspace"
+          aria-label="Chế độ phân quyền"
+          className="h-auto w-full gap-2 p-0 sm:w-auto"
+        >
+          <TabsTrigger value="role" disabled={disabled} className={modeTabClassName}>
             <ShieldCheck aria-hidden="true" />
             Theo vai trò
           </TabsTrigger>
-          <TabsTrigger value="personal" disabled={disabled} className="h-9 flex-none gap-2 px-3">
+          <TabsTrigger value="personal" disabled={disabled} className={modeTabClassName}>
             <UserRoundCog aria-hidden="true" />
             Theo nhân sự
           </TabsTrigger>

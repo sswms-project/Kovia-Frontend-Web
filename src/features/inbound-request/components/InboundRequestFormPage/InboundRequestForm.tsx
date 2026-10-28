@@ -285,6 +285,7 @@ export function InboundRequestForm({
                 </Field>
                 <DatePickerField
                   id="expectedDate"
+                  withTime
                   triggerRef={register('expectedDate').ref}
                   label="Ngày nhận hàng dự kiến"
                   required

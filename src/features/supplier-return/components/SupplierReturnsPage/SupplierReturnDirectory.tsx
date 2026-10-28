@@ -111,7 +111,10 @@ export function SupplierReturnDirectory({
   onRetry,
 }: SupplierReturnDirectoryProps) {
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
+    <div
+      data-compact-workspace-bottom
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4"
+    >
       <h1 className="sr-only">Trả hàng nhà cung cấp</h1>
       <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">

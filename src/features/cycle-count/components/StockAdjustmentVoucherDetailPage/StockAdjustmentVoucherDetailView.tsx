@@ -64,9 +64,9 @@ export function StockAdjustmentVoucherDetailView({
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b pb-4">
         <div className="flex items-start gap-3">
-          <Button asChild variant="ghost" size="icon">
+          <Button asChild variant="outline" size="icon">
             <Link href={APP_ROUTES.stockAdjustments} aria-label="Quay lại">
-              <ArrowLeft />
+              <ArrowLeft aria-hidden="true" />
             </Link>
           </Button>
           <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center">

@@ -9,7 +9,9 @@ import {
 } from '@/components/operations/OperationalState'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { logger } from '@/lib/logger'
-import { SupplierDetail } from '../components/SupplierDetailPage'
+import { SupplierDetail, SupplierInboundHistory } from '../components/SupplierDetailPage'
+import { useInboundRequestsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
+import { OrderType } from '@/types/api'
 import {
   SupplierDeactivateDialog,
   SupplierEditDialog,
@@ -38,6 +40,25 @@ export default function SupplierDetailPage({ supplierId }: SupplierDetailPagePro
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
   const detailQuery = useSupplierQuery(supplierId)
+  const [historyPaging, setHistoryPaging] = useState({ supplierId, page: 1, pageSize: 10 })
+  const historyPage = historyPaging.supplierId === supplierId ? historyPaging.page : 1
+  if (historyPaging.supplierId !== supplierId)
+    setHistoryPaging({ ...historyPaging, supplierId, page: 1 })
+  const canViewHistory =
+    permissions.includes(P.INBOUND_REQUESTS_VIEW) &&
+    !meQuery.isError &&
+    !detailQuery.isError &&
+    detailQuery.data?.id === supplierId
+  const historyQuery = useInboundRequestsQuery(
+    {
+      supplierId,
+      pageNumber: historyPage,
+      pageSize: historyPaging.pageSize,
+      sortDirection: OrderType.Descending,
+    },
+    canViewHistory
+  )
+  const historyReady = canViewHistory && !historyQuery.isError && !historyQuery.isPlaceholderData
   const updateMutation = useUpdateSupplierMutation()
   const deactivateMutation = useDeactivateSupplierMutation()
   const reactivateMutation = useReactivateSupplierMutation()
@@ -128,7 +149,24 @@ export default function SupplierDetailPage({ supplierId }: SupplierDetailPagePro
           setReactivateError(null)
           setIsReactivateOpen(true)
         }}
-      />
+      >
+        {canViewHistory ? (
+          <SupplierInboundHistory
+            items={historyReady ? (historyQuery.data?.items ?? []) : []}
+            totalCount={historyReady ? (historyQuery.data?.totalCount ?? 0) : 0}
+            page={historyPage}
+            pageSize={historyPaging.pageSize}
+            isLoading={historyQuery.isPending || historyQuery.isPlaceholderData}
+            isFetching={historyQuery.isFetching}
+            isError={historyQuery.isError}
+            onRetry={() => {
+              if (canViewHistory) void historyQuery.refetch()
+            }}
+            onPageChange={(page) => setHistoryPaging({ ...historyPaging, supplierId, page })}
+            onPageSizeChange={(pageSize) => setHistoryPaging({ supplierId, page: 1, pageSize })}
+          />
+        ) : null}
+      </SupplierDetail>
 
       <SupplierEditDialog
         open={isEditOpen}
