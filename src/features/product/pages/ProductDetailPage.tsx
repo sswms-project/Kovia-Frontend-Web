@@ -16,6 +16,7 @@ import {
   Store,
 } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
@@ -503,15 +504,10 @@ export default function ProductDetailPage({ productId }: ProductDetailPageProps)
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Quay lại"
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onClick={() => router.push(APP_ROUTES.products as any)}
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
+          <Button asChild variant="outline" size="icon">
+            <Link href={APP_ROUTES.products} aria-label="Quay lại danh sách sản phẩm">
+              <ArrowLeft aria-hidden="true" />
+            </Link>
           </Button>
           <h1 className="text-lg font-semibold">Chi tiết sản phẩm</h1>
         </div>

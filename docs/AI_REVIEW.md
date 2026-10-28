@@ -1,5 +1,41 @@
 # AI Review Handoff
 
+## 2026-10-28 — Transfer destination names
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Destination map picks include zone/rack codes and names, with code-only fallback when names are blank. Existing allowed source labels, selected IDs, inactive/staging checks remain unchanged. Dropdown already renders the server path; BE now supplies names for lookup, reopened request and initial putaway plan.
+- Verification: 3 map-label tests passed, scoped ESLint and production TypeScript passed. First FE verification process exhausted the Node heap; rerun with a 4096 MB process heap and one Vitest worker passed. No deployed requests or database writes. Browser/device visual acceptance not performed.
+
+## 2026-10-28 — Inventory journal location names
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification; not deployed or independently reviewed.
+
+- Stock movement desktop/mobile results show warehouse, zone code/name, rack code/name and real slot code on separate wrapping lines. Desktop location column widened; system default slots stay hidden. Other inventory format callers are unchanged.
+- Optional zoneName/rackName fields match the additive BE response; legacy API responses still display available codes.
+- Verification: 4 component tests passed, production TypeScript and scoped ESLint passed, diff whitespace checks passed. Tests cover full names and legacy codes in both presentations. No authenticated production/browser acceptance or database commands performed for this change. BE endpoint still needs deployment to supply names.
+
+## 2026-10-28 — Shared back buttons and partner document history
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; no independent review, commit, push or deploy.
+
+- Product detail and forecast use Button outline size icon with actual Links instead of ghost/custom links. Recipient issue history now uses OperationalListPanel/bg-card, shared header tokens and marked scrolling body, preserving its API/behavior.
+- Added SupplierInboundHistory under supplier overview via a children slot. Page owns server paging/newest-first supplier-filtered inbound query; readonly component renders desktop table/mobile cards with links, warehouse, status, existing receiving progress and creation/expected datetime. Supplier page grows naturally rather than compressing history below overview.
+- Optional enabled=true added to existing useInboundRequestsQuery; old caller behavior preserved. New history requires inbound view permission, no auth/detail error and supplier detail ID matching route. Reset paging on supplier change; hide placeholder rows/error cache and history after permission loss. Backend reader already filters tenant/warehouse/draft access; no new BE/API/schema.
+- Four integration tests with real query hooks and mocked service pass: exact supplierId/sort/server page/link/time, missing permission means no fetch, supplier switch resets page/masks stale data, failed refetch/missing permission hides cached history. Production typecheck, scoped ESLint and isolated Next production build passed (../outputs/partner-history-navigation-build-20261028.log).
+- GitNexus impacts all six edited symbols LOW. Playwright fixture imported actual SupplierDetail/history and StockRecipientDetailPage at 360/390/1024/1440px: white panels, no document horizontal overflow, supplier mobile cards and scrollable desktop body. First fixture pass exposed four external requests due to auth alias mock mismatch; fixed resolution and reran with external routing blocked, zero external requests in final pass. No business action/DB write. Screenshots in outputs/partner-history-qa-20261028/; temporary fixture files removed, browser/port4319 closed. Authenticated deployment and physical phone acceptance remain manual.
+- Plan and actual outcomes: docs/features/partner-history-navigation-plan-20261028.md. Earlier uncommitted date/time, cycle-count back and return spacing edits retained; protected local rules/config unchanged.
+
+## 2026-10-28 — Expected receiving date/time in inbound request form
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification; ten focused tests, scoped ESLint, production typecheck and isolated Next production build passed. No independent review or deployment.
+
+- Found that the previous date/time work covered inbound list filters, not the create/edit expected-date field. Enabled existing DatePickerField.withTime in InboundRequestForm; choosing a date defaults the current Vietnam minute and Today sets current date/time via the existing shared component.
+- Save mapping now uses toOperationalDateTimeApi, edit hydration uses toOperationalDateTimeInput. Pass original ExpectedDate to preserve original offset/seconds/fraction when unchanged; date-only choices use the shared optional-time convention. SupplierResponsePage's date-only mapper remains unchanged. Request detail shows the expected time through the shared formatter.
+- Backend ExpectedDate already uses DateTimeOffset: no BE change/migration/API write. Existing submission validation remains by Vietnam calendar day; no new restriction against same-day past minutes.
+- GitNexus impacted form, page, save mapper and overview LOW. Ten focused tests passed for current-minute Today, optional-time changes/clearing, API round trip, offset/precision preservation, legacy dates and filter boundaries. Production typecheck and scoped ESLint passed. Build log: ../outputs/inbound-expected-date-time-build-20261028.log.
+- Protected local rules/config and previous uncommitted return spacing changes retained. No commit/push/deployment, migration/seed or deployed DB writes. Actual authenticated create/update is left for user acceptance.
+
 ## 2026-10-27 — Read-only goods previews for both return lists
 
 State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; no independent review, commit, push or deployment.

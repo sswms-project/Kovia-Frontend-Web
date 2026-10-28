@@ -2,6 +2,7 @@
 
 import { ArrowLeft, CircleOff, Pencil, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import type { Route } from 'next'
 import { Button } from '@/components/ui/button'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -14,6 +15,7 @@ import {
 import { SupplierStatusBadge } from '../SuppliersPage'
 
 interface SupplierDetailProps {
+  readonly children?: ReactNode
   readonly supplier: Supplier
   readonly canUpdate: boolean
   readonly canDeactivate: boolean
@@ -24,6 +26,7 @@ interface SupplierDetailProps {
 }
 
 export function SupplierDetail({
+  children,
   supplier,
   canUpdate,
   canDeactivate,
@@ -33,7 +36,7 @@ export function SupplierDetail({
   onReactivate,
 }: SupplierDetailProps) {
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-5">
+    <div className="flex min-h-full w-full min-w-0 flex-1 flex-col gap-5 pb-3">
       <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <Button asChild variant="outline" size="icon">
@@ -118,6 +121,7 @@ export function SupplierDetail({
           </dl>
         </div>
       </section>
+      {children}
     </div>
   )
 }
