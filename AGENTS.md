@@ -6,6 +6,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Before coding, read `.rules` for baseline React rules and `docs/CODING_GUIDELINES.md` for project-specific structure, reuse, shadcn/ui, and clean code rules.
 
+Before adding or moving files, read `docs/FOLDER_STRUCTURE.md` for the real `src/` layout, ownership, data flow, hooks/forms lifecycle and refactor triggers.
+
 Before implementing UI, read `docs/DESIGN_SYSTEM.md` and follow its visual system.
 
 Before implementing or changing a list/table screen, read `docs/LIST_TABLE_DESIGN_GUIDELINES.md`. Use the shared `OperationalListPanel` and `OperationalPagination` patterns so the list fills the remaining viewport height, only its body scrolls, and pagination stays pinned at the bottom. Do not duplicate fixed `calc(100vh - ...)` height formulas in feature code.
