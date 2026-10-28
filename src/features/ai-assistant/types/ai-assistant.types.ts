@@ -111,4 +111,6 @@ export interface AiActionExecution {
 export interface SendAiChatMessageRequest {
   readonly conversationId: string | null
   readonly message: string
+  /** Trang đang mở, để trợ lý hiểu "kho này", "sản phẩm này". */
+  readonly pagePath?: string
 }

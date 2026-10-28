@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import { usePathname } from 'next/navigation'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse } from '@/types/api'
@@ -46,9 +47,12 @@ export function useAiConversationMessagesQuery(conversationId: string | null) {
 
 export function useSendAiChatMessageMutation() {
   const queryClient = useQueryClient()
+  const pathname = usePathname()
   return useMutation<AiChatResponse, ApiErrorResponse, SendAiChatMessageRequest>({
     mutationFn: (request) =>
-      aiAssistantService.sendMessage(request).then((response) => response.data),
+      aiAssistantService
+        .sendMessage({ ...request, pagePath: request.pagePath ?? pathname })
+        .then((response) => response.data),
     onSuccess: (response) => {
       queryClient.setQueryData<AiConversationMessages>(
         queryKeys.aiAssistant.messages(response.conversationId),
