@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Save, Sparkles, TriangleAlert } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Save, Sparkles, TriangleAlert, Undo2 } from 'lucide-react'
 import { Controller, useWatch, type UseFormReturn } from 'react-hook-form'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +43,7 @@ interface ReviewStepProps {
   readonly isCreatingDraft: boolean
   readonly onSaveReview: () => void
   readonly onCreateDraft: () => void
+  readonly onCancel: () => void
 }
 
 function StatusBadges({
@@ -139,6 +140,7 @@ export function ReviewStep({
   isCreatingDraft,
   onSaveReview,
   onCreateDraft,
+  onCancel,
 }: ReviewStepProps) {
   const formLines = useWatch({ control: form.control, name: 'lines' })
   const review = importData.review
@@ -451,6 +453,10 @@ export function ReviewStep({
           </Table>
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>
+            <Undo2 data-icon="inline-start" aria-hidden="true" />
+            Hủy / Chọn tệp khác
+          </Button>
           <Button type="button" variant="outline" disabled={isPending} onClick={onSaveReview}>
             {isSavingReview ? (
               <Spinner data-icon="inline-start" />

@@ -213,6 +213,15 @@ export default function InboundReceivingPage() {
     importForm.clearErrors()
   }
 
+  function cancelImport() {
+    setImportFile(null)
+    setImportId('')
+    initializedImportIdRef.current = ''
+    setDraftReceiptId(null)
+    importForm.reset({ inboundRequestId: '', acknowledgeWarehouseMismatch: false, lines: [] })
+    importForm.clearErrors()
+  }
+
   function openDocumentImport(task: ReceivingTask) {
     resetImport()
     setImportTask(task)
@@ -577,6 +586,7 @@ export default function InboundReceivingPage() {
         onAnalyze={() => void analyzeDocument()}
         onSaveReview={() => void importForm.handleSubmit(saveDocumentReview)()}
         onCreateDraft={() => void createDraftFromDocument()}
+        onCancelImport={cancelImport}
         onManualFallback={() => {
           if (!importTask) return
           const task = importTask

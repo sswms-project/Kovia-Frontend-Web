@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, FileSearch, PackagePlus, RotateCcw } from 'lucide-react'
+import { AlertCircle, CheckCircle2, FileSearch, PackagePlus, RotateCcw, Undo2 } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -12,6 +12,7 @@ interface ImportStateProps {
   readonly draftReceiptId: string | null
   readonly isLoading: boolean
   readonly onManualFallback: () => void
+  readonly onCancel: () => void
 }
 
 export function ImportState({
@@ -19,6 +20,7 @@ export function ImportState({
   draftReceiptId,
   isLoading,
   onManualFallback,
+  onCancel,
 }: ImportStateProps) {
   if (draftReceiptId) {
     return (
@@ -60,6 +62,10 @@ export function ImportState({
             Hệ thống đang trích xuất, đối chiếu yêu cầu nhập kho và kiểm tra số lượng.
           </p>
         </div>
+        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+          <Undo2 data-icon="inline-start" aria-hidden="true" />
+          Hủy / Chọn tệp khác
+        </Button>
       </div>
     )
   }
@@ -80,7 +86,11 @@ export function ImportState({
                 'Bạn có thể thử lại hoặc tiếp tục nhập hàng thủ công.')}
           </AlertDescription>
         </Alert>
-        <div className="flex justify-end">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            <Undo2 data-icon="inline-start" aria-hidden="true" />
+            Hủy / Chọn tệp khác
+          </Button>
           <Button type="button" variant="outline" onClick={onManualFallback}>
             <RotateCcw data-icon="inline-start" />
             Tiếp tục nhập thủ công

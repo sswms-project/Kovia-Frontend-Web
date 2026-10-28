@@ -28,6 +28,7 @@ export function InboundDocumentImportDialog({
   onSaveReview,
   onCreateDraft,
   onManualFallback,
+  onCancelImport,
   onOpenChange,
 }: InboundDocumentImportDialogProps) {
   const fileError = form.formState.errors.root?.message ?? null
@@ -71,6 +72,7 @@ export function InboundDocumentImportDialog({
               isCreatingDraft={isCreatingDraft}
               onSaveReview={onSaveReview}
               onCreateDraft={onCreateDraft}
+              onCancel={onCancelImport}
             />
           ) : (
             <ImportState
@@ -78,6 +80,7 @@ export function InboundDocumentImportDialog({
               draftReceiptId={draftReceiptId}
               isLoading={isStarting || isLoadingImport}
               onManualFallback={onManualFallback}
+              onCancel={onCancelImport}
             />
           )}
         </div>
