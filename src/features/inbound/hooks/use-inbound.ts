@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CreateReceiptInput, UpdateReceiptInput } from '../types/receipt-commands.types'
 import { receiptCommandId, type ReceiptCommandSnapshot } from '../utils/receipt-command-id'
 import type { LegacyReceiptStockRequest } from '../schemas/legacy-receipt-stock.schema'
@@ -163,6 +163,37 @@ export function usePutawayDeviationReportQuery(
       inboundService.getPutawayDeviationReport(params).then((response) => response.data),
     enabled,
   })
+}
+
+/** Chứng từ gốc nằm ở kho riêng tư: tải qua API (kèm token) rồi tạo URL tạm để xem cạnh form review. */
+export function useInboundDocumentFile(importId: string) {
+  const query = useQuery<Blob, ApiErrorResponse>({
+    queryKey: queryKeys.inboundDocumentImports.document(importId),
+    queryFn: () => inboundService.getDocumentImportFile(importId),
+    enabled: Boolean(importId),
+    staleTime: Infinity,
+    gcTime: 5 * 60_000,
+  })
+  const [url, setUrl] = useState<string | null>(null)
+  const blob = query.data
+
+  useEffect(() => {
+    if (!blob) return
+    const objectUrl = URL.createObjectURL(blob)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUrl(objectUrl)
+    return () => {
+      URL.revokeObjectURL(objectUrl)
+      setUrl(null)
+    }
+  }, [blob])
+
+  return {
+    url,
+    contentType: blob?.type ?? null,
+    isLoading: query.isLoading,
+    isError: query.isError,
+  }
 }
 
 export function useInboundDocumentImportQuery(importId: string) {
