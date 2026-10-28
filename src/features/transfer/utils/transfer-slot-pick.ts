@@ -26,7 +26,7 @@ export function describeSlotPick(
   if (!slot) return null
   const rack = scene.racks.find((candidate) => candidate.id === slot.rackId)
   const zone = scene.zones.find((candidate) => candidate.id === slot.zoneId)
-  const sceneLabel = `Khu ${zone?.zoneCode ?? '—'} / Kệ ${rack?.rackCode ?? '—'} / ${slot.slotCode}`
+  const sceneLabel = `Khu ${[zone?.zoneCode ?? '—', zone?.zoneName?.trim()].filter(Boolean).join(' - ')} / Kệ ${[rack?.rackCode ?? '—', rack?.rackName?.trim()].filter(Boolean).join(' - ')} / ${slot.slotCode}`
   return evaluateSlot(slot, sceneLabel, allowed)
 }
 
@@ -42,7 +42,7 @@ export function describeRackPick(
   const rack = scene.racks.find((candidate) => candidate.id === rackId)
   if (!rack) return null
   const zone = scene.zones.find((candidate) => candidate.id === rack.zoneId)
-  const label = `Khu ${zone?.zoneCode ?? '—'} / Kệ ${rack.rackCode}`
+  const label = `Khu ${[zone?.zoneCode ?? '—', zone?.zoneName?.trim()].filter(Boolean).join(' - ')} / Kệ ${[rack.rackCode, rack.rackName?.trim()].filter(Boolean).join(' - ')}`
   if (rack.storageMode !== 'RackLevel' || !rack.defaultSlotId)
     return {
       slotId: rack.id,

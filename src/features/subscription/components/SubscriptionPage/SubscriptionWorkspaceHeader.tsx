@@ -16,7 +16,7 @@ export function SubscriptionWorkspaceHeader({
 }: SubscriptionWorkspaceHeaderProps) {
   return (
     <header className="flex min-w-0 shrink-0 flex-col gap-3">
-      <h1 className="text-foreground text-xl font-semibold">Gói dịch vụ &amp; thanh toán</h1>
+      <h1 className="sr-only">Gói dịch vụ &amp; thanh toán</h1>
       <nav data-slot="operational-workspace-navigation" aria-label="Gói dịch vụ và thanh toán">
         {canViewPlan ? (
           <Link

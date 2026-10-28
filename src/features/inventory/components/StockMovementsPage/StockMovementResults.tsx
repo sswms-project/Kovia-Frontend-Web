@@ -52,6 +52,27 @@ function MovementBadge({ value }: { readonly value: string }) {
   return <Badge variant="outline">{formatStockMovementType(value)}</Badge>
 }
 
+function MovementLocation({ item }: { readonly item: StockMovement }) {
+  const zone = [item.zoneCode, item.zoneName?.trim()].filter(Boolean).join(' - ')
+  const rack = [item.rackCode, item.rackName?.trim()].filter(Boolean).join(' - ')
+  const showSlot = !item.isSystemDefaultSlot && item.slotCode !== '__SYSTEM_DEFAULT__'
+
+  return (
+    <div className="min-w-0 space-y-1 text-xs wrap-anywhere whitespace-normal">
+      <p className="font-medium">{item.warehouseName || 'Kho chưa xác định'}</p>
+      {zone || rack ? (
+        <div className="text-muted-foreground space-y-1">
+          {zone && <p>Khu vực {zone}</p>}
+          {rack && <p>Kệ {rack}</p>}
+          {showSlot && item.slotCode && <p>Vị trí {item.slotCode}</p>}
+        </div>
+      ) : (
+        <p className="text-muted-foreground">{formatInventoryLocation(item)}</p>
+      )}
+    </div>
+  )
+}
+
 export function StockMovementMobileList({ items }: { readonly items: readonly StockMovement[] }) {
   return (
     <ItemGroup className="gap-0 md:hidden">
@@ -66,10 +87,10 @@ export function StockMovementMobileList({ items }: { readonly items: readonly St
               <span className="font-mono" translate="no">
                 {item.sku || item.productId}
               </span>{' '}
-              · {item.warehouseName || 'Kho chưa xác định'} / {formatInventoryLocation(item)} ·{' '}
-              {item.lotNumber ? `Lô ${item.lotNumber}` : 'Không theo lô'} ·{' '}
+              · {item.lotNumber ? `Lô ${item.lotNumber}` : 'Không theo lô'} ·{' '}
               {formatQualityStatus(item.qualityStatus)}
             </ItemDescription>
+            <MovementLocation item={item} />
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <MovementBadge value={item.movementType} />
               <span className="text-muted-foreground">{formatInventoryDate(item.occurredAt)}</span>
@@ -99,7 +120,7 @@ export function StockMovementDesktopTable({ items }: { readonly items: readonly 
             <TableHead className="sticky top-0 z-10 w-40">Thời gian</TableHead>
             <TableHead className="sticky top-0 z-10 w-36">Loại</TableHead>
             <TableHead className="sticky top-0 z-10 w-64">Sản phẩm</TableHead>
-            <TableHead className="sticky top-0 z-10 w-52">Kho / Vị trí</TableHead>
+            <TableHead className="sticky top-0 z-10 w-72">Kho / Vị trí</TableHead>
             <TableHead className="sticky top-0 z-10 w-36">Lô / Chất lượng</TableHead>
             <TableHead className="sticky top-0 z-10 w-36 text-right">Biến động</TableHead>
             <TableHead className="sticky top-0 z-10 w-36 text-right">Sau biến động</TableHead>
@@ -125,12 +146,7 @@ export function StockMovementDesktopTable({ items }: { readonly items: readonly 
                 </p>
               </TableCell>
               <TableCell className="min-w-0 text-xs">
-                <p className="truncate" title={item.warehouseName || 'Kho chưa xác định'}>
-                  {item.warehouseName || 'Kho chưa xác định'}
-                </p>
-                <p className="text-muted-foreground truncate" title={formatInventoryLocation(item)}>
-                  {formatInventoryLocation(item)}
-                </p>
+                <MovementLocation item={item} />
               </TableCell>
               <TableCell>
                 <p className="truncate font-mono text-xs">{item.lotNumber ?? 'Không theo lô'}</p>

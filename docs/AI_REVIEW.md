@@ -1,5 +1,20 @@
 # AI Review Handoff
 
+## 2026-10-28 — Transfer destination names
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Destination map picks include zone/rack codes and names, with code-only fallback when names are blank. Existing allowed source labels, selected IDs, inactive/staging checks remain unchanged. Dropdown already renders the server path; BE now supplies names for lookup, reopened request and initial putaway plan.
+- Verification: 3 map-label tests passed, scoped ESLint and production TypeScript passed. First FE verification process exhausted the Node heap; rerun with a 4096 MB process heap and one Vitest worker passed. No deployed requests or database writes. Browser/device visual acceptance not performed.
+
+## 2026-10-28 — Inventory journal location names
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification; not deployed or independently reviewed.
+
+- Stock movement desktop/mobile results show warehouse, zone code/name, rack code/name and real slot code on separate wrapping lines. Desktop location column widened; system default slots stay hidden. Other inventory format callers are unchanged.
+- Optional zoneName/rackName fields match the additive BE response; legacy API responses still display available codes.
+- Verification: 4 component tests passed, production TypeScript and scoped ESLint passed, diff whitespace checks passed. Tests cover full names and legacy codes in both presentations. No authenticated production/browser acceptance or database commands performed for this change. BE endpoint still needs deployment to supply names.
+
 ## 2026-10-28 — Shared back buttons and partner document history
 
 State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; no independent review, commit, push or deploy.
