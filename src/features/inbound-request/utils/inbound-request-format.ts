@@ -1,4 +1,5 @@
 import type { InboundRequestFormValues } from '../schemas/inbound-request.schema'
+import { toOperationalDateTimeApi } from '@/lib/operational-date-time'
 import {
   INBOUND_SOURCE_TYPE,
   type InboundRequestStatus,
@@ -72,7 +73,8 @@ export function toOperationalDateTimeEnd(value: string): string {
 }
 
 export function toInboundRequestSaveRequest(
-  values: InboundRequestFormValues
+  values: InboundRequestFormValues,
+  originalExpectedDate?: string | null
 ): SaveInboundRequestRequest {
   return {
     inboundRequestCode: values.inboundRequestCode.trim().toUpperCase(),
@@ -82,7 +84,7 @@ export function toInboundRequestSaveRequest(
     sourceName:
       values.sourceType === INBOUND_SOURCE_TYPE.Supplier ? null : values.sourceName.trim(),
     sourceReference: values.sourceReference.trim() || null,
-    expectedDate: toOperationalDateApiValue(values.expectedDate),
+    expectedDate: toOperationalDateTimeApi(values.expectedDate, originalExpectedDate),
     lines: values.lines.map((line) => ({
       productId: line.productId,
       quantity: line.quantity,

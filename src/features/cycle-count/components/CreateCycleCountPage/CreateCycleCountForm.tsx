@@ -134,9 +134,9 @@ export function CreateCycleCountForm({
       onSubmit={form.handleSubmit((values) => onSubmit(values, 'save'))}
     >
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b pb-2">
-        <Button asChild variant="ghost" size="icon-sm">
+        <Button asChild variant="outline" size="icon">
           <Link href={backHref} onClick={onCancel} aria-label="Quay lại">
-            <ArrowLeft />
+            <ArrowLeft aria-hidden="true" />
           </Link>
         </Button>
         <h1 className="text-base font-semibold">

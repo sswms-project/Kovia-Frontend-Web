@@ -1,4 +1,5 @@
 import { Progress } from '@/components/ui/progress'
+import { formatOperationalOptionalTime } from '@/lib/operational-date-time'
 import { OperationalDocumentInfo } from '@/components/operations/OperationalDocumentInfo'
 import type {
   InboundRequestDetail,
@@ -54,7 +55,14 @@ export function InboundRequestOverview({ request }: { readonly request: InboundR
           label="Nhân viên nhận và cất hàng"
           value={request.receivingAssignedToName ?? 'Chưa phân công'}
         />
-        <Metadata label="Ngày dự kiến" value={formatOperationalDate(request.expectedDate)} />
+        <Metadata
+          label="Ngày dự kiến"
+          value={
+            request.expectedDate
+              ? formatOperationalOptionalTime(request.expectedDate)
+              : 'Chưa xác định'
+          }
+        />
         <Metadata
           label="Người tạo"
           value={`${request.createdByName} · ${formatOperationalDateTime(request.createdAt)}`}

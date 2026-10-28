@@ -71,13 +71,11 @@ export function ForecastRunPanel({
       <header className="flex shrink-0 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           {canViewReports ? (
-            <Link
-              href={APP_ROUTES.reports}
-              aria-label="Quay lại Báo cáo & phân tích"
-              className="text-primary hover:bg-primary/10 focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
-            >
-              <ArrowLeft className="size-5" aria-hidden="true" />
-            </Link>
+            <Button asChild variant="outline" size="icon">
+              <Link href={APP_ROUTES.reports} aria-label="Quay lại Báo cáo & phân tích">
+                <ArrowLeft aria-hidden="true" />
+              </Link>
+            </Button>
           ) : null}
           <h1 className="min-w-0 truncate text-xl font-semibold">Dự báo & bổ sung hàng</h1>
         </div>

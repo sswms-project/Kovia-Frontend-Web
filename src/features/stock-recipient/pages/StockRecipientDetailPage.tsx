@@ -27,6 +27,7 @@ import {
   OperationalLoadingState,
 } from '@/components/operations/OperationalState'
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
+import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { StockIssueRequestStatusBadge } from '@/features/stock-issue/components/StockIssueRequestsPage/StockIssueRequestStatusBadge'
 import { formatStockIssueDate } from '@/features/stock-issue/utils/stock-issue-format'
@@ -229,7 +230,7 @@ export default function StockRecipientDetailPage({
           </div>
         </dl>
       </section>
-      <section className="flex min-h-0 flex-1 flex-col border">
+      <OperationalListPanel aria-label="Lịch sử yêu cầu xuất kho" className="rounded-none">
         <div className="border-b p-3">
           <h2 className="text-sm font-semibold">Lịch sử yêu cầu xuất kho</h2>
         </div>
@@ -247,7 +248,10 @@ export default function StockRecipientDetailPage({
           />
         ) : (
           <>
-            <div className="min-h-0 flex-1 overflow-auto [&>[data-slot=table-container]]:overflow-visible">
+            <div
+              data-slot="operational-list-body"
+              className="[&>[data-slot=table-container]]:overflow-visible"
+            >
               <Table className="min-w-[720px] text-sm">
                 <TableHeader>
                   <TableRow>
@@ -286,7 +290,7 @@ export default function StockRecipientDetailPage({
             />
           </>
         )}
-      </section>
+      </OperationalListPanel>
       <StockRecipientFormDialog
         open={isEditOpen}
         title="Chỉnh sửa khách hàng"
