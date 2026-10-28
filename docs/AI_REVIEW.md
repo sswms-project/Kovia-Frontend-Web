@@ -1,5 +1,64 @@
 # AI Review Handoff
 
+## 2026-10-28 — Transfer destination names
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Destination map picks include zone/rack codes and names, with code-only fallback when names are blank. Existing allowed source labels, selected IDs, inactive/staging checks remain unchanged. Dropdown already renders the server path; BE now supplies names for lookup, reopened request and initial putaway plan.
+- Verification: 3 map-label tests passed, scoped ESLint and production TypeScript passed. First FE verification process exhausted the Node heap; rerun with a 4096 MB process heap and one Vitest worker passed. No deployed requests or database writes. Browser/device visual acceptance not performed.
+
+## 2026-10-28 — Inventory journal location names
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification; not deployed or independently reviewed.
+
+- Stock movement desktop/mobile results show warehouse, zone code/name, rack code/name and real slot code on separate wrapping lines. Desktop location column widened; system default slots stay hidden. Other inventory format callers are unchanged.
+- Optional zoneName/rackName fields match the additive BE response; legacy API responses still display available codes.
+- Verification: 4 component tests passed, production TypeScript and scoped ESLint passed, diff whitespace checks passed. Tests cover full names and legacy codes in both presentations. No authenticated production/browser acceptance or database commands performed for this change. BE endpoint still needs deployment to supply names.
+
+## 2026-10-28 — Shared back buttons and partner document history
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; no independent review, commit, push or deploy.
+
+- Product detail and forecast use Button outline size icon with actual Links instead of ghost/custom links. Recipient issue history now uses OperationalListPanel/bg-card, shared header tokens and marked scrolling body, preserving its API/behavior.
+- Added SupplierInboundHistory under supplier overview via a children slot. Page owns server paging/newest-first supplier-filtered inbound query; readonly component renders desktop table/mobile cards with links, warehouse, status, existing receiving progress and creation/expected datetime. Supplier page grows naturally rather than compressing history below overview.
+- Optional enabled=true added to existing useInboundRequestsQuery; old caller behavior preserved. New history requires inbound view permission, no auth/detail error and supplier detail ID matching route. Reset paging on supplier change; hide placeholder rows/error cache and history after permission loss. Backend reader already filters tenant/warehouse/draft access; no new BE/API/schema.
+- Four integration tests with real query hooks and mocked service pass: exact supplierId/sort/server page/link/time, missing permission means no fetch, supplier switch resets page/masks stale data, failed refetch/missing permission hides cached history. Production typecheck, scoped ESLint and isolated Next production build passed (../outputs/partner-history-navigation-build-20261028.log).
+- GitNexus impacts all six edited symbols LOW. Playwright fixture imported actual SupplierDetail/history and StockRecipientDetailPage at 360/390/1024/1440px: white panels, no document horizontal overflow, supplier mobile cards and scrollable desktop body. First fixture pass exposed four external requests due to auth alias mock mismatch; fixed resolution and reran with external routing blocked, zero external requests in final pass. No business action/DB write. Screenshots in outputs/partner-history-qa-20261028/; temporary fixture files removed, browser/port4319 closed. Authenticated deployment and physical phone acceptance remain manual.
+- Plan and actual outcomes: docs/features/partner-history-navigation-plan-20261028.md. Earlier uncommitted date/time, cycle-count back and return spacing edits retained; protected local rules/config unchanged.
+
+## 2026-10-28 — Expected receiving date/time in inbound request form
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification; ten focused tests, scoped ESLint, production typecheck and isolated Next production build passed. No independent review or deployment.
+
+- Found that the previous date/time work covered inbound list filters, not the create/edit expected-date field. Enabled existing DatePickerField.withTime in InboundRequestForm; choosing a date defaults the current Vietnam minute and Today sets current date/time via the existing shared component.
+- Save mapping now uses toOperationalDateTimeApi, edit hydration uses toOperationalDateTimeInput. Pass original ExpectedDate to preserve original offset/seconds/fraction when unchanged; date-only choices use the shared optional-time convention. SupplierResponsePage's date-only mapper remains unchanged. Request detail shows the expected time through the shared formatter.
+- Backend ExpectedDate already uses DateTimeOffset: no BE change/migration/API write. Existing submission validation remains by Vietnam calendar day; no new restriction against same-day past minutes.
+- GitNexus impacted form, page, save mapper and overview LOW. Ten focused tests passed for current-minute Today, optional-time changes/clearing, API round trip, offset/precision preservation, legacy dates and filter boundaries. Production typecheck and scoped ESLint passed. Build log: ../outputs/inbound-expected-date-time-build-20261028.log.
+- Protected local rules/config and previous uncommitted return spacing changes retained. No commit/push/deployment, migration/seed or deployed DB writes. Actual authenticated create/update is left for user acceptance.
+
+## 2026-10-27 — Read-only goods previews for both return lists
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; no independent review, commit, push or deployment.
+
+- Added a resizable/collapsible goods panel to customer and supplier return directories using OperationalMasterDetail/ListPanel/Pagination. Non-control row activation selects the preview; code links and customer menu Chi tiết retain standalone detail navigation. Mobile has an explicit Xem hàng hóa action and stacked goods cards.
+- Shared useGoodsPreviewSelection extracted from inbound selection; inbound wrapper keeps its API/storage keys and regression tests. Separate customer/supplier boolean preferences, storage-write failure fallback, filter/page/user-scoped selection, placeholder/error masking and removed-row reset. No document content or selected ID persisted.
+- Page-owned detail hooks enabled only for a valid selected document in an open panel; existing detail query cache and mutation invalidation reused. Integration tests use real query hooks and fake services to verify closed-panel gating, filter/permission changes, A-to-B loading and cached refetch failure without stale rows. Customer mapper separates requested/actual condition and marks actual Scrap as Không nhập kho; supplier mapper preserves null vs zero delivery quantities. Existing DTOs suffice; no BE/schema/business mutation changes.
+- Verification: 53/53 tests across 14 files, scoped ESLint, production typecheck and final isolated Next build passed. Playwright fixture with real components at 360/390/1024/1440px plus 1152x720 and 720x450: no document horizontal overflow, mobile explicit-open scroll verified, dark theme inspected. Screenshots: outputs/returns-preview-qa-20261027/. Temporary fixture code removed, browser and port4319 closed. Physical phone/authenticated deployed flow and actual browser zoom remain manual acceptance items.
+- GitNexus symbol impacts LOW for the two pages/directories. Inbound hook is newer than the index, so impact lookup was unavailable and direct callers/tests were inspected. detect_changes aggregate HIGH includes protected pre-existing AGENTS.md/CLAUDE.md changes and broad page hunks; manual diff confirms mutation implementations unchanged. New untracked source reviewed manually. Protected files and backend appsettings were not modified by this task. No production API calls, migration, seed or DB writes.
+- Plan/results: docs/features/returns-goods-preview-plan-20261027.md. Workspace logs: outputs/returns-goods-preview-tests-20261027.log and outputs/returns-goods-preview-build-20261027.log (one level above this repository).
+
+## 2026-10-27 — Goods return restock placement and responsive dialog
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification; no independent review or deployment performed.
+
+- Replaced quarantine-default dependency with document-bound BE options and actual placement payload. Approved quantity/condition are read-only; differences require withdrawal/edit/reapproval. Prefers valid saved location, then original source, then eligible BE option; preserves manual selection across same-version refetches and blocks mismatched versions/loading/errors.
+- Removed unsupported quarantine warehouse settings and their unused mutation/route/service, plus misleading quarantine-default column/instructions in the lot panel. Existing Cách ly inventory statuses are retained. Unrelated legacy lot-impact/block endpoint alignment is not implemented here.
+- Restock dialog now explicitly overrides sm width, contains scrolling and retains reachable actions. Desktop uses a table; narrow screens use the same rows as stacked cards with quantity, condition and destination labels. Does not await unrelated query refetches before completing a successful restock.
+- Validation: full remaining FE suite 77/77 (12 files), scoped ESLint and production Next build including TypeScript/static generation passed. New integration tests cover autofill, saved slot preference, dirty selection persistence, exact placement payload and stale version blocking.
+- Playwright used only a temporary Vite fixture importing the real dialog, with fake data and no business API. At 390x844, 1024x576 and 1280x720, dialog/footer stay within viewport and no body horizontal overflow. Screenshots in workspace outputs/goods-return-popup-\*-20261027.png. Fixture source removed, browser and port 4319 closed. Actual device/125% browser zoom and authenticated deployed flow remain manual acceptance items.
+- Kept prior requested ProductDetailSidebar white-card change. Preserved pre-existing local AGENTS.md/CLAUDE.md edits. No commit/push requested in this turn; no production API calls or DB writes.
+- Deploy compatible BE restock/restock-options before FE. See workspace outputs/ke-hoach-sua-nhap-lai-hang-tra-20261027.md.
+
 ## 2026-10-25 — Pre-PR integration and final check of mixed-item fix
 
 State: APPROVED_FINAL for dev integration based on implementer self-review/local verification; not independent review or production deployment approval.
@@ -2560,3 +2619,66 @@ READY_FOR_CODEX_REVIEW (assigned integrator; self-verification).
 - Full currently present suite:67/67 tests in10files passed. The earlier138-test evidence predates dev's removals and is not claimed for this merged tree. Scoped ESLint and whitespace checks passed. GitNexus staged analysis MEDIUM; indexed flows include warehouse designer/directory, supplemented by direct diff inspection for incoming refactors.
 - Production build tracked in workspace outputs/pr253-conflict-build-20261026.log; final result recorded after completion. Local AGENTS.md/CLAUDE.md and outputs kept outside merge commit. No application server, business API, DB write, migration or BE source change. PR283 is already merged by the user; PR253 remains for the user to merge after this branch update.
 - Final production webpack build completed successfully (exit0), including TypeScript and all74pages. Six retained test files remain unchanged from the pre-merge reviewed versions; no unresolved Git entries. Protected local instruction hashes verified before commit.
+
+## 2026-10-27 — Supplier return receiving-source selection
+
+READY_FOR_CODEX_REVIEW (implementer self-verification; not independent approval).
+
+- Create/edit dialog now follows Warehouse → Supplier → Source receipt → Current stock → Reason/Note. Reuses LookupCombobox and existing UI primitives, server pagination/search, SKU - product labels and zone/rack/slot descriptions. Choosing another warehouse/supplier/source clears incompatible lines. Query keys include all source context; no cross-source placeholder data, and failures/loading prevent stale additions.
+- UI requires source receipt and checks aggregate product/lot allowance across selected positions, with BE as final authority. Receipt-based options do not require catalog ProductSupplier mapping. Current-stock sources, pooled non-lot attribution and conservative old-return deduction are explained. Detail shows receipt source/link only when page supplies view capability.
+- Full existing FE suite84/84 passed; scoped ESLint, production-config TypeScript and production build passed. Three new test files cover schema, source switching/error states and form selection/allowance behavior. Also corrected optional indexing in the preceding restock test exposed by production typechecking; no restock business change.
+- Real dialog verified in browser using fake fixtures only at390×844,1280×720,1024×576: dialog/content within viewport width, scroll reaches footer. Screenshots in shared outputs/supplier-return-popup-\*-20261027.png. Own temporary fixture/browser/server cleaned up; no business API/login/QA data or deployment. Only browser error was the fixture favicon404.
+- GitNexus aggregate scope LOW, with direct source review for new symbols. Matching BE and migration20261027053838_AddSupplierReturnReceiptSource are required before feature runtime. Migration NOT applied; production SQL concurrency and deployed integration remain unverified. Local instruction/configuration files retained; no commit/push for this addition.
+
+## 2026-10-27 — Customer return create-dialog width
+
+READY_FOR_CODEX_REVIEW (implementer self-verification).
+
+- Increased create/edit dialog maximum width from2xl to4xl, kept viewport-height scrolling, and allocated a larger desktop column to condition/return location. At intermediate widths that column spans its own row; phone layout remains stacked. No payload, validation or business behavior changed.
+- GitNexus pre-change impact LOW: one direct page caller. Scoped ESLint and whitespace checks passed. Real component with fake data inspected at1280×900 and390×844: desktop dialog896px, location450px; mobile dialog358px, location298px; no horizontal page overflow. Temporary browser/server/fixture removed. Screenshots in shared outputs/customer-return-width-\*.png; no live API/DB calls.
+
+## 2026-10-27 — Goods previews for remaining inbound tabs
+
+READY_FOR_CODEX_REVIEW (implementer self-verification; not independent review).
+
+- Receiving, receipt and putaway pages now use InboundMasterDetail/OperationalMasterDetail already shared with transfers. Non-control row clicks select without opening; links retain detail navigation. Real toolbar actions open selected goods; mobile cards select+open in one click, scrolling only for that explicit action. Separate preference keys, exact-filter selection context, no placeholder selection or state object copies; removed rows do not resurrect on refetch. Receipt detail enabled only for an expanded selection with effective View permission; approval allowed-actions remains independent.
+- Stage-specific read-only preview: receiving shows only task's remaining lines and API remaining quantity; receipt separates received/usable/damaged/rejected; putaway uses remaining plans rather than placement history. All quantities stay in base units with conversion snapshots as advisory text. Missing optional numbers show unknown, system-default slots stop at rack, zone fallback explicit, kept-at-receiving quantities are not relabeled as completed shelving/available inventory. No write-form/mutation behavior changed.
+- Added optional wrapper title/anchor preserving existing defaults. Shared goodsPreviewInteractions now ignores labels, role controls, ignored regions, portal events and text selection. Impact HIGH (six indexed callers across three modules), warned before edit; focused interaction tests and existing master-detail/full-suite regressions run. Post-change GitNexus FE scope HIGH; new symbols supplemented by direct review.
+- Full existing FE suite96/96 passed (19files); scoped ESLint, production TypeScript and production build passed. New tests cover stage arithmetic/units/missing metadata, source-plan semantics, context switches/removed/placeholder selection, explicit mobile scrolling, interaction guards and receipt-page lazy loading, stale detail IDs, effective permission and error states. No tests removed or assertions weakened.
+
+- Browser QA with real components/fake data across all three tabs at390×844,768×1024,1280×720,1024×576: no document horizontal overflow/internal slot code, separate footer pagination and responsive cards. Mobile open brings detail into view; desktop dragging, collapse and reopen exercised. Screenshots/check scripts in shared outputs/inbound-preview-_ and inbound-stage-_. Temporary fixture/browser/server removed. Fixture initially needed process shim/TooltipProvider outside Next shell; final fixture reload rendered normally, not evidence of an application defect.
+- No authenticated deployed/full-device/business workflow run or API benchmark claimed. Matching BE adds zone metadata, no migration/schema change for this feature. No DB/API writes, runtime restart, commit or push; protected instructions/config files unchanged.
+
+## 2026-10-27 — Actual return conditions, visible isolation setup and receiving quantity labels
+
+READY_FOR_CODEX_REVIEW (implementer self-review; not independent approval).
+
+- Restored actual Còn tốt/Hư hỏng/Hết hạn/Hủy bỏ selection at customer-return restock per explicit user correction. Condition changes reset destination and use only matching server condition options. Original/saved good-stock locations remain suggested; damaged/expired use configured isolation points; missing choices/loading/errors/version mismatch block confirmation. Scrap removes destination. Sends condition with exact item IDs/selected slots/version; quantity remains immutable. Return detail displays actual condition when available; original approval is retained by BE.
+- Restored warehouse-detail Khu vực cách ly row with Vietnamese label, current points/default and Cấu hình action from effective configure-layout permission. Chooses an existing active zone or creates a new one using existing ZoneFormSheet and create/update mutations/version guard. Zone form has explicit isolation choice + independent default checkbox, also available in designer/layout setup. No automatic conversion of legacy locations or removal of existing staging points.
+- Staff receiving inputs renamed to SL thực nhận / SL từ chối nhận (historical received field SL thực nhận đã ghi), summary Hàng đạt. Quantity/acceptance/refusal/stock calculations unchanged.
+- GitNexus primary FE component/page impact LOW; return and warehouse shared BE impact warnings recorded in matching BE handoff. Full FE suite100/100 passed, final focused12/12, scoped feature ESLint, production TypeScript and production build passed. Updated tests assert all actual choices, isolation destination reset, missing isolation blocking, Scrap, version mismatch, preserved manual choice after background refresh, condition payload and rack-level purpose visibility/permission. Warehouse row uses rack metadata because layout API deliberately hides technical default slots; matching BE projection test protects this regression.
+- Real components verified with fake fixtures only at390×844,768×844,1280×844: no restock dialog horizontal overflow, correct isolation autofill, warehouse configure→zone form with isolation preselected. Screenshots ../outputs/isolation-return-_.png and isolation-zone-_.png inspected. Only console error was fixture favicon404. Own QA browser/server/temporary fixture removed; no business API/login/database writes or deployment.
+- Requires matching BE and migration20261027081945_AddIsolationPointsAndReturnActualCondition before runtime. Migration NOT applied. No commit/push requested; protected local instructions/configuration and unrelated outputs preserved.
+
+## 2026-10-27 — Whole-day working-branch review, round 1
+
+APPROVED_FINAL for FE High/Blocker gate only; one Medium remains OPEN. Overall release blocked by paired BE High F1. Implementer self-review, not independent approval.
+
+- Scope5e4327c5..09cb4fcc, all four commits today, paired with BEacbe7012..6989ff12. User-requested source commit completed locally first; no push or source fixes in review.
+- OPEN F2 Medium/P2: SupplierReturnsPage.openEdit (line240) omits sourceGroupKey/sourceRemainingQuantity from hydrated saved lines. CreateSupplierReturnDialog computes selected source quantity only by that group, and schema validates aggregate only when metadata exists. Source allowance10, saved8 at A + new8 at B is accepted by frontend schema although total16 exceeds10. BE still rejects it before reserving/saving, so no inventory corruption; user gets misleading remaining quantity and a late conflict on save. Hydrate current source allowance/group for every saved line, including stocks outside the active picker page, and test edit round-trip.
+- Evidence/full findings: ../outputs/review-working-branches-20261027.md and today-review-fe-repro.log. Existing100 passing FE tests lack this case; new review probe fails as expected. Temporary test removed from default discovery after capture. No live API/DB/device workflow or deploy claimed. Review notes intentionally remain separate from committed source.
+
+## 2026-10-27 — Fix whole-day review findings F1/F2
+
+READY_FOR_FINAL_REVIEW (assigned implementer self-verification).
+
+- F1 fixed: shared getPutawaySlotOptions excludes rack-level and slot-level explicit isolation points for good-stock placement, affecting inbound plan/actual and transfer capacity choices. Transfer receiving sends IncludeIsolation only while checking receiving-flow-v2 damaged stock, retaining legitimate isolation options; normal storage lookup stays filtered. Paired BE enforces final placement purpose.
+- F2 fixed: openEdit hydrates sourceGroupKey from product/lot and SourceRemainingQuantity from matching BE detail for every existing draft line; no dependency on active search page. Existing picker and schema now count saved quantities towards the source allowance. Missing server metadata becomes0 rather than allowing an unchecked aggregate. Source context changes still clear incompatible lines, and BE rechecks current stock/source at save/submit.
+  -103tests passed in22files. New real-page hydration/schema test rejects8+8 against allowance10 and accepts8+2 with an empty stock-search response. Existing real-dialog test extended: saved8atA absent from current picker page lowers newBat12allowance to4. Rack/slot purpose filter regression test added. Production TypeScript and scoped lint pass; fixed two prior WarehouseDetailPage.test query typings (`exact` is unsupported by Testing Library getByRole) without changing test behavior. Production build checked separately. No visible layout redesign or new primitive; no live API/browser business workflow claimed.
+- No migration/schema/deployment or DB writes, no runtime restart, commit or push. Prior protected instructions/config/output files preserved. F1/F2 implementation ready for final focused self-review, not independent approval.
+
+### Final focused self-review
+
+APPROVED_FINAL for F1/F2 in the reviewed scope (self-review, not independent approval).
+
+- Rechecked actual page edit hydration, saved-line grouping, current picker-page independence, normal-location filters and damaged-receiving opt-in.103tests, production TypeScript, scoped ESLint and Next production build passed. No remaining High/Blocker or original Medium F2 in this focused review; no authenticated live application workflow claimed. F1/F2 CLOSED. Stop review loop.

@@ -16,7 +16,14 @@ import {
   toOperationalDateTimeStart,
 } from '@/features/inbound-request/utils/inbound-request-format'
 import { OperationalCountTile } from '@/components/operations/OperationalCountTile'
-import { InboundPageHeader } from '../components/InboundWorkspace'
+import {
+  InboundPageHeader,
+  InboundMasterDetail,
+  InboundStageGoodsPreview,
+} from '../components/InboundWorkspace'
+import { INBOUND_STATUS_LABELS } from '../utils/inbound-format'
+import { useInboundGoodsSelection } from '../hooks/use-inbound-goods-selection'
+import { receiptStageGoodsRows } from '../utils/inbound-goods-preview'
 import {
   PutawayDeviationReportSheet,
   PutawayDirectory,
@@ -25,7 +32,11 @@ import {
 } from '../components/PutawayPage'
 import { AssignWarehouseTaskDialog } from '../components/TaskAssignment'
 import { useAssignWarehouseTask } from '../hooks/use-assign-warehouse-task'
-import { usePutawayDeviationReportQuery, usePutawayTasksQuery } from '../hooks/use-inbound'
+import {
+  useGoodsReceiptQuery,
+  usePutawayDeviationReportQuery,
+  usePutawayTasksQuery,
+} from '../hooks/use-inbound'
 import { useWarehouseTaskAssignmentAccess } from '../hooks/use-warehouse-task-assignment-access'
 import type { GoodsReceiptSummary, PutAwayDeviationReportQuery } from '../types/inbound.types'
 
@@ -62,6 +73,25 @@ export default function InboundPutawayPage() {
     ...(canAssign && assignmentFilter === 'unassigned' ? { unassigned: true } : {}),
   }
   const query = usePutawayTasksQuery(exportFilters)
+  const preview = useInboundGoodsSelection(
+    'putaway',
+    JSON.stringify([exportFilters, searchText]),
+    (query.data?.items ?? []).map((item) => item.id),
+    !query.isError &&
+      !query.isPlaceholderData &&
+      searchText.trim() === debouncedSearchText.trim() &&
+      Boolean(meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW))
+  )
+  const previewItem = preview.id
+    ? query.data?.items.find((item) => item.id === preview.id)
+    : undefined
+  const previewQuery = useGoodsReceiptQuery(
+    preview.expanded && previewItem && meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_VIEW)
+      ? previewItem.id
+      : ''
+  )
+  const previewDetail =
+    previewItem && previewQuery.data?.id === previewItem.id ? previewQuery.data : undefined
 
   function openAssign(receipt: GoodsReceiptSummary) {
     assignment.open({
@@ -119,52 +149,85 @@ export default function InboundPutawayPage() {
           </Button>
         ) : null}
       </div>
-      <PutawayDirectory
-        exportAction={
-          listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+      <InboundMasterDetail
+        title="Chi tiết hàng hóa"
+        detailAnchorId={preview.anchorId}
+        expanded={preview.expanded}
+        onExpandedChange={preview.setExpanded}
+        referenceCode={previewItem?.receiptCode}
+        detail={
+          <InboundStageGoodsPreview
+            key={preview.id || 'empty'}
+            stage="putaway"
+            rows={receiptStageGoodsRows(previewDetail?.items ?? [], 'putaway')}
+            selected={Boolean(previewItem)}
+            isLoading={Boolean(previewItem) && !previewDetail && !previewQuery.isError}
+            isError={query.isError || previewQuery.isError}
+            statusLabel={previewDetail ? INBOUND_STATUS_LABELS[previewDetail.status] : undefined}
+            onRetry={() => void (query.isError ? query.refetch() : previewQuery.refetch())}
+          />
         }
-        items={query.data?.items ?? []}
-        totalCount={query.data?.totalCount ?? 0}
-        page={page}
-        pageSize={pageSize}
-        searchText={searchText}
-        createdFrom={createdFrom}
-        createdTo={createdTo}
-        sortDirection={sortDirection}
-        onSortDirectionChange={(value) => {
-          setSortDirection(value)
-          setPage(1)
-        }}
-        isLoading={query.isFetching}
-        isFetching={query.isFetching}
-        isError={query.isError}
-        onSearchChange={(value) => {
-          setSearchText(value)
-          setPage(1)
-        }}
-        onCreatedFromChange={(value) => {
-          setCreatedFrom(value)
-          setPage(1)
-        }}
-        onCreatedToChange={(value) => {
-          setCreatedTo(value)
-          setPage(1)
-        }}
-        onPageChange={setPage}
-        onPageSizeChange={(value) => {
-          setPageSize(value)
-          setPage(1)
-        }}
-        onRetry={() => void query.refetch()}
-        currentUserId={currentUserId}
-        canAssign={canAssign}
-        assignmentFilter={assignmentFilter}
-        onAssignmentFilterChange={(value) => {
-          setAssignmentFilter(value)
-          setPage(1)
-        }}
-        onAssign={openAssign}
-      />
+      >
+        <PutawayDirectory
+          previewId={preview.id}
+          onPreview={(item, open) => preview.select(item.id, open)}
+          previewAction={
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!previewItem}
+              aria-label={previewItem ? `Xem hàng hóa ${previewItem.receiptCode}` : 'Xem hàng hóa'}
+              onClick={() => preview.select(preview.id, true)}
+            >
+              Xem hàng hóa
+            </Button>
+          }
+          exportAction={
+            listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
+          }
+          items={query.data?.items ?? []}
+          totalCount={query.data?.totalCount ?? 0}
+          page={page}
+          pageSize={pageSize}
+          searchText={searchText}
+          createdFrom={createdFrom}
+          createdTo={createdTo}
+          sortDirection={sortDirection}
+          onSortDirectionChange={(value) => {
+            setSortDirection(value)
+            setPage(1)
+          }}
+          isLoading={query.isFetching}
+          isFetching={query.isFetching}
+          isError={query.isError}
+          onSearchChange={(value) => {
+            setSearchText(value)
+            setPage(1)
+          }}
+          onCreatedFromChange={(value) => {
+            setCreatedFrom(value)
+            setPage(1)
+          }}
+          onCreatedToChange={(value) => {
+            setCreatedTo(value)
+            setPage(1)
+          }}
+          onPageChange={setPage}
+          onPageSizeChange={(value) => {
+            setPageSize(value)
+            setPage(1)
+          }}
+          onRetry={() => void query.refetch()}
+          currentUserId={currentUserId}
+          canAssign={canAssign}
+          assignmentFilter={assignmentFilter}
+          onAssignmentFilterChange={(value) => {
+            setAssignmentFilter(value)
+            setPage(1)
+          }}
+          onAssign={openAssign}
+        />
+      </InboundMasterDetail>
       <PutawayDeviationReportSheet
         open={reportOpen}
         rangeDays={reportRange}

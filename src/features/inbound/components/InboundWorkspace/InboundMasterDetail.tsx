@@ -7,6 +7,8 @@ import { OperationalMasterDetail } from '@/components/operations/OperationalMast
 export const INBOUND_DETAIL_STORAGE_KEY = 'inbound-goods-detail:v1'
 
 interface InboundMasterDetailProps {
+  readonly title?: string
+  readonly detailAnchorId?: string
   readonly children: ReactNode
   readonly detail: ReactNode
   readonly referenceCode?: string
@@ -15,6 +17,8 @@ interface InboundMasterDetailProps {
 }
 
 export function InboundMasterDetail({
+  title = 'Chi tiết hàng hóa',
+  detailAnchorId,
   children,
   detail,
   referenceCode,
@@ -28,9 +32,12 @@ export function InboundMasterDetail({
       onExpandedChange={onExpandedChange}
       detailId={detailId}
       detail={
-        <OperationalListPanel id={detailId} aria-label="Chi tiết hàng hóa" hidden={!expanded}>
-          <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-2">
-            <h2 className="text-sm font-semibold">Chi tiết hàng hóa</h2>
+        <OperationalListPanel id={detailId} aria-label={title} hidden={!expanded}>
+          <header
+            id={detailAnchorId}
+            className="flex min-h-11 shrink-0 scroll-mt-20 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-2"
+          >
+            <h2 className="text-sm font-semibold">{title}</h2>
             {referenceCode ? (
               <span className="text-muted-foreground font-mono text-xs">{referenceCode}</span>
             ) : null}

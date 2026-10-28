@@ -80,7 +80,7 @@ export function ZoneFormSheet({
   onOpenChange,
   onSubmit,
 }: LocationFormSheetProps<ZoneFormValues> & {
-  readonly stagingDefaults?: { receiving?: boolean; outbound?: boolean }
+  readonly stagingDefaults?: { receiving?: boolean; outbound?: boolean; isolation?: boolean }
 }) {
   const form = useForm<ZoneFormValues>({ resolver: zodResolver(zoneSchema), defaultValues })
   const { errors } = form.formState
@@ -93,6 +93,8 @@ export function ZoneFormSheet({
     control: form.control,
     name: 'createOutboundStagingPoint',
   })
+
+  const createIsolationPoint = useWatch({ control: form.control, name: 'createIsolationPoint' })
 
   const [isClosing, setIsClosing] = useState(false)
 
@@ -177,15 +179,21 @@ export function ZoneFormSheet({
                   aria-labelledby="zone-staging-label"
                   aria-describedby="zone-staging-description"
                   value={
-                    createReceivingPoint
-                      ? 'receiving'
-                      : createOutboundStagingPoint
-                        ? 'outbound'
-                        : 'none'
+                    createIsolationPoint
+                      ? 'isolation'
+                      : createReceivingPoint
+                        ? 'receiving'
+                        : createOutboundStagingPoint
+                          ? 'outbound'
+                          : 'none'
                   }
                   disabled={isPending || form.formState.isSubmitting}
                   onValueChange={(value) => {
                     form.setValue('setAsDefaultStagingPoint', null, { shouldDirty: true })
+                    form.setValue('createIsolationPoint', value === 'isolation', {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
                     form.setValue('createReceivingPoint', value === 'receiving', {
                       shouldDirty: true,
                     })
@@ -211,16 +219,24 @@ export function ZoneFormSheet({
                     <RadioGroupItem id="zone-staging-outbound" value="outbound" />
                     <FieldLabel htmlFor="zone-staging-outbound">Điểm chờ xuất</FieldLabel>
                   </Field>
+                  <Field orientation="horizontal">
+                    <RadioGroupItem id="zone-staging-isolation" value="isolation" />
+                    <FieldLabel htmlFor="zone-staging-isolation">
+                      Điểm cách ly hàng hỏng / hết hạn
+                    </FieldLabel>
+                  </Field>
                 </RadioGroup>
-                {(createReceivingPoint || createOutboundStagingPoint) && (
+                {(createReceivingPoint || createOutboundStagingPoint || createIsolationPoint) && (
                   <Field orientation="horizontal">
                     <Checkbox
                       id="zone-default-staging"
                       checked={
                         setAsDefaultStagingPoint ??
-                        (createReceivingPoint
-                          ? stagingDefaults?.receiving
-                          : stagingDefaults?.outbound) ??
+                        (createIsolationPoint
+                          ? stagingDefaults?.isolation
+                          : createReceivingPoint
+                            ? stagingDefaults?.receiving
+                            : stagingDefaults?.outbound) ??
                         false
                       }
                       disabled={isPending || form.formState.isSubmitting}

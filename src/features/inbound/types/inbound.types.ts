@@ -181,6 +181,8 @@ export interface PutAwayPlanLine {
   slotId: string
   slotCode: string
   rackCode: string
+  zoneCode?: string | null
+  zoneName?: string | null
   isSystemDefaultSlot: boolean
   quantity: number
 }

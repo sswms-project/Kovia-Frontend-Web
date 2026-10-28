@@ -27,7 +27,7 @@ export function ProductDetailSidebar({ product }: ProductDetailSidebarProps) {
   return (
     <div className="flex flex-col gap-4">
       {/* Product identity */}
-      <div className="bg-muted/30 flex flex-col items-center gap-3 rounded-lg border p-5 text-center">
+      <div className="bg-card flex flex-col items-center gap-3 rounded-lg border p-5 text-center">
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
@@ -52,7 +52,7 @@ export function ProductDetailSidebar({ product }: ProductDetailSidebarProps) {
       </div>
 
       {/* Meta rows */}
-      <div className="rounded-lg border px-4">
+      <div className="bg-card rounded-lg border px-4">
         <DetailRow
           label="Nhóm VTHH"
           value={

@@ -143,6 +143,8 @@ export interface StockMovement {
   warehouseName?: string | null
   zoneCode?: string | null
   rackCode?: string | null
+  zoneName?: string | null
+  rackName?: string | null
   isSystemDefaultSlot?: boolean
   unitName?: string | null
   referenceCode?: string | null

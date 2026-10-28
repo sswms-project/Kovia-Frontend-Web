@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
+import { toOperationalDateTimeInput } from '@/lib/operational-date-time'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDialog'
@@ -61,7 +62,6 @@ import {
   mergeLookupOptions,
   isPastInboundExpectedDate,
   toInboundRequestSaveRequest,
-  toOperationalDateInputValue,
 } from '../utils/inbound-request-format'
 
 const EMPTY_LINE = { productId: '', quantity: 1, unitId: '' }
@@ -219,7 +219,7 @@ export default function InboundRequestFormPage({
       supplierId: detail.supplierId ?? '',
       sourceName: detail.sourceName ?? '',
       sourceReference: detail.sourceReference ?? '',
-      expectedDate: toOperationalDateInputValue(detail.expectedDate),
+      expectedDate: toOperationalDateTimeInput(detail.expectedDate),
       lines: detail.lines.map((line) => ({
         productId: line.productId,
         quantity: line.enteredQuantity,
@@ -256,7 +256,7 @@ export default function InboundRequestFormPage({
     let savedId = inboundRequestId ?? createdInboundRequestId.current
     const autoApproved = !savedId && isOwner
     try {
-      const request = toInboundRequestSaveRequest(values)
+      const request = toInboundRequestSaveRequest(values, detailQuery.data?.expectedDate)
       if (savedId) {
         await updateMutation.mutateAsync({
           inboundRequestId: savedId,

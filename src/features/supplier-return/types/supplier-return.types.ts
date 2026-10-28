@@ -1,6 +1,7 @@
 import type {
   InventoryEligibilityStatus,
   QualityStatus,
+  InventoryStock,
 } from '@/features/inventory/types/inventory.types'
 
 // Mirrors Kovia_BE Contract/Models/SupplierReturn/SupplierReturnResponses.cs.
@@ -15,6 +16,7 @@ export const SUPPLIER_RETURN_STATUSES = [
 export type SupplierReturnStatus = (typeof SUPPLIER_RETURN_STATUSES)[number]
 
 export interface SupplierReturnItem {
+  readonly sourceRemainingQuantity?: number | null
   readonly availableQuantity?: number | null
   readonly zoneCode?: string | null
   readonly rackCode?: string | null
@@ -37,6 +39,8 @@ export interface SupplierReturnItem {
 }
 
 export interface SupplierReturn {
+  readonly sourceGoodsReceiptId?: string | null
+  readonly sourceGoodsReceiptCode?: string | null
   allowedActions?: readonly string[] | null
   history?: readonly import('@/types/return-document').ReturnDocumentEvent[] | null
   readonly version?: string | null
@@ -92,11 +96,25 @@ export interface SupplierReturnListQuery {
 }
 
 export interface CreateSupplierReturnRequest {
+  readonly sourceGoodsReceiptId: string
   readonly warehouseId: string
   readonly supplierId: string
   readonly lines: readonly { inventoryStockId: string; quantity: number }[]
   readonly reason: string
   readonly negotiationNote?: string
+}
+
+export interface SupplierReturnReceiptOption {
+  readonly id: string
+  readonly receiptCode: string
+  readonly createdAt: string
+}
+
+export interface SupplierReturnStockOption extends InventoryStock {
+  readonly sourceReceivedQuantity: number
+  readonly sourceRemainingQuantity: number
+  readonly returnableQuantity: number
+  readonly unattributedReturnedQuantity: number
 }
 
 export interface SupplierReturnReasonRequest {

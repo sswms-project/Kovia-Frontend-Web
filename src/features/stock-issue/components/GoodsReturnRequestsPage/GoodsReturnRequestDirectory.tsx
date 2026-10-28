@@ -4,7 +4,11 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import { APP_ROUTES } from '@/routes/app-routes'
 
-import { ClickableTableRow } from '@/components/operations/ClickableTableRow'
+import {
+  ReturnGoodsWorkspace,
+  type ReturnGoodsWorkspaceState,
+} from '@/components/operations/ReturnGoodsWorkspace'
+import { goodsPreviewInteractions } from '@/features/inbound/utils/goods-preview-interactions'
 import { Check, Eye, MoreHorizontal, Plus, Search, Undo2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,7 +27,6 @@ import {
   ItemGroup,
   ItemTitle,
 } from '@/components/ui/item'
-import { rowActivationProps } from '@/features/inbound/utils/row-activation-props'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -51,6 +54,7 @@ import { RETURN_STATUS_LABELS, formatStockIssueDate } from '../../utils/stock-is
 import { GoodsReturnRequestStatusBadge } from './GoodsReturnRequestStatusBadge'
 
 interface GoodsReturnRequestDirectoryProps {
+  readonly goodsPreview?: ReturnGoodsWorkspaceState
   readonly detailHref?: (id: string) => string
   readonly items: readonly GoodsReturnRequestSummary[]
   readonly totalCount: number
@@ -83,6 +87,7 @@ interface GoodsReturnRequestDirectoryProps {
 }
 
 export function GoodsReturnRequestDirectory({
+  goodsPreview,
   detailHref = APP_ROUTES.goodsReturnRequestDetail,
   items,
   totalCount,
@@ -159,7 +164,10 @@ export function GoodsReturnRequestDirectory({
     </DropdownMenu>
   )
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
+    <div
+      data-compact-workspace-bottom
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4"
+    >
       <h1 className="sr-only">Yêu cầu trả hàng</h1>
       <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
@@ -172,159 +180,183 @@ export function GoodsReturnRequestDirectory({
           </Button>
         ) : null}
       </header>
-      <OperationalListPanel
-        className="max-md:[&>[data-slot=table-container]]:hidden"
-        aria-label="Danh sách phiếu hoàn hàng"
-      >
-        <div className="flex shrink-0 flex-col gap-3 border-b p-3">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold">Danh sách yêu cầu trả hàng</h2>
-          </div>
-          <div
-            role="search"
-            aria-label="Bộ lọc yêu cầu trả hàng"
-            className="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(14rem,2fr)_repeat(2,minmax(9rem,1fr))_repeat(2,minmax(9.5rem,1fr))]"
-          >
-            <InputGroup className="min-w-0">
-              <InputGroupAddon>
-                <Search aria-hidden="true" />
-              </InputGroupAddon>
-              <InputGroupInput
-                aria-label="Tìm yêu cầu trả hàng"
-                placeholder="Tìm yêu cầu trả hàng…"
-                value={searchText}
-                onChange={(event) => onSearchChange(event.target.value)}
+      <ReturnGoodsWorkspace preview={goodsPreview}>
+        <OperationalListPanel
+          className="max-md:[&>[data-slot=table-container]]:hidden"
+          aria-label="Danh sách phiếu hoàn hàng"
+        >
+          <div className="flex shrink-0 flex-col gap-3 border-b p-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Danh sách yêu cầu trả hàng</h2>
+            </div>
+            <div
+              role="search"
+              aria-label="Bộ lọc yêu cầu trả hàng"
+              className="grid w-full min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[minmax(14rem,2fr)_repeat(2,minmax(9rem,1fr))_repeat(2,minmax(9.5rem,1fr))]"
+            >
+              <InputGroup className="min-w-0">
+                <InputGroupAddon>
+                  <Search aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  aria-label="Tìm yêu cầu trả hàng"
+                  placeholder="Tìm yêu cầu trả hàng…"
+                  value={searchText}
+                  onChange={(event) => onSearchChange(event.target.value)}
+                />
+              </InputGroup>
+              <NativeSelect
+                className="w-full min-w-0"
+                aria-label="Lọc trạng thái yêu cầu trả hàng"
+                value={status}
+                onChange={(event) =>
+                  onStatusChange(event.target.value as GoodsReturnRequestStatus | '')
+                }
+              >
+                <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+                {Object.entries(RETURN_STATUS_LABELS).map(([value, label]) => (
+                  <NativeSelectOption key={value} value={value}>
+                    {label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <NativeSelect
+                className="w-full min-w-0"
+                aria-label="Lọc kho nhận hàng trả"
+                value={warehouseId}
+                onChange={(event) => onWarehouseChange(event.target.value)}
+              >
+                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
+                {warehouses.map((warehouse) => (
+                  <NativeSelectOption key={warehouse.id} value={warehouse.id}>
+                    {warehouse.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <Input
+                aria-label="Từ ngày"
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(event) => onDateFromChange(event.target.value)}
               />
-            </InputGroup>
-            <NativeSelect
-              className="w-full min-w-0"
-              aria-label="Lọc trạng thái yêu cầu trả hàng"
-              value={status}
-              onChange={(event) =>
-                onStatusChange(event.target.value as GoodsReturnRequestStatus | '')
-              }
-            >
-              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-              {Object.entries(RETURN_STATUS_LABELS).map(([value, label]) => (
-                <NativeSelectOption key={value} value={value}>
-                  {label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <NativeSelect
-              className="w-full min-w-0"
-              aria-label="Lọc kho nhận hàng trả"
-              value={warehouseId}
-              onChange={(event) => onWarehouseChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-              {warehouses.map((warehouse) => (
-                <NativeSelectOption key={warehouse.id} value={warehouse.id}>
-                  {warehouse.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <Input
-              aria-label="Từ ngày"
-              type="date"
-              value={dateFrom}
-              max={dateTo || undefined}
-              onChange={(event) => onDateFromChange(event.target.value)}
-            />
-            <Input
-              aria-label="Đến ngày"
-              type="date"
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={(event) => onDateToChange(event.target.value)}
-            />
+              <Input
+                aria-label="Đến ngày"
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(event) => onDateToChange(event.target.value)}
+              />
+            </div>
           </div>
-        </div>
-        {isLoading ? (
-          <OperationalLoadingState />
-        ) : isError ? (
-          <OperationalErrorState title="Không thể tải yêu cầu trả hàng" onRetry={onRetry} />
-        ) : items.length === 0 ? (
-          <OperationalEmptyState
-            title="Chưa có yêu cầu trả hàng phù hợp"
-            description="Thử đổi từ khóa hoặc trạng thái."
-          />
-        ) : (
-          <>
-            <div data-slot="operational-list-body" className="md:hidden">
-              <ItemGroup className="gap-0">
-                {items.map((item) => (
-                  <Item
-                    key={item.id}
-                    {...rowActivationProps(() => onInspect(item), 'border-b last:border-b-0')}
-                  >
-                    <ItemContent className="min-w-0">
-                      <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
+          {isLoading ? (
+            <OperationalLoadingState />
+          ) : isError ? (
+            <OperationalErrorState title="Không thể tải yêu cầu trả hàng" onRetry={onRetry} />
+          ) : items.length === 0 ? (
+            <OperationalEmptyState
+              title="Chưa có yêu cầu trả hàng phù hợp"
+              description="Thử đổi từ khóa hoặc trạng thái."
+            />
+          ) : (
+            <>
+              <div data-slot="operational-list-body" className="md:hidden">
+                <ItemGroup className="gap-0">
+                  {items.map((item) => (
+                    <Item
+                      key={item.id}
+                      {...goodsPreviewInteractions(
+                        () => (goodsPreview ? goodsPreview.onSelect(item.id) : onInspect(item)),
+                        goodsPreview?.selectedId === item.id,
+                        'border-b last:border-b-0'
+                      )}
+                    >
+                      <ItemContent className="min-w-0">
+                        <ItemTitle className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                          <Link
+                            className="font-mono underline-offset-4 hover:underline focus-visible:underline"
+                            href={detailHref(item.id) as Route}
+                          >
+                            {item.goodsReturnRequestCode}
+                          </Link>
+                          <GoodsReturnRequestStatusBadge status={item.status} />
+                        </ItemTitle>
+                        <ItemDescription>
+                          Yêu cầu xuất{' '}
+                          <span className="font-mono">{item.stockIssueRequestCode}</span> ·{' '}
+                          {formatStockIssueDate(item.createdAt)}
+                        </ItemDescription>
+                        <ItemDescription className="line-clamp-2">{item.reason}</ItemDescription>
+                        {goodsPreview ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-h-11 self-start"
+                            onClick={() => goodsPreview.onSelect(item.id, true)}
+                          >
+                            Xem hàng hóa
+                          </Button>
+                        ) : null}
+                      </ItemContent>
+                      <ItemActions>{renderActions(item)}</ItemActions>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              </div>
+              <Table className="min-w-[760px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 z-10">Mã phiếu</TableHead>
+                    <TableHead className="sticky top-0 z-10">Yêu cầu xuất kho</TableHead>
+                    <TableHead className="sticky top-0 z-10">Lý do</TableHead>
+                    <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
+                    <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
+                    <TableHead className="sticky top-0 z-10">
+                      <span className="sr-only">Thao tác</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow
+                      key={item.id}
+                      {...goodsPreviewInteractions(
+                        () => (goodsPreview ? goodsPreview.onSelect(item.id) : onInspect(item)),
+                        goodsPreview?.selectedId === item.id
+                      )}
+                    >
+                      <TableCell className="font-mono">
                         <Link
-                          className="font-mono underline-offset-4 hover:underline"
+                          className="underline-offset-4 hover:underline focus-visible:underline"
                           href={detailHref(item.id) as Route}
                         >
                           {item.goodsReturnRequestCode}
                         </Link>
+                      </TableCell>
+                      <TableCell className="font-mono">{item.stockIssueRequestCode}</TableCell>
+                      <TableCell className="max-w-64 truncate">{item.reason}</TableCell>
+                      <TableCell>
                         <GoodsReturnRequestStatusBadge status={item.status} />
-                      </ItemTitle>
-                      <ItemDescription>
-                        Yêu cầu xuất <span className="font-mono">{item.stockIssueRequestCode}</span>{' '}
-                        · {formatStockIssueDate(item.createdAt)}
-                      </ItemDescription>
-                      <ItemDescription className="line-clamp-2">{item.reason}</ItemDescription>
-                    </ItemContent>
-                    <ItemActions>{renderActions(item)}</ItemActions>
-                  </Item>
-                ))}
-              </ItemGroup>
-            </div>
-            <Table className="min-w-[760px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="sticky top-0 z-10">Mã phiếu</TableHead>
-                  <TableHead className="sticky top-0 z-10">Yêu cầu xuất kho</TableHead>
-                  <TableHead className="sticky top-0 z-10">Lý do</TableHead>
-                  <TableHead className="sticky top-0 z-10">Trạng thái</TableHead>
-                  <TableHead className="sticky top-0 z-10">Ngày tạo</TableHead>
-                  <TableHead className="sticky top-0 z-10">
-                    <span className="sr-only">Thao tác</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item) => (
-                  <ClickableTableRow key={item.id} onActivate={() => onInspect(item)}>
-                    <TableCell className="font-mono">
-                      <Link
-                        className="underline-offset-4 hover:underline"
-                        href={detailHref(item.id) as Route}
-                      >
-                        {item.goodsReturnRequestCode}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-mono">{item.stockIssueRequestCode}</TableCell>
-                    <TableCell className="max-w-64 truncate">{item.reason}</TableCell>
-                    <TableCell>
-                      <GoodsReturnRequestStatusBadge status={item.status} />
-                    </TableCell>
-                    <TableCell>{formatStockIssueDate(item.createdAt)}</TableCell>
-                    <TableCell className="text-right">{renderActions(item)}</TableCell>
-                  </ClickableTableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </>
-        )}
-        <OperationalPagination
-          page={page}
-          pageSize={pageSize}
-          totalCount={totalCount}
-          isPending={isFetching}
-          onPageChange={onPageChange}
-          onPageSizeChange={onPageSizeChange}
-        />
-      </OperationalListPanel>
+                      </TableCell>
+                      <TableCell>{formatStockIssueDate(item.createdAt)}</TableCell>
+                      <TableCell className="text-right">{renderActions(item)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          )}
+          <OperationalPagination
+            page={page}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            isPending={isFetching}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+          />
+        </OperationalListPanel>
+      </ReturnGoodsWorkspace>
     </div>
   )
 }
