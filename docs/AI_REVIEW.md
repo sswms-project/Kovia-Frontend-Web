@@ -2682,3 +2682,17 @@ READY_FOR_FINAL_REVIEW (assigned implementer self-verification).
 APPROVED_FINAL for F1/F2 in the reviewed scope (self-review, not independent approval).
 
 - Rechecked actual page edit hydration, saved-line grouping, current picker-page independence, normal-location filters and damaged-receiving opt-in.103tests, production TypeScript, scoped ESLint and Next production build passed. No remaining High/Blocker or original Medium F2 in this focused review; no authenticated live application workflow claimed. F1/F2 CLOSED. Stop review loop.
+
+## 2026-10-29 — Web stock/picking map locator
+
+READY_FOR_CODEX_REVIEW (implementation self-verification; not independent approval).
+
+- Added Xem sơ đồ at inventory row locations in desktop/small-screen layouts and at the selected reserved source in the picking dialog. Reuses the existing read-only Konva canvas and layout/scene GET; no new backend endpoint, inventory query from the map, allocation change or stock write. Opens the exact slot/rack hierarchy by ID, supports RackLevel default slots, marks the rack and keeps textual slot identity. No per-slot coordinate or route optimization claim.
+- Page/workflow supplies warehouses:view capability and user/tenant/permission scope. Loading/error/403/unplaced/inactive/wrong-warehouse cases avoid showing stale or generated target geometry. Source readiness/version/scope changes invalidate the dialog. Opening from picking pauses the camera; Escape returns to the picking dialog and keeps unsaved source input.
+- Focused verification: 23 tests in 3 files; required typecheck and scoped ESLint; actual Next UI checked with mocked HTTP at 1440x1000 and 390x844, inventory/picking source maps, focus/Escape, unplaced and denied fallback. Tests and detailed environment/source fingerprint are in the Kovia workspace dossier outputs/workflow/tasks/web-map-locator/evidence.json. Notification hub connection errors were expected without a running backend. No live-backend/device/camera test, full suite, production build or time-savings measurement claimed.
+- Backend analyzed read-only at freshly fetched origin/dev 6e9d86d822cd662bda932f9f9a81ddfa845a13ee. Existing permission/tenant/warehouse-assignment guards remain required; consider a minimal scoped locator projection only if staff policy/payload measurements justify it. Routing requires navigable graph, approach points and measured scale before optimization claims. Full findings: backend-analysis.md in the canonical dossier.
+- Branch feat/web-map-locator in an isolated worktree from freshly fetched origin/dev baf3087f31b001522d7d1e3eb6de39f7d69b8071. Existing reporting edits in the main FE checkout preserved. No commit, push, PR, deployment, migration or seed.
+
+### 2026-10-29 — Pre-push self-review
+
+User authorized checking, committing and pushing both feature branches. Revalidated all 13 recorded file hashes against the saved web checkpoint; no feature source drift. Reviewed read-only scene access, selected allocated source, default-slot resolution, inactive/unplaced targets and stale permission/source/version guards. Refreshed dev has three notification commits touching two unrelated files; this existing feature branch retains its reviewed base without modifying those files. Re-ran required TypeScript, scoped ESLint and the 23 focused tests before commit. Previous mocked browser inventory/picking evidence is reused because web behavior is unchanged. No live-backend/device coverage, production build, full-suite pass, independent approval, PR, merge or deployment is implied.

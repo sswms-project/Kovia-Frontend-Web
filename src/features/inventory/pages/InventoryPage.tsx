@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
+import { WarehouseLocationMapButton } from '@/features/warehouse/components/WarehouseLocationMap'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useProductOptionsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
@@ -188,6 +189,29 @@ export default function InventoryPage({
   return (
     <>
       <InventoryDirectory
+        renderLocationAction={(item) => (
+          <WarehouseLocationMapButton
+            warehouseId={item.warehouseId}
+            warehouseName={item.warehouseName}
+            slotId={item.slotId}
+            locationLabel={formatInventoryLocation(item)}
+            productLabel={`${item.sku} · ${item.productName}${item.lotNumber ? ` · Lô ${item.lotNumber}` : ''}`}
+            canView={meQuery.isSuccess && meQuery.data.permissions.includes(P.WAREHOUSES_VIEW)}
+            accessScope={JSON.stringify([
+              meQuery.data?.tenantId,
+              meQuery.data?.id,
+              meQuery.data?.permissions,
+              meQuery.dataUpdatedAt,
+            ])}
+            sourceVersion={JSON.stringify([
+              item.id,
+              item.version,
+              inventoryParams,
+              inventoryQuery.dataUpdatedAt,
+            ])}
+            ready={inventoryQuery.isSuccess && !inventoryQuery.isFetching}
+          />
+        )}
         exportAction={
           canExport ? (
             <InventoryExportButton
