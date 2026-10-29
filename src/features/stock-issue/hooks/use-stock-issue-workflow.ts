@@ -506,6 +506,13 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
     isAssigningPicker: assignPickerMutation.isPending,
     isRemovingPick: removePickDetailMutation.isPending,
     picking: {
+      canViewMap: meQuery.isSuccess && !!permissions?.includes(P.WAREHOUSES_VIEW),
+      mapAccessScope: JSON.stringify([
+        meQuery.data?.tenantId,
+        meQuery.data?.id,
+        permissions,
+        meQuery.dataUpdatedAt,
+      ]),
       needsRefresh: pickNeedsRefresh,
       onRefresh: () => void refreshPicking(),
       isUncertain: pickUncertain,

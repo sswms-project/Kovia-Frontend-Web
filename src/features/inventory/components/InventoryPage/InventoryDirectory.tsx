@@ -36,6 +36,7 @@ import {
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
 
 interface InventoryDirectoryProps {
+  readonly renderLocationAction?: (item: InventoryStock) => ReactNode
   readonly exportAction?: ReactNode
   readonly permissions: readonly string[]
   readonly items: readonly InventoryStock[]
@@ -73,6 +74,7 @@ interface InventoryDirectoryProps {
 }
 
 export function InventoryDirectory({
+  renderLocationAction,
   exportAction,
   permissions,
   items,
@@ -300,11 +302,13 @@ export function InventoryDirectory({
         ) : (
           <>
             <InventoryMobileList
+              renderLocationAction={renderLocationAction}
               items={items}
               canReportDamaged={canReportDamaged}
               onReportDamaged={onReportDamaged}
             />
             <InventoryDesktopTable
+              renderLocationAction={renderLocationAction}
               items={items}
               canReportDamaged={canReportDamaged}
               onReportDamaged={onReportDamaged}
@@ -328,10 +332,12 @@ export function InventoryDirectory({
 }
 
 function InventoryMobileList({
+  renderLocationAction,
   items,
   canReportDamaged,
   onReportDamaged,
 }: {
+  readonly renderLocationAction?: (item: InventoryStock) => ReactNode
   readonly items: readonly InventoryStock[]
   readonly canReportDamaged: boolean
   readonly onReportDamaged: (item: InventoryStock) => void
@@ -358,6 +364,7 @@ function InventoryMobileList({
                 Chỉ xem
               </Badge>
             ) : null}
+            {renderLocationAction?.(item)}
             <ItemDescription>
               {item.lotNumber ? `Lô ${item.lotNumber} · ` : ''}
               {formatQualityStatus(item.qualityStatus)} ·{' '}
@@ -387,10 +394,12 @@ function InventoryMobileList({
 }
 
 function InventoryDesktopTable({
+  renderLocationAction,
   items,
   canReportDamaged,
   onReportDamaged,
 }: {
+  readonly renderLocationAction?: (item: InventoryStock) => ReactNode
   readonly items: readonly InventoryStock[]
   readonly canReportDamaged: boolean
   readonly onReportDamaged: (item: InventoryStock) => void
@@ -436,6 +445,7 @@ function InventoryDesktopTable({
                 >
                   {formatInventoryLocation(item)}
                 </p>
+                {renderLocationAction?.(item)}
                 {!item.canManageWarehouse ? (
                   <Badge variant="outline" className="mt-1">
                     Chỉ xem
