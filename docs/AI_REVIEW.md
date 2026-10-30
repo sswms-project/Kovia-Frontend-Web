@@ -1,5 +1,16 @@
 # AI Review Handoff
 
+## 2026-10-30 — BE integration findings addressed
+
+State: READY_FOR_FINAL_REVIEW. No FE production source changes needed. BE now checks both phase versions through forced updates, returns the unfinished same-person workflow together, and scans all eligible preview positions for a whole-row fit. Previously recorded findings are addressed; regression evidence is in Backend/docs/AI_REVIEW.md. FE's latest 16-test review run remains applicable because its source/contracts are unchanged. Not deployed or independently reviewed.
+
+## 2026-10-30 — Morning transfer changes, review round 1
+
+State: NEEDS_CLAUDE_FIX (BE integration findings). Original implementer self-review; not independent. Scope: c74d6b67, 60f23412 and small task surface change 7cdb60a8.
+
+- Open BE findings recorded in Backend/docs/AI_REVIEW.md: unchanged-phase concurrency gap in joint assignment (High), Return on the combined workflow leaves blocked putaway assigned (Medium), whole-line destination search incorrectly limited to first 25 ranked candidates (Medium). FE trusts these API outcomes and exposes the returned phase/action, so these need resolution before treating the workflow as ready.
+- Reran 16 focused FE tests: all pass. Three external BE invariant repros fail on current source; no production source edited, no deployment or live DB access. Existing passing suites do not cover these scenarios. Mobile handoff describes intended flow; commit-boundary and Return behavior need correction before release.
+
 ## 2026-10-30 — One transfer receipt/putaway workflow for the same staff
 
 State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
