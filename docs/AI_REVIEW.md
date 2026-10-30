@@ -1,5 +1,19 @@
 # AI Review Handoff
 
+## 2026-10-30 — Transfer pick staging card surface
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only.
+
+- TransferPickTaskPage passes bg-card through the existing StagingPointChoice className prop, giving the outbound staging card the shared white surface in light mode. Other usages and all selection/execution behavior unchanged.
+- GitNexus impact LOW. Scoped ESLint and diff checks passed. No API/DB calls, commit or deployment. Browser/device visual acceptance not performed for this one-class style change.
+
+## 2026-10-29 — Staff task filter surfaces
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only.
+
+- Added bg-card to the three existing NativeSelect wrappers on MyWarehouseTasksPage (type, status, deadline). NativeSelect uses a transparent select; the wrapper now provides the shared card surface instead of showing the page background. Shared primitive, filter logic, labels, focus states and responsive grid unchanged.
+- Verification: scoped ESLint and diff whitespace checks passed. No API calls, database access, commit or deploy. No browser/device visual acceptance performed for this small styling change.
+
 ## 2026-10-28 — Transfer destination names
 
 State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
