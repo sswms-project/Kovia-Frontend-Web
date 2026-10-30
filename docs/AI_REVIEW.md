@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## 2026-10-30 — One transfer receipt/putaway workflow for the same staff
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Selecting both destination phases calls one destination-assignment API with both versions/expected assignees. Single-phase assignments retain their existing API. Unknown-result verification checks both phases before retry/completion; changed companion blocks both writes. Same dialog, priority/due controls and manual split assignment remain available.
+- Optional BE isCombinedTransferReceipt flag labels queue cards and task directory as “Nhận và cất hàng điều chuyển”. BE returns one active phase, so existing routes/action IDs lead to receiving first and putaway after inspection. Existing receipt-submit continuation remains unchanged. No schema/migration or new UI primitive.
+- Verification: 16 focused FE tests passed (11 destination preview plus 4 assignment and 1 queue phase-routing test). Covers one joint request, single request path, stale companion, lost-response verification without duplicate submission, combined title and route transition. Production TypeScript, scoped ESLint, isolated Next build and diff checks passed. No authenticated browser/physical-phone acceptance, business API calls, DB writes or deployment.
+
 ## 2026-10-30 — Transfer form destination suggestions
 
 State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.

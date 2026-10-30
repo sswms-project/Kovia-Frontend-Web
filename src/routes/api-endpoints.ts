@@ -399,6 +399,8 @@ export const API_ENDPOINTS = {
     deleteDraft: (id: string) => `/transfers/drafts/${id}`,
     assignmentSnapshot: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/assignment-snapshot`,
+    destinationAssignment: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/destination-assignment`,
     decision: (id: string) => `/transfers/${id}/decision`,
     withdraw: (id: string) => `/transfers/${id}/withdraw`,
     destinationLoad: '/transfers/destination-load',

@@ -57,6 +57,7 @@ import type { ReceivableSlot } from '../utils/transfer-receive'
 import type { AssignableWarehouseStaff } from '@/features/inbound/types/inbound.types'
 import type {
   TransferAssignmentTask,
+  AssignTransferDestinationWorkflowRequest,
   TransferTaskType,
   TransferReceiptSheet,
   TransferPutAwaySheet,
@@ -74,6 +75,16 @@ const validateStagingPoints = <TData extends { stagingPoints?: unknown }>(
 }
 
 export const transferService = {
+  assignDestinationWorkflow: (
+    transferId: string,
+    shipmentId: string,
+    request: AssignTransferDestinationWorkflowRequest
+  ) =>
+    axiosClient
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.destinationAssignment(transferId, shipmentId), request, transferWriteConfig())
+      .then(unwrap),
   deleteDraft: (id: string, expectedVersion: string) =>
     axiosClient
       .delete<
