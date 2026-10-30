@@ -10,6 +10,8 @@ import { getApiErrorMessage, isApiErrorResponse } from '@/lib/api-error'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
   ExpiryDaysSettings,
+  AlertSpeechControl,
+  useVietnameseSpeechAvailable,
   ActivityPeriodFilter,
   StockAlertDialog,
   WarehouseOperationsView,
@@ -27,6 +29,8 @@ import {
   useWarehouseActivityQuery,
 } from '../hooks/use-warehouse-overview'
 import { useStockAlertsQuery, useStockExpiryDistributionQuery } from '../hooks/use-stock-alerts'
+import { useAlertAutoRead } from '../hooks/use-alert-auto-read'
+import { useSpeechPreferences } from '@/lib/speech-preferences'
 import { useOverviewCompactLayout, useOverviewNavigation } from '../hooks/use-overview-navigation'
 import {
   expiryDaysSchema,
@@ -257,20 +261,44 @@ export default function WarehouseOverviewPage() {
         query: location.warehouseId ? { warehouseId: location.warehouseId } : {},
       }
     : undefined
+  const [speechPreferences] = useSpeechPreferences()
+  const speechAvailable = useVietnameseSpeechAvailable()
+  const speechCounts =
+    canShowData && below.data && expiring.data
+      ? {
+          belowMinimum: below.data.totalCount,
+          expiring: expiring.data.totalCount,
+          belowMinimumNames: (belowChart.data ?? below.data).items.map((row) => row.productName),
+          expiringNames: expiring.data.items.map((row) => row.productName),
+        }
+      : undefined
+  const speechWarehouseName = options.data?.find(
+    (warehouse) => warehouse.id === location.warehouseId
+  )?.name
+  useAlertAutoRead({
+    enabled: speechPreferences.autoReadAlerts && location.tab === 'alerts',
+    available: speechAvailable,
+    scopeKey: scope,
+    counts: speechCounts,
+    warehouseName: speechWarehouseName,
+  })
   const settings = (
-    <ExpiryDaysSettings
-      open={settingsOpen}
-      onOpenChange={(open) => {
-        if (open) daysForm.reset({ days: location.expiringDays })
-        setSettingsOpen(open)
-      }}
-      form={daysForm}
-      onApply={({ days }) => {
-        setPages((current) => ({ ...current, expiring: 1 }))
-        setSettingsOpen(false)
-        location.updateLocation({ expiringDays: String(days) })
-      }}
-    />
+    <>
+      <AlertSpeechControl counts={speechCounts} warehouseName={speechWarehouseName} />
+      <ExpiryDaysSettings
+        open={settingsOpen}
+        onOpenChange={(open) => {
+          if (open) daysForm.reset({ days: location.expiringDays })
+          setSettingsOpen(open)
+        }}
+        form={daysForm}
+        onApply={({ days }) => {
+          setPages((current) => ({ ...current, expiring: 1 }))
+          setSettingsOpen(false)
+          location.updateLocation({ expiringDays: String(days) })
+        }}
+      />
+    </>
   )
   return (
     <>
