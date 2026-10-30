@@ -421,6 +421,7 @@ export const API_ENDPOINTS = {
     sourceProducts: '/transfers/source-products',
     receivableSlot: '/transfers/receivable-slot',
     receivableSlots: '/transfers/receivable-slots',
+    destinationSuggestions: '/transfers/destination-suggestions',
     putAwaySlots: '/transfers/putaway-slots',
     sourceLocations: '/transfers/source-locations',
     nextCode: '/transfers/next-code',

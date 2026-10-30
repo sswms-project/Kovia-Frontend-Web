@@ -1,4 +1,8 @@
 import { axiosClient } from '@/lib/axios'
+import type {
+  TransferDestinationPreviewRequest,
+  TransferDestinationSuggestion,
+} from '../schemas/transfer-destination-preview.schema'
 import { warehouseStagingPointsSchema } from '@/features/warehouse/schemas/warehouse-staging-points.schema'
 import { transferWriteConfig } from '../utils/transfer-client'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
@@ -215,6 +219,13 @@ export const transferService = {
       .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.receivableSlots, {
         params,
       })
+      .then(unwrap),
+
+  previewDestinations: (request: TransferDestinationPreviewRequest, signal?: AbortSignal) =>
+    axiosClient
+      .post<
+        ApiResponse<TransferDestinationSuggestion[]>
+      >(API_ENDPOINTS.transfers.destinationSuggestions, request, { signal })
       .then(unwrap),
 
   /** Vị trí kho nhập cho lập kế hoạch/cất hàng: chỉ cần quyền nhận chuyển kho, không cần quyền tạo phiếu. */

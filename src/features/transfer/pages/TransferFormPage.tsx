@@ -38,6 +38,7 @@ import {
 } from '../components/TransferFormPage'
 import { TransferChangedBanner, TransferConfirmDialog } from '../components/TransferShared'
 import { useTransferFormActions } from '../hooks/use-transfer-form-actions'
+import { useTransferDestinationPreview } from '../hooks/use-transfer-destination-preview'
 import { useTransferDestinationLoadQuery } from '../hooks/use-transfer-destination-load-query'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
@@ -186,8 +187,16 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
     showDestinationSlot
   )
   const destinationSlotOptions = useMemo<LookupOption[]>(
-    () => (destinationSlotsQuery.data ?? []).map((slot) => ({ value: slot.id, label: slot.path })),
-    [destinationSlotsQuery.data]
+    () =>
+      (destinationSlotsQuery.isPlaceholderData || destinationSlotsQuery.isError
+        ? []
+        : (destinationSlotsQuery.data ?? [])
+      ).map((slot) => ({ value: slot.id, label: slot.path })),
+    [
+      destinationSlotsQuery.data,
+      destinationSlotsQuery.isPlaceholderData,
+      destinationSlotsQuery.isError,
+    ]
   )
   const knownDestinationSlots = useMemo(() => {
     const known: Record<string, LookupOption> = {}
@@ -390,6 +399,26 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
       : sum
   }, 0)
 
+  const destinationPreview = useTransferDestinationPreview({
+    form,
+    fields: fieldArray.fields,
+    lines,
+    warehouseId: destinationWarehouseId,
+    viewerId: viewer.currentUserId,
+    enabled:
+      isReady &&
+      showDestinationSlot &&
+      hasWarehouses &&
+      mode !== 'edit' &&
+      !notEditable &&
+      viewer.permissions.includes(P.TRANSFERS_CREATE),
+    blocked:
+      actions.isSaving ||
+      actions.isConfirmOpen ||
+      actions.unknownResult ||
+      form.formState.isSubmitting,
+  })
+
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <header className="flex shrink-0 items-start gap-3 border-b pb-4">
@@ -482,7 +511,11 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
           knownSourceSlots={knownSourceSlots}
           showDestinationSlot={showDestinationSlot}
           destinationSlotOptions={destinationSlotOptions}
-          knownDestinationSlots={knownDestinationSlots}
+          knownDestinationSlots={{ ...knownDestinationSlots, ...destinationPreview.options }}
+          onDestinationManualChange={destinationPreview.markManual}
+          destinationSuggestionNotes={Object.fromEntries(
+            fieldArray.fields.map((field, index) => [field.id, destinationPreview.note(index)])
+          )}
           isDestinationSlotLoading={destinationSlotsQuery.isFetching}
           lockedDestinationItemIds={lockedDestinationItemIds}
           onDestinationSlotSearchChange={setSlotSearch}

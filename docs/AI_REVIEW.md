@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## 2026-10-30 — Transfer form destination suggestions
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Create/draft transfer rows with blank destinations use one debounced, cancellable batch preview and retain the existing searchable dropdown/map. Manual selection, search and explicit clear opt out of autofill; product changes clear the old destination. Suggestions show full paths, including results outside the lookup's first page.
+- Results are scoped to viewer, warehouse and stable form row IDs. Changed quantity/unit/product/warehouse or manual choices invalidate generated placements and recalculate shared capacity. Delayed responses cannot overwrite manual choices, deleted/replaced rows or a form being confirmed/saved. Cached placeholder/error lookup rows from another warehouse are hidden.
+- Verification: 11 focused hook tests passed, covering autofill, manual choice/clear, shared capacity invalidation, stale responses, row deletion, permission and save/confirm guards, and API failure fallback. Exact-source production TypeScript, scoped ESLint and isolated Next production build passed. Plain repository-wide TypeScript also includes old tmp/outputs fixtures and reports pre-existing fixture errors; production configuration passes. No business API/DB calls, migrations or application startup. Browser/physical-device acceptance remains manual.
+
 ## 2026-10-30 — Transfer pick staging card surface
 
 State: READY_FOR_CODEX_REVIEW. Implementer self-verification only.
