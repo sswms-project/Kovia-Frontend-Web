@@ -1,5 +1,22 @@
 # AI Review Handoff
 
+## 2026-10-30 — Outbound manual picking sources
+
+State: READY_FOR_CODEX_REVIEW. Assigned implementer: Codex; self-verification only.
+
+- Source adjustment is inside the existing detail picking-plan card. Shared searchable combobox distinguishes position/lot/expiry and shows effective availability in entered units. Mobile dialog stacks controls; desktop uses source/quantity columns. Supports splitting and validates remaining totals, positive whole entered quantities, duplicates and reason.
+- Pending selections are local, explicitly unapplied until the existing release/assignment action succeeds. Shared leave-page protection and discard confirmation preserve user intent. Only server-supported ordinary orders and current management permission expose editing; active automation must be revoked first. Released/Picking writes change unpicked reservations only.
+- Unknown write results retain the original command ID/payload for replay, including after a realtime version change. Staff's existing scan dialog observes the current detail version and blocks stale scans, while permitting exact replay of uncertain picks. Long FEFO/FIFO reasoning uses shared Tooltip/Popover (hover/focus, one-tap, Escape).
+- 16 focused FE tests pass (schema, draft/release integration, stale version, replay/double-submit, staff scan refresh, one-tap explanation, keeping uncertain commands mounted after realtime changes, selected-source lookup and option-version guarding). Production TypeScript, lint and production build verified. Source search/debounce/option shaping has a dedicated query hook; row and form selectors remain independent owners. GitNexus total diff is high-risk because the workflow hook is shared by list/detail; both paths are covered. Prior transfer-capacity edits are retained separately.
+- No migration, API writes, application startup, deployment, commit or push. Protected AGENTS.md/CLAUDE.md edits preserved. Real browser/device 360/390px, desktop and zoom 125% acceptance remains pending; jsdom tests do not establish visual layout or camera behavior. BE must be deployed together for source-option/document-version/capability fields.
+
+## 2026-10-30 — Transfer destination occupancy/capacity
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Added optional BE capacitySummary to receivable options/preview result. Existing LookupCombobox descriptions show actual occupied/configured capacity in one unit. Selected field keeps the description below the input, including suggestion-only positions outside the lookup page; manual dropdown selections remember their description. Missing summary renders “Chưa xác định sức chứa”. Same layout primitives/tokens, no new dependency.
+- Verification: 14 focused formatter, preview hook and field tests passed. Initial hook assertion raced the separate RHF/label state updates; now waits for the known label before asserting description. Production TypeScript, scoped ESLint and isolated Next production build passed (../outputs/transfer-capacity-build-20261030.log). No live API requests or database writes; browser/physical-device acceptance not performed.
+
 ## 2026-10-30 — BE integration findings addressed
 
 State: READY_FOR_FINAL_REVIEW. No FE production source changes needed. BE now checks both phase versions through forced updates, returns the unfinished same-person workflow together, and scans all eligible preview positions for a whole-row fit. Previously recorded findings are addressed; regression evidence is in Backend/docs/AI_REVIEW.md. FE's latest 16-test review run remains applicable because its source/contracts are unchanged. Not deployed or independently reviewed.

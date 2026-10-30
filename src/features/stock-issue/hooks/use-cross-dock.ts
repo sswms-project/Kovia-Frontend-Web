@@ -178,6 +178,7 @@ export function useCrossDock(order: StockIssueRequestSummary) {
     })
   }
   return {
+    scope,
     form,
     plan,
     demand,

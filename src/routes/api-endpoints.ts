@@ -481,6 +481,8 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/discrepancies/${discrepancyId}/resolve`,
   },
   stockIssueRequests: {
+    sourceOptions: (id: string) => `/stock-issue-requests/${id}/source-options`,
+    pickingSources: (id: string) => `/stock-issue-requests/${id}/picking-sources`,
     allowedActions: (id: string) => `/stock-issue-requests/${id}/allowed-actions`,
     withdraw: (id: string) => `/stock-issue-requests/${id}/withdraw`,
     nextCode: '/stock-issue-requests/next-code',

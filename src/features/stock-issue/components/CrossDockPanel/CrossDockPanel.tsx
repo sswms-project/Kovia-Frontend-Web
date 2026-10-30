@@ -1,4 +1,5 @@
 import { useWatch } from 'react-hook-form'
+import type { ReactNode } from 'react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,8 +25,10 @@ import { CrossDockAllocations } from './CrossDockAllocations'
 
 interface Props {
   readonly state: ReturnType<typeof useCrossDock>
+  readonly manualSelected?: boolean
+  readonly children?: ReactNode
 }
-export function CrossDockPanel({ state }: Props) {
+export function CrossDockPanel({ state, manualSelected = false, children }: Props) {
   const acknowledged = useWatch({ control: state.form.control, name: 'selfApprovalAcknowledged' })
   if (!state.canView) return null
   const demand = state.demand.data
@@ -47,6 +50,7 @@ export function CrossDockPanel({ state }: Props) {
         </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {children}
         <p className="text-muted-foreground text-sm">
           Ưu tiên hạn sử dụng trên toàn kho. Cùng hạn mới ưu tiên hàng tại khu nhận để tránh cất rồi
           lấy lại. Nhân viên vẫn xác nhận lấy và xuất thực tế.
@@ -72,7 +76,14 @@ export function CrossDockPanel({ state }: Props) {
                 Đây là đề xuất tại thời điểm tải, chưa giữ chỗ.
               </AlertDescription>
             </Alert>
-            <CrossDockAllocations allocations={state.plan.data.allocations} />
+            {manualSelected ? (
+              <p className="text-sm">
+                Đang dùng phương án chọn nguồn riêng ở trên khi giao việc. Bấm “Dùng lại gợi ý” nếu
+                muốn bỏ phương án.
+              </p>
+            ) : (
+              <CrossDockAllocations allocations={state.plan.data.allocations} />
+            )}
           </>
         )}
         {demand && (
@@ -104,7 +115,7 @@ export function CrossDockPanel({ state }: Props) {
             )}
           </Alert>
         )}
-        {state.canManage && state.plan.data && !waiting && (
+        {state.canManage && state.plan.data && !waiting && !manualSelected && (
           <form className="grid gap-3 sm:grid-cols-2" onSubmit={state.review}>
             <Field>
               <FieldLabel htmlFor="crossdock-picker">Người lấy hàng</FieldLabel>

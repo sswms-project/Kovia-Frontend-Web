@@ -1,5 +1,7 @@
 import { axiosClient } from '@/lib/axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
+import { stockIssueSourceOptionsSchema } from '../schemas/stock-issue-sources.schema'
+import type { StockIssueManualSourceDraft } from '../types/stock-issue.types'
 import type {
   SpreadsheetImportInspection,
   SpreadsheetImportPreviewInput,
@@ -44,6 +46,29 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 export const stockIssueService = {
+  sourceOptions: async (
+    id: string,
+    itemId: string,
+    search: string,
+    signal?: AbortSignal,
+    selectedStockId?: string
+  ) => {
+    const response = await axiosClient.get<ApiResponse<unknown>>(
+      API_ENDPOINTS.stockIssueRequests.sourceOptions(id),
+      { params: { itemId, search, selectedStockId }, signal }
+    )
+    return stockIssueSourceOptionsSchema.parse(response.data.data)
+  },
+  adjustSources: (draft: StockIssueManualSourceDraft, commandId: string) =>
+    axiosClient.put<ApiResponse<unknown>>(
+      API_ENDPOINTS.stockIssueRequests.pickingSources(draft.orderId),
+      {
+        expectedVersion: draft.version,
+        commandId,
+        allocations: draft.allocations,
+        reason: draft.allocationReason,
+      }
+    ),
   getAllowedActions: (id: string) =>
     axiosClient
       .get<

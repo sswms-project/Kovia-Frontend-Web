@@ -1,4 +1,9 @@
 import type { z } from 'zod'
+import { useState } from 'react'
+import { Info } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Table,
   TableBody,
@@ -20,16 +25,40 @@ interface CrossDockAllocationsProps {
 }
 
 function AllocationReason({ allocation }: { readonly allocation: Allocation }) {
+  const [open, setOpen] = useState(false)
+  const [hintOpen, setHintOpen] = useState(false)
+  const explanation = (
+    <>
+      {allocation.directFromReceiving ? 'Đi thẳng từ khu nhận · ' : ''}
+      {allocation.reason}
+    </>
+  )
   return (
-    <details className="mt-1 text-xs">
-      <summary className="text-primary focus-visible:outline-ring cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2">
-        Chi tiết phân bổ
-      </summary>
-      <p className="text-muted-foreground mt-2 break-words whitespace-normal">
-        {allocation.directFromReceiving ? 'Đi thẳng từ khu nhận · ' : ''}
-        {allocation.reason}
-      </p>
-    </details>
+    <Tooltip open={!open && hintOpen} onOpenChange={setHintOpen}>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Giải thích phân bổ ${allocation.sku}`}
+            >
+              <Info className="size-4" />
+            </Button>
+          </TooltipTrigger>
+        </PopoverTrigger>
+        <PopoverContent
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          className="max-w-[calc(100vw-2rem)] text-sm break-words whitespace-normal"
+        >
+          {explanation}
+        </PopoverContent>
+      </Popover>
+      <TooltipContent className="max-w-80 text-sm break-words whitespace-normal">
+        {explanation}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

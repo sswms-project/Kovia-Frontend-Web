@@ -1,5 +1,8 @@
 'use client'
 
+import { useState } from 'react'
+import type { StockIssueManualSourceDraft } from '../types/stock-issue.types'
+
 import {
   OperationalErrorState,
   OperationalLoadingState,
@@ -26,7 +29,10 @@ export default function StockIssueRequestDetailPage({
   const order = detailQuery.data
   const actions = useStockIssueEditingActions(stockIssueRequestId)
   const withdraw = useWithdrawStockIssue(order)
-  const workflow = useStockIssueWorkflow(order?.warehouseId)
+  const [manualSources, setManualSources] = useState<StockIssueManualSourceDraft | null>(null)
+  const workflow = useStockIssueWorkflow(order?.warehouseId, manualSources, () =>
+    setManualSources(null)
+  )
 
   if (detailQuery.isLoading) return <OperationalLoadingState rows={8} />
   if (detailQuery.isError || !order)
@@ -62,7 +68,9 @@ export default function StockIssueRequestDetailPage({
         onRemovePickDetail={(pickDetailId) =>
           void workflow.removePickDetail(order.id, pickDetailId)
         }
-        pickingPlan={<CrossDockSection key={`${order.id}:${order.version}`} order={order} />}
+        pickingPlan={
+          <CrossDockSection order={order} draft={manualSources} onDraft={setManualSources} />
+        }
       />
       <StockIssueWorkflowDialogs workflow={workflow} />
       <ReturnDocumentActionDialog
