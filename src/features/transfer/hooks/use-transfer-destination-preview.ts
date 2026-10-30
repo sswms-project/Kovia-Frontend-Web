@@ -8,6 +8,7 @@ import type { LookupOption } from '@/features/inbound-request/types/inbound-requ
 import type { TransferRequestFormValues } from '../schemas/transfer-request.schema'
 import { transferDestinationPreviewSchema } from '../schemas/transfer-destination-preview.schema'
 import { transferService } from '../services/transfer.service'
+import { describeTransferLocationCapacity } from '../utils/transfer-location-capacity'
 
 interface GeneratedDestination {
   readonly stamp: string
@@ -146,7 +147,11 @@ export function useTransferDestinationPreview({
         shouldDirty: true,
         shouldValidate: false,
       })
-      const option = { value: suggestion.slotId, label: suggestion.path }
+      const option = {
+        value: suggestion.slotId,
+        label: suggestion.path,
+        description: describeTransferLocationCapacity(suggestion.capacitySummary),
+      }
       setKnown((previous) => ({
         warehouseId,
         options: {

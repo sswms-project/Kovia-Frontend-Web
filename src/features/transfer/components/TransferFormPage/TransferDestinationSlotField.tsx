@@ -42,8 +42,9 @@ export function TransferDestinationSlotField({
   // Ô chọn trên sơ đồ có thể không nằm trong danh sách tìm kiếm nên phải nhớ tên để còn hiển thị.
   const [pickedOption, setPickedOption] = useState<LookupOption | undefined>()
 
-  function setSlot(value: string) {
+  function setSlot(value: string, option?: LookupOption) {
     onManualChange?.()
+    if (option) setPickedOption(option)
     form.setValue(`lines.${index}.destinationSlotId`, value, {
       shouldDirty: true,
       shouldValidate: true,
@@ -96,6 +97,14 @@ export function TransferDestinationSlotField({
           </Button>
         ) : null}
       </div>
+      {slotId && (
+        <FieldDescription>
+          {options.find((option) => option.value === slotId)?.description ??
+            (pickedOption?.value === slotId ? pickedOption.description : undefined) ??
+            knownOption?.description ??
+            'Chưa xác định sức chứa'}
+        </FieldDescription>
+      )}
       {suggestionNote && <FieldDescription>{suggestionNote}</FieldDescription>}
       <FieldError>{error?.message}</FieldError>
       <TransferSlotMapDialog

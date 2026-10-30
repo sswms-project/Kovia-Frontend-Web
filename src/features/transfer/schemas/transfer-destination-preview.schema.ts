@@ -26,6 +26,9 @@ export const transferDestinationPreviewSchema = z.object({
 export type TransferDestinationPreviewRequest = z.infer<typeof transferDestinationPreviewSchema>
 
 export interface TransferDestinationSuggestion {
+  readonly capacitySummary?:
+    | import('../utils/transfer-location-capacity').TransferLocationCapacity
+    | null
   readonly key: string
   readonly slotId: string | null
   readonly path: string | null

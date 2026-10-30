@@ -37,6 +37,7 @@ beforeEach(() => {
       key: item.key,
       slotId: slot,
       path: 'Khu K01 - Hàng khô / Kệ A04',
+      capacitySummary: { occupied: 12, capacity: 50, unitName: 'Thùng' },
       reason: 'Theo quy tắc kho',
     })),
   }))
@@ -89,7 +90,8 @@ function setup(
 it('fills a blank destination, retains its full label outside the dropdown page, and preserves quantity', async () => {
   const { result } = setup()
   await waitFor(() => expect(result.current.form.getValues('lines.0.destinationSlotId')).toBe(slot))
-  expect(result.current.preview.options[slot]?.label).toContain('Hàng khô')
+  await waitFor(() => expect(result.current.preview.options[slot]?.label).toContain('Hàng khô'))
+  expect(result.current.preview.options[slot]?.description).toBe('Đang chứa 12 / 50 Thùng')
   expect(result.current.form.getValues('lines.0.quantity')).toBe(5)
   expect(result.current.preview.note(0)).toContain('Chưa giữ chỗ')
   expect(mocks.preview).toHaveBeenCalledTimes(1)

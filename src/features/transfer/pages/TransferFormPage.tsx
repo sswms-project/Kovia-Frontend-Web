@@ -39,6 +39,7 @@ import {
 import { TransferChangedBanner, TransferConfirmDialog } from '../components/TransferShared'
 import { useTransferFormActions } from '../hooks/use-transfer-form-actions'
 import { useTransferDestinationPreview } from '../hooks/use-transfer-destination-preview'
+import { describeTransferLocationCapacity } from '../utils/transfer-location-capacity'
 import { useTransferDestinationLoadQuery } from '../hooks/use-transfer-destination-load-query'
 import { useTransferRealtime } from '../hooks/use-transfer-realtime'
 import { useTransferViewer } from '../hooks/use-transfer-viewer'
@@ -191,7 +192,11 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
       (destinationSlotsQuery.isPlaceholderData || destinationSlotsQuery.isError
         ? []
         : (destinationSlotsQuery.data ?? [])
-      ).map((slot) => ({ value: slot.id, label: slot.path })),
+      ).map((slot) => ({
+        value: slot.id,
+        label: slot.path,
+        description: describeTransferLocationCapacity(slot.capacitySummary),
+      })),
     [
       destinationSlotsQuery.data,
       destinationSlotsQuery.isPlaceholderData,
