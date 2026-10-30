@@ -5,6 +5,7 @@ import {
   type AiMessage,
 } from '../../types/ai-assistant.types'
 import { AiActionConfirmationCard } from './AiActionConfirmationCard'
+import { AiAnswerFeedback } from './AiAnswerFeedback'
 import type { AiDraftQuantityEdit } from './AiDraftQuantityEditor'
 import { cn } from '@/lib/utils'
 import { AiMarkdown } from './AiMarkdown'
@@ -25,6 +26,7 @@ interface AiChatMessageBubbleProps extends AiDraftCallbacks {
   readonly onQuickReply?: (reply: string) => void
   /** Chỉ câu trả lời mới nhất chạy hiệu ứng; lịch sử cũ hiện ngay. */
   readonly animateEntrance?: boolean
+  readonly onRate?: (messageId: string, helpful: boolean | null) => void
 }
 
 const MESSAGE_ENTRANCE =
@@ -102,6 +104,7 @@ export function AiChatMessageBubble({
   quantityEdit,
   onQuickReply,
   animateEntrance = false,
+  onRate,
 }: AiChatMessageBubbleProps) {
   if (message.role === 'User') return <AiUserBubble content={message.content} />
 
@@ -134,6 +137,12 @@ export function AiChatMessageBubble({
         })}
         {/* Thẻ xác nhận thay đổi dữ liệu đứng trước; các bước tiếp theo gom thành một nhóm bên dưới. */}
         <AiNextSteps cards={message.cards} onNavigate={onNavigate} onSend={onQuickReply} />
+        {onRate ? (
+          <AiAnswerFeedback
+            helpful={message.helpful ?? null}
+            onRate={(helpful) => onRate(message.id, helpful)}
+          />
+        ) : null}
       </div>
     </div>
   )

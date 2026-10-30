@@ -560,5 +560,6 @@ export const API_ENDPOINTS = {
     confirmAction: (draftId: string) => `/ai/actions/${draftId}/confirm`,
     cancelAction: (draftId: string) => `/ai/actions/${draftId}/cancel`,
     updateActionQuantities: (draftId: string) => `/ai/actions/${draftId}/quantities`,
+    rateMessage: (messageId: string) => `/ai/messages/${messageId}/feedback`,
   },
 } as const
