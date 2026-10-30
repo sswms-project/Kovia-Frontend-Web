@@ -20,6 +20,7 @@ interface AiChatThreadProps extends AiDraftCallbacks {
   readonly isError: boolean
   readonly onRetry: () => void
   readonly onSuggestion: (prompt: string) => void
+  readonly onRate?: (messageId: string, helpful: boolean | null) => void
 }
 
 export function AiChatThread({
@@ -29,6 +30,7 @@ export function AiChatThread({
   isError,
   onRetry,
   onSuggestion,
+  onRate,
   ...draftCallbacks
 }: AiChatThreadProps) {
   const endRef = useRef<HTMLDivElement>(null)
@@ -83,6 +85,7 @@ export function AiChatThread({
           message={message}
           onQuickReply={index === messages.length - 1 && !pendingMessage ? onSuggestion : undefined}
           animateEntrance={index === messages.length - 1}
+          onRate={onRate}
           {...draftCallbacks}
         />
       ))}

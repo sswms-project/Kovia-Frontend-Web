@@ -13,7 +13,11 @@ import {
   type SendAiChatMessageRequest,
   type UpdateAiDraftQuantitiesRequest,
 } from '../types/ai-assistant.types'
-import { appendAiChatTurn, updateAiDraftStatus } from '../utils/ai-conversation-cache'
+import {
+  appendAiChatTurn,
+  setAiMessageHelpful,
+  updateAiDraftStatus,
+} from '../utils/ai-conversation-cache'
 
 export interface AiDraftActionVariables {
   readonly draftId: string
@@ -111,6 +115,32 @@ export function useUpdateAiDraftQuantitiesMutation() {
     onError: (error, { conversationId }) => {
       logger.error(error)
       reload(conversationId)
+    },
+  })
+}
+
+export interface AiMessageRatingVariables {
+  readonly messageId: string
+  readonly helpful: boolean | null
+  readonly conversationId: string
+}
+
+export function useRateAiMessageMutation() {
+  const queryClient = useQueryClient()
+  return useMutation<unknown, ApiErrorResponse, AiMessageRatingVariables>({
+    mutationFn: ({ messageId, helpful }) => aiAssistantService.rateMessage(messageId, { helpful }),
+    // Đổi ngay trên giao diện; nếu lỗi thì tải lại trạng thái thật từ máy chủ.
+    onMutate: ({ messageId, helpful, conversationId }) => {
+      queryClient.setQueryData<AiConversationMessages>(
+        queryKeys.aiAssistant.messages(conversationId),
+        (current) => setAiMessageHelpful(current, messageId, helpful)
+      )
+    },
+    onError: (error, { conversationId }) => {
+      logger.error(error)
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.aiAssistant.messages(conversationId),
+      })
     },
   })
 }
