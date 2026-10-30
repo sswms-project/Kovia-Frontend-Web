@@ -1,5 +1,14 @@
 # AI Review Handoff
 
+## 2026-10-30 — Source adjustment/capacity review round 1 after commit
+
+State: APPROVED_FINAL (no Blocker/High found; Medium findings below remain open). Separate self-review by original implementer, not independent review. Scope: 7525ccd0/7d264073, outbound source plan and transfer-capacity display. No production source edits during this review.
+
+- Medium — OPEN, FR-SOURCE-01: use-stock-issue-workflow.ts:476-486 only preserves release command ID while the serialized body stays unchanged. A 500/timeout leaves the release dialog dismissible and the manual plan editable; reopening with a changed reason/source creates a fresh command ID before the earlier result is reconciled. Freeze the original release intent and expose exact replay/reconciliation until its outcome is known, as already done for source adjustment/picking. BE status/version checks prevent assuming duplicate stock corruption, but the approved spec's safe retry behavior is not fulfilled. External hook reproduction: after mocked 500, close/reopen with changed reason sends a different ID/body; ../outputs/outbound-source-review-replay-20261030.log (1 reproduction fails, 5 existing tests pass).
+- Medium — OPEN, FR-SOURCE-02: CrossDockSection.tsx:33-44 treats every non-completed/non-revoked demand as active, without comparing validUntil. An expired authorization disables manual source selection although BE StockIssueManualAllocation only blocks still-valid demands. Use the existing ticking state.now plus validUntil; allow manual selection after expiration while keeping active demands blocked. Current workaround requires explicit revocation of an expired demand.
+- BE report finding BR-SOURCE-01 is recorded in Backend/docs/AI_REVIEW.md: actual cross-dock picks can be attributed to a released decision after manual reallocation.
+- Existing verification remains 16 focused FE tests plus lint/production TypeScript/build passing. New external review reproduction is intentionally failing and excluded from commit. No production code fix, push, application startup or deployed API/DB writes. Device/visual and SQL Server race acceptance remain pending.
+
 ## 2026-10-30 — Outbound manual picking sources
 
 State: READY_FOR_CODEX_REVIEW. Assigned implementer: Codex; self-verification only.
