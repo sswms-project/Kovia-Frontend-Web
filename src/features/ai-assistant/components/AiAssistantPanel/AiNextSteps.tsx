@@ -25,7 +25,7 @@ function toNextSteps(cards: readonly AiCard[]): NextStep[] {
     if (card.type === AI_CARD_TYPES.navigation && isAiAppPath(card.actionUrl)) {
       steps.push({ key: `open-${card.actionUrl}`, card })
     } else if (card.type === AI_CARD_TYPES.suggestedAction && card.title && card.message) {
-      steps.push({ key: `send-${card.message}`, card, message: card.message })
+      steps.push({ key: `send-${index}-${card.message}`, card, message: card.message })
     } else if (card.type === AI_CARD_TYPES.quickReplies) {
       // Lựa chọn do mô hình viết chỉ có một dòng chữ: chính nó vừa là nhãn vừa là câu gửi đi.
       for (const option of card.options ?? []) {

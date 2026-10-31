@@ -1,6 +1,7 @@
 'use client'
 
 import { ArrowLeft, Plus, RotateCw } from 'lucide-react'
+import type { ReactNode } from 'react'
 import {
   BusinessCodeField,
   type BusinessCodeFieldProps,
@@ -44,6 +45,8 @@ import { LookupCombobox } from './LookupCombobox'
 
 interface InboundRequestFormProps {
   readonly title: string
+  /** Dòng báo dưới tiêu đề (vd. form đang điền sẵn từ bản nháp của Trợ lý AI). */
+  readonly notice?: ReactNode
   readonly autoApprove: boolean
   readonly isApprovedEdit?: boolean
   readonly form: UseFormReturn<InboundRequestFormValues>
@@ -83,6 +86,7 @@ interface InboundRequestFormProps {
 
 export function InboundRequestForm({
   title,
+  notice,
   autoApprove,
   isApprovedEdit,
   form,
@@ -163,6 +167,7 @@ export function InboundRequestForm({
           </Button>
         ) : null}
       </header>
+      {notice}
 
       <form
         className="flex flex-col gap-5"

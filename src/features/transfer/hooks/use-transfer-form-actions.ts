@@ -27,6 +27,8 @@ interface UseTransferFormActionsOptions {
   readonly transferId?: string
   readonly detail: TransferDetail | undefined
   readonly form: UseFormReturn<TransferRequestFormValues>
+  /** Gọi sau khi yêu cầu đã được gửi tới kho xuất thành công (không gọi khi chỉ lưu nháp). */
+  readonly onRequestSubmitted?: (transferId: string) => void
   readonly refetchDetail: () => Promise<{ data?: TransferDetail; isError?: boolean }>
   /** Gọi khi người dùng chấp nhận dữ liệu mới của server (tải lại) hoặc bỏ qua cảnh báo thay đổi. */
   readonly dismissRealtime: () => void
@@ -38,6 +40,7 @@ export function useTransferFormActions({
   transferId,
   detail,
   form,
+  onRequestSubmitted,
   refetchDetail,
   dismissRealtime,
 }: UseTransferFormActionsOptions) {
@@ -188,6 +191,7 @@ export function useTransferFormActions({
         transferId: draftId,
         request: { expectedVersion: draftVersionRef.current },
       })
+      onRequestSubmitted?.(draftId)
       form.reset(values)
       setIsConfirmOpen(false)
       toast.success('Đã gửi yêu cầu tới kho xuất. Tồn kho chưa được giữ chỗ.')

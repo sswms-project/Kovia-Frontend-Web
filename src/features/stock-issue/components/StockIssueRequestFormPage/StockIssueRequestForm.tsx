@@ -1,6 +1,7 @@
 'use client'
 
 import { ArrowLeft, Plus, Save, UserPlus } from 'lucide-react'
+import type { ReactNode } from 'react'
 import type { FieldArrayWithId, UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,6 +46,8 @@ export interface StockIssueRecipientSnapshot {
 
 interface StockIssueRequestFormProps {
   readonly title: string
+  /** Dòng báo dưới tiêu đề (vd. form đang điền sẵn từ bản nháp của Trợ lý AI). */
+  readonly notice?: ReactNode
   readonly isEditing: boolean
   readonly form: UseFormReturn<CreateStockIssueRequestFormValues>
   readonly fields: readonly FieldArrayWithId<CreateStockIssueRequestFormValues, 'lines', 'id'>[]
@@ -81,6 +84,7 @@ interface StockIssueRequestFormProps {
 
 export function StockIssueRequestForm({
   title,
+  notice,
   isEditing,
   form,
   fields,
@@ -140,6 +144,7 @@ export function StockIssueRequestForm({
           <h1 className="truncate text-sm font-semibold">{title}</h1>
         </div>
       </header>
+      {notice}
 
       <form
         data-scrollbar="slim"

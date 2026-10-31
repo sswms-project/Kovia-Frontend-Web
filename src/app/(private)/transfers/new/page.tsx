@@ -1,5 +1,12 @@
 import { TransferFormPage } from '@/features/transfer/pages'
 
-export default function TransferCreateRoutePage() {
-  return <TransferFormPage />
+interface TransferCreateRoutePageProps {
+  readonly searchParams: Promise<{ readonly aiDraft?: string | string[] }>
+}
+
+export default async function TransferCreateRoutePage({
+  searchParams,
+}: TransferCreateRoutePageProps) {
+  const { aiDraft } = await searchParams
+  return <TransferFormPage aiDraftId={typeof aiDraft === 'string' ? aiDraft : undefined} />
 }

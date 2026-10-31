@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useFieldArray, type UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,6 +39,8 @@ interface CreateSupplierReturnDialogProps {
   readonly codeSuggestionStatus?: BusinessCodeFieldProps['suggestionStatus']
   readonly onCodeChange?: () => void
   readonly isEditing?: boolean
+  /** Dòng báo dưới tiêu đề (vd. form đang điền sẵn từ bản nháp của Trợ lý AI). */
+  readonly notice?: ReactNode
   readonly open: boolean
   readonly form: UseFormReturn<CreateSupplierReturnFormValues>
   readonly warehouses: readonly Option[]
@@ -189,6 +191,7 @@ export function CreateSupplierReturnDialog(props: CreateSupplierReturnDialogProp
               : 'Chọn phiếu nhận nguồn và tồn hiện tại để trả NCC. Hệ thống giữ lượng trả khi lập phiếu.'}
           </DialogDescription>
         </DialogHeader>
+        {props.notice}
         <form
           onSubmit={form.handleSubmit((value) => {
             if (!blocked) props.onSubmit(value)

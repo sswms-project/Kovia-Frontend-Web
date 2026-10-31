@@ -5,12 +5,9 @@ import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import type { AiMessage } from '../../types/ai-assistant.types'
-import {
-  AiAssistantAvatar,
-  AiChatMessageBubble,
-  AiUserBubble,
-  type AiDraftCallbacks,
-} from './AiChatMessageBubble'
+import { AiAssistantMascot } from './AiAssistantMascot'
+import { AiChatMessageBubble, type AiDraftCallbacks } from './AiChatMessageBubble'
+import { AiUserBubble } from './AiUserBubble'
 import { AiSuggestedPrompts } from './AiSuggestedPrompts'
 
 interface AiChatThreadProps extends AiDraftCallbacks {
@@ -20,7 +17,6 @@ interface AiChatThreadProps extends AiDraftCallbacks {
   readonly isError: boolean
   readonly onRetry: () => void
   readonly onSuggestion: (prompt: string) => void
-  readonly onRate?: (messageId: string, helpful: boolean | null) => void
 }
 
 export function AiChatThread({
@@ -30,7 +26,6 @@ export function AiChatThread({
   isError,
   onRetry,
   onSuggestion,
-  onRate,
   ...draftCallbacks
 }: AiChatThreadProps) {
   const endRef = useRef<HTMLDivElement>(null)
@@ -76,7 +71,7 @@ export function AiChatThread({
       className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3"
     >
       {messages.length === 0 && !pendingMessage ? (
-        <AiSuggestedPrompts disabled={false} onSelect={onSuggestion} />
+        <AiSuggestedPrompts onSelect={onSuggestion} />
       ) : null}
 
       {messages.map((message, index) => (
@@ -85,7 +80,6 @@ export function AiChatThread({
           message={message}
           onQuickReply={index === messages.length - 1 && !pendingMessage ? onSuggestion : undefined}
           animateEntrance={index === messages.length - 1}
-          onRate={onRate}
           {...draftCallbacks}
         />
       ))}
@@ -93,11 +87,9 @@ export function AiChatThread({
       {pendingMessage ? (
         <>
           <AiUserBubble content={pendingMessage} animateEntrance />
-          <div
-            className="text-muted-foreground animate-in fade-in-0 animation-duration-200 flex items-center gap-2 text-xs motion-reduce:animate-none"
-            role="status"
-          >
-            <AiAssistantAvatar />
+          {/* Nằm trong vùng role="log" aria-live nên không thêm role="status" lồng nhau. */}
+          <div className="text-muted-foreground animate-in fade-in-0 animation-duration-200 flex items-center gap-2 text-xs motion-reduce:animate-none">
+            <AiAssistantMascot size="sm" />
             <span className="flex items-center gap-1" aria-hidden="true">
               <span className="bg-primary/70 size-1.5 animate-bounce rounded-full [animation-delay:-0.3s] motion-reduce:animate-none" />
               <span className="bg-primary/70 size-1.5 animate-bounce rounded-full [animation-delay:-0.15s] motion-reduce:animate-none" />
