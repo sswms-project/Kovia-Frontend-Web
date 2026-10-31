@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
-import { useWarehouseLocationsQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
@@ -39,7 +38,6 @@ export function useCreateGoodsReturn() {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [sourceId, setSourceId] = useState<string | null>(null)
   const [slotSearch, setSlotSearch] = useState('')
-  const debouncedSlotSearch = useDebouncedValue(slotSearch, 350)
   // Vị trí hệ thống đã tự điền cho từng dòng, để đổi gợi ý khi người dùng đổi số lượng hoặc tình trạng
   // mà không ghi đè vị trí họ tự chọn.
   const autoSlots = useRef<Record<string, string>>({})
@@ -56,14 +54,6 @@ export function useCreateGoodsReturn() {
     queryFn: () => stockIssueService.getNextGoodsReturnCode().then((response) => response.data),
     enabled: Boolean(sourceId) && !editingDocument,
     staleTime: 0,
-  })
-  const slotsQuery = useWarehouseLocationsQuery(order?.warehouseId ?? '', {
-    top: 200,
-    skip: 0,
-    needTotalCount: true,
-    type: 'Slot',
-    lifecycleStatus: 'Active',
-    ...(debouncedSlotSearch.trim() ? { searchText: debouncedSlotSearch.trim() } : {}),
   })
 
   const watchedLines = useWatch({ control: form.control, name: 'lines' })
@@ -256,10 +246,6 @@ export function useCreateGoodsReturn() {
       order,
       form,
       isPending: createMutation.isPending || saveMutation.isPending,
-      slotOptions: (slotsQuery.data?.items ?? []).map((slot) => ({
-        id: slot.id,
-        label: slot.code,
-      })),
       suggestionsByPickDetail,
       allowableByPickDetail: Object.fromEntries(
         (order?.items ?? []).flatMap((item) =>
@@ -267,6 +253,13 @@ export function useCreateGoodsReturn() {
         )
       ) as Readonly<Record<string, number>>,
       slotSearch,
+      isLoadingSlots: suggestionsQuery.isFetching,
+      slotsError: suggestionsQuery.isError
+        ? 'Không thể tải vị trí phù hợp. Vui lòng thử lại.'
+        : null,
+      onRetrySlots: () => {
+        void suggestionsQuery.refetch()
+      },
       onSlotSearchChange: setSlotSearch,
       onOpenChange: (open: boolean) => {
         if (!open) closeForm()

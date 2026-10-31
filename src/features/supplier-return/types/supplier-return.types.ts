@@ -16,6 +16,9 @@ export const SUPPLIER_RETURN_STATUSES = [
 export type SupplierReturnStatus = (typeof SUPPLIER_RETURN_STATUSES)[number]
 
 export interface SupplierReturnItem {
+  readonly sourceLocation?: string | null
+  readonly sourceScanCodes?: readonly string[] | null
+  readonly productScanCodes?: readonly string[] | null
   readonly sourceRemainingQuantity?: number | null
   readonly availableQuantity?: number | null
   readonly zoneCode?: string | null
@@ -128,5 +131,10 @@ export interface ConfirmSupplierReturnDeliveryRequest {
   taskVersion?: string
   commandId?: string
   readonly expectedVersion?: string | null
-  readonly lines: readonly { itemId: string; deliveredQuantity: number }[]
+  readonly lines: readonly {
+    itemId: string
+    deliveredQuantity: number
+    scannedSlotCode?: string | null
+    scannedProductCode?: string | null
+  }[]
 }

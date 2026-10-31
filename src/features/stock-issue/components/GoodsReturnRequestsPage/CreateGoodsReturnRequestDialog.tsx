@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
 import { Spinner } from '@/components/ui/spinner'
+import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
 import type { CreateGoodsReturnRequestFormValues } from '../../schemas/stock-issue.schema'
 import type { StockIssueRequestSummary } from '../../types/stock-issue.types'
 import type { GoodsReturnLineSuggestion } from '../../types/stock-issue.types'
@@ -34,10 +35,12 @@ export function CreateGoodsReturnRequestDialog({
   order,
   form,
   isPending,
-  slotOptions,
   suggestionsByPickDetail,
   allowableByPickDetail,
   slotSearch,
+  isLoadingSlots = false,
+  slotsError = null,
+  onRetrySlots,
   onSlotSearchChange,
   onOpenChange,
   onSubmit,
@@ -48,10 +51,12 @@ export function CreateGoodsReturnRequestDialog({
   readonly order: StockIssueRequestSummary | null
   readonly form: UseFormReturn<CreateGoodsReturnRequestFormValues>
   readonly isPending: boolean
-  readonly slotOptions: readonly { id: string; label: string }[]
   readonly suggestionsByPickDetail: Readonly<Record<string, GoodsReturnLineSuggestion>>
   readonly allowableByPickDetail: Readonly<Record<string, number>>
   readonly slotSearch: string
+  readonly isLoadingSlots?: boolean
+  readonly slotsError?: string | null
+  readonly onRetrySlots?: () => void
   readonly onSlotSearchChange: (value: string) => void
   readonly onOpenChange: (open: boolean) => void
   readonly onSubmit: (values: CreateGoodsReturnRequestFormValues) => Promise<void>
@@ -97,110 +102,121 @@ export function CreateGoodsReturnRequestDialog({
                 />
                 <FieldError errors={[form.formState.errors.reason]} />
               </Field>
-              <Field>
-                <FieldLabel htmlFor="return-slot-search">Tìm vị trí nhập lại</FieldLabel>
-                <Input
-                  id="return-slot-search"
-                  name="returnSlotSearch"
-                  autoComplete="off"
-                  placeholder="Tìm mã vị trí…"
-                  value={slotSearch}
-                  onChange={(event) => onSlotSearchChange(event.target.value)}
-                />
-              </Field>
-              {form.watch('lines').map((line, index) => (
-                <FieldGroup
-                  key={line.stockIssuePickDetailId}
-                  className="grid min-w-0 gap-3 border p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_8rem_minmax(0,2fr)]"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{line.productName}</p>
-                    <p className="text-muted-foreground font-mono text-xs">
-                      {line.lotNumber ? `Lô ${line.lotNumber}` : 'Theo số lượng'}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      Có thể trả: {allowableByPickDetail[line.stockIssuePickDetailId] ?? 0}
-                    </p>
-                    {isEditing && line.quantity > line.returnableQuantity ? (
-                      <p className="text-destructive text-xs" role="status">
-                        Dòng đã lưu hiện vượt lượng còn được trả. Giảm số lượng hoặc nhập 0 để bỏ
-                        dòng.
+              {form.watch('lines').map((line, index) => {
+                const result = suggestionsByPickDetail[line.stockIssuePickDetailId]
+                const suggestions = result?.condition === line.condition ? result.suggestions : []
+                const locationOptions = suggestions.map((suggestion) => ({
+                  value: suggestion.slotId,
+                  label: formatSlotSuggestionLabel(suggestion),
+                }))
+                return (
+                  <FieldGroup
+                    key={line.stockIssuePickDetailId}
+                    className="grid min-w-0 gap-3 border p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_8rem_minmax(0,2fr)]"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{line.productName}</p>
+                      <p className="text-muted-foreground font-mono text-xs">
+                        {line.lotNumber ? `Lô ${line.lotNumber}` : 'Theo số lượng'}
                       </p>
-                    ) : null}
-                  </div>
-                  <Field data-invalid={Boolean(form.formState.errors.lines?.[index]?.quantity)}>
-                    <FieldLabel htmlFor={`return-quantity-${index}`}>Số lượng</FieldLabel>
-                    <Input
-                      id={`return-quantity-${index}`}
-                      aria-invalid={Boolean(form.formState.errors.lines?.[index]?.quantity)}
-                      type="number"
-                      min={0}
-                      step={1}
-                      max={allowableByPickDetail[line.stockIssuePickDetailId] ?? 0}
-                      {...form.register(`lines.${index}.quantity`, { valueAsNumber: true })}
-                    />
-                    <FieldError errors={[form.formState.errors.lines?.[index]?.quantity]} />
-                  </Field>
-                  <FieldGroup className="min-w-0 gap-2 sm:col-span-2 lg:col-span-1">
-                    <Field>
-                      <FieldLabel htmlFor={`return-condition-${index}`}>Tình trạng</FieldLabel>
-                      <NativeSelect
-                        id={`return-condition-${index}`}
-                        {...form.register(`lines.${index}.condition`)}
-                      >
-                        <NativeSelectOption value="Good">Còn tốt</NativeSelectOption>
-                        <NativeSelectOption value="Damaged">Hư hỏng</NativeSelectOption>
-                        <NativeSelectOption value="Expired">Hết hạn</NativeSelectOption>
-                        <NativeSelectOption value="Scrap">Hủy bỏ</NativeSelectOption>
-                      </NativeSelect>
+                      <p className="text-muted-foreground text-xs">
+                        Có thể trả: {allowableByPickDetail[line.stockIssuePickDetailId] ?? 0}
+                      </p>
+                      {isEditing && line.quantity > line.returnableQuantity ? (
+                        <p className="text-destructive text-xs" role="status">
+                          Dòng đã lưu hiện vượt lượng còn được trả. Giảm số lượng hoặc nhập 0 để bỏ
+                          dòng.
+                        </p>
+                      ) : null}
+                    </div>
+                    <Field data-invalid={Boolean(form.formState.errors.lines?.[index]?.quantity)}>
+                      <FieldLabel htmlFor={`return-quantity-${index}`}>Số lượng</FieldLabel>
+                      <Input
+                        id={`return-quantity-${index}`}
+                        aria-invalid={Boolean(form.formState.errors.lines?.[index]?.quantity)}
+                        type="number"
+                        min={0}
+                        step={1}
+                        max={allowableByPickDetail[line.stockIssuePickDetailId] ?? 0}
+                        {...form.register(`lines.${index}.quantity`, { valueAsNumber: true })}
+                      />
+                      <FieldError errors={[form.formState.errors.lines?.[index]?.quantity]} />
                     </Field>
-                    {line.condition !== 'Scrap' ? (
-                      <Field
-                        data-invalid={Boolean(form.formState.errors.lines?.[index]?.restockSlotId)}
-                      >
-                        <FieldLabel htmlFor={`return-slot-${index}`}>Vị trí nhập lại</FieldLabel>
+                    <FieldGroup className="min-w-0 gap-2 sm:col-span-2 lg:col-span-1">
+                      <Field>
+                        <FieldLabel htmlFor={`return-condition-${index}`}>Tình trạng</FieldLabel>
                         <NativeSelect
-                          id={`return-slot-${index}`}
-                          aria-invalid={Boolean(
+                          id={`return-condition-${index}`}
+                          {...form.register(`lines.${index}.condition`)}
+                        >
+                          <NativeSelectOption value="Good">Còn tốt</NativeSelectOption>
+                          <NativeSelectOption value="Damaged">Hư hỏng</NativeSelectOption>
+                          <NativeSelectOption value="Expired">Hết hạn</NativeSelectOption>
+                          <NativeSelectOption value="Scrap">Hủy bỏ</NativeSelectOption>
+                        </NativeSelect>
+                      </Field>
+                      {line.condition !== 'Scrap' ? (
+                        <Field
+                          data-invalid={Boolean(
                             form.formState.errors.lines?.[index]?.restockSlotId
                           )}
-                          {...form.register(`lines.${index}.restockSlotId`)}
                         >
-                          <NativeSelectOption value="">Chọn vị trí nhập lại</NativeSelectOption>
-                          {(
-                            suggestionsByPickDetail[line.stockIssuePickDetailId]?.suggestions ?? []
-                          ).map((suggestion) => (
-                            <NativeSelectOption key={suggestion.slotId} value={suggestion.slotId}>
-                              {formatSlotSuggestionLabel(suggestion)}
-                            </NativeSelectOption>
-                          ))}
-                          {slotOptions
-                            .filter(
-                              (slot) =>
-                                !suggestionsByPickDetail[
-                                  line.stockIssuePickDetailId
-                                ]?.suggestions.some((suggestion) => suggestion.slotId === slot.id)
-                            )
-                            .map((slot) => (
-                              <NativeSelectOption key={slot.id} value={slot.id}>
-                                {slot.label}
-                              </NativeSelectOption>
-                            ))}
-                        </NativeSelect>
-                        <p className="text-muted-foreground text-xs">
-                          {describeSlotSuggestion(
-                            suggestionsByPickDetail[line.stockIssuePickDetailId],
-                            form.watch(`lines.${index}.restockSlotId`)
+                          <FieldLabel htmlFor={`return-slot-${index}`}>Vị trí nhập lại</FieldLabel>
+                          {slotsError && (
+                            <div role="alert" className="text-destructive text-sm">
+                              {slotsError}
+                              {onRetrySlots && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  disabled={isPending || isLoadingSlots}
+                                  onClick={onRetrySlots}
+                                >
+                                  Thử lại
+                                </Button>
+                              )}
+                            </div>
                           )}
-                        </p>
-                        <FieldError
-                          errors={[form.formState.errors.lines?.[index]?.restockSlotId]}
-                        />
-                      </Field>
-                    ) : null}
+                          <LookupCombobox
+                            id={`return-slot-${index}`}
+                            value={line.restockSlotId ?? ''}
+                            options={locationOptions.filter((option) =>
+                              option.label
+                                .toLocaleLowerCase('vi')
+                                .includes(slotSearch.trim().toLocaleLowerCase('vi'))
+                            )}
+                            selectedOption={locationOptions.find(
+                              (option) => option.value === line.restockSlotId
+                            )}
+                            placeholder="Chọn hoặc tìm vị trí nhập lại"
+                            emptyMessage={slotsError ?? 'Không có vị trí phù hợp.'}
+                            ariaLabel={`Vị trí nhập lại dòng ${index + 1}`}
+                            isLoading={isLoadingSlots}
+                            disabled={isPending || isLoadingSlots || Boolean(slotsError)}
+                            isInvalid={Boolean(form.formState.errors.lines?.[index]?.restockSlotId)}
+                            onSearchChange={onSlotSearchChange}
+                            onChange={(value) =>
+                              form.setValue(`lines.${index}.restockSlotId`, value, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              })
+                            }
+                          />
+                          <p className="text-muted-foreground text-xs">
+                            {describeSlotSuggestion(
+                              suggestionsByPickDetail[line.stockIssuePickDetailId],
+                              form.watch(`lines.${index}.restockSlotId`)
+                            )}
+                          </p>
+                          <FieldError
+                            errors={[form.formState.errors.lines?.[index]?.restockSlotId]}
+                          />
+                        </Field>
+                      ) : null}
+                    </FieldGroup>
                   </FieldGroup>
-                </FieldGroup>
-              ))}
+                )
+              })}
             </FieldGroup>
             <DialogFooter className="mt-6">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

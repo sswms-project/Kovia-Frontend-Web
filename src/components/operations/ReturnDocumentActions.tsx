@@ -49,7 +49,7 @@ export function ReturnDocumentSecondaryActions({
         <Button
           variant="outline"
           disabled={disabled}
-          className="max-sm:min-h-11 pointer-coarse:min-h-11"
+          className="bg-card text-card-foreground max-sm:min-h-11 pointer-coarse:min-h-11"
         >
           <MoreHorizontal aria-hidden="true" />
           Thao tác khác
@@ -91,6 +91,7 @@ export function ReturnDocumentActions({
             <Button
               key={action}
               variant={action === 'Submit' ? 'default' : 'outline'}
+              className={action === 'Withdraw' ? 'bg-card text-card-foreground' : undefined}
               disabled={disabled}
               onClick={() => onAction(action)}
             >

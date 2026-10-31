@@ -29,6 +29,7 @@ import {
 import { GoodsReturnRequestStatusBadge } from './GoodsReturnRequestStatusBadge'
 
 interface GoodsReturnRequestDetailProps {
+  readonly taskView?: boolean
   readonly workPanel?: ReactNode
   readonly editingActions?: ReactNode
   readonly item: GoodsReturnRequestSummary | null
@@ -47,6 +48,7 @@ interface GoodsReturnRequestDetailProps {
 }
 
 export function GoodsReturnRequestDetail({
+  taskView = false,
   workPanel,
   editingActions,
   item,
@@ -95,7 +97,8 @@ export function GoodsReturnRequestDetail({
     : []
   return (
     <ReturnDocumentFrame
-      title="Khách trả hàng"
+      taskView={taskView}
+      title={taskView ? 'Nhận hàng khách trả' : 'Khách trả hàng'}
       code={item?.goodsReturnRequestCode}
       subtitle={
         item
@@ -110,7 +113,14 @@ export function GoodsReturnRequestDetail({
       onRetry={onRetry}
       status={item ? <GoodsReturnRequestStatusBadge status={item.status} /> : null}
       actions={
-        item ? (
+        taskView ? (
+          item && canRestock && item.status === 'Approved' ? (
+            <Button disabled={isPending} onClick={() => onRestock(item)}>
+              <Undo2 aria-hidden="true" />
+              Nhận & cất hàng
+            </Button>
+          ) : null
+        ) : item ? (
           <>
             {editingActions}
             {mayDecide ? (

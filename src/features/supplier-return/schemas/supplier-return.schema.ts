@@ -1,11 +1,12 @@
 import { z } from 'zod'
+import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 
 export const createSupplierReturnSchema = z
   .object({
     supplierReturnCode: z.string().trim().max(40, 'Mã tối đa 40 ký tự.').optional(),
     warehouseId: z.string().min(1, 'Vui lòng chọn kho.'),
     supplierId: z.string().min(1, 'Vui lòng chọn nhà cung cấp.'),
-    sourceGoodsReceiptId: z.string().uuid('Vui lòng chọn phiếu nhận hàng nguồn.'),
+    sourceGoodsReceiptId: nonEmptyDotNetGuidSchema('Vui lòng chọn phiếu nhận hàng nguồn.'),
     reason: z
       .string()
       .trim()
@@ -87,12 +88,23 @@ export const confirmSupplierReturnDeliverySchema = z
         itemId: z.string().min(1, 'Thiếu dòng hàng của phiếu.'),
         approvedQuantity: z.number(),
         deliveredQuantity: z.number({ error: 'Vui lòng nhập số lượng giao.' }),
+        scannedSlotCode: z.string().trim().max(100, 'Mã tối đa 100 ký tự.').optional(),
+        scannedProductCode: z.string().trim().max(100, 'Mã tối đa 100 ký tự.').optional(),
         quantityPrecision: z.number().int().min(0).max(6).optional(),
       })
     ),
   })
   .superRefine((value, context) => {
     value.items.forEach((item, index) => {
+      if (item.deliveredQuantity > 0) {
+        for (const [field, message] of [
+          ['scannedSlotCode', 'Quét hoặc nhập mã vị trí nguồn.'],
+          ['scannedProductCode', 'Quét hoặc nhập mã hàng.'],
+        ] as const) {
+          if (!item[field]?.trim())
+            context.addIssue({ code: 'custom', path: ['items', index, field], message })
+        }
+      }
       const precision = Math.min(item.quantityPrecision ?? 2, 2)
       if (
         Number(item.deliveredQuantity.toFixed(precision)) !== item.deliveredQuantity ||
