@@ -540,7 +540,7 @@ export default function MyWarehouseTasksPage({
                   setTaskTypeFilter(event.target.value as WarehouseTaskType | '')
                   setPage(1)
                 }}
-                className="w-full sm:w-40"
+                className="bg-card w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi loại việc</NativeSelectOption>
                 <NativeSelectOption value="Receiving">Nhận hàng</NativeSelectOption>
@@ -565,7 +565,7 @@ export default function MyWarehouseTasksPage({
                   )
                   setPage(1)
                 }}
-                className="w-full sm:w-40"
+                className="bg-card w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi trạng thái</NativeSelectOption>
                 <NativeSelectOption value="Queued">Chờ bắt đầu</NativeSelectOption>
@@ -579,7 +579,7 @@ export default function MyWarehouseTasksPage({
                   setDeadlineFilter(event.target.value as WarehouseTaskDeadlineStatus | '')
                   setPage(1)
                 }}
-                className="w-full sm:w-40"
+                className="bg-card w-full sm:w-40"
               >
                 <NativeSelectOption value="">Mọi thời hạn</NativeSelectOption>
                 <NativeSelectOption value="Overdue">Quá hạn</NativeSelectOption>

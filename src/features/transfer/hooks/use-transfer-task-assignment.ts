@@ -12,6 +12,7 @@ import { warehouseTaskService } from '@/features/warehouse-task/services/warehou
 import type { AssignWarehouseTaskRequest } from '@/features/warehouse-task/types/warehouse-task.types'
 import type { TransferDetail, TransferShipment } from '../types/transfer.types'
 import type { TransferTaskKind, TransferTaskType } from '../types/transfer-receipt.types'
+import type { AssignTransferDestinationWorkflowRequest } from '../types/transfer-receipt.types'
 import { transferService } from '../services/transfer.service'
 import {
   createTransferAssignmentSchema,
@@ -113,8 +114,22 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
   const mutation = useMutation({
     mutationKey: TRANSFER_MUTATION_KEY,
     retry: false,
-    mutationFn: ({ id, request }: { id: string; request: AssignWarehouseTaskRequest }) =>
-      warehouseTaskService.assign(id, request),
+    mutationFn: (
+      input:
+        | { id: string; request: AssignWarehouseTaskRequest }
+        | {
+            transferId: string
+            shipmentId: string
+            workflow: AssignTransferDestinationWorkflowRequest
+          }
+    ) =>
+      'workflow' in input
+        ? transferService.assignDestinationWorkflow(
+            input.transferId,
+            input.shipmentId,
+            input.workflow
+          )
+        : warehouseTaskService.assign(input.id, input.request),
     onError: logTransferError,
   })
   const target: AssignWarehouseTaskTarget | null =
@@ -147,16 +162,24 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
         const due = pending.requestedDue[pending.uncertain]
           ? Date.parse(pending.requestedDue[pending.uncertain]!)
           : null
+        const verifyingKinds = pending.kinds.length === 2 ? pending.kinds : [pending.uncertain]
         if (
-          resolved.assignee === pending.values.staffId &&
-          resolved.priority === pending.values.priority &&
-          (resolved.due ? Date.parse(resolved.due) : null) === due
+          verifyingKinds.every((kind) => {
+            const entry =
+              kind === pending.uncertain ? resolved : transferAssignmentTask(current, kind)
+            return (
+              entry.assignee === pending.values.staffId &&
+              entry.priority === pending.values.priority &&
+              (entry.due ? Date.parse(entry.due) : null) === due
+            )
+          })
         ) {
-          const kind = pending.uncertain
-          pending.done.add(kind)
+          for (const kind of verifyingKinds) pending.done.add(kind)
           setResults((old) => ({
             ...old,
-            [kind]: 'Đã xác minh giao việc thành công.',
+            ...Object.fromEntries(
+              verifyingKinds.map((kind) => [kind, 'Đã xác minh giao việc thành công.'])
+            ),
           }))
         }
         pending.uncertain = null
@@ -249,18 +272,46 @@ export function useTransferTaskAssignment(transfer: TransferDetail | undefined) 
               : null
         pending.requestedDue[kind] = requestedDue
         try {
-          await mutation.mutateAsync({
-            id: next.id,
-            request: {
-              staffId: pending.values.staffId,
-              expectedStaffId: next.assignee ?? null,
-              expectedVersion: next.version,
-              reason: pending.values.reason.trim() || null,
-              priority: pending.values.priority,
-              dueAt: requestedDue,
-              clearDueAt: !requestedDue,
-            },
-          })
+          if (pending.kinds.length === 2) {
+            const companion = current.find((task) => task.taskType === 'TransferPutAway')
+            if (!companion?.version || companion.version !== pending.versions.putaway) {
+              setNeedsVerify(true)
+              setResults((old) => ({
+                ...old,
+                putaway: 'Công việc đã thay đổi. Tải lại trước khi giao.',
+              }))
+              break
+            }
+            pending.requestedDue.putaway = requestedDue
+            await mutation.mutateAsync({
+              transferId: transfer.id,
+              shipmentId: selected.shipmentId,
+              workflow: {
+                staffId: pending.values.staffId,
+                receiveVersion: next.version,
+                expectedReceiveStaffId: next.assignee,
+                putAwayVersion: companion.version,
+                expectedPutAwayStaffId: companion.assignee,
+                priority: pending.values.priority,
+                dueAt: requestedDue,
+                reason: pending.values.reason.trim() || null,
+              },
+            })
+            pending.done.add('putaway')
+            setResults((old) => ({ ...old, putaway: 'Đã giao thành công.' }))
+          } else
+            await mutation.mutateAsync({
+              id: next.id,
+              request: {
+                staffId: pending.values.staffId,
+                expectedStaffId: next.assignee ?? null,
+                expectedVersion: next.version,
+                reason: pending.values.reason.trim() || null,
+                priority: pending.values.priority,
+                dueAt: requestedDue,
+                clearDueAt: !requestedDue,
+              },
+            })
           pending.done.add(kind)
           setResults((old) => ({ ...old, [kind]: 'Đã giao thành công.' }))
         } catch (error) {

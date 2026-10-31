@@ -106,7 +106,11 @@ function MyWorkQueueItem({ task }: { readonly task: MyWarehouseTask }) {
     >
       <Icon aria-hidden="true" className="text-muted-foreground mt-0.5 size-5 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{taskTypeLabel[task.taskType] ?? task.taskType}</p>
+        <p className="text-sm font-medium">
+          {task.isCombinedTransferReceipt
+            ? 'Nhận và cất hàng điều chuyển'
+            : (taskTypeLabel[task.taskType] ?? task.taskType)}
+        </p>
         <p className="truncate font-mono text-sm">{task.referenceCode}</p>
         <p className="text-muted-foreground text-xs">{task.workSummary}</p>
         <p className="text-muted-foreground truncate text-xs">{task.warehouseName}</p>

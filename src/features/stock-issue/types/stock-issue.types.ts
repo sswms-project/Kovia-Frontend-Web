@@ -110,6 +110,7 @@ export interface StockIssuePickDetail {
 }
 
 export interface StockIssueRequestSummary {
+  canAdjustPickingSources?: boolean
   createdBy?: string | null
   id: string
   stockIssueRequestCode: string
@@ -144,6 +145,23 @@ export interface ReleaseStockIssueRequestRequest {
   commandId: string
   expectedVersion: string
   assignedStaffId?: string
+  allocations?: StockIssueSourceAllocation[]
+  allocationReason?: string
+}
+
+export interface StockIssueSourceAllocation {
+  itemId: string
+  inventoryStockId: string
+  /** Base units; UI converts from the order's entered unit. */
+  quantity: number
+}
+
+export interface StockIssueManualSourceDraft {
+  orderId: string
+  version: string
+  allocations: StockIssueSourceAllocation[]
+  allocationReason: string
+  labels?: Record<string, string>
 }
 
 export interface AssignStockIssuePickerRequest {

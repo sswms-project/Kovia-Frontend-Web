@@ -42,6 +42,8 @@ interface TransferFormProps {
   readonly isDestinationSlotLoading: boolean
   readonly lockedDestinationItemIds: ReadonlySet<string>
   readonly onDestinationSlotSearchChange: (value: string) => void
+  readonly onDestinationManualChange?: (index: number) => void
+  readonly destinationSuggestionNotes?: Readonly<Record<string, string | undefined>>
   readonly lockByItemId: Readonly<Record<string, TransferLineLockInfo>>
   readonly isProductSearchLoading: boolean
   readonly isSaving: boolean
@@ -84,6 +86,8 @@ export function TransferForm({
   isDestinationSlotLoading,
   lockedDestinationItemIds,
   onDestinationSlotSearchChange,
+  onDestinationManualChange,
+  destinationSuggestionNotes,
   lockByItemId,
   isProductSearchLoading,
   isSaving,
@@ -200,6 +204,8 @@ export function TransferForm({
                   isDestinationSlotLoading={isDestinationSlotLoading}
                   isDestinationSlotLocked={Boolean(itemId && lockedDestinationItemIds.has(itemId))}
                   onDestinationSlotSearchChange={onDestinationSlotSearchChange}
+                  onDestinationManualChange={onDestinationManualChange}
+                  destinationSuggestionNote={destinationSuggestionNotes?.[field.id]}
                   selectedOption={knownProductOptions[productId]}
                   options={productOptions}
                   isProductSearchLoading={isProductSearchLoading}

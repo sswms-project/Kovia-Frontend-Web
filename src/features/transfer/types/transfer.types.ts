@@ -250,6 +250,7 @@ export interface TransferSourceLocationsQuery {
 }
 
 export interface TransferReceivableSlotOption {
+  capacitySummary?: import('../utils/transfer-location-capacity').TransferLocationCapacity | null
   id: string
   code: string
   path: string

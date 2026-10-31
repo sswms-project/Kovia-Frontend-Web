@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { useImportNavigation } from '@/components/operations/use-import-navigation'
 import { queryKeys } from '@/lib/query-keys'
 import { stockIssueService } from '../services/stock-issue.service'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -25,6 +26,8 @@ import type {
   StockIssueCapabilities,
   StockIssueRequestSummary,
   StockIssueRowActionHandlers,
+  StockIssueManualSourceDraft,
+  ReleaseStockIssueRequestRequest,
 } from '../types/stock-issue.types'
 import { buildStockPickingLines } from '../utils/stock-issue-picking'
 import { crossDockService } from '../services/cross-dock.service'
@@ -40,6 +43,7 @@ import {
   useConfirmStockDispatchMutation,
   useRecordStockPickingMutation,
   useReleaseStockIssueRequestMutation,
+  useStockIssueRequestQuery,
   useRemovePickDetailMutation,
   useReportStockIssuePickIssueMutation,
 } from './use-stock-issue-requests'
@@ -56,7 +60,11 @@ function notifyError(error: unknown, fallback: string) {
  * dùng chung cho trang danh sách và trang chi tiết. `contextWarehouseId` là kho của phiếu đang
  * xem để tải sẵn danh sách người lấy hàng khi chưa mở hộp thoại giao việc.
  */
-export function useStockIssueWorkflow(contextWarehouseId?: string) {
+export function useStockIssueWorkflow(
+  contextWarehouseId?: string,
+  manualSources?: StockIssueManualSourceDraft | null,
+  onManualApplied?: () => void
+) {
   const router = useRouter()
   const client = useQueryClient()
   const [pickingOrder, setPickingOrder] = useState<StockIssueRequestSummary | null>(null)
@@ -76,6 +84,17 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   const pickIntent = useRef<{ id: string; request: RecordStockPickingRequest } | null>(null)
   const [pickUncertain, setPickUncertain] = useState(false)
   const pickCommand = useRef<{ body: string; commandId: string } | null>(null)
+  const releaseCommand = useRef<{ body: string; commandId: string } | null>(null)
+  const frozenRelease = useRef<ReleaseStockIssueRequestRequest | null>(null)
+  const releasing = useRef(false)
+  const [releaseUncertain, setReleaseUncertain] = useState(false)
+  const currentPicking = useStockIssueRequestQuery(pickingOrder?.id ?? null)
+  const pickingChanged = Boolean(
+    pickingOrder &&
+    currentPicking.data &&
+    (currentPicking.data.version !== pickingOrder.version ||
+      !['Picking', 'ReleasedForPicking'].includes(currentPicking.data.status))
+  )
 
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions
@@ -126,6 +145,11 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   const authorizeDispatchMutation = useAuthorizeStockDispatchMutation()
   const removePickDetailMutation = useRemovePickDetailMutation()
   const releaseMutation = useReleaseStockIssueRequestMutation()
+  useImportNavigation(
+    releaseUncertain || releaseMutation.isPending,
+    releaseUncertain || releaseMutation.isPending,
+    'Hãy kiểm tra lại kết quả giao việc trước khi rời trang.'
+  )
   const cancelMutation = useCancelStockIssueRequestMutation()
   const assignPickerMutation = useAssignStockIssuePickerMutation()
   const reportPickIssueMutation = useReportStockIssuePickIssueMutation()
@@ -293,7 +317,7 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
       meQuery.isFetching ||
       recordPickingMutation.isPending ||
       savingPick.current ||
-      pickNeedsRefresh
+      ((pickNeedsRefresh || pickingChanged) && !pickUncertain)
     )
       return
     savingPick.current = true
@@ -331,6 +355,7 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
       setPickUncertain(false)
       await refreshPicking()
     } catch (error) {
+      if (isApiErrorResponse(error) && error.statusCode === 409) setPickNeedsRefresh(true)
       setPickUncertain(
         !isApiErrorResponse(error) || error.statusCode >= 500 || error.statusCode === 408
       )
@@ -407,6 +432,14 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   }
 
   function openRelease(order: StockIssueRequestSummary) {
+    if (releasing.current || releaseUncertain) return
+    if (
+      manualSources &&
+      (manualSources.orderId !== order.id || manualSources.version !== order.version)
+    ) {
+      toast.warning('Phiếu đã thay đổi. Chọn lại nguồn hoặc dùng lại gợi ý trước khi giao việc.')
+      return
+    }
     releaseForm.reset({
       staffId: order.assignedStaffId ?? '',
       priority: 'Normal',
@@ -417,6 +450,11 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
   }
 
   async function releaseForPicking(values: AssignWarehouseTaskFormValues) {
+    if (releasing.current) return
+    if (releaseUncertain && frozenRelease.current) {
+      await persistRelease(frozenRelease.current)
+      return
+    }
     if (
       !releasingOrder ||
       releaseMutation.isPending ||
@@ -430,17 +468,54 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
       return
     }
     try {
-      await releaseMutation.mutateAsync({
+      if (
+        manualSources &&
+        (manualSources.orderId !== releasingOrder.id ||
+          manualSources.version !== releasingOrder.version)
+      ) {
+        toast.warning('Phương án không khớp phiên bản phiếu. Hãy tải lại.')
+        return
+      }
+      const request: ReleaseStockIssueRequestRequest = {
         stockIssueRequestId: releasingOrder.id,
-        commandId: crypto.randomUUID(),
+        commandId: '',
         expectedVersion: releasingOrder.version,
         assignedStaffId: values.staffId,
-      })
+        ...(manualSources
+          ? {
+              allocations: manualSources.allocations,
+              allocationReason: manualSources.allocationReason,
+            }
+          : {}),
+      }
+      const body = JSON.stringify(request)
+      if (releaseCommand.current?.body !== body)
+        releaseCommand.current = { body, commandId: crypto.randomUUID() }
+      await persistRelease({ ...request, commandId: releaseCommand.current.commandId })
+    } catch (error) {
+      notifyError(error, 'Không thể giao việc lấy hàng.')
+    }
+  }
+
+  async function persistRelease(request: ReleaseStockIssueRequestRequest) {
+    releasing.current = true
+    frozenRelease.current = request
+    try {
+      await releaseMutation.mutateAsync(request)
+      setReleaseUncertain(false)
+      frozenRelease.current = null
+      releaseCommand.current = null
+      onManualApplied?.()
       toast.success('Đã giao việc lấy hàng và giữ tồn kho.')
       setReleasingOrder(null)
       releaseForm.reset({ staffId: '', priority: 'Normal', dueAt: '', reason: '' })
     } catch (error) {
+      setReleaseUncertain(
+        !isApiErrorResponse(error) || error.statusCode >= 500 || error.statusCode === 408
+      )
       notifyError(error, 'Không thể giao việc lấy hàng.')
+    } finally {
+      releasing.current = false
     }
   }
 
@@ -513,7 +588,7 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
         permissions,
         meQuery.dataUpdatedAt,
       ]),
-      needsRefresh: pickNeedsRefresh,
+      needsRefresh: !pickUncertain && (pickNeedsRefresh || pickingChanged),
       onRefresh: () => void refreshPicking(),
       isUncertain: pickUncertain,
       order: pickingOrder,
@@ -525,6 +600,10 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
       onSubmit: submitPicking,
     },
     release: {
+      isUncertain: releaseUncertain,
+      onRetry: () => {
+        if (!releasing.current && frozenRelease.current) void persistRelease(frozenRelease.current)
+      },
       order: releasingOrder,
       form: releaseForm,
       isPending: releaseMutation.isPending,
@@ -535,7 +614,9 @@ export function useStockIssueWorkflow(contextWarehouseId?: string) {
         void staffQuery.refetch()
         void managerQuery.refetch()
       },
-      onClose: () => setReleasingOrder(null),
+      onClose: () => {
+        if (!releasing.current && !releaseUncertain) setReleasingOrder(null)
+      },
       onConfirm: () => void releaseForm.handleSubmit(releaseForPicking)(),
     },
     authorize: {

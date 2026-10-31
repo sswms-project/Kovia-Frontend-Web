@@ -256,7 +256,7 @@ export function RecordStockPickingDialog({
               : isUncertain
                 ? 'Chưa xác định kết quả lưu. Kiểm tra lại cùng thao tác; không sửa hoặc tạo lượt mới.'
                 : needsRefresh
-                  ? 'Lượt lấy đã lưu. Cần tải lại phiếu trước khi lấy tiếp.'
+                  ? 'Phiếu hoặc nguồn lấy đã thay đổi. Tải lại phiếu trước khi lấy tiếp.'
                   : 'Mỗi lần Xác nhận & tiếp tục được lưu ngay. Lượt chưa xác nhận không được lưu.'}
           </p>
           <Button
