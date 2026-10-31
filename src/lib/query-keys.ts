@@ -315,6 +315,12 @@ export const queryKeys = {
     issueHistory: (id: string, params: StockRecipientIssueHistoryQuery) =>
       ['stock-recipients', 'detail', id, 'issue-history', params] as const,
   },
+  returnWork: {
+    all: ['return-work'] as const,
+    document: (supplier: boolean, id: string) => ['return-work', 'document', supplier, id] as const,
+    task: (supplier: boolean, id: string) => ['return-work', 'task', supplier, id] as const,
+    staff: (supplier: boolean, id: string) => ['return-work', 'staff', supplier, id] as const,
+  },
   aiAssistant: {
     all: ['ai-assistant'] as const,
     conversations: ['ai-assistant', 'conversations'] as const,

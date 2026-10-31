@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const createSupplierReturnSchema = z
   .object({
+    supplierReturnCode: z.string().trim().max(40, 'Mã tối đa 40 ký tự.').optional(),
     warehouseId: z.string().min(1, 'Vui lòng chọn kho.'),
     supplierId: z.string().min(1, 'Vui lòng chọn nhà cung cấp.'),
     sourceGoodsReceiptId: z.string().uuid('Vui lòng chọn phiếu nhận hàng nguồn.'),

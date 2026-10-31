@@ -1,5 +1,34 @@
 # AI Review Handoff
 
+## 2026-10-31 — Customer return quantity spinner step
+
+State: READY_FOR_CODEX_REVIEW. Quantity input in the customer-return create/edit dialog now uses step=1 per user request, so native increment/decrement advances by whole units. Bounds and existing request validation retained. Scoped ESLint passed; implementer verification only.
+
+## 2026-10-31 — Cancelled return status color
+
+State: READY_FOR_CODEX_REVIEW. Both customer/supplier return badges use the existing destructive variant for Cancelled, consistently in list/detail views. Scoped ESLint and diff checks passed; no workflow/API changes. Implementer verification only; visual browser acceptance not performed.
+
+## 2026-10-31 — BE RC-01 fixed
+
+State: READY_FOR_FINAL_REVIEW for the shared return-code task. No FE production changes in this fix.
+
+- Backend now batches occupied candidate checks and preserves a fast path and final DB gap verification. RC-01 and its read-count regression evidence are recorded in Backend/docs/AI_REVIEW.md; 195 related BE tests passed. Previous 5 FE tests, lint and production build remain applicable. No deployment or DB mutation.
+
+## 2026-10-31 — Return document codes review round 1
+
+State: APPROVED_FINAL for this FE scope (no actionable Blocker/High/Medium identified). Original implementer separate self-review, not independent review. No production source changes during review.
+
+- Reviewed request mapping, optional code validation, shared field wiring, suggestion hydration/session guards, manual clearing, read-only editing and field error rendering against the plan. Existing evidence remains 5 focused tests plus scoped lint/production TypeScript/build passing; physical-device visual acceptance remains unverified.
+- BE Medium RC-01 remains open in Backend/docs/AI_REVIEW.md: sequential candidate probes can delay suggestions/server-generated codes and extend the supplier storage lock. External repository-call-count reproduction confirms the issue; no deployed latency claims or DB writes.
+
+## 2026-10-31 — Editable return code fields
+
+State: READY_FOR_CODEX_REVIEW. Assigned implementer self-verification, not independent review.
+
+- Reuse BusinessCodeField and useCodeSuggestion for KTH customer-return / THNCC supplier-return suggestions. Both forms permit custom or empty (server-generated) codes; scopes are per create session, late suggestions do not overwrite manual input/clearing, and existing edit codes remain read-only. Create payloads carry optional code fields; duplicate responses render at the code input.
+- 5 focused hook tests passed (source hydration/custom customer payload, late/manual clearing, new supplier session, read-only editing and offline suggestion fallback). Scoped ESLint, production TypeScript and isolated production Next build passed. No deployed API/DB calls or migration.
+- Plan: ../outputs/return-document-codes-plan-20261031.md. Evidence: ../outputs/return-codes-fe-tests-20261031.log, return-codes-fe-lint-20261031.log and return-codes-fe-build-20261031.log. Mobile/desktop visual acceptance and SQL Server race acceptance remain unverified; existing shared responsive field/dialog layouts retained.
+
 ## 2026-10-31 — Clarify return workspace terminology
 
 State: READY_FOR_CODEX_REVIEW. Assigned implementer self-verification only.
@@ -2786,3 +2815,60 @@ READY_FOR_CODEX_REVIEW (implementation self-verification; not independent approv
 ### 2026-10-29 — Pre-push self-review
 
 User authorized checking, committing and pushing both feature branches. Revalidated all 13 recorded file hashes against the saved web checkpoint; no feature source drift. Reviewed read-only scene access, selected allocated source, default-slot resolution, inactive/unplaced targets and stale permission/source/version guards. Refreshed dev has three notification commits touching two unrelated files; this existing feature branch retains its reviewed base without modifying those files. Re-ran required TypeScript, scoped ESLint and the 23 focused tests before commit. Previous mocked browser inventory/picking evidence is reused because web behavior is unchanged. No live-backend/device coverage, production build, full-suite pass, independent approval, PR, merge or deployment is implied.
+
+## RT-ASSIGN-20261031 — implementation handoff (31/10/2026)
+
+- Role: Codex implementer; the checks below are self-review, not an independent review.
+- State: READY_FOR_CODEX_REVIEW.
+- Implements the approved return-work spec: one versioned task per customer/supplier return, shared assignment dialog, eligibility from existing permissions and active warehouse membership, own-task routes and notification deep links, first-ever StartedAt, source/task concurrency and transactional command journal.
+- Physical handlers retain the existing stock/placement/reservation rules and complete task/source/journal in one save. No stock posting on assignment/start. Supplier partial delivery history reports actual quantity; first start blocks source editing/cancel even after return to queue.
+- Self-review fixes included: reject generic task endpoints; source and task versions touched on effective writes; preserve actor/intent replay before new-intent state checks; preserve overdue deadline precision; form snapshots cannot adopt background versions; mutation/realtime cache invalidation refreshes task capabilities; manager navigation opens source while assignee navigation opens own task.
+- GitNexus: return handlers/readers have limited direct callers; shared AssignWarehouseTaskDialog reported CRITICAL (7 direct callers), announced before change. Changes to the dialog are additive return kinds and allow same-user schedule editing only for those kinds; old kind branches preserved.
+- Verification: 208 relevant BE tests passed (isolated InMemory only); 15 FE tests passed, including lost-ack/idempotency, stock once, permission denial, first-start cancellation guard, paused Start replay, captured assignment versions, preserved overdue deadline, notification routing and approval-to-assignment cache refresh. Production TS check passed; scoped ESLint passed. Full lint/typecheck have generated/QA/tmp fixture failures outside this scope; do not describe the entire repo as clean.
+- Migration: 20261031085902_AddUniqueReturnWorkflowTaskReference adds only the filtered unique task-reference index. Generated SQL reviewed; metadata model-drift check reports no pending model changes. Not applied to db71143. Default ReturnWorkflows:AssignmentRequired=false, no application-host startup, deployed API calls, deployed DB writes or migration/seed execution performed.
+- Deployment/manual gates: obtain migration authorization; deploy compatible BE/web/mobile while mode is legacy; drain writes across instances before enabling assignment. SQL Server concurrency/rollback and real mobile/125%/keyboard/realtime profile QA remain unverified. See BE docs/RETURN_WORKFLOW_ROLLOUT.md.
+- Architecture note: return-work panel hook owns the two forms and shared versioned intent for this one workflow; snapshot capture, command identity and shared pending lock stay in that owner to avoid competing state/transaction coordinators.
+- Preserve protected local AGENTS/appsettings/CLAUDE changes and untracked QA outputs when preparing any later commit. No commit or push requested in this implementation turn.
+
+- Final verification for RT-ASSIGN-20261031: production FE build passed (including both new task routes); source-scoped TypeScript and changed-file ESLint passed; BE 208/208 and FE 15/15 tests passed. Implementation self-review complete; independent review and the relational/manual rollout gates above remain pending.
+
+## RT-ASSIGN-20261031 — review round 1 (Codex self-review)
+
+State: NEEDS_CLAUDE_FIX. Review-only: no implementation edits or database/API writes. This is review by the implementer, not independent review. Prior passing tests do not cover the cases below; no new relational or live reproduction was run.
+
+### RT-REVIEW-01 — High — dirty customer inspection overwritten by a background version refresh
+
+Location: FE src/features/stock-issue/pages/GoodsReturnRequestsPage.tsx:164-173 and 271-273.
+The hydration session includes the current query version and resets every condition/slot from the approved document whenever that version changes. The new assignment schedule path can update the source version while the same assignee remains InProgress. If staff selected actual Damaged and an isolation slot, a focus/refetch after such an update restores the approved Good condition/old slot. Submission also adopts restockDetailQuery.data.version, so the current-version check does not stop that rewritten form. The receipt can therefore post Good inventory instead of the inspected damage. Keep an immutable opening snapshot; never reset dirty inspection on background refetch, and require an explicit reload on version conflict.
+
+### RT-REVIEW-02 — High — unknown-outcome writes can be replaced by a different intent
+
+Location: FE src/features/warehouse-task/hooks/use-return-work.ts:35-50; use-return-work-panel.ts:98-107 and 120-126; physical completion dialogs/pages.
+After a timeout/500 the pending lock is released and fields remain editable. Changing quantities/assignee/payload causes a new commandId instead of preserving an unresolved original request. A timed-out supplier dispatch for quantity 2 can still be running while the user submits quantity 3 with a new ID and the old versions. Rowversion protects against double posting, but either intent may win; it does not implement the spec's required freeze-and-reconcile flow. Keep the original full payload, versions and commandId in an unknown-result state, freeze changes, and reconcile/replay that exact intent before allowing another one. Tests currently verify identity only while payload is unchanged.
+
+### RT-REVIEW-03 — Medium — approval still reports failure after a successful commit when realtime fails
+
+Location: BE Application/Features/GoodsReturn/ApproveGoodsReturnRequest/ApproveGoodsReturnRequestCommandHandler.cs:62-63; SupplierReturn/ApproveSupplierReturn/ApproveSupplierReturnCommandHandler.cs:51-53. The self-approved customer creation path has the same pattern.
+Approval (including reopening the existing task) and staged notification are committed, but PublishCreatedAsync is awaited without the post-commit failure handling used by the new task/physical handlers. A publish exception returns an error although approval succeeded; the FE error path does not refresh assignment capability and retrying approval conflicts. Isolate realtime publishing after commit and log/retry it without changing the persisted command outcome. Cover this with a publish-throws test.
+
+Acceptance gaps: SQL Server races/unique-index rollback and actual mobile/zoom/realtime profile QA remain unverified as already documented. Migration remains unapplied; default enforcement remains false. These gaps are not claimed as passing checks.
+
+## RT-ASSIGN-20261031 — fix handoff for RT-REVIEW-01/02/03
+
+State: READY_FOR_FINAL_REVIEW. Codex implementer fixes and self-verification; this is not independent approval.
+
+- RT-REVIEW-01 addressed: an inspection session owns the opening document/items/version; background refetch cannot reset actual condition/slot or adopt its new version. A version conflict blocks completion; explicit reload replaces the snapshot with a visible explanation. A real React Hook Form regression preserves dirty Damaged/isolation values and the old version until explicit reload.
+- RT-REVIEW-02 addressed: a return-command owner freezes the full original request after network/timeout/5xx. Assignment, Start/Pause/Return and customer/supplier completion disable editable controls and closing, and expose an exact-request replay action. Changed values/current capability versions are not used on that replay. Tests cover changed quantities/commandId/versions, a 409 during uncertain retry, initial validation rejection, local preflight rejection and Start replay after capabilities change. Existing shared assignment consumers retain their default behavior; new notices reuse Alert and Button.
+- RT-REVIEW-03 addressed: post-commit realtime failures in customer approval, supplier approval and self-approved customer creation log a warning without failing the saved command. Three isolated tests force publishing to throw and assert the approval stays successful.
+- Final checks: BE 211/211 relevant tests passed; FE 19/19 relevant tests across 10 files passed; production TypeScript, changed-source ESLint, diff whitespace checks and Next production build passed. BE tests use isolated InMemory fixtures, not db71143. Full default repo lint/typecheck are not claimed clean because generated/tmp QA artifacts remain outside this scope.
+- Limits: unknown request state is in-memory, with beforeunload protection; forced reload/crash/navigation can discard it. Legacy physical commands have no journal and an uncertain retry can require read-only operator reconciliation. No claim of durable browser recovery, SQL Server concurrent-race/rollback coverage, actual mobile/zoom/keyboard QA or cross-profile realtime delivery. No new realtime retry worker.
+- No new migration for these fixes. Existing 20261031085902_AddUniqueReturnWorkflowTaskReference remains unapplied; AssignmentRequired remains false. No application-host startup, deployed API call, deployed DB write, migration/seed, commit or push. Protected instructions/config and QA outputs preserved. Rollout contract and root spec updated with the actual behavior and limitations.
+
+### RT-ASSIGN-20261031 — final focused review and dev PR readiness
+
+State: APPROVED_FINAL for the reviewed implementation scope (Codex self-review, not independent approval). The two-round code review loop is closed.
+
+- Rechecked RT-REVIEW-01/02/03 and direct regressions: inspection condition/slot/version remain bound to the opening snapshot, explicit reload is required on conflict; uncertain assignment/action/completion retries preserve the complete original request and commandId while editing/closing is locked; publishing failures are caught only after the successful approval/create save. No remaining Blocker/High found in this focused review. The documented crash/navigation and legacy reconciliation limits still apply.
+- Fresh origin/dev merged without conflicts into the requested working branches. FE now includes stock-alert speech; BE includes Expo push/device-token support. Post-merge relevant verification: 229 BE tests, 25 FE tests and production TypeScript passed. Metadata-only model check reports no pending model changes. Existing 211 BE/19 FE pre-merge checks remain valid for the return-specific scope.
+- Ready to propose a PR to dev, retaining AssignmentRequired=false. This approval is not production cutover or permission to apply migrations. Migration 20261031085902_AddUniqueReturnWorkflowTaskReference remains unapplied by this work; AddDeviceTokens arrived from dev, not introduced by this feature diff. SQL Server race/rollback and real device/realtime profile checks remain rollout gates.
+- Protected local AGENTS/CLAUDE/appsettings edits and QA outputs remain outside the commit/PR. No deployed DB writes, startup, migrations or seed execution.

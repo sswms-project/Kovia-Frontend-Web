@@ -180,6 +180,7 @@ export const returnLineSchema = z.object({
 
 export const createGoodsReturnRequestSchema = z
   .object({
+    goodsReturnRequestCode: z.string().trim().max(100, 'Mã tối đa 100 ký tự.').optional(),
     reason: z
       .string()
       .trim()

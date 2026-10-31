@@ -8,7 +8,7 @@ export function GoodsReturnRequestStatusBadge({
   readonly status: GoodsReturnRequestStatus
 }) {
   const variant =
-    status === 'Rejected'
+    status === 'Rejected' || status === 'Cancelled'
       ? 'destructive'
       : status === 'Requested'
         ? 'outline'

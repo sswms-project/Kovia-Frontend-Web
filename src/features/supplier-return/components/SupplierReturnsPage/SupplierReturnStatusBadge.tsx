@@ -4,7 +4,7 @@ import { SUPPLIER_RETURN_STATUS_LABELS } from '../../utils/supplier-return-forma
 
 export function SupplierReturnStatusBadge({ status }: { readonly status: SupplierReturnStatus }) {
   const variant =
-    status === 'Rejected'
+    status === 'Rejected' || status === 'Cancelled'
       ? 'destructive'
       : status === 'Pending'
         ? 'outline'

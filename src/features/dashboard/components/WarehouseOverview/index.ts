@@ -8,6 +8,7 @@ export {
 export { WarehouseActivityChart } from './WarehouseActivityChart'
 export { StockAlertDialog } from './StockAlertDialog'
 export { ExpiryDaysSettings } from './ExpiryDaysSettings'
+export { AlertSpeechControl, useVietnameseSpeechAvailable } from './AlertSpeechControl'
 export { ActivityPeriodFilter } from './ActivityPeriodFilter'
 export { stockAlertKinds, type OverviewStockAlertKind } from './WarehouseOverviewView'
 export { AlertOverviewCharts } from './AlertOverviewCharts'

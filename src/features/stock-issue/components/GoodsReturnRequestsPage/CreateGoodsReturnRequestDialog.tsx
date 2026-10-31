@@ -1,6 +1,10 @@
 'use client'
 
 import type { UseFormReturn } from 'react-hook-form'
+import {
+  BusinessCodeField,
+  type BusinessCodeFieldProps,
+} from '@/components/forms/BusinessCodeField'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -25,6 +29,8 @@ import {
 
 export function CreateGoodsReturnRequestDialog({
   isEditing = false,
+  codeSuggestionStatus,
+  onCodeChange,
   order,
   form,
   isPending,
@@ -37,6 +43,8 @@ export function CreateGoodsReturnRequestDialog({
   onSubmit,
 }: {
   readonly isEditing?: boolean
+  readonly codeSuggestionStatus?: BusinessCodeFieldProps['suggestionStatus']
+  readonly onCodeChange?: () => void
   readonly order: StockIssueRequestSummary | null
   readonly form: UseFormReturn<CreateGoodsReturnRequestFormValues>
   readonly isPending: boolean
@@ -62,6 +70,24 @@ export function CreateGoodsReturnRequestDialog({
         {order ? (
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <FieldGroup>
+              <BusinessCodeField
+                label="Mã yêu cầu khách trả hàng"
+                description={
+                  isEditing
+                    ? 'Mã của phiếu đã lưu.'
+                    : 'Mã được gợi ý, có thể chỉnh sửa. Để trống thì hệ thống tự cấp.'
+                }
+                suggestionStatus={isEditing ? undefined : codeSuggestionStatus}
+                error={form.formState.errors.goodsReturnRequestCode}
+                inputProps={{
+                  ...form.register('goodsReturnRequestCode', { onChange: onCodeChange }),
+                  id: 'goods-return-code',
+                  maxLength: 100,
+                  placeholder: 'VD: KTH000001',
+                  disabled: isPending,
+                  readOnly: isEditing,
+                }}
+              />
               <Field data-invalid={Boolean(form.formState.errors.reason)}>
                 <FieldLabel htmlFor="return-reason">Lý do</FieldLabel>
                 <Textarea
@@ -109,7 +135,7 @@ export function CreateGoodsReturnRequestDialog({
                       aria-invalid={Boolean(form.formState.errors.lines?.[index]?.quantity)}
                       type="number"
                       min={0}
-                      step="0.01"
+                      step={1}
                       max={allowableByPickDetail[line.stockIssuePickDetailId] ?? 0}
                       {...form.register(`lines.${index}.quantity`, { valueAsNumber: true })}
                     />

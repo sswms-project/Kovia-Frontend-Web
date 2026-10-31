@@ -7,6 +7,10 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatApiError, getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import { useSaveReturnDocument } from '@/hooks/use-return-document-editing'
+import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
+import { useQuery } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-keys'
+import { stockIssueService } from '../services/stock-issue.service'
 import {
   createGoodsReturnRequestSchema,
   type CreateGoodsReturnRequestFormValues,
@@ -29,6 +33,7 @@ import {
  */
 export function useCreateGoodsReturn() {
   const [editingDocument, setEditingDocument] = useState<GoodsReturnRequestSummary | null>(null)
+  const [codeSession, setCodeSession] = useState(0)
   const hydratedSource = useRef<string | null>(null)
   const saveMutation = useSaveReturnDocument('goodsReturnRequests')
   const [isPickerOpen, setIsPickerOpen] = useState(false)
@@ -44,7 +49,13 @@ export function useCreateGoodsReturn() {
   const createMutation = useCreateGoodsReturnRequestMutation()
   const form = useForm<CreateGoodsReturnRequestFormValues>({
     resolver: zodResolver(createGoodsReturnRequestSchema),
-    defaultValues: { reason: '', lines: [] },
+    defaultValues: { goodsReturnRequestCode: '', reason: '', lines: [] },
+  })
+  const nextCode = useQuery({
+    queryKey: [...queryKeys.goodsReturnRequests.all, 'next-code', codeSession],
+    queryFn: () => stockIssueService.getNextGoodsReturnCode().then((response) => response.data),
+    enabled: Boolean(sourceId) && !editingDocument,
+    staleTime: 0,
   })
   const slotsQuery = useWarehouseLocationsQuery(order?.warehouseId ?? '', {
     top: 200,
@@ -124,10 +135,22 @@ export function useCreateGoodsReturn() {
         })
     }
     form.reset({
+      goodsReturnRequestCode:
+        editingDocument?.goodsReturnRequestCode ?? form.getValues('goodsReturnRequestCode') ?? '',
       reason: editingDocument?.reason ?? '',
       lines,
     })
   }, [form, order, editingDocument])
+
+  const codeSuggestion = useCodeSuggestion({
+    active: Boolean(order) && !editingDocument,
+    sessionKey: String(codeSession),
+    suggestedCode: nextCode.data,
+    isFetching: nextCode.isFetching,
+    isError: nextCode.isError,
+    getCurrentCode: () => form.getValues('goodsReturnRequestCode') ?? '',
+    applyCode: (code) => form.setValue('goodsReturnRequestCode', code),
+  })
 
   // Điền vị trí gợi ý đầu tiên cho dòng chưa chọn hoặc dòng đang giữ vị trí do hệ thống điền.
   useEffect(() => {
@@ -150,7 +173,8 @@ export function useCreateGoodsReturn() {
     setSourceId(null)
     setSlotSearch('')
     autoSlots.current = {}
-    form.reset({ reason: '', lines: [] })
+    setCodeSession((value) => value + 1)
+    form.reset({ goodsReturnRequestCode: '', reason: '', lines: [] })
   }
 
   async function submit(values: CreateGoodsReturnRequestFormValues) {
@@ -177,13 +201,22 @@ export function useCreateGoodsReturn() {
         })
         toast.success('Đã lưu nháp. Bạn có thể kiểm tra rồi gửi duyệt lại.')
       } else {
-        await createMutation.mutateAsync({ stockIssueRequestId: order.id, request })
+        await createMutation.mutateAsync({
+          stockIssueRequestId: order.id,
+          request: {
+            ...request,
+            goodsReturnRequestCode: values.goodsReturnRequestCode,
+          },
+        })
         toast.success('Đã tạo yêu cầu trả hàng.')
       }
       closeForm()
     } catch (error) {
       logger.error(formatApiError(error))
-      toast.error(getApiErrorMessage(error, 'Không thể tạo yêu cầu trả hàng.'))
+      const message = getApiErrorMessage(error, 'Không thể tạo yêu cầu trả hàng.')
+      if (!editingDocument && message.startsWith('Mã '))
+        form.setError('goodsReturnRequestCode', { type: 'server', message })
+      toast.error(message)
     }
   }
 
@@ -210,6 +243,15 @@ export function useCreateGoodsReturn() {
       setSourceId(document.stockIssueRequestId)
     },
     dialog: {
+      codeSuggestionStatus: nextCode.isFetching
+        ? ('loading' as const)
+        : nextCode.isError
+          ? ('error' as const)
+          : ('ready' as const),
+      onCodeChange: () => {
+        codeSuggestion.markEdited()
+        form.clearErrors('goodsReturnRequestCode')
+      },
       isEditing: Boolean(editingDocument),
       order,
       form,
