@@ -1,5 +1,10 @@
 'use client'
 
+import { useReturnCommand } from '@/features/warehouse-task/hooks/use-return-command'
+
+import { ReturnWorkPanel } from '@/features/warehouse-task/components/ReturnWorkPanel'
+import { useReturnWork } from '@/features/warehouse-task/hooks/use-return-work'
+
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -54,6 +59,10 @@ import { SUPPLIER_RETURN_STATUSES, type SupplierReturn } from '../types/supplier
 
 export default function SupplierReturnsPage({ returnId }: { readonly returnId?: string }) {
   const router = useRouter()
+  const deliveryCommand =
+    useReturnCommand<
+      Parameters<ReturnType<typeof useConfirmSupplierReturnDeliveryMutation>['mutateAsync']>[0]
+    >()
   const searchParams = useSearchParams()
   const legacyDetailId = searchParams.get('id')
   const list = useReturnListState(APP_ROUTES.supplierReturns, SUPPLIER_RETURN_STATUSES)
@@ -91,6 +100,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     item: SupplierReturn
   } | null>(null)
   const [deliveringItem, setDeliveringItem] = useState<SupplierReturn | null>(null)
+  const returnWork = useReturnWork(true, returnId ?? deliveringItem?.id ?? null)
   const debouncedSearchText = useDebouncedValue(searchText.trim(), 350)
 
   const listQuery = useSupplierReturnsQuery(
@@ -235,7 +245,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
   }
 
   function closeDelivery() {
-    if (deliverMutation.isPending) return
+    if (deliverMutation.isPending || deliveryCommand.isLocked) return
     setDeliveringItem(null)
     deliveryForm.reset({ items: [] })
   }
@@ -243,17 +253,23 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
   async function confirmDelivery(values: ConfirmSupplierReturnDeliveryFormValues) {
     if (!deliveringItem) return
     try {
-      await deliverMutation.mutateAsync({
-        supplierReturnId: deliveringItem.id,
-        request: {
-          expectedVersion: deliveringItem.version,
-          lines: values.items.map((item) => ({
-            itemId: item.itemId,
-            deliveredQuantity: item.deliveredQuantity,
-          })),
-        },
-      })
+      await deliveryCommand.run(
+        () => ({
+          supplierReturnId: deliveringItem!.id,
+          request: {
+            expectedVersion: deliveringItem!.version,
+            ...returnWork.proof(values, deliveringItem!.version),
+            lines: values.items.map((item) => ({
+              itemId: item.itemId,
+              deliveredQuantity: item.deliveredQuantity,
+            })),
+          },
+        }),
+        (request) => deliverMutation.mutateAsync(request)
+      )
+      void returnWork.refresh()
       toast.success('Đã xác nhận giao hàng trả NCC.')
+      router.replace(APP_ROUTES.supplierReturnDetail(deliveringItem.id) as Route)
       setDeliveringItem(null)
       deliveryForm.reset({ items: [] })
     } catch (error) {
@@ -274,6 +290,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     >
       {returnId ? (
         <SupplierReturnDetail
+          workPanel={<ReturnWorkPanel key={returnId} supplier={true} documentId={returnId} />}
           editingActions={
             <ReturnDocumentActions
               allowedActions={detailQuery.data?.allowedActions ?? []}
@@ -289,7 +306,15 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
           canApprove={canApprove && !meQuery.isFetching && !detailQuery.isFetching}
           canSelfApprove={canSelfApprove}
           canViewSourceReceipt={permissions.includes(P.GOODS_RECEIPTS_VIEW)}
-          canDispatch={canDispatch && !meQuery.isFetching && !detailQuery.isFetching}
+          workStarted={Boolean(returnWork.query.data?.startedAt)}
+          canDispatch={
+            canDispatch &&
+            !meQuery.isFetching &&
+            !detailQuery.isFetching &&
+            !returnWork.query.isFetching &&
+            Boolean(returnWork.query.data) &&
+            (!returnWork.query.data?.assignmentRequired || returnWork.query.data.canComplete)
+          }
           isPending={
             meQuery.isFetching ||
             detailQuery.isFetching ||
@@ -406,6 +431,8 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
         item={deliveringItem}
         form={deliveryForm}
         isPending={deliverMutation.isPending}
+        isUncertain={deliveryCommand.isUncertain}
+        onResolve={() => void confirmDelivery(deliveryForm.getValues())}
         onOpenChange={(open) => {
           if (!open) closeDelivery()
         }}

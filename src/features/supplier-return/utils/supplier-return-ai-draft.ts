@@ -8,11 +8,14 @@ type CreateSupplierReturnLines = CreateSupplierReturnFormValues['lines']
 /**
  * Maps an AI draft to the create dialog. The draft carries only stock ids and quantities, so each
  * line starts with minimal display data; `enrichSupplierReturnLines` fills it in from the source stocks.
+ * `fallbackCode` is the code the dialog already shows (the suggested one): the draft has none.
  */
 export function supplierReturnFormValuesFromAiDraft(
-  payload: AiSupplierReturnPayload
+  payload: AiSupplierReturnPayload,
+  fallbackCode: string
 ): CreateSupplierReturnFormValues {
   return {
+    supplierReturnCode: fallbackCode,
     warehouseId: payload.warehouseId,
     supplierId: payload.supplierId,
     sourceGoodsReceiptId: payload.sourceGoodsReceiptId ?? '',

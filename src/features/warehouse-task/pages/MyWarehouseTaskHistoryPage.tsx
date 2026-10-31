@@ -102,6 +102,12 @@ export default function MyWarehouseTaskHistoryPage() {
                 <NativeSelectOption value="">Mọi loại việc</NativeSelectOption>
                 <NativeSelectOption value="Receiving">Nhận hàng</NativeSelectOption>
                 <NativeSelectOption value="Picking">Lấy hàng xuất kho</NativeSelectOption>
+                <NativeSelectOption value="CustomerReturnReceive">
+                  Nhận hàng khách trả
+                </NativeSelectOption>
+                <NativeSelectOption value="SupplierReturnDispatch">
+                  Giao trả nhà cung cấp
+                </NativeSelectOption>
                 <NativeSelectOption value="PutAway">Cất hàng</NativeSelectOption>
                 <NativeSelectOption value="CycleCount">Kiểm kê</NativeSelectOption>
                 <NativeSelectOption value="Relocation">Điều chuyển vị trí</NativeSelectOption>

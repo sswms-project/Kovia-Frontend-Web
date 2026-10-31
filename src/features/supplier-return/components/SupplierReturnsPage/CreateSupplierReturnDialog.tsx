@@ -5,6 +5,10 @@ import { useState, type ReactNode } from 'react'
 import { useFieldArray, type UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
+  BusinessCodeField,
+  type BusinessCodeFieldProps,
+} from '@/components/forms/BusinessCodeField'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,6 +36,8 @@ interface Option {
   readonly label: string
 }
 interface CreateSupplierReturnDialogProps {
+  readonly codeSuggestionStatus?: BusinessCodeFieldProps['suggestionStatus']
+  readonly onCodeChange?: () => void
   readonly isEditing?: boolean
   /** Dòng báo dưới tiêu đề (vd. form đang điền sẵn từ bản nháp của Trợ lý AI). */
   readonly notice?: ReactNode
@@ -193,6 +199,24 @@ export function CreateSupplierReturnDialog(props: CreateSupplierReturnDialogProp
           noValidate
         >
           <FieldGroup>
+            <BusinessCodeField
+              label="Mã phiếu trả nhà cung cấp"
+              description={
+                props.isEditing
+                  ? 'Mã của phiếu đã lưu.'
+                  : 'Mã được gợi ý, có thể chỉnh sửa. Để trống thì hệ thống tự cấp.'
+              }
+              suggestionStatus={props.isEditing ? undefined : props.codeSuggestionStatus}
+              error={errors.supplierReturnCode}
+              inputProps={{
+                ...form.register('supplierReturnCode', { onChange: props.onCodeChange }),
+                id: 'supplier-return-code',
+                maxLength: 40,
+                placeholder: 'VD: THNCC000001',
+                disabled: isPending,
+                readOnly: props.isEditing,
+              }}
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field data-invalid={Boolean(errors.warehouseId)}>
                 <FieldLabel htmlFor="supplier-return-warehouse">Kho</FieldLabel>

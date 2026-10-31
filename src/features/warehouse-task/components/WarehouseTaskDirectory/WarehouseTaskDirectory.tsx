@@ -93,6 +93,8 @@ export const taskTypeLabel: Record<MyWarehouseTask['taskType'], string> = {
   TransferReceive: 'Nhận hàng điều chuyển',
   TransferPutAway: 'Cất hàng điều chuyển',
   Picking: 'Lấy hàng xuất kho',
+  CustomerReturnReceive: 'Nhận hàng khách trả',
+  SupplierReturnDispatch: 'Giao trả nhà cung cấp',
 }
 
 export const taskTypeIcon: Record<MyWarehouseTask['taskType'], LucideIcon> = {
@@ -105,6 +107,8 @@ export const taskTypeIcon: Record<MyWarehouseTask['taskType'], LucideIcon> = {
   TransferReceive: PackageOpen,
   TransferPutAway: PackagePlus,
   Picking: PackageSearch,
+  CustomerReturnReceive: PackageSearch,
+  SupplierReturnDispatch: PackageSearch,
 }
 
 const HEAD = 'bg-card'
@@ -150,6 +154,18 @@ export function WarehouseTaskDirectory({
   const showAssignee = statsMode === 'managed'
 
   function openTask(item: MyWarehouseTask) {
+    if (
+      showAssignee &&
+      item.sourceDocumentId &&
+      (item.taskType === 'CustomerReturnReceive' || item.taskType === 'SupplierReturnDispatch')
+    ) {
+      router.push(
+        (item.taskType === 'SupplierReturnDispatch'
+          ? APP_ROUTES.supplierReturnDetail(item.sourceDocumentId)
+          : APP_ROUTES.goodsReturnRequestDetail(item.sourceDocumentId)) as Route
+      )
+      return
+    }
     if (item.taskType === 'Relocation') {
       onOpenRelocation?.(item)
       return
@@ -165,11 +181,17 @@ export function WarehouseTaskDirectory({
       item.assignedTo !== currentUserId
     )
       return null
-    if (item.taskType === 'Picking') {
+    const returnTask =
+      item.taskType === 'CustomerReturnReceive' || item.taskType === 'SupplierReturnDispatch'
+    if (item.taskType === 'Picking' || returnTask) {
       return (
         <Button asChild size="sm" variant="outline">
           <Link href={getTaskRoute(item)}>
-            {item.executionStatus === 'InProgress' ? 'Tiếp tục lấy hàng' : 'Lấy hàng'}
+            {returnTask
+              ? 'Mở nhiệm vụ'
+              : item.executionStatus === 'InProgress'
+                ? 'Tiếp tục lấy hàng'
+                : 'Lấy hàng'}
           </Link>
         </Button>
       )
@@ -554,6 +576,10 @@ function TaskMetric({
 }
 
 export function getTaskRoute(task: MyWarehouseTask): Route {
+  if (task.taskType === 'CustomerReturnReceive')
+    return APP_ROUTES.customerReturnTask(task.id) as Route
+  if (task.taskType === 'SupplierReturnDispatch')
+    return APP_ROUTES.supplierReturnTask(task.id) as Route
   if (task.taskType === 'PutAway') return APP_ROUTES.inboundPutawayDetail(task.id) as Route
   if (task.taskType === 'CycleCount') return APP_ROUTES.cycleCountDetail(task.id)
   if (task.taskType === 'DamagedStock') return APP_ROUTES.stockAdjustmentDetail(task.id)

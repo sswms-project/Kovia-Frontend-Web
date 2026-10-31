@@ -10,6 +10,10 @@ import {
   supplierReturnFormValuesFromAiDraft,
 } from '../utils/supplier-return-ai-draft'
 
+function toFormValues(payload: AiSupplierReturnPayload, current: CreateSupplierReturnFormValues) {
+  return supplierReturnFormValuesFromAiDraft(payload, current.supplierReturnCode ?? '')
+}
+
 interface UseSupplierReturnAiDraftOptions {
   /** Chỉ truyền khi hộp thoại đang ở chế độ tạo mới. */
   readonly draftId: string | null
@@ -28,7 +32,7 @@ export function useSupplierReturnAiDraft({
     draftId,
     expectedAction: AI_ACTIONS.createSupplierReturn,
     form,
-    toFormValues: supplierReturnFormValuesFromAiDraft,
+    toFormValues,
   })
   const enrichedDraftId = useRef<string | null>(null)
 

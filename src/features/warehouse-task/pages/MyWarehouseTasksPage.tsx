@@ -1,5 +1,8 @@
 'use client'
 
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
@@ -308,6 +311,10 @@ export default function MyWarehouseTasksPage({
   }
 
   function manage(task: MyWarehouseTask, type: WarehouseTaskAction) {
+    if (task.taskType === 'CustomerReturnReceive' || task.taskType === 'SupplierReturnDispatch') {
+      router.push(getTaskRoute(task))
+      return
+    }
     if (type === 'Start') {
       // Lấy/nhận hàng điều chuyển có màn riêng để quét mã: bắt đầu xong mở luôn màn đó.
       const isTransferTask =
@@ -447,6 +454,17 @@ export default function MyWarehouseTasksPage({
   }
 
   function openSchedule(task: MyWarehouseTask) {
+    if (
+      task.sourceDocumentId &&
+      (task.taskType === 'CustomerReturnReceive' || task.taskType === 'SupplierReturnDispatch')
+    ) {
+      router.push(
+        (task.taskType === 'SupplierReturnDispatch'
+          ? APP_ROUTES.supplierReturnDetail(task.sourceDocumentId)
+          : APP_ROUTES.goodsReturnRequestDetail(task.sourceDocumentId)) as Route
+      )
+      return
+    }
     scheduleForm.reset({
       priority: task.priority,
       dueAt: toDateTimeLocal(task.dueAt),
@@ -545,6 +563,12 @@ export default function MyWarehouseTasksPage({
                 <NativeSelectOption value="">Mọi loại việc</NativeSelectOption>
                 <NativeSelectOption value="Receiving">Nhận hàng</NativeSelectOption>
                 <NativeSelectOption value="Picking">Lấy hàng xuất kho</NativeSelectOption>
+                <NativeSelectOption value="CustomerReturnReceive">
+                  Nhận hàng khách trả
+                </NativeSelectOption>
+                <NativeSelectOption value="SupplierReturnDispatch">
+                  Giao trả nhà cung cấp
+                </NativeSelectOption>
                 <NativeSelectOption value="PutAway">Cất hàng</NativeSelectOption>
                 <NativeSelectOption value="CycleCount">Kiểm kê</NativeSelectOption>
                 <NativeSelectOption value="Relocation">Điều chuyển vị trí</NativeSelectOption>

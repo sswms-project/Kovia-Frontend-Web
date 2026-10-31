@@ -15,6 +15,7 @@ import {
 } from '../schemas/supplier-return.schema'
 import type { SupplierReturn } from '../types/supplier-return.types'
 import { useSupplierReturnAiDraft } from './use-supplier-return-ai-draft'
+import { useSupplierReturnCode } from './use-supplier-return-code'
 import {
   useCreateSupplierReturnMutation,
   useSupplierReturnSourcesQuery,
@@ -25,6 +26,7 @@ import {
 const STOCK_PAGE_SIZE = 100
 
 const EMPTY_CREATE_VALUES: CreateSupplierReturnFormValues = {
+  supplierReturnCode: '',
   warehouseId: '',
   supplierId: '',
   sourceGoodsReceiptId: '',
@@ -61,6 +63,7 @@ export function useSupplierReturnCreateDialog({
     resolver: zodResolver(createSupplierReturnSchema),
     defaultValues: EMPTY_CREATE_VALUES,
   })
+  const codeSuggestion = useSupplierReturnCode(form, isOpen && !editingDocument)
   const warehouseId = useWatch({ control: form.control, name: 'warehouseId' })
   const supplierId = useWatch({ control: form.control, name: 'supplierId' })
   const sourceGoodsReceiptId = useWatch({ control: form.control, name: 'sourceGoodsReceiptId' })
@@ -102,6 +105,7 @@ export function useSupplierReturnCreateDialog({
   }
 
   function openCreate() {
+    codeSuggestion.reset()
     form.reset(EMPTY_CREATE_VALUES)
     setStockSearch('')
     setReceiptSearch('')
@@ -110,6 +114,7 @@ export function useSupplierReturnCreateDialog({
 
   function closeCreate() {
     if (createMutation.isPending || saveMutation.isPending) return
+    codeSuggestion.reset()
     form.reset(EMPTY_CREATE_VALUES)
     setStockSearch('')
     if (editingDocument) setEditingDocument(null)
@@ -119,6 +124,7 @@ export function useSupplierReturnCreateDialog({
   function openEdit() {
     if (!detail?.version || !detail.allowedActions?.includes('Update')) return
     form.reset({
+      supplierReturnCode: detail.code,
       warehouseId: detail.warehouseId,
       supplierId: detail.supplierId,
       sourceGoodsReceiptId: detail.sourceGoodsReceiptId ?? '',
@@ -160,13 +166,19 @@ export function useSupplierReturnCreateDialog({
         })
         toast.success('Đã lưu nháp. Bạn có thể kiểm tra và gửi duyệt lại.')
       } else {
-        const created = await createMutation.mutateAsync(content)
+        const created = await createMutation.mutateAsync({
+          ...content,
+          supplierReturnCode: values.supplierReturnCode,
+        })
         aiDraft.complete(created.data)
         toast.success('Đã lập phiếu trả hàng NCC và giữ tồn.')
       }
       closeCreate()
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Không thể lập phiếu trả hàng NCC.'))
+      const message = getApiErrorMessage(error, 'Không thể lập phiếu trả hàng NCC.')
+      if (!editingDocument && message.startsWith('Mã '))
+        form.setError('supplierReturnCode', { type: 'server', message })
+      toast.error(message)
     }
   }
 
@@ -184,6 +196,8 @@ export function useSupplierReturnCreateDialog({
         ? { isLoading: aiDraft.isLoading, error: aiDraft.error }
         : null,
     dialogProps: {
+      codeSuggestionStatus: codeSuggestion.status,
+      onCodeChange: codeSuggestion.onChange,
       isEditing: Boolean(editingDocument),
       open: isOpen,
       form,
