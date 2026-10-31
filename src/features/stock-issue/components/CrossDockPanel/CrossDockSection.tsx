@@ -30,7 +30,12 @@ export function CrossDockSection({ order, draft = null, onDraft }: Props) {
           }))
         )
   const demand = state.demand.data
-  const autoPending = Boolean(demand && !demand.completedAt && !demand.revokedAt)
+  const autoPending = Boolean(
+    demand &&
+    !demand.completedAt &&
+    !demand.revokedAt &&
+    new Date(demand.validUntil).getTime() > state.now
+  )
   return (
     <CrossDockPanel state={state} manualSelected={Boolean(draft)}>
       {editable && (

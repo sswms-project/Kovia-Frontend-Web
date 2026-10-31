@@ -1,6 +1,7 @@
 'use client'
 
 import { ShieldCheck, Truck } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,12 +56,28 @@ export function StockIssueWorkflowDialogs({ workflow }: { readonly workflow: Sto
         isErrorStaff={release.isErrorStaff}
         isFetchingStaff={release.isFetchingStaff}
         onRetryStaff={release.onRetryStaff}
-        isPending={release.isPending}
+        isPending={release.isPending || release.isUncertain}
         onOpenChange={(open) => {
           if (!open && !release.isPending) release.onClose()
         }}
         onSubmit={release.onConfirm}
       >
+        {release.isUncertain && (
+          <div role="alert" className="space-y-2 border p-3 text-sm">
+            <p>
+              Chưa xác định được kết quả giao việc. Giữ nguyên phương án và kiểm tra lại thao tác
+              trước khi tiếp tục.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={release.isPending}
+              onClick={release.onRetry}
+            >
+              Kiểm tra lại giao việc
+            </Button>
+          </div>
+        )}
         <p className="text-muted-foreground text-sm">
           Sau khi giao việc, hệ thống giữ tồn đủ điều kiện cho yêu cầu. Nhân viên thực hiện lấy
           hàng; yêu cầu không còn chỉnh sửa được sau bước này.

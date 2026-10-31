@@ -198,3 +198,20 @@ it('still permits exact replay of an uncertain pick after realtime reports a new
   await act(() => result.current.picking.onSubmit(result.current.picking.form.getValues()))
   expect(mocks.record.mock.calls[1]).toEqual(mocks.record.mock.calls[0])
 })
+it('regression: uncertain release must keep the original command and plan until resolved', async () => {
+  mocks.release.mockRejectedValueOnce({ statusCode: 500 }).mockResolvedValueOnce({})
+  const { result, rerender } = renderHook(
+    ({ reason }) => useStockIssueWorkflow('warehouse', { ...draft, allocationReason: reason }),
+    { wrapper, initialProps: { reason: 'original' } }
+  )
+  act(() => result.current.handlers.onReleaseForPicking(order))
+  act(() => result.current.release.onConfirm())
+  await waitFor(() => expect(mocks.release).toHaveBeenCalledTimes(1))
+  await waitFor(() => expect(mocks.release.mock.results[0]?.value).toBeTruthy())
+  act(() => result.current.release.onClose())
+  rerender({ reason: 'changed after unknown result' })
+  act(() => result.current.handlers.onReleaseForPicking(order))
+  act(() => result.current.release.onConfirm())
+  await waitFor(() => expect(mocks.release).toHaveBeenCalledTimes(2))
+  expect(mocks.release.mock.calls[1]?.[0]).toEqual(mocks.release.mock.calls[0]?.[0])
+})

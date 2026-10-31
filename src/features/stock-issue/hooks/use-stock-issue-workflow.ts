@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { useImportNavigation } from '@/components/operations/use-import-navigation'
 import { queryKeys } from '@/lib/query-keys'
 import { stockIssueService } from '../services/stock-issue.service'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -84,6 +85,9 @@ export function useStockIssueWorkflow(
   const [pickUncertain, setPickUncertain] = useState(false)
   const pickCommand = useRef<{ body: string; commandId: string } | null>(null)
   const releaseCommand = useRef<{ body: string; commandId: string } | null>(null)
+  const frozenRelease = useRef<ReleaseStockIssueRequestRequest | null>(null)
+  const releasing = useRef(false)
+  const [releaseUncertain, setReleaseUncertain] = useState(false)
   const currentPicking = useStockIssueRequestQuery(pickingOrder?.id ?? null)
   const pickingChanged = Boolean(
     pickingOrder &&
@@ -141,6 +145,11 @@ export function useStockIssueWorkflow(
   const authorizeDispatchMutation = useAuthorizeStockDispatchMutation()
   const removePickDetailMutation = useRemovePickDetailMutation()
   const releaseMutation = useReleaseStockIssueRequestMutation()
+  useImportNavigation(
+    releaseUncertain || releaseMutation.isPending,
+    releaseUncertain || releaseMutation.isPending,
+    'Hãy kiểm tra lại kết quả giao việc trước khi rời trang.'
+  )
   const cancelMutation = useCancelStockIssueRequestMutation()
   const assignPickerMutation = useAssignStockIssuePickerMutation()
   const reportPickIssueMutation = useReportStockIssuePickIssueMutation()
@@ -423,6 +432,7 @@ export function useStockIssueWorkflow(
   }
 
   function openRelease(order: StockIssueRequestSummary) {
+    if (releasing.current || releaseUncertain) return
     if (
       manualSources &&
       (manualSources.orderId !== order.id || manualSources.version !== order.version)
@@ -440,6 +450,11 @@ export function useStockIssueWorkflow(
   }
 
   async function releaseForPicking(values: AssignWarehouseTaskFormValues) {
+    if (releasing.current) return
+    if (releaseUncertain && frozenRelease.current) {
+      await persistRelease(frozenRelease.current)
+      return
+    }
     if (
       !releasingOrder ||
       releaseMutation.isPending ||
@@ -476,14 +491,31 @@ export function useStockIssueWorkflow(
       const body = JSON.stringify(request)
       if (releaseCommand.current?.body !== body)
         releaseCommand.current = { body, commandId: crypto.randomUUID() }
-      await releaseMutation.mutateAsync({ ...request, commandId: releaseCommand.current.commandId })
+      await persistRelease({ ...request, commandId: releaseCommand.current.commandId })
+    } catch (error) {
+      notifyError(error, 'Không thể giao việc lấy hàng.')
+    }
+  }
+
+  async function persistRelease(request: ReleaseStockIssueRequestRequest) {
+    releasing.current = true
+    frozenRelease.current = request
+    try {
+      await releaseMutation.mutateAsync(request)
+      setReleaseUncertain(false)
+      frozenRelease.current = null
       releaseCommand.current = null
       onManualApplied?.()
       toast.success('Đã giao việc lấy hàng và giữ tồn kho.')
       setReleasingOrder(null)
       releaseForm.reset({ staffId: '', priority: 'Normal', dueAt: '', reason: '' })
     } catch (error) {
+      setReleaseUncertain(
+        !isApiErrorResponse(error) || error.statusCode >= 500 || error.statusCode === 408
+      )
       notifyError(error, 'Không thể giao việc lấy hàng.')
+    } finally {
+      releasing.current = false
     }
   }
 
@@ -561,6 +593,10 @@ export function useStockIssueWorkflow(
       onSubmit: submitPicking,
     },
     release: {
+      isUncertain: releaseUncertain,
+      onRetry: () => {
+        if (!releasing.current && frozenRelease.current) void persistRelease(frozenRelease.current)
+      },
       order: releasingOrder,
       form: releaseForm,
       isPending: releaseMutation.isPending,
@@ -571,7 +607,9 @@ export function useStockIssueWorkflow(
         void staffQuery.refetch()
         void managerQuery.refetch()
       },
-      onClose: () => setReleasingOrder(null),
+      onClose: () => {
+        if (!releasing.current && !releaseUncertain) setReleasingOrder(null)
+      },
       onConfirm: () => void releaseForm.handleSubmit(releaseForPicking)(),
     },
     authorize: {

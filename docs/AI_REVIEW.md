@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## 2026-10-30 — Source review findings fixed
+
+State: READY_FOR_FINAL_REVIEW. Assigned implementer fixes/self-verification, not independent review.
+
+- FR-SOURCE-01 resolved: freeze release payload/command ID and synchronously guard duplicate submission. Unknown outcomes keep assignment dialog/selection and navigation locked; a dedicated retry resends the frozen intent even if form/draft/version inputs change. Known rejections unlock selection. Source adjustment/picking replay behavior remains unchanged.
+- FR-SOURCE-02 resolved: manual selector only blocks a non-revoked/non-completed demand whose validUntil exceeds existing ticking state.now. No automation setting is changed.
+- 19 focused FE tests pass, including promoted unknown-release reproduction and active/expired demand cases. Scoped lint and final production build tracked in ../outputs/outbound-source-fix-build-20261030.log. No API/DB writes or application startup. Not committed/pushed in this fix turn. SQL Server race and physical-device acceptance remain pending.
+
 ## 2026-10-30 — Source adjustment/capacity review round 1 after commit
 
 State: APPROVED_FINAL (no Blocker/High found; Medium findings below remain open). Separate self-review by original implementer, not independent review. Scope: 7525ccd0/7d264073, outbound source plan and transfer-capacity display. No production source edits during this review.
