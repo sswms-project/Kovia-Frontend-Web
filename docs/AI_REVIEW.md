@@ -1,5 +1,12 @@
 # AI Review Handoff
 
+## 2026-10-31 — Clarify return workspace terminology
+
+State: READY_FOR_CODEX_REVIEW. Assigned implementer self-verification only.
+
+- Shared return tabs now read Khách trả hàng and Trả hàng nhà cung cấp. Customer-return list/create/detail labels and supplier-return detail title follow the same terminology. Routes, permission keys and behavior remain unchanged.
+- Scoped ESLint and diff whitespace checks passed. Text-only UI edits reuse existing navigation/layout; no new UI primitives or dependencies. No API/DB writes or deployment; device visual acceptance was not performed.
+
 ## 2026-10-31 — Dev PR readiness and final fix review
 
 State: APPROVED_FINAL for dev integration. Original implementer self-review, not independent review or deployment approval.

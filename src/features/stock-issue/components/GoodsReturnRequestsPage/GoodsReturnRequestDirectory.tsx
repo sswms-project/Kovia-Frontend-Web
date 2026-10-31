@@ -168,7 +168,7 @@ export function GoodsReturnRequestDirectory({
       data-compact-workspace-bottom
       className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4"
     >
-      <h1 className="sr-only">Yêu cầu trả hàng</h1>
+      <h1 className="sr-only">Khách trả hàng</h1>
       <header className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <ReturnsWorkspaceNavigation currentView="goodsReturnRequests" permissions={permissions} />
@@ -187,7 +187,7 @@ export function GoodsReturnRequestDirectory({
         >
           <div className="flex shrink-0 flex-col gap-3 border-b p-3">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold">Danh sách yêu cầu trả hàng</h2>
+              <h2 className="text-sm font-semibold">Danh sách yêu cầu khách trả hàng</h2>
             </div>
             <div
               role="search"

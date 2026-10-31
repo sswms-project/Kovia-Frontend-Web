@@ -121,7 +121,7 @@ export function SupplierReturnDetail({
     : []
   return (
     <ReturnDocumentFrame
-      title="Trả hàng NCC"
+      title="Trả hàng nhà cung cấp"
       code={item?.code}
       subtitle={
         item ? `${item.supplierName} · ${item.warehouseName}` : 'Thông tin hàng trả nhà cung cấp'
