@@ -55,8 +55,8 @@ export function AlertSpeechControl({ counts, warehouseName }: AlertSpeechControl
               />
             </div>
             <p className="text-muted-foreground text-xs">
-              Đọc cảnh báo kèm tên hàng khi có hàng dưới mức tối thiểu. Mỗi kho chỉ đọc một lần mỗi
-              phiên; nếu trình duyệt chặn âm thanh, sẽ đọc ở lần bấm đầu tiên.
+              Chỉ đọc số lượng mặt hàng dưới mức tối thiểu, sắp hết hạn, quá hạn. Mỗi kho chỉ đọc
+              một lần mỗi phiên; nếu trình duyệt chặn âm thanh, sẽ đọc ở lần bấm đầu tiên.
             </p>
           </>
         ) : (

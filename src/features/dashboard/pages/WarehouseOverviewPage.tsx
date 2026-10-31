@@ -268,8 +268,6 @@ export default function WarehouseOverviewPage() {
       ? {
           belowMinimum: below.data.totalCount,
           expiring: expiring.data.totalCount,
-          belowMinimumNames: (belowChart.data ?? below.data).items.map((row) => row.productName),
-          expiringNames: expiring.data.items.map((row) => row.productName),
         }
       : undefined
   const speechWarehouseName = options.data?.find(
