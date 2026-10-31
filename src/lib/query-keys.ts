@@ -322,8 +322,9 @@ export const queryKeys = {
     staff: (supplier: boolean, id: string) => ['return-work', 'staff', supplier, id] as const,
   },
   aiAssistant: {
-    all: ['ai-assistant'] as const,
     conversations: ['ai-assistant', 'conversations'] as const,
+    messagesAll: ['ai-assistant', 'messages'] as const,
     messages: (conversationId: string) => ['ai-assistant', 'messages', conversationId] as const,
+    actionDraft: (draftId: string) => ['ai-assistant', 'action-draft', draftId] as const,
   },
 }

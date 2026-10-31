@@ -8,6 +8,9 @@ This file holds the mandatory core rules. For the area being changed, read the l
 | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
 | Folder layout, ownership, data flow, hooks, forms, refactor triggers     | [FOLDER_STRUCTURE.md](docs/FOLDER_STRUCTURE.md)                                  |
 | Reuse, shadcn/ui primitives, helpers, abstractions, clean code checklist | [CODING_GUIDELINES.md](docs/CODING_GUIDELINES.md)                                |
+| Query/mutation, cache, key, cancellation, retry, polling                 | [TANSTACK-QUERY-DATA-FLOW.md](docs/TANSTACK-QUERY-DATA-FLOW.md)                  |
+| State owner, effect, memoization, hydration                              | [REACT-STATE-RENDERING.md](docs/REACT-STATE-RENDERING.md)                        |
+| Server/client boundary, lazy import, cache layers, prefetch, measurement | [NEXTJS-RENDERING-PERFORMANCE.md](docs/NEXTJS-RENDERING-PERFORMANCE.md)          |
 | Visual system (Kovia UI)                                                 | [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)                                        |
 | List/table screens                                                       | [LIST_TABLE_DESIGN_GUIDELINES.md](docs/LIST_TABLE_DESIGN_GUIDELINES.md)          |
 | Design tokens                                                            | `src/app/index.css`                                                              |
@@ -108,6 +111,7 @@ Page / orchestrator → feature hook → service → axiosClient → BE
 - Use early returns for loading/error to keep render clean.
 - Load failures render `ErrorState` (`@/components/ErrorState`) or `OperationalState` with the original `unknown` error; do not treat any HTTP error as "no data".
 - Each failed user action has one reporting owner (the mutation or workflow hook); do not report the same error again in the caller.
+- Toast and cache/store updates that must happen even if the user closes the UI live in the `useMutation` options (`onSuccess`/`onError`). Per-call `mutate(vars, { onSuccess, onError })` callbacks are not called after unmount; use them only for UI that stops with the component (clear input, close dialog, restore a draft).
 - Never show success after a failed step. Keep dirty input, block duplicate submission for the whole workflow, and surface partial success with a safe retry path.
 
 ## State
@@ -125,6 +129,8 @@ Page / orchestrator → feature hook → service → axiosClient → BE
 - React Query hooks live in `features/<feature>/hooks/`.
 - Query keys must be arrays containing every relevant parameter: `['resource', params]`. Reuse `queryKeys` from `src/lib/query-keys.ts`; do not define the same query in two places.
 - Always handle `onError` in mutations.
+- Optimistic updates: `await queryClient.cancelQueries` for the key before `setQueryData`, and reload the real state on error.
+- Share one `queryOptions` definition when a query key and `queryFn` are used by both a hook and a prefetch.
 - Load only visible/needed data, filter at BE, and paginate with `OperationalPagination`; never "fetch everything" to count or filter on the client.
 
 ## Service Layer
@@ -133,6 +139,7 @@ Page / orchestrator → feature hook → service → axiosClient → BE
 - Endpoint paths come from `API_ENDPOINTS` in `src/routes/api-endpoints.ts`; never hardcode hosts or paths in features.
 - Return business data by unwrapping the actual envelope (`response.data.data` for `ApiResponse<T>`, `response.data` for Blob); never return the full Axios response.
 - Do not catch errors in services — let React Query handle them.
+- Queries that can be replaced (filter, entity or tab change) pass `queryFn({ signal })` to the service and the service forwards `signal` to `axiosClient`.
 - Services do not own React state, toast, dialogs, or navigation.
 
 ## Forms
@@ -140,6 +147,7 @@ Page / orchestrator → feature hook → service → axiosClient → BE
 - No manual validation logic when Zod can express it. Cross-field rules live in the schema or a pure function.
 - Field errors from `form.formState.errors`, not global state. Map BE validation errors to the matching field.
 - Distinguish create/edit/duplicate; reset or remount deliberately when the entity changes; a background refetch must not overwrite dirty fields.
+- "Today" and other operational dates come from `src/lib/operational-date-time.ts` (`operationalToday`, `OPERATIONAL_TIME_ZONE`), not the device clock.
 
 ## Styling
 - Tailwind CSS **v4** (CSS-first config in `src/app/index.css` via `@theme`; no `tailwind.config.js` — uses `@tailwindcss/postcss`).

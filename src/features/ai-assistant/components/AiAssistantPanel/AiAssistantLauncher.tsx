@@ -1,14 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { USER_ROLES } from '@/config/roles'
 import { AI_PANEL_DEFAULT_WIDTH, useAiAssistantPanelStore } from '@/stores/ai-assistant-panel.store'
-import { useAuthStore } from '@/stores/auth.store'
 import { AiAssistantPanel } from './AiAssistantPanel'
-import { AiAssistantMascot } from './AiChatMessageBubble'
+import { AiAssistantMascot } from './AiAssistantMascot'
 import { AiPanelResizeHandle, clampAiPanelWidth } from './AiPanelResizeHandle'
 
 const PANEL_WIDTH_STORAGE_KEY = 'kovia-ai-assistant-panel-width'
@@ -23,16 +21,19 @@ function getStoredPanelWidth() {
   return clampAiPanelWidth(Number.isFinite(stored) && stored > 0 ? stored : AI_PANEL_DEFAULT_WIDTH)
 }
 
-export function AiAssistantLauncher() {
-  const user = useAuthStore((state) => state.user)
+interface AiAssistantLauncherProps {
+  /** Cờ năng lực do header tính từ quyền của người dùng; launcher không tự so sánh vai trò. */
+  readonly canUseAiAssistant: boolean
+}
+
+export function AiAssistantLauncher({ canUseAiAssistant }: AiAssistantLauncherProps) {
   // Bố cục trang cũng đọc trạng thái này để nhường chỗ cho khung khi nó mở.
   const open = useAiAssistantPanelStore((state) => state.isOpen)
   const panelWidth = useAiAssistantPanelStore((state) => state.width)
   const setOpen = useAiAssistantPanelStore((state) => state.setOpen)
+  const setConversationId = useAiAssistantPanelStore((state) => state.setConversationId)
   const setPanelWidth = useAiAssistantPanelStore((state) => state.setWidth)
   const setResizing = useAiAssistantPanelStore((state) => state.setResizing)
-  // Kept here so closing the sheet does not lose the current conversation.
-  const [conversationId, setConversationId] = useState<string | null>(null)
 
   useEffect(() => {
     window.localStorage.removeItem(LEGACY_POSITION_STORAGE_KEY)
@@ -41,8 +42,14 @@ export function AiAssistantLauncher() {
     return () => window.cancelAnimationFrame(animationFrame)
   }, [setPanelWidth])
 
-  // Đóng khung khi rời trang đăng nhập hay đổi sang quản trị viên nền tảng, nơi không có trợ lý.
-  useEffect(() => () => setOpen(false), [setOpen])
+  // Đóng khung và bỏ hội thoại khi rời trang đăng nhập hay đổi sang quản trị viên nền tảng, nơi không có trợ lý.
+  useEffect(
+    () => () => {
+      setOpen(false)
+      setConversationId(null)
+    },
+    [setConversationId, setOpen]
+  )
 
   // Khung không che trang nên giữ mở khi người dùng đi tới trang khác và làm việc song song với trợ lý.
   // Chỉ đóng ở màn hình hẹp, nơi khung phủ kín và trang vừa mở sẽ không nhìn thấy được.
@@ -50,8 +57,7 @@ export function AiAssistantLauncher() {
     if (window.matchMedia?.(FULL_WIDTH_PANEL_QUERY).matches) setOpen(false)
   }
 
-  // The assistant works inside one tenant; platform administrators have no tenant scope.
-  if (!user || user.role === USER_ROLES.SystemAdmin) return null
+  if (!canUseAiAssistant) return null
 
   const toggleLabel = open ? 'Đóng trợ lý AI Kovia' : 'Mở trợ lý AI Kovia'
 
@@ -96,13 +102,7 @@ export function AiAssistantLauncher() {
             window.localStorage.setItem(PANEL_WIDTH_STORAGE_KEY, String(Math.round(width)))
           }}
         />
-        {open ? (
-          <AiAssistantPanel
-            conversationId={conversationId}
-            onConversationChange={setConversationId}
-            onNavigate={handleNavigate}
-          />
-        ) : null}
+        {open ? <AiAssistantPanel onNavigate={handleNavigate} /> : null}
       </SheetContent>
     </Sheet>
   )

@@ -4,11 +4,10 @@ import { Button } from '@/components/ui/button'
 import { getSuggestedPrompts } from '../../utils/ai-suggested-prompts'
 
 interface AiSuggestedPromptsProps {
-  readonly disabled: boolean
   readonly onSelect: (prompt: string) => void
 }
 
-export function AiSuggestedPrompts({ disabled, onSelect }: AiSuggestedPromptsProps) {
+export function AiSuggestedPrompts({ onSelect }: AiSuggestedPromptsProps) {
   const suggestedPrompts = getSuggestedPrompts(usePathname())
   return (
     <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
@@ -28,7 +27,6 @@ export function AiSuggestedPrompts({ disabled, onSelect }: AiSuggestedPromptsPro
               type="button"
               variant="outline"
               size="sm"
-              disabled={disabled}
               className="h-auto w-full justify-start py-2 text-left whitespace-normal"
               onClick={() => onSelect(prompt)}
             >

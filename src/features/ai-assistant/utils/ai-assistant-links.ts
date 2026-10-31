@@ -32,7 +32,8 @@ export function getAiActionResultLink(
         label: 'Xem yêu cầu nhập kho',
       }
     case AI_ACTIONS.createTransfer:
-      return { href: APP_ROUTES.transfers, label: 'Xem danh sách chuyển kho' }
+      // The BE returns the id of the transfer request it created.
+      return { href: APP_ROUTES.transferDetail(resultEntityId), label: 'Xem phiếu chuyển kho' }
     case AI_ACTIONS.createStockAdjustment:
       return {
         href: APP_ROUTES.stockAdjustmentDetail(resultEntityId),
@@ -45,7 +46,7 @@ export function getAiActionResultLink(
       }
     case AI_ACTIONS.createSupplierReturn:
       return {
-        href: `${APP_ROUTES.supplierReturns}?id=${encodeURIComponent(resultEntityId)}` as Route,
+        href: APP_ROUTES.supplierReturnDetail(resultEntityId) as Route,
         label: 'Xem phiếu trả NCC',
       }
     default:
