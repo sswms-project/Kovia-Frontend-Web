@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { Controller } from 'react-hook-form'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,8 @@ export interface AssignWarehouseTaskTarget {
     | 'TransferReceive'
     | 'TransferPutAway'
     | 'StockIssuePick'
+    | 'CustomerReturnReceive'
+    | 'SupplierReturnDispatch'
   readonly id: string
   readonly referenceCode: string
   readonly warehouseId: string
@@ -57,6 +60,8 @@ interface AssignWarehouseTaskDialogProps {
   readonly isErrorStaff: boolean
   readonly isFetchingStaff: boolean
   readonly onRetryStaff: () => void
+  readonly isUncertain?: boolean
+  readonly onResolve?: () => void
   readonly isPending: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onSubmit: () => void
@@ -70,6 +75,8 @@ const TASK_LABELS = {
   TransferReceive: 'nhận hàng',
   TransferPutAway: 'cất hàng',
   StockIssuePick: 'lấy hàng',
+  CustomerReturnReceive: 'nhận hàng khách trả',
+  SupplierReturnDispatch: 'giao trả nhà cung cấp',
 } as const
 
 export function AssignWarehouseTaskDialog({
@@ -82,6 +89,8 @@ export function AssignWarehouseTaskDialog({
   isFetchingStaff,
   onRetryStaff,
   isPending,
+  isUncertain = false,
+  onResolve,
   onOpenChange,
   onSubmit,
   onUnassign,
@@ -94,17 +103,20 @@ export function AssignWarehouseTaskDialog({
     register,
     formState: { errors },
   } = form
+  const isBusy = isPending || isUncertain
   const isReassignment = Boolean(target?.currentAssigneeId)
   const isTransfer = Boolean(target?.kind.startsWith('Transfer'))
+  const isReturn =
+    target?.kind === 'CustomerReturnReceive' || target?.kind === 'SupplierReturnDispatch'
   const isStockIssue = target?.kind === 'StockIssuePick'
   const taskLabel = target ? TASK_LABELS[target.kind] : ''
   const canUnassign = Boolean(onUnassign) && isReassignment && target?.kind === 'Receiving'
   const hasOtherStaff = staff.some(
-    (person) => isTransfer || isStockIssue || person.id !== target?.currentAssigneeId
+    (person) => isTransfer || isStockIssue || isReturn || person.id !== target?.currentAssigneeId
   )
 
   return (
-    <Dialog open={Boolean(target)} onOpenChange={(open) => !isPending && onOpenChange(open)}>
+    <Dialog open={Boolean(target)} onOpenChange={(open) => !isBusy && onOpenChange(open)}>
       <DialogContent className="sm:max-w-lg">
         {target && (
           <>
@@ -183,7 +195,7 @@ export function AssignWarehouseTaskDialog({
                       aria-label="Nhân viên kho nhận việc"
                       data-scrollbar="slim"
                       className="max-h-72 gap-1.5 overflow-y-auto"
-                      disabled={isPending || lockSelection}
+                      disabled={isBusy || lockSelection}
                     >
                       {staff.map((person) => (
                         <StaffOption
@@ -192,9 +204,12 @@ export function AssignWarehouseTaskDialog({
                           isCurrent={person.id === target.currentAssigneeId}
                           isSelected={field.value === person.id}
                           disabled={
-                            isPending ||
+                            isBusy ||
                             lockSelection ||
-                            (!isTransfer && !isStockIssue && person.id === target.currentAssigneeId)
+                            (!isTransfer &&
+                              !isStockIssue &&
+                              !isReturn &&
+                              person.id === target.currentAssigneeId)
                           }
                         />
                       ))}
@@ -211,7 +226,7 @@ export function AssignWarehouseTaskDialog({
                   <FieldLabel htmlFor="assign-task-priority">Mức ưu tiên</FieldLabel>
                   <NativeSelect
                     id="assign-task-priority"
-                    disabled={isPending || lockSelection}
+                    disabled={isBusy || lockSelection}
                     {...register('priority')}
                   >
                     <NativeSelectOption value="Normal">Bình thường</NativeSelectOption>
@@ -224,7 +239,7 @@ export function AssignWarehouseTaskDialog({
                   <Input
                     id="assign-task-due-at"
                     type="datetime-local"
-                    disabled={isPending || lockSelection}
+                    disabled={isBusy || lockSelection}
                     {...register('dueAt')}
                   />
                   <FieldError>{errors.dueAt?.message}</FieldError>
@@ -246,7 +261,7 @@ export function AssignWarehouseTaskDialog({
                 <Textarea
                   id="assign-task-reason"
                   rows={3}
-                  disabled={isPending}
+                  disabled={isBusy}
                   maxLength={500}
                   placeholder="Ví dụ: nhân viên nghỉ phép, cân bằng khối lượng công việc…"
                   aria-invalid={Boolean(errors.reason)}
@@ -264,13 +279,25 @@ export function AssignWarehouseTaskDialog({
             )}
 
             {children}
+            {isUncertain && (
+              <Alert>
+                <AlertDescription className="flex flex-col items-start gap-2">
+                  <p>
+                    Chưa xác định kết quả phân công. Không đổi nội dung cho đến khi kiểm tra xong.
+                  </p>
+                  <Button type="button" variant="outline" disabled={isPending} onClick={onResolve}>
+                    Kiểm tra lại kết quả
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
             <DialogFooter>
               {canUnassign ? (
                 <Button
                   type="button"
                   variant="destructive"
                   className="sm:mr-auto"
-                  disabled={isPending}
+                  disabled={isBusy}
                   onClick={onUnassign}
                 >
                   <UserMinus aria-hidden="true" />
@@ -280,7 +307,7 @@ export function AssignWarehouseTaskDialog({
               <Button
                 type="button"
                 variant="outline"
-                disabled={isPending}
+                disabled={isBusy}
                 onClick={() => onOpenChange(false)}
               >
                 Đóng
@@ -288,7 +315,7 @@ export function AssignWarehouseTaskDialog({
               <Button
                 type="button"
                 disabled={
-                  isPending || isLoadingStaff || isErrorStaff || !hasOtherStaff || submitDisabled
+                  isBusy || isLoadingStaff || isErrorStaff || !hasOtherStaff || submitDisabled
                 }
                 onClick={onSubmit}
               >

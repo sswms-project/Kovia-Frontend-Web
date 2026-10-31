@@ -1,5 +1,11 @@
 'use client'
 
+import { useReturnInspection } from '../hooks/use-return-inspection'
+import { useReturnCommand } from '@/features/warehouse-task/hooks/use-return-command'
+
+import { ReturnWorkPanel } from '@/features/warehouse-task/components/ReturnWorkPanel'
+import { useReturnWork } from '@/features/warehouse-task/hooks/use-return-work'
+
 import { useEffect, useId, useRef, useState } from 'react'
 import { useGoodsPreviewSelection } from '@/hooks/use-goods-preview-selection'
 import { ReturnGoodsPreview } from '@/components/operations/ReturnGoodsPreview'
@@ -55,6 +61,10 @@ import { P } from '@/config/permissionCodes'
 
 export default function GoodsReturnRequestsPage({ returnId }: { readonly returnId?: string }) {
   const router = useRouter()
+  const restockCommand =
+    useReturnCommand<
+      Parameters<ReturnType<typeof useRestockGoodsReturnRequestMutation>['mutateAsync']>[0]
+    >()
   const list = useReturnListState(APP_ROUTES.goodsReturnRequests, GOODS_RETURN_REQUEST_STATUSES)
   const {
     page,
@@ -77,8 +87,8 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
   const [rejectingItem, setRejectingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [selfApprovingItem, setSelfApprovingItem] = useState<GoodsReturnRequestSummary | null>(null)
   const [restockingItem, setRestockingItem] = useState<GoodsReturnRequestSummary | null>(null)
+  const returnWork = useReturnWork(false, returnId ?? restockingItem?.id ?? null)
   const restockSubmitting = useRef(false)
-  const restockHydrated = useRef('')
   const debouncedSearchText = useDebouncedValue(searchText, 350)
   const goodsReturnRequestsQuery = useGoodsReturnRequestsQuery(
     {
@@ -155,24 +165,18 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
     defaultValues: { items: [] },
   })
 
-  useEffect(() => {
-    if (!restockDetailQuery.data || restockDetailQuery.data.id !== restockingItem?.id) return
-    const session = `${restockingItem.id}:${restockDetailQuery.data.version ?? ''}`
-    if (restockHydrated.current === session) return
-    restockHydrated.current = session
-    restockForm.reset({
-      items: restockDetailQuery.data.items.map((item) => ({
-        returnItemId: item.id,
-        condition: item.condition,
-        restockSlotId: item.condition === 'Scrap' ? null : item.restockSlotId,
-      })),
-    })
-  }, [restockDetailQuery.data, restockForm, restockingItem?.id])
-
-  const restockVersionMismatch = Boolean(
-    restockOptionsQuery.data &&
-    restockOptionsQuery.data.version !== (restockDetailQuery.data?.version ?? '')
+  const inspection = useReturnInspection(
+    restockForm,
+    restockDetailQuery.data ?? null,
+    restockingItem?.id ?? null
   )
+
+  const restockVersionMismatch =
+    inspection.isConflict ||
+    Boolean(
+      restockOptionsQuery.data &&
+      restockOptionsQuery.data.version !== restockDetailQuery.data?.version
+    )
 
   useEffect(() => {
     if (
@@ -243,32 +247,37 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
   }
 
   async function restock(values: RestockReturnFormValues) {
+    if (!restockingItem || restockSubmitting.current || restockMutation.isPending) return
     if (
-      !restockingItem ||
-      restockSubmitting.current ||
-      restockMutation.isPending ||
-      restockDetailQuery.isFetching ||
-      restockDetailQuery.isError ||
-      restockOptionsQuery.isFetching ||
-      restockOptionsQuery.isError ||
-      !restockOptionsQuery.data ||
-      restockVersionMismatch
+      !restockCommand.isUncertain &&
+      (restockDetailQuery.isFetching ||
+        restockDetailQuery.isError ||
+        restockOptionsQuery.isFetching ||
+        restockOptionsQuery.isError ||
+        !restockOptionsQuery.data ||
+        restockVersionMismatch)
     )
       return
     restockSubmitting.current = true
     try {
-      await restockMutation.mutateAsync({
-        goodsReturnRequestId: restockingItem.id,
-        request: {
-          items: values.items.map(({ returnItemId, restockSlotId, condition }) => ({
-            condition,
-            returnItemId,
-            restockSlotId,
-          })),
-          expectedVersion: restockDetailQuery.data?.version ?? restockingItem.version,
-        },
-      })
+      await restockCommand.run(
+        () => ({
+          goodsReturnRequestId: restockingItem!.id,
+          request: {
+            items: values.items.map(({ returnItemId, restockSlotId, condition }) => ({
+              condition,
+              returnItemId,
+              restockSlotId,
+            })),
+            expectedVersion: inspection.version,
+            ...returnWork.proof(values, inspection.version),
+          },
+        }),
+        (request) => restockMutation.mutateAsync(request)
+      )
+      void returnWork.refresh()
       toast.success('Đã nhập lại kho theo kết quả kiểm tra thực tế.')
+      router.replace(APP_ROUTES.goodsReturnRequestDetail(restockingItem.id) as Route)
       setRestockingItem(null)
       restockForm.reset({ items: [] })
     } catch (error) {
@@ -287,6 +296,7 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
     >
       {returnId ? (
         <GoodsReturnRequestDetail
+          workPanel={<ReturnWorkPanel key={returnId} supplier={false} documentId={returnId} />}
           editingActions={
             <ReturnDocumentActions
               allowedActions={returnDetailQuery.data?.allowedActions ?? []}
@@ -312,6 +322,9 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
             meQuery.data?.permissions.includes(P.GOODS_RETURN_REQUESTS_SELF_APPROVE)
           )}
           canRestock={
+            !returnWork.query.isFetching &&
+            Boolean(returnWork.query.data) &&
+            (!returnWork.query.data?.assignmentRequired || returnWork.query.data.canComplete) &&
             Boolean(meQuery.data?.permissions.includes(P.GOODS_RETURN_REQUESTS_RESTOCK)) &&
             !meQuery.isFetching &&
             !returnDetailQuery.isFetching
@@ -403,7 +416,7 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
           onInspect={(item) => router.push(list.detailHref(item.id) as Route)}
           onApprove={(item) => void approve(item)}
           onReject={setRejectingItem}
-          onRestock={setRestockingItem}
+          onRestock={(item) => router.push(APP_ROUTES.goodsReturnRequestDetail(item.id) as Route)}
           onCreate={createReturn.openPicker}
           onRetry={() => void goodsReturnRequestsQuery.refetch()}
         />
@@ -433,19 +446,13 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
       />
       <RestockReturnDialog
         key={restockingItem?.id ?? 'closed'}
-        item={
-          restockingItem
-            ? restockDetailQuery.data?.id === restockingItem.id
-              ? restockDetailQuery.data
-              : restockingItem
-            : null
-        }
+        item={restockingItem ? (inspection.document ?? restockingItem) : null}
         form={restockForm}
         options={restockOptionsQuery.data?.items ?? []}
         isLoading={restockOptionsQuery.isFetching || restockDetailQuery.isFetching}
         error={
           restockVersionMismatch
-            ? 'Phiếu đã thay đổi. Hãy tải lại trước khi nhập kho.'
+            ? 'Phiếu đã thay đổi. Tải lại nội dung sẽ thay thế kết quả kiểm tra đang nhập; hãy kiểm tra lại trước khi xác nhận.'
             : restockOptionsQuery.isError || restockDetailQuery.isError
               ? getApiErrorMessage(
                   restockOptionsQuery.error ?? restockDetailQuery.error,
@@ -454,13 +461,18 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
               : null
         }
         onRetry={() => {
-          void restockDetailQuery.refetch()
+          if (restockCommand.isLocked) return
+          void restockDetailQuery.refetch().then(({ data }) => {
+            if (!data) return
+            inspection.reload(data)
+          })
           void restockOptionsQuery.refetch()
         }}
         isPending={restockMutation.isPending}
+        isUncertain={restockCommand.isUncertain}
+        onResolve={() => void restock(restockForm.getValues())}
         onOpenChange={(open) => {
-          if (!open && !restockMutation.isPending) {
-            restockHydrated.current = ''
+          if (!open && !restockCommand.isLocked && !restockMutation.isPending) {
             setRestockingItem(null)
             restockForm.reset({ items: [] })
           }

@@ -107,6 +107,8 @@ export const APP_ROUTES = {
     `/stock-issue-requests/${stockIssueRequestId}/edit`,
   stockIssueRequestPrint: (stockIssueRequestId: string) =>
     `/stock-issue-requests/${stockIssueRequestId}/print`,
+  customerReturnTask: (id: string) => `/tasks/goods-returns/${id}`,
+  supplierReturnTask: (id: string) => `/tasks/supplier-returns/${id}`,
   goodsReturnRequests: '/goods-return-requests',
   goodsReturnRequestDetail: (id: string) => `/goods-return-requests/${id}`,
   supplierReturns: '/supplier-returns',

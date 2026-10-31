@@ -68,6 +68,8 @@ export function useReturnDocumentEditing(
       if (action === 'DeleteDraft') router.replace(listHref as Route)
       await Promise.all([
         client.invalidateQueries({ queryKey: queryKeys[kind].all }),
+        client.invalidateQueries({ queryKey: queryKeys.returnWork.all }),
+        client.invalidateQueries({ queryKey: ['warehouse-tasks'] }),
         client.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
       ])
     } catch (error) {
@@ -114,6 +116,8 @@ export function useSaveReturnDocument(kind: ReturnDocumentKind) {
     onSuccess: async () => {
       await Promise.all([
         client.invalidateQueries({ queryKey: queryKeys[kind].all }),
+        client.invalidateQueries({ queryKey: queryKeys.returnWork.all }),
+        client.invalidateQueries({ queryKey: ['warehouse-tasks'] }),
         client.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
       ])
     },

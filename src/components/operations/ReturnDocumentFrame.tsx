@@ -22,6 +22,11 @@ const RETURN_EVENT_LABELS: Record<string, string> = {
   Cancel: 'Hủy phiếu',
   Restock: 'Nhập lại kho',
   Deliver: 'Giao trả NCC',
+  AssignReturnWork: 'Phân công thực hiện trả hàng',
+  UpdateReturnSchedule: 'Cập nhật lịch thực hiện',
+  ReturnWorkStart: 'Bắt đầu thực hiện',
+  ReturnWorkPause: 'Tạm dừng công việc',
+  ReturnWorkReturn: 'Trả công việc về hàng đợi',
 }
 
 export function returnHistoryEvents(

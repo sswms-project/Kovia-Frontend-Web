@@ -8,6 +8,8 @@ export const WAREHOUSE_TASK_TYPES = [
   'TransferReceive',
   'TransferPutAway',
   'Picking',
+  'CustomerReturnReceive',
+  'SupplierReturnDispatch',
 ] as const
 
 export type WarehouseTaskType = (typeof WAREHOUSE_TASK_TYPES)[number]
@@ -21,6 +23,9 @@ export type WarehouseTaskDeadlineStatus =
   | 'Cancelled'
 
 export interface MyWarehouseTask {
+  sourceDocumentId?: string | null
+  taskVersion?: string | null
+  documentVersion?: string | null
   isCombinedTransferReceipt?: boolean
   id: string
   taskType: WarehouseTaskType

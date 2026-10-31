@@ -46,6 +46,10 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 export const stockIssueService = {
+  getNextGoodsReturnCode: () =>
+    axiosClient
+      .get<ApiResponse<string>>(API_ENDPOINTS.goodsReturnRequests.nextCode)
+      .then((response) => response.data),
   sourceOptions: async (
     id: string,
     itemId: string,
