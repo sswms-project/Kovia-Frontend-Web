@@ -43,6 +43,7 @@ export function returnHistoryEvents(
 }
 
 interface ReturnDocumentFrameProps {
+  readonly taskView?: boolean
   readonly title: string
   readonly code?: string
   readonly subtitle: string
@@ -58,6 +59,7 @@ interface ReturnDocumentFrameProps {
 }
 
 export function ReturnDocumentFrame({
+  taskView = false,
   title,
   code,
   subtitle,
@@ -81,7 +83,10 @@ export function ReturnDocumentFrame({
             size="icon"
             className="max-sm:size-11 pointer-coarse:size-11"
           >
-            <Link href={listHref as Route} aria-label={backLabel}>
+            <Link
+              href={listHref as Route}
+              aria-label={taskView ? 'Quay lại công việc của tôi' : backLabel}
+            >
               <ArrowLeft aria-hidden="true" />
             </Link>
           </Button>
@@ -96,7 +101,7 @@ export function ReturnDocumentFrame({
             <p className="text-muted-foreground text-sm break-words">{subtitle}</p>
           </div>
         </div>
-        {!isLoading && !isError ? (
+        {!taskView && !isLoading && !isError ? (
           <div className="flex flex-wrap items-center gap-2 max-sm:[&>button]:min-h-11">
             {actions}
           </div>
@@ -111,14 +116,30 @@ export function ReturnDocumentFrame({
         />
       ) : (
         <>
-          <OperationalDocumentInfo
-            documentId={code ?? title}
-            headingId="return-document-info"
-            summary={subtitle}
-          >
-            {info}
-          </OperationalDocumentInfo>
+          {taskView ? (
+            <Collapsible className="bg-card border p-3">
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="min-h-11">
+                  Thông tin phiếu <ChevronDown aria-hidden="true" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">{info}</CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <OperationalDocumentInfo
+              documentId={code ?? title}
+              headingId="return-document-info"
+              summary={subtitle}
+            >
+              {info}
+            </OperationalDocumentInfo>
+          )}
           {children}
+          {taskView && actions && (
+            <footer className="bg-card sticky bottom-0 border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] [&_button]:min-h-11 [&_button]:w-full sm:[&_button]:w-auto">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">{actions}</div>
+            </footer>
+          )}
         </>
       )}
     </>

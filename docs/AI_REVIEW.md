@@ -1,5 +1,56 @@
 # AI Review Handoff
 
+## 2026-10-31 — Remove supplier return add-row step
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only.
+
+- Choosing a stock row now inserts its quantity field immediately; removed the separate add-row button and transient selection state. A sole complete-source candidate inserts once per receipt session without scrolling/focusing; removing the line does not resurrect it. Quantity remains 0. Source changes clear old rows; picker resets after row count changes. No Backend/API/DB changes.
+- Three interaction tests passed: automatic insertion/no whole-balance prefill/no resurrection, direct manual insertion/source clearing, and pending-query safety. Scoped ESLint and production TypeScript passed. Local hot reload only; no business writes or deployment.
+
+## 2026-10-31 — Supplier receipt-based product selection
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only.
+
+- Reused the existing source receipt/current-stock query and source-change line clearing. The stock picker selects the sole eligible stock row only when the unfiltered first-page total is exactly one and the query has settled; manual choice/clearing is retained per warehouse/supplier/receipt scope. Multiple locations/lots remain explicit choices. New lines start at quantity 0, never the entire returnable balance. No Backend, API contract, inventory or migration changes.
+- Three focused component tests passed (unique candidate, no automatic inference from filtered/partial data, pending query safety); scoped lint and production TypeScript passed. Local FE hot reload; no business writes or deployment.
+
+## 2026-10-31 — Supplier source receipt GUID validation
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only.
+
+- Source receipt selection used strict RFC UUID validation, rejecting valid .NET/SQL sequential GUIDs. Reused nonEmptyDotNetGuidSchema; receipt-code text, empty values and Guid.Empty remain invalid. Four regression cases and scoped ESLint passed. No Backend, API write or DB changes; local FE hot reload applies the fix.
+
+## 2026-10-31 — R-UI-01 fixed
+
+State: READY_FOR_FINAL_REVIEW. Implementer verification only; R-UI-01 addressed.
+
+- Customer create/edit no longer queries the generic warehouse Slot catalog or merges raw slots into placement choices. It requests full-line candidates from the existing return placement endpoint and searches the returned hierarchy labels locally. Candidate lists include valid rack-level alternatives and enforce condition/capacity/quantity; stale results from another condition are hidden. Loading/error/retry states are explicit. Legacy allocation mode remains the API default.
+- Scoped ESLint, production TypeScript and 5 customer/supplier scan interaction/schema tests passed. Backend regression suite passed 189 tests, including new create-candidate coverage. Corrected an incomplete supplier test fixture exposed by TypeScript (no supplier production change). Local API reloaded with migration/seed disabled; no deployed API writes or migration. Customer legacy scan-proof policy unchanged as stated to the user.
+
+## 2026-10-31 — Customer/supplier return scan self-review round 1
+
+State: APPROVED_FINAL for this review loop (no Blocker/High identified); Medium R-UI-01 remains open. Original implementer self-review, not independent review. No production source changes in this round.
+
+- **Medium R-UI-01 — Customer-create destination picker uses a generic location catalog.** CreateGoodsReturnRequestDialog.tsx:106 combines condition-specific placement suggestions with every warehouse `slotOptions` result. use-create-goods-return.ts:61 reads Type=Slot from WarehouseStructureReader, which excludes system-default rack slots and does not apply return placement/capacity/isolation rules. Thus alternative rack-level destinations outside the allocated suggestion disappear, while inappropriate ordinary/outbound slots can appear for damaged goods. Backend placement validation prevents invalid stock posting, but the requested searchable transfer-like picker is incomplete and can fail only on save. Use a return-placement candidate source that includes valid rack-level destinations and filters by condition/quantity, with server-side search over the same displayed hierarchy.
+- Supplier scan proof, saved source binding, quantity bounds, pending/uncertain locking and original-body retry reviewed without an additional actionable blocker. Customer restock still intentionally accepts omitted scan proof at API level for legacy clients; the current web requires it. This is an existing compatibility boundary, not a newly introduced mandatory-API guarantee. Supplier delivery now requires proof for positive quantities, as documented for mobile rollout.
+- Verification: 188 BE tests in SupplierReturn/GoodsReturn passed in isolated fixtures (`--no-build --no-restore`); prior 5 FE interaction/schema tests and production build evidence retained. Device camera/audio acceptance not repeated; no business API or DB writes, restart, migration or deployment in this review.
+
+## 2026-10-31 — Supplier-return delivery mobile scan flow
+
+State: READY_FOR_CODEX_REVIEW. Assigned implementer self-verification only.
+
+- Supplier delivery uses the shared camera/feedback and manual-code fallback: source location, product, then actual delivered quantity. Source confirmation preserves camera/scroll position; product confirmation focuses quantity. Pending/uncertain commands remain locked. Named locations and unshipped/released quantities display in both mobile and desktop detail.
+- 5 focused supplier/customer-return interaction/schema tests passed; scoped ESLint, production TypeScript and isolated Webpack production build passed. Initial Turbopack build ran out of RAM; Webpack build passed after temporarily stopping local servers, which were then restarted.
+- Playwright fixture checks passed at 320/390/1440 widths: no horizontal overflow, footer within viewport, wrong/correct manual scans, quantity focus and partial remainder. Screenshots: ../outputs/supplier-return-scan-{320,390,1440}.png. Temporary preview route removed. Real-device camera/audio acceptance remains for manual testing; no business API writes performed.
+- BE contract: ../SSWMS-Backend/docs/features/2026-10-31-supplier-return-delivery-scanning.md. New API requires both codes for positive quantities; mobile clients must adopt the contract. No deployment or migration.
+
+## 2026-10-31 — Searchable return destinations
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only.
+
+- Customer-return create/edit and physical restock reuse the transfer form's LookupCombobox. Removed the detached creation search input; search and selection now live in each destination field. Warehouse lookup labels include zone/rack/slot rather than an internal default-slot code. Physical restock candidates remain condition-specific, and changing the destination clears scan confirmation.
+- Restock interaction tests passed (2 tests: search/select, wrong/manual/camera codes, proof reset and Scrap validation); scoped ESLint and production TypeScript passed. No Backend, migration, API write, or deployment. Physical-device visual acceptance remains unverified.
+
 ## 2026-10-31 — Customer return quantity spinner step
 
 State: READY_FOR_CODEX_REVIEW. Quantity input in the customer-return create/edit dialog now uses step=1 per user request, so native increment/decrement advances by whole units. Bounds and existing request validation retained. Scoped ESLint passed; implementer verification only.
@@ -2872,3 +2923,13 @@ State: APPROVED_FINAL for the reviewed implementation scope (Codex self-review, 
 - Fresh origin/dev merged without conflicts into the requested working branches. FE now includes stock-alert speech; BE includes Expo push/device-token support. Post-merge relevant verification: 229 BE tests, 25 FE tests and production TypeScript passed. Metadata-only model check reports no pending model changes. Existing 211 BE/19 FE pre-merge checks remain valid for the return-specific scope.
 - Ready to propose a PR to dev, retaining AssignmentRequired=false. This approval is not production cutover or permission to apply migrations. Migration 20261031085902_AddUniqueReturnWorkflowTaskReference remains unapplied by this work; AddDeviceTokens arrived from dev, not introduced by this feature diff. SQL Server race/rollback and real device/realtime profile checks remain rollout gates.
 - Protected local AGENTS/CLAUDE/appsettings edits and QA outputs remain outside the commit/PR. No deployed DB writes, startup, migrations or seed execution.
+
+## RT-MOBILE-SCAN-20261031 — implementation handoff
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation/self-verification, not independent approval.
+
+- Staff return routes opt into taskView: secondary document info collapsed, tasks back link, physical action in a sticky footer and manager actions omitted. Management document defaults retained and regression-tested. Customer and supplier physical dialogs use full small-screen viewport with independent content scrolling and reachable footer; customer inspection is one product card per line with public full destination path.
+- CameraScanControl reused for camera lifecycle/audio and manual code input remains available; no automatic focus/scroll after location success. Confirmation clears on condition/destination changes, Scrap does not need a location, and the existing inspection snapshot/unknown-request owners remain. Public scan codes use TransferReceivableSlots; BE validates supplied codes via TransferScanRules before any ledger write, with tenant-scoped batched slot/rack reads.
+- Additive contract: optional scanCodes in options and scannedSlotCode on receipt items. Existing clients may omit scan data; null fields serialize as absent so pre-existing idempotency hashes are unchanged. Provided scan data is part of the frozen command/hash. This is not mandatory scan enforcement for clients that omit the field. Deploy paired BE/FE for complete default-rack label support; no schema/migration changes.
+- Verification: 78 BE tests passed (isolated InMemory), 4 FE regressions passed, changed-source ESLint and production TypeScript passed. Mocked Next browser fixtures at 320x640, 390x844 and 1440x1000 passed wrong/manual match, condition-reset, overflow/44px-select/footer checks. External HTTP blocked; expected Vercel analytics load error only. Screenshots saved under workspace outputs/return-mobile-\* and return-desktop-customer-1440.png. Temporary preview route/server removed/stopped.
+- Final Next production build passed with the temporary preview route absent. Real phone camera/audio/keyboard and end-to-end logged-in profiles remain manual QA. No deployed API business requests, deployed DB writes, migration/seed or runtime BE restart. No commit/push requested; protected local config/instruction changes remain outside task delivery.

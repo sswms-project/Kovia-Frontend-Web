@@ -1,7 +1,7 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { useFieldArray, type UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import {
@@ -48,6 +48,7 @@ interface CreateSupplierReturnDialogProps {
   readonly receipts: readonly Option[]
   readonly selectedReceipt?: Option
   readonly stocks: readonly SupplierReturnStockOption[]
+  readonly autoSelectSingleStock?: boolean
   readonly isStocksLoading: boolean
   readonly isReceiptsLoading: boolean
   readonly receiptsError: string | null
@@ -119,10 +120,25 @@ function describeStock(stock: SupplierReturnStockOption): string {
     .filter(Boolean)
     .join(' · ')
 }
+function returnLineFromStock(
+  stock: SupplierReturnStockOption
+): CreateSupplierReturnFormValues['lines'][number] {
+  return {
+    inventoryStockId: stock.id,
+    label: `${stock.sku} - ${stock.productName} · ${formatInventoryLocation(stock)}${stock.lotNumber ? ` · Lô ${stock.lotNumber}` : ''}`,
+    maxQuantity: stock.returnableQuantity,
+    unit: stock.unitName ?? '',
+    quantity: 0,
+    quantityPrecision: stock.quantityPrecision ?? 2,
+    sourceGroupKey: `${stock.productId}:${stock.lotId ?? ''}`,
+    sourceRemainingQuantity: stock.sourceRemainingQuantity,
+  }
+}
 export function CreateSupplierReturnDialog(props: CreateSupplierReturnDialogProps) {
   const { form, isPending } = props
-  const [selectedStockId, setSelectedStockId] = useState('')
+  const autoAddedScope = useRef<string | null>(null)
   const lines = useFieldArray({ control: form.control, name: 'lines' })
+  const { append } = lines
   const values = form.watch()
   const { errors } = form.formState
   const chosenIds = new Set(lines.fields.map((line) => line.inventoryStockId))
@@ -141,14 +157,45 @@ export function CreateSupplierReturnDialog(props: CreateSupplierReturnDialogProp
       }
     })
     .filter((stock) => !chosenIds.has(stock.id) && stock.returnableQuantity > 0)
+  const selectionScope = `${values.warehouseId}:${values.supplierId}:${values.sourceGoodsReceiptId}`
+  useEffect(() => {
+    if (!props.open || !values.sourceGoodsReceiptId) {
+      autoAddedScope.current = null
+      return
+    }
+    const stock = props.stocks[0]
+    if (
+      !props.autoSelectSingleStock ||
+      props.isStocksLoading ||
+      props.stocksError ||
+      isPending ||
+      lines.fields.length ||
+      !stock ||
+      stock.returnableQuantity <= 0 ||
+      autoAddedScope.current === selectionScope
+    )
+      return
+    autoAddedScope.current = selectionScope
+    append(returnLineFromStock(stock), { shouldFocus: false })
+  }, [
+    props.open,
+    props.autoSelectSingleStock,
+    props.isStocksLoading,
+    props.stocksError,
+    props.stocks,
+    isPending,
+    values.sourceGoodsReceiptId,
+    selectionScope,
+    lines.fields.length,
+    append,
+  ])
   function clearSource() {
     lines.replace([])
     form.setValue('sourceGoodsReceiptId', '')
-    setSelectedStockId('')
     props.onStockSearchChange('')
     props.onReceiptSearchChange('')
   }
-  function addLine() {
+  function addLine(selectedStockId: string) {
     const stock = pickableStocks.find((candidate) => candidate.id === selectedStockId)
     if (
       !stock ||
@@ -158,19 +205,15 @@ export function CreateSupplierReturnDialog(props: CreateSupplierReturnDialogProp
       isPending
     )
       return
-    lines.append({
-      inventoryStockId: stock.id,
-      label: `${stock.sku} - ${stock.productName} · ${formatInventoryLocation(stock)}${stock.lotNumber ? ` · Lô ${stock.lotNumber}` : ''}`,
-      maxQuantity:
-        props.stocks.find((candidate) => candidate.id === stock.id)?.returnableQuantity ??
-        stock.returnableQuantity,
-      unit: stock.unitName ?? '',
-      quantity: stock.returnableQuantity,
-      quantityPrecision: stock.quantityPrecision ?? 2,
-      sourceGroupKey: `${stock.productId}:${stock.lotId ?? ''}`,
-      sourceRemainingQuantity: stock.sourceRemainingQuantity,
-    })
-    setSelectedStockId('')
+    lines.append(
+      {
+        ...returnLineFromStock(stock),
+        maxQuantity:
+          props.stocks.find((candidate) => candidate.id === stock.id)?.returnableQuantity ??
+          stock.returnableQuantity,
+      },
+      { shouldFocus: false }
+    )
     form.clearErrors('lines')
   }
   const blocked =
@@ -290,7 +333,6 @@ export function CreateSupplierReturnDialog(props: CreateSupplierReturnDialogProp
                     shouldValidate: true,
                   })
                   lines.replace([])
-                  setSelectedStockId('')
                   props.onStockSearchChange('')
                 }}
               />
@@ -313,11 +355,13 @@ export function CreateSupplierReturnDialog(props: CreateSupplierReturnDialogProp
             ) : null}
             <div className="flex min-w-0 flex-col gap-3 border p-3">
               <Field>
-                <FieldLabel htmlFor="supplier-return-stock-picker">Chọn hàng trả</FieldLabel>
+                <FieldLabel htmlFor="supplier-return-stock-picker">
+                  {lines.fields.length ? 'Chọn thêm hàng trả' : 'Chọn hàng trả'}
+                </FieldLabel>
                 <LookupCombobox
                   id="supplier-return-stock-picker"
-                  key={`${values.warehouseId}:${values.supplierId}:${values.sourceGoodsReceiptId}`}
-                  value={selectedStockId}
+                  key={`${values.warehouseId}:${values.supplierId}:${values.sourceGoodsReceiptId}:${lines.fields.length}`}
+                  value=""
                   options={pickableStocks.map((stock) => ({
                     value: stock.id,
                     label: `${stock.sku} - ${stock.productName}`,
@@ -333,30 +377,16 @@ export function CreateSupplierReturnDialog(props: CreateSupplierReturnDialogProp
                   isLoading={props.isStocksLoading}
                   isInvalid={false}
                   disabled={!values.sourceGoodsReceiptId || isPending || Boolean(props.stocksError)}
-                  onChange={setSelectedStockId}
+                  onChange={addLine}
                   onSearchChange={props.onStockSearchChange}
                 />
               </Field>
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={
-                    blocked || !pickableStocks.some((stock) => stock.id === selectedStockId)
-                  }
-                  onClick={addLine}
-                >
-                  <Plus data-icon="inline-start" />
-                  Thêm dòng
-                </Button>
-              </div>
               <SourcePages
                 page={props.stockPage}
                 count={props.stockPageCount}
                 loading={props.isStocksLoading}
                 label="Hàng tồn"
                 onChange={(page) => {
-                  setSelectedStockId('')
                   props.onStockPageChange(page)
                 }}
               />

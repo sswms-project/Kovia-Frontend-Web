@@ -9,9 +9,17 @@ export const restockReturnSchema = z.object({
           returnItemId: z.string().uuid(),
           condition: z.enum(GOODS_RETURN_REQUEST_ITEM_CONDITIONS),
           restockSlotId: z.string().uuid().nullable(),
+          scannedSlotCode: z.string().trim().max(100, 'Mã vị trí tối đa 100 ký tự.').optional(),
         })
         .superRefine((item, context) => {
           const requiresRestockSlot = item.condition !== 'Scrap'
+          if (requiresRestockSlot && !item.scannedSlotCode) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['scannedSlotCode'],
+              message: 'Hãy quét hoặc nhập mã để xác nhận vị trí cất.',
+            })
+          }
 
           if (requiresRestockSlot && item.restockSlotId === null) {
             context.addIssue({

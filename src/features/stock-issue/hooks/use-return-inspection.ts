@@ -27,6 +27,7 @@ export function useReturnInspection<T extends InspectionSource>(
           returnItemId: item.id,
           condition: item.condition,
           restockSlotId: item.condition === 'Scrap' ? null : item.restockSlotId,
+          scannedSlotCode: '',
         })),
       })
     },

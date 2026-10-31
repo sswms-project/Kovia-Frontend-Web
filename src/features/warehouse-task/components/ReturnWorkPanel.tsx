@@ -66,7 +66,7 @@ export function ReturnWorkPanel({ supplier, documentId }: ReturnWorkPanelProps) 
                   : 'Đã giao việc'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <Button
             variant="outline"
             size="icon"
@@ -104,7 +104,7 @@ export function ReturnWorkPanel({ supplier, documentId }: ReturnWorkPanelProps) 
         </Alert>
       )}
       {data.canManage && !terminal && (
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2 sm:flex sm:flex-wrap">
           {data.executionStatus !== 'InProgress' && (
             <Button disabled={busy} onClick={() => void panel.manage('Start')}>
               {data.startedAt ? 'Tiếp tục thực hiện' : 'Bắt đầu'}

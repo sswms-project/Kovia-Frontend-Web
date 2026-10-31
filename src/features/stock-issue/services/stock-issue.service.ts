@@ -254,12 +254,13 @@ export const stockIssueService = {
 
   suggestGoodsReturnSlots: (
     stockIssueRequestId: string,
-    items: readonly GoodsReturnSuggestionLineRequest[]
+    items: readonly GoodsReturnSuggestionLineRequest[],
+    fullLineOptions = false
   ) =>
     axiosClient
       .post<
         ApiResponse<GoodsReturnLineSuggestion[]>
-      >(API_ENDPOINTS.stockIssueRequests.goodsReturnSuggestions(stockIssueRequestId), { items })
+      >(API_ENDPOINTS.stockIssueRequests.goodsReturnSuggestions(stockIssueRequestId), { items, fullLineOptions })
       .then((response) => response.data),
 
   getGoodsReturnRequests: (params: GoodsReturnRequestListQuery) =>

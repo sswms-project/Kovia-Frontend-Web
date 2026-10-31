@@ -304,10 +304,13 @@ export function useGoodsReturnSlotSuggestionsQuery(
   items: readonly GoodsReturnSuggestionLineRequest[]
 ) {
   return useQuery<GoodsReturnLineSuggestion[], ApiErrorResponse>({
-    queryKey: queryKeys.goodsReturnRequests.slotSuggestions(stockIssueRequestId ?? '', items),
+    queryKey: [
+      ...queryKeys.goodsReturnRequests.slotSuggestions(stockIssueRequestId ?? '', items),
+      'full-line-options',
+    ],
     queryFn: () =>
       stockIssueService
-        .suggestGoodsReturnSlots(stockIssueRequestId ?? '', items)
+        .suggestGoodsReturnSlots(stockIssueRequestId ?? '', items, true)
         .then((response) => response.data),
     enabled: Boolean(stockIssueRequestId) && items.length > 0,
     placeholderData: (previousData) => previousData,

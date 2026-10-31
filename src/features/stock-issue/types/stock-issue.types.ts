@@ -332,6 +332,7 @@ export interface GoodsReturnSuggestionLineRequest {
 }
 
 export interface GoodsReturnSlotSuggestion {
+  scanCodes?: string[] | null
   slotId: string
   slotCode: string
   path: string
@@ -413,6 +414,7 @@ export interface RejectGoodsReturnRequestRequest {
 }
 
 export interface RestockGoodsReturnRequestItem {
+  scannedSlotCode?: string | null
   condition: GoodsReturnRequestItemCondition
   returnItemId: string
   restockSlotId: string | null
