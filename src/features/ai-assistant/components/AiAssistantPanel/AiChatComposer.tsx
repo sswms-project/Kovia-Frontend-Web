@@ -1,4 +1,4 @@
-import type { BaseSyntheticEvent, KeyboardEvent } from 'react'
+import { useId, type BaseSyntheticEvent, type KeyboardEvent } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { SendHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,9 @@ interface AiChatComposerProps {
 
 export function AiChatComposer({ form, isSending, onSubmit }: AiChatComposerProps) {
   const error = form.formState.errors.message
+  const messageId = useId()
+  const errorId = `${messageId}-error`
+  const hintId = `${messageId}-hint`
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter sends, Shift+Enter adds a line; never send while a Vietnamese IME is composing.
@@ -31,6 +34,7 @@ export function AiChatComposer({ form, isSending, onSubmit }: AiChatComposerProp
           {...form.register('message')}
           aria-label="Câu hỏi cho trợ lý AI"
           aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : hintId}
           placeholder="Hỏi về tồn kho, vận hành kho, dự báo…"
           rows={1}
           maxLength={AI_CHAT_MESSAGE_MAX_LENGTH}
@@ -43,11 +47,11 @@ export function AiChatComposer({ form, isSending, onSubmit }: AiChatComposerProp
         </Button>
       </div>
       {error ? (
-        <p role="alert" className="text-destructive mt-1 text-xs">
+        <p id={errorId} role="alert" className="text-destructive mt-1 text-xs">
           {error.message}
         </p>
       ) : (
-        <p className="text-muted-foreground mt-1 text-[11px]">
+        <p id={hintId} className="text-muted-foreground mt-1 text-[11px]">
           AI có thể nhầm lẫn. Mọi thao tác thay đổi dữ liệu đều cần bạn xác nhận.
         </p>
       )}

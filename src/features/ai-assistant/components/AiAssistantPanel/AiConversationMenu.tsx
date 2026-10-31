@@ -10,13 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { AiConversation } from '../../types/ai-assistant.types'
-
-const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
-  day: '2-digit',
-  month: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-})
+import { formatAiDateTime } from '../../utils/ai-assistant-format'
 
 interface AiConversationMenuProps {
   readonly conversations: readonly AiConversation[]
@@ -67,6 +61,7 @@ export function AiConversationMenu({
           {conversations.map((conversation) => (
             <DropdownMenuItem
               key={conversation.id}
+              aria-current={conversation.id === activeConversationId ? 'true' : undefined}
               onSelect={() => onSelect(conversation.id)}
               className={cn(
                 'flex flex-col items-start gap-0.5',
@@ -75,7 +70,7 @@ export function AiConversationMenu({
             >
               <span className="w-full truncate text-sm">{conversation.title}</span>
               <span className="text-muted-foreground text-[11px]">
-                {dateFormatter.format(new Date(conversation.lastMessageAt))}
+                {formatAiDateTime(conversation.lastMessageAt)}
               </span>
             </DropdownMenuItem>
           ))}

@@ -1,18 +1,19 @@
 import { Fragment } from 'react'
 import Link from 'next/link'
-import { Check, Pencil, X } from 'lucide-react'
+import { Check, ExternalLink, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import {
-  isAiDraftWithoutDate,
   AI_DRAFT_STATUSES,
   type AiCard,
+  type AiDraftProcessingAction,
   type AiDraftStatus,
 } from '../../types/ai-assistant.types'
+import { formatAiTime } from '../../utils/ai-assistant-format'
+import { getAiDraftFormLink } from '../../utils/ai-draft-links'
 import { getAiActionResultLink } from '../../utils/ai-assistant-links'
-import { AiDraftQuantityEditor, type AiDraftQuantityEdit } from './AiDraftQuantityEditor'
 
 const STATUS_LABELS: Record<AiDraftStatus, string> = {
   [AI_DRAFT_STATUSES.pending]: 'Chờ xác nhận',
@@ -21,30 +22,27 @@ const STATUS_LABELS: Record<AiDraftStatus, string> = {
   [AI_DRAFT_STATUSES.expired]: 'Hết hạn',
 }
 
-const timeFormatter = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' })
-
 interface AiActionConfirmationCardProps {
   readonly card: AiCard
   readonly status: AiDraftStatus
   readonly resultEntityId: string | null
-  readonly isProcessing: boolean
+  /** Thao tác đang chạy trên chính thẻ này; chỉ nút tương ứng hiện spinner. */
+  readonly processingAction: AiDraftProcessingAction | null
   readonly isLocked: boolean
   readonly onConfirm: (draftId: string) => void
   readonly onCancel: (draftId: string) => void
   readonly onNavigate: () => void
-  readonly quantityEdit: AiDraftQuantityEdit
 }
 
 export function AiActionConfirmationCard({
   card,
   status,
   resultEntityId,
-  isProcessing,
+  processingAction,
   isLocked,
   onConfirm,
   onCancel,
   onNavigate,
-  quantityEdit,
 }: AiActionConfirmationCardProps) {
   const draftId = card.draftId
   if (!draftId) return null
@@ -54,15 +52,8 @@ export function AiActionConfirmationCard({
     status === AI_DRAFT_STATUSES.executed
       ? getAiActionResultLink(card.action, resultEntityId)
       : null
+  const openFormLink = isPending ? getAiDraftFormLink(card.action, draftId) : null
   const details = card.details ?? []
-  const editableLines = details.filter(
-    (detail) => Boolean(detail.productId) && typeof detail.quantity === 'number'
-  )
-  const isEditing = isPending && quantityEdit.editingDraftId === draftId
-  // Đang sửa thì các dòng hàng hiện dưới dạng ô nhập bên dưới, không lặp lại ở phần chi tiết.
-  const shownDetails = isEditing
-    ? details.filter((detail) => !detail.productId && !detail.dateValue)
-    : details
 
   return (
     <section
@@ -79,9 +70,9 @@ export function AiActionConfirmationCard({
         </Badge>
       </div>
 
-      {shownDetails.length > 0 ? (
+      {details.length > 0 ? (
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-          {shownDetails.map((detail, index) => (
+          {details.map((detail, index) => (
             <Fragment key={`${detail.label}-${index}`}>
               <dt className="text-muted-foreground">{detail.label}</dt>
               <dd className="min-w-0 font-medium break-words">{detail.value}</dd>
@@ -90,45 +81,28 @@ export function AiActionConfirmationCard({
         </dl>
       ) : null}
 
-      {isEditing ? (
-        <AiDraftQuantityEditor
-          draftId={draftId}
-          lines={editableLines}
-          edit={quantityEdit}
-          showDate={!isAiDraftWithoutDate(card.action)}
-        />
-      ) : null}
-
-      {isPending && !isEditing ? (
+      {isPending ? (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-muted-foreground text-[11px]">
             {card.expiresAt
-              ? `Hạn xác nhận ${timeFormatter.format(new Date(card.expiresAt))}`
+              ? `Hạn xác nhận ${formatAiTime(card.expiresAt)}`
               : 'Chưa có thay đổi nào được thực hiện.'}
           </p>
           <div className="flex flex-wrap justify-end gap-2">
-            {editableLines.length > 0 ? (
+            {openFormLink ? (
               <Button
-                type="button"
-                variant="ghost"
+                asChild
+                variant="outline"
                 size="sm"
-                disabled={isLocked || quantityEdit.editingDraftId !== null}
-                onClick={() =>
-                  quantityEdit.onStart(
-                    draftId,
-                    {
-                      expectedDate: details.find((detail) => detail.dateValue)?.dateValue ?? '',
-                      lines: editableLines.map((line) => ({
-                        productId: line.productId ?? '',
-                        quantity: line.quantity ?? 0,
-                      })),
-                    },
-                    card.action
-                  )
-                }
+                aria-disabled={isLocked}
+                onClick={(event) => {
+                  if (isLocked) event.preventDefault()
+                }}
               >
-                <Pencil aria-hidden="true" />
-                Chỉnh sửa
+                <Link href={openFormLink} onNavigate={onNavigate}>
+                  <ExternalLink aria-hidden="true" />
+                  Mở trong form
+                </Link>
               </Button>
             ) : null}
             <Button
@@ -138,11 +112,11 @@ export function AiActionConfirmationCard({
               disabled={isLocked}
               onClick={() => onCancel(draftId)}
             >
-              <X aria-hidden="true" />
+              {processingAction === 'cancel' ? <Spinner /> : <X aria-hidden="true" />}
               Hủy
             </Button>
             <Button type="button" size="sm" disabled={isLocked} onClick={() => onConfirm(draftId)}>
-              {isProcessing ? <Spinner /> : <Check aria-hidden="true" />}
+              {processingAction === 'confirm' ? <Spinner /> : <Check aria-hidden="true" />}
               Xác nhận
             </Button>
           </div>

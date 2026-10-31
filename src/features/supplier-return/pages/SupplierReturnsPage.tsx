@@ -7,7 +7,7 @@ import { useReturnWork } from '@/features/warehouse-task/hooks/use-return-work'
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Route } from 'next'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useId, useState } from 'react'
 import { useGoodsPreviewSelection } from '@/hooks/use-goods-preview-selection'
 import { ReturnGoodsPreview } from '@/components/operations/ReturnGoodsPreview'
@@ -17,25 +17,21 @@ import {
 } from '../utils/return-goods-preview'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { useReturnListState } from '@/hooks/use-return-list-state'
-import {
-  useReturnDocumentEditing,
-  useSaveReturnDocument,
-} from '@/hooks/use-return-document-editing'
+import { useReturnDocumentEditing } from '@/hooks/use-return-document-editing'
 import {
   ReturnDocumentActions,
   ReturnDocumentActionDialog,
 } from '@/components/operations/ReturnDocumentActions'
-import { formatInventoryLocation } from '@/features/inventory/utils/inventory-format'
-import { useForm, useWatch } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
 import { USER_ROLES } from '@/config/roles'
+import { AiDraftPrefillNotice } from '@/features/ai-assistant/components/AiDraftPrefillNotice'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useSuppliersQuery } from '@/features/supplier/hooks/use-suppliers'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { getApiErrorMessage } from '@/lib/api-error'
-import { useSupplierReturnCode } from '../hooks/use-supplier-return-code'
 import {
   ConfirmSupplierReturnDeliveryDialog,
   CreateSupplierReturnDialog,
@@ -48,35 +44,18 @@ import {
   useApproveSupplierReturnMutation,
   useCancelSupplierReturnMutation,
   useConfirmSupplierReturnDeliveryMutation,
-  useCreateSupplierReturnMutation,
   useRejectSupplierReturnMutation,
   useSupplierReturnQuery,
-  useSupplierReturnSourcesQuery,
-  useSupplierReturnSourceStocksQuery,
   useSupplierReturnsQuery,
 } from '../hooks/use-supplier-returns'
+import { useSupplierReturnCreateDialog } from '../hooks/use-supplier-return-create-dialog'
 import {
   confirmSupplierReturnDeliverySchema,
-  createSupplierReturnSchema,
   supplierReturnReasonSchema,
   type ConfirmSupplierReturnDeliveryFormValues,
-  type CreateSupplierReturnFormValues,
   type SupplierReturnReasonFormValues,
 } from '../schemas/supplier-return.schema'
 import { SUPPLIER_RETURN_STATUSES, type SupplierReturn } from '../types/supplier-return.types'
-
-// Giới hạn trang của GET /inventory; quá số này thì phân trang trong hộp chọn.
-const STOCK_PAGE_SIZE = 100
-
-const EMPTY_CREATE_VALUES: CreateSupplierReturnFormValues = {
-  supplierReturnCode: '',
-  warehouseId: '',
-  supplierId: '',
-  sourceGoodsReceiptId: '',
-  reason: '',
-  negotiationNote: '',
-  lines: [],
-}
 
 export default function SupplierReturnsPage({ returnId }: { readonly returnId?: string }) {
   const router = useRouter()
@@ -84,7 +63,6 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     useReturnCommand<
       Parameters<ReturnType<typeof useConfirmSupplierReturnDeliveryMutation>['mutateAsync']>[0]
     >()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
   const legacyDetailId = searchParams.get('id')
   const list = useReturnListState(APP_ROUTES.supplierReturns, SUPPLIER_RETURN_STATUSES)
@@ -110,9 +88,6 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
   useEffect(() => {
     if (!returnId && legacyHref) router.replace(legacyHref as Route)
   }, [returnId, legacyHref, router])
-  const [editingDocument, setEditingDocument] = useState<SupplierReturn | null>(null)
-  const isCreateOpen = Boolean(editingDocument) || (!returnId && searchParams.get('create') === '1')
-  const saveMutation = useSaveReturnDocument('supplierReturns')
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
   const canApprove =
@@ -120,9 +95,6 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     permissions.includes(P.SUPPLIER_RETURNS_APPROVE)
   const canSelfApprove = canApprove && permissions.includes(P.SUPPLIER_RETURNS_SELF_APPROVE)
   const canDispatch = permissions.includes(P.SUPPLIER_RETURNS_DISPATCH)
-  const [stockSearch, setStockSearch] = useState('')
-  const [receiptSearch, setReceiptSearch] = useState('')
-  const [receiptPaging, setReceiptPaging] = useState({ key: '', page: 1 })
   const [decision, setDecision] = useState<{
     type: SupplierReturnDecision
     item: SupplierReturn
@@ -130,8 +102,6 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
   const [deliveringItem, setDeliveringItem] = useState<SupplierReturn | null>(null)
   const returnWork = useReturnWork(true, returnId ?? deliveringItem?.id ?? null)
   const debouncedSearchText = useDebouncedValue(searchText.trim(), 350)
-  const debouncedStockSearch = useDebouncedValue(stockSearch.trim(), 350)
-  const debouncedReceiptSearch = useDebouncedValue(receiptSearch.trim(), 350)
 
   const listQuery = useSupplierReturnsQuery(
     {
@@ -147,6 +117,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     !returnId && !legacyDetailId
   )
   const detailQuery = useSupplierReturnQuery(returnId ?? null)
+  const createDialog = useSupplierReturnCreateDialog({ returnId, detail: detailQuery.data })
   const previewPanelId = useId()
   const preview = useGoodsPreviewSelection(
     'return-goods-detail:supplier:v1',
@@ -184,18 +155,13 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
       needTotalCount: true,
       isActive: true,
     },
-    !returnId || Boolean(editingDocument)
+    !returnId || Boolean(createDialog.editingDocument)
   )
   const suppliersQuery = useSuppliersQuery(
     { pageNumber: 1, pageSize: 100, status: 'Active' },
-    !returnId || Boolean(editingDocument)
+    !returnId || Boolean(createDialog.editingDocument)
   )
 
-  const createForm = useForm<CreateSupplierReturnFormValues>({
-    resolver: zodResolver(createSupplierReturnSchema),
-    defaultValues: EMPTY_CREATE_VALUES,
-  })
-  const codeSuggestion = useSupplierReturnCode(createForm, isCreateOpen && !editingDocument)
   const reasonForm = useForm<SupplierReturnReasonFormValues>({
     resolver: zodResolver(supplierReturnReasonSchema),
     defaultValues: { reason: '' },
@@ -204,39 +170,6 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     resolver: zodResolver(confirmSupplierReturnDeliverySchema),
     defaultValues: { items: [] },
   })
-  const createWarehouseId = useWatch({ control: createForm.control, name: 'warehouseId' })
-  const createSupplierId = useWatch({ control: createForm.control, name: 'supplierId' })
-  const sourceGoodsReceiptId = useWatch({
-    control: createForm.control,
-    name: 'sourceGoodsReceiptId',
-  })
-  const receiptPageKey = `${createWarehouseId}|${createSupplierId}|${debouncedReceiptSearch}`
-  const receiptPage = receiptPaging.key === receiptPageKey ? receiptPaging.page : 1
-  const receiptsQuery = useSupplierReturnSourcesQuery(
-    {
-      warehouseId: createWarehouseId,
-      supplierId: createSupplierId,
-      search: debouncedReceiptSearch,
-      page: receiptPage,
-    },
-    isCreateOpen
-  )
-  // Trang tồn quay về 1 khi đổi kho hoặc từ khoá tìm (không cần effect).
-  const stockPageKey = `${createWarehouseId}|${createSupplierId}|${sourceGoodsReceiptId}|${debouncedStockSearch}`
-  const [stockPaging, setStockPaging] = useState({ key: stockPageKey, page: 1 })
-  const stockPage = stockPaging.key === stockPageKey ? stockPaging.page : 1
-  const stocksQuery = useSupplierReturnSourceStocksQuery(
-    {
-      warehouseId: createWarehouseId,
-      supplierId: createSupplierId,
-      sourceGoodsReceiptId,
-      search: debouncedStockSearch,
-      page: stockPage,
-    },
-    isCreateOpen
-  )
-
-  const createMutation = useCreateSupplierReturnMutation()
   const approveMutation = useApproveSupplierReturnMutation()
   const rejectMutation = useRejectSupplierReturnMutation()
   const cancelMutation = useCancelSupplierReturnMutation()
@@ -250,94 +183,6 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     id: supplier.id,
     label: `${supplier.supplierCode} · ${supplier.supplierName}`,
   }))
-
-  function navigate(query: Record<string, string>) {
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('id')
-    params.delete('create')
-    for (const [key, value] of Object.entries(query)) params.set(key, value)
-    const search = params.toString()
-    // Typed routes cannot type-check a query string built at runtime; the path itself is this page's own route.
-    router.replace((search ? `${pathname}?${search}` : pathname) as Route)
-  }
-
-  function openCreate() {
-    codeSuggestion.reset()
-    createForm.reset(EMPTY_CREATE_VALUES)
-    setStockSearch('')
-    setReceiptSearch('')
-    navigate({ create: '1' })
-  }
-
-  function closeCreate() {
-    if (createMutation.isPending || saveMutation.isPending) return
-    codeSuggestion.reset()
-    createForm.reset(EMPTY_CREATE_VALUES)
-    setStockSearch('')
-    if (editingDocument) setEditingDocument(null)
-    else navigate({})
-  }
-
-  function openEdit() {
-    const document = detailQuery.data
-    if (!document?.version || !document.allowedActions?.includes('Update')) return
-    createForm.reset({
-      supplierReturnCode: document.code,
-      warehouseId: document.warehouseId,
-      supplierId: document.supplierId,
-      sourceGoodsReceiptId: document.sourceGoodsReceiptId ?? '',
-      reason: document.reason,
-      negotiationNote: document.negotiationNote ?? '',
-      lines: document.items.map((item) => ({
-        inventoryStockId: item.inventoryStockId,
-        quantity: item.quantity,
-        maxQuantity: item.availableQuantity ?? 0,
-        unit: item.unit,
-        quantityPrecision: item.quantityPrecision ?? 2,
-        sourceGroupKey: `${item.productId}:${item.lotId ?? ''}`,
-        sourceRemainingQuantity: item.sourceRemainingQuantity ?? 0,
-        label: `${item.sku} · ${item.productName} · ${formatInventoryLocation(item)}`,
-      })),
-    })
-    setEditingDocument(document)
-  }
-
-  async function create(values: CreateSupplierReturnFormValues) {
-    try {
-      const content = {
-        warehouseId: values.warehouseId,
-        supplierId: values.supplierId,
-        sourceGoodsReceiptId: values.sourceGoodsReceiptId,
-        reason: values.reason,
-        ...(values.negotiationNote ? { negotiationNote: values.negotiationNote } : {}),
-        lines: values.lines.map((line) => ({
-          inventoryStockId: line.inventoryStockId,
-          quantity: line.quantity,
-        })),
-      }
-      if (editingDocument?.version) {
-        await saveMutation.mutateAsync({
-          id: editingDocument.id,
-          expectedVersion: editingDocument.version,
-          commandId: crypto.randomUUID(),
-          content,
-        })
-        toast.success('Đã lưu nháp. Bạn có thể kiểm tra và gửi duyệt lại.')
-      } else {
-        await createMutation.mutateAsync({
-          ...content,
-          supplierReturnCode: values.supplierReturnCode,
-        })
-        toast.success('Đã lập phiếu trả hàng NCC và giữ tồn.')
-      }
-      closeCreate()
-    } catch (error) {
-      const message = getApiErrorMessage(error, 'Không thể lập phiếu trả hàng NCC.')
-      if (!editingDocument && message.startsWith('Mã '))
-        createForm.setError('supplierReturnCode', { type: 'server', message })
-      toast.error(message)
-    }
-  }
 
   async function approve(item: SupplierReturn, selfApprovalAcknowledged = false) {
     if (!canApprove || meQuery.isError || meQuery.isFetching) return
@@ -449,8 +294,8 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
           editingActions={
             <ReturnDocumentActions
               allowedActions={detailQuery.data?.allowedActions ?? []}
-              disabled={editing.isPending || detailQuery.isFetching || isCreateOpen}
-              onEdit={openEdit}
+              disabled={editing.isPending || detailQuery.isFetching || createDialog.isOpen}
+              onEdit={createDialog.openEdit}
               onAction={editing.open}
             />
           }
@@ -553,64 +398,23 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
           }}
           detailHref={list.detailHref}
           onInspect={(item) => router.push(list.detailHref(item.id) as Route)}
-          onCreate={openCreate}
+          onCreate={createDialog.openCreate}
           onRetry={() => void listQuery.refetch()}
         />
       )}
       <CreateSupplierReturnDialog
-        codeSuggestionStatus={codeSuggestion.status}
-        onCodeChange={codeSuggestion.onChange}
-        key={`${isCreateOpen}:${editingDocument?.id ?? 'new'}`}
-        isEditing={Boolean(editingDocument)}
-        open={isCreateOpen}
-        form={createForm}
+        key={`${createDialog.isOpen}:${createDialog.editingDocument?.id ?? 'new'}`}
+        notice={
+          createDialog.aiNotice ? (
+            <AiDraftPrefillNotice
+              isLoading={createDialog.aiNotice.isLoading}
+              error={createDialog.aiNotice.error}
+            />
+          ) : null
+        }
         warehouses={warehouseOptions}
         suppliers={supplierOptions}
-        receipts={(receiptsQuery.data?.items ?? []).map((receipt) => ({
-          id: receipt.id,
-          label: receipt.receiptCode,
-        }))}
-        selectedReceipt={
-          editingDocument?.sourceGoodsReceiptId
-            ? {
-                id: editingDocument.sourceGoodsReceiptId,
-                label: editingDocument.sourceGoodsReceiptCode ?? 'Phiếu nhận đã chọn',
-              }
-            : undefined
-        }
-        onReceiptSearchChange={setReceiptSearch}
-        receiptPage={receiptPage}
-        receiptPageCount={Math.max(1, Math.ceil((receiptsQuery.data?.totalCount ?? 0) / 20))}
-        onReceiptPageChange={(page) => setReceiptPaging({ key: receiptPageKey, page })}
-        isReceiptsLoading={receiptsQuery.isFetching}
-        receiptsError={
-          receiptsQuery.isError
-            ? getApiErrorMessage(receiptsQuery.error, 'Không thể tải phiếu nhận nguồn.')
-            : null
-        }
-        stocksError={
-          stocksQuery.isError
-            ? getApiErrorMessage(stocksQuery.error, 'Không thể tải hàng từ phiếu nguồn.')
-            : null
-        }
-        onRetrySources={() => {
-          void receiptsQuery.refetch()
-          if (sourceGoodsReceiptId) void stocksQuery.refetch()
-        }}
-        stocks={stocksQuery.data?.items ?? []}
-        isStocksLoading={stocksQuery.isFetching || stockSearch.trim() !== debouncedStockSearch}
-        isPending={createMutation.isPending || saveMutation.isPending}
-        onStockSearchChange={setStockSearch}
-        stockPage={stockPage}
-        stockPageCount={Math.max(
-          1,
-          Math.ceil((stocksQuery.data?.totalCount ?? 0) / STOCK_PAGE_SIZE)
-        )}
-        onStockPageChange={(page) => setStockPaging({ key: stockPageKey, page })}
-        onOpenChange={(open) => {
-          if (!open) closeCreate()
-        }}
-        onSubmit={(values) => void create(values)}
+        {...createDialog.dialogProps}
       />
       <ReturnDocumentActionDialog {...editing.dialog} />
       <SupplierReturnDecisionDialog

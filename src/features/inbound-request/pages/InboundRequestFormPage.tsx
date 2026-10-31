@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useCodeSuggestion } from '@/hooks/use-code-suggestion'
+import { AiDraftPrefillNotice } from '@/features/ai-assistant/components/AiDraftPrefillNotice'
 import { toOperationalDateTimeInput } from '@/lib/operational-date-time'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -50,6 +51,7 @@ import {
   useNextInboundRequestCodeQuery,
   useUpdateInboundRequestCodeMutation,
 } from '../hooks/use-inbound-requests'
+import { useInboundRequestAiDraft } from '../hooks/use-inbound-request-ai-draft'
 import {
   inboundRequestSchemaWithUnits,
   inboundRequestCodeSchema,
@@ -69,8 +71,11 @@ const LOOKUP_PAGE_SIZE = 20
 
 export default function InboundRequestFormPage({
   inboundRequestId,
+  aiDraftId,
 }: {
   readonly inboundRequestId?: string
+  /** Bản nháp của Trợ lý AI dùng để điền sẵn form tạo mới. */
+  readonly aiDraftId?: string
 }) {
   const router = useRouter()
   const codeSessionKey = useId()
@@ -202,6 +207,10 @@ export default function InboundRequestFormPage({
   const createMutation = useCreateInboundRequestMutation()
   const updateMutation = useUpdateInboundRequestMutation()
   const submitMutation = useSubmitInboundRequestMutation()
+  const aiDraft = useInboundRequestAiDraft({
+    draftId: isEditing ? null : (aiDraftId ?? null),
+    form,
+  })
   const lookupIsLoading =
     productDetails.some((query) => query.isPending) ||
     productConversions.some((query) => query.isPending)
@@ -271,6 +280,7 @@ export default function InboundRequestFormPage({
         })
         savedId = response.data
         createdInboundRequestId.current = savedId
+        aiDraft.complete(savedId)
       }
       if (
         shouldSubmit &&
@@ -380,14 +390,17 @@ export default function InboundRequestFormPage({
         label: `${warehouse.warehouseCode} - ${warehouse.warehouseName}`,
       })
     ),
-    detail?.warehouseId
-      ? [
-          {
-            value: detail.warehouseId,
-            label: `${detail.warehouseCode ?? ''} - ${detail.warehouseName ?? 'Kho hiện tại'}`,
-          },
-        ]
-      : []
+    [
+      ...(detail?.warehouseId
+        ? [
+            {
+              value: detail.warehouseId,
+              label: `${detail.warehouseCode ?? ''} - ${detail.warehouseName ?? 'Kho hiện tại'}`,
+            },
+          ]
+        : []),
+      ...(aiDraft.warehouseOption ? [aiDraft.warehouseOption] : []),
+    ]
   )
   const supplierOptions = mergeLookupOptions(
     (suppliersQuery.data?.items ?? []).map(
@@ -396,14 +409,17 @@ export default function InboundRequestFormPage({
         label: `${supplier.supplierName} · ${supplier.phone}`,
       })
     ),
-    detail?.supplierId
-      ? [
-          {
-            value: detail.supplierId,
-            label: detail.supplierName ?? 'Nhà cung cấp hiện tại',
-          },
-        ]
-      : []
+    [
+      ...(detail?.supplierId
+        ? [
+            {
+              value: detail.supplierId,
+              label: detail.supplierName ?? 'Nhà cung cấp hiện tại',
+            },
+          ]
+        : []),
+      ...(aiDraft.supplierOption ? [aiDraft.supplierOption] : []),
+    ]
   )
   const availableByProduct = new Map(
     (!canViewInventory || !selectedWarehouseId || availabilityQuery.isError
@@ -422,18 +438,25 @@ export default function InboundRequestFormPage({
     (productsQuery.data?.items ?? []).map((product) =>
       productStockOption(product, availableByProduct.get(product.id), stockMessage)
     ),
-    (detail?.lines ?? []).map((line) =>
-      productStockOption(
-        {
-          id: line.productId,
-          sku: line.productSKU,
-          productName: line.productName,
-          unitName: line.unitName ?? '',
-        },
-        availableByProduct.get(line.productId),
-        stockMessage
-      )
-    )
+    [
+      ...(detail?.lines ?? []).map((line) =>
+        productStockOption(
+          {
+            id: line.productId,
+            sku: line.productSKU,
+            productName: line.productName,
+            unitName: line.unitName ?? '',
+          },
+          availableByProduct.get(line.productId),
+          stockMessage
+        )
+      ),
+      ...(aiDraft.draftId
+        ? Object.values(productsById).map((product) =>
+            productStockOption(product, availableByProduct.get(product.id), stockMessage)
+          )
+        : []),
+    ]
   )
   if (isLoading) return <OperationalLoadingState rows={8} />
   if (isError) {
@@ -510,6 +533,11 @@ export default function InboundRequestFormPage({
           isEditing
             ? `Chỉnh sửa ${detailQuery.data?.inboundRequestCode ?? 'yêu cầu nhập kho'}`
             : 'Tạo yêu cầu nhập kho'
+        }
+        notice={
+          aiDraftId && !isEditing ? (
+            <AiDraftPrefillNotice isLoading={aiDraft.isLoading} error={aiDraft.error} />
+          ) : null
         }
         autoApprove={isOwner && !isEditing}
         form={form}
