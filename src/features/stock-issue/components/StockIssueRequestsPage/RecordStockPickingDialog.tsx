@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { WarehouseLocationMapButton } from '@/features/warehouse/components/WarehouseLocationMap'
 import { useWatch, type UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -26,6 +27,8 @@ import { formatStockIssueUnitQuantity } from '../../utils/stock-issue-format'
 import { StockIssuePickEntry } from './StockIssuePickEntry'
 
 interface RecordStockPickingDialogProps {
+  readonly canViewMap?: boolean
+  readonly mapAccessScope?: string
   readonly order: StockIssueRequestSummary | null
   readonly form: UseFormReturn<RecordStockPickingFormValues>
   readonly isPending: boolean
@@ -36,6 +39,8 @@ interface RecordStockPickingDialogProps {
   readonly onSubmit: (values: RecordStockPickingFormValues) => Promise<void>
 }
 export function RecordStockPickingDialog({
+  canViewMap = false,
+  mapAccessScope = '',
   order,
   form,
   isPending,
@@ -107,6 +112,25 @@ export function RecordStockPickingDialog({
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(20rem,1fr)] lg:overflow-hidden">
           <div className="min-w-0 shrink-0 lg:order-last lg:min-h-0 lg:overflow-y-auto">
+            {order && line && source ? (
+              <WarehouseLocationMapButton
+                warehouseId={order.warehouseId}
+                warehouseName={order.warehouseName}
+                slotId={source.slotId}
+                locationLabel={line.slotPath || source.slotCode}
+                productLabel={`${line.sku} · ${line.productName}${line.lotNumber ? ` · Lô ${line.lotNumber}` : ''}`}
+                canView={canViewMap}
+                onOpen={() => setCameraOn(false)}
+                accessScope={mapAccessScope}
+                sourceVersion={JSON.stringify([
+                  order.id,
+                  order.version,
+                  selected,
+                  source.inventoryStockId,
+                ])}
+                ready={!isPending && !isUncertain && !needsRefresh && !!order.version}
+              />
+            ) : null}
             {line ? (
               <StockIssuePickEntry
                 key={`${order?.version}-${selected}-${revision}`}

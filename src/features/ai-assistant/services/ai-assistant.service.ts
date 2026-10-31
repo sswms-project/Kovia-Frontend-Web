@@ -6,6 +6,7 @@ import type {
   AiChatResponse,
   AiConversation,
   AiConversationMessages,
+  RateAiMessageRequest,
   SendAiChatMessageRequest,
   UpdateAiDraftQuantitiesRequest,
 } from '../types/ai-assistant.types'
@@ -35,6 +36,10 @@ export const aiAssistantService = {
   updateActionQuantities: (draftId: string, request: UpdateAiDraftQuantitiesRequest) =>
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.aiAssistant.updateActionQuantities(draftId), request)
+      .then((response) => response.data),
+  rateMessage: (messageId: string, request: RateAiMessageRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.aiAssistant.rateMessage(messageId), request)
       .then((response) => response.data),
   cancelAction: (draftId: string) =>
     axiosClient

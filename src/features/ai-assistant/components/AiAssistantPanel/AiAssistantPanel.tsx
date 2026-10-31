@@ -12,6 +12,7 @@ import {
   useAiConversationsQuery,
   useCancelAiActionMutation,
   useConfirmAiActionMutation,
+  useRateAiMessageMutation,
   useSendAiChatMessageMutation,
   useUpdateAiDraftQuantitiesMutation,
 } from '../../hooks/use-ai-assistant'
@@ -48,6 +49,7 @@ export function AiAssistantPanel({
   const confirmMutation = useConfirmAiActionMutation()
   const cancelMutation = useCancelAiActionMutation()
   const quantitiesMutation = useUpdateAiDraftQuantitiesMutation()
+  const rateMutation = useRateAiMessageMutation()
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
   // Bản nháp nhập kho cần ngày dự kiến, phiếu xuất kho thì không; chọn luật theo bản nháp đang sửa.
   const editingAction = useRef<string | null>(null)
@@ -98,6 +100,14 @@ export function AiAssistantPanel({
         onError: (error) => toast.error(getApiErrorMessage(error)),
       }
     )
+
+  const handleRate = (messageId: string, helpful: boolean | null) => {
+    if (!conversationId) return
+    rateMutation.mutate(
+      { messageId, helpful, conversationId },
+      { onError: (error) => toast.error(getApiErrorMessage(error)) }
+    )
+  }
 
   const handleCancel = (draftId: string) =>
     cancelMutation.mutate(
@@ -161,6 +171,7 @@ export function AiAssistantPanel({
         isError={Boolean(conversationId) && messagesQuery.isError}
         onRetry={() => void messagesQuery.refetch()}
         onSuggestion={sendMessage}
+        onRate={handleRate}
         drafts={drafts}
         processingDraftId={processingDraftId}
         onConfirmAction={handleConfirm}
