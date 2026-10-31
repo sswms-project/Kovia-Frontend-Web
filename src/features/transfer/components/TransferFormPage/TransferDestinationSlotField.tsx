@@ -2,7 +2,7 @@ import { Map as MapIcon, X } from 'lucide-react'
 import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
-import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
 import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import type { TransferRequestFormValues } from '../../schemas/transfer-request.schema'
@@ -18,6 +18,8 @@ interface TransferDestinationSlotFieldProps {
   /** Dòng đã bắt đầu nhận hàng nên không đổi vị trí đến nữa. */
   readonly locked: boolean
   readonly onSearchChange: (value: string) => void
+  readonly onManualChange?: () => void
+  readonly suggestionNote?: string
 }
 
 /** Vị trí đến (gợi ý cất hàng) của một dòng: chọn trong danh sách tìm kiếm hoặc bấm trên sơ đồ kho nhập. */
@@ -29,6 +31,8 @@ export function TransferDestinationSlotField({
   isLoading,
   locked,
   onSearchChange,
+  onManualChange,
+  suggestionNote,
 }: TransferDestinationSlotFieldProps) {
   const slotId = form.watch(`lines.${index}.destinationSlotId`)
   const destinationWarehouseId = form.watch('destinationWarehouseId')
@@ -38,7 +42,9 @@ export function TransferDestinationSlotField({
   // Ô chọn trên sơ đồ có thể không nằm trong danh sách tìm kiếm nên phải nhớ tên để còn hiển thị.
   const [pickedOption, setPickedOption] = useState<LookupOption | undefined>()
 
-  function setSlot(value: string) {
+  function setSlot(value: string, option?: LookupOption) {
+    onManualChange?.()
+    if (option) setPickedOption(option)
     form.setValue(`lines.${index}.destinationSlotId`, value, {
       shouldDirty: true,
       shouldValidate: true,
@@ -72,7 +78,10 @@ export function TransferDestinationSlotField({
                   }
                 : undefined
             }
-            onSearchChange={onSearchChange}
+            onSearchChange={(value) => {
+              if (value.trim()) onManualChange?.()
+              onSearchChange(value)
+            }}
             onChange={setSlot}
           />
         </div>
@@ -82,14 +91,21 @@ export function TransferDestinationSlotField({
             variant="ghost"
             size="icon-sm"
             aria-label={`Bỏ vị trí đến dòng ${index + 1}`}
-            onClick={() =>
-              form.setValue(`lines.${index}.destinationSlotId`, '', { shouldDirty: true })
-            }
+            onClick={() => setSlot('')}
           >
             <X aria-hidden="true" />
           </Button>
         ) : null}
       </div>
+      {slotId && (
+        <FieldDescription>
+          {options.find((option) => option.value === slotId)?.description ??
+            (pickedOption?.value === slotId ? pickedOption.description : undefined) ??
+            knownOption?.description ??
+            'Chưa xác định sức chứa'}
+        </FieldDescription>
+      )}
+      {suggestionNote && <FieldDescription>{suggestionNote}</FieldDescription>}
       <FieldError>{error?.message}</FieldError>
       <TransferSlotMapDialog
         open={isMapOpen}

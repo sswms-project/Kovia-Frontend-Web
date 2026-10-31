@@ -213,6 +213,15 @@ export default function InboundReceivingPage() {
     importForm.clearErrors()
   }
 
+  function cancelImport() {
+    setImportFile(null)
+    setImportId('')
+    initializedImportIdRef.current = ''
+    setDraftReceiptId(null)
+    importForm.reset({ inboundRequestId: '', acknowledgeWarehouseMismatch: false, lines: [] })
+    importForm.clearErrors()
+  }
+
   function openDocumentImport(task: ReceivingTask) {
     resetImport()
     setImportTask(task)
@@ -250,8 +259,13 @@ export default function InboundReceivingPage() {
       })
       setImportId(response.data)
     } catch (error) {
-      logger.error(error)
-      toast.error('Không thể phân tích chứng từ. Bạn vẫn có thể nhập hàng thủ công.')
+      if (isApiErrorResponse(error)) logger.warn(formatApiError(error))
+      else logger.error(error)
+      toast.error(
+        isApiErrorResponse(error) && error.statusCode === 429
+          ? 'Đã hết hạn mức phân tích AI tạm thời. Vui lòng thử lại sau hoặc nhập hàng thủ công.'
+          : 'Không thể phân tích chứng từ. Bạn vẫn có thể nhập hàng thủ công.'
+      )
     }
   }
 
@@ -572,6 +586,7 @@ export default function InboundReceivingPage() {
         onAnalyze={() => void analyzeDocument()}
         onSaveReview={() => void importForm.handleSubmit(saveDocumentReview)()}
         onCreateDraft={() => void createDraftFromDocument()}
+        onCancelImport={cancelImport}
         onManualFallback={() => {
           if (!importTask) return
           const task = importTask

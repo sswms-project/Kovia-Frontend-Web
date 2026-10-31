@@ -26,7 +26,7 @@ export function ReturnsWorkspaceNavigation({
           aria-current={currentView === 'goodsReturnRequests' ? 'page' : undefined}
           className={linkClassName}
         >
-          Trả hàng khách
+          Khách trả hàng
         </Link>
       ) : null}
       {permissions.includes(P.SUPPLIER_RETURNS_VIEW) ? (
@@ -35,7 +35,7 @@ export function ReturnsWorkspaceNavigation({
           aria-current={currentView === 'supplierReturns' ? 'page' : undefined}
           className={linkClassName}
         >
-          Trả hàng NCC
+          Trả hàng nhà cung cấp
         </Link>
       ) : null}
     </nav>

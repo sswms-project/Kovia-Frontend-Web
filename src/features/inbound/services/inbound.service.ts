@@ -234,6 +234,10 @@ export const inboundService = {
     axiosClient
       .put<ApiResponse<unknown>>(API_ENDPOINTS.inboundDocumentImports.review(id), request)
       .then((response) => response.data),
+  getDocumentImportFile: (importId: string) =>
+    axiosClient
+      .get<Blob>(API_ENDPOINTS.inboundDocumentImports.document(importId), { responseType: 'blob' })
+      .then((response) => response.data),
   createDraftFromDocument: (importId: string) =>
     axiosClient
       .post<ApiResponse<string>>(API_ENDPOINTS.inboundDocumentImports.createDraft(importId))

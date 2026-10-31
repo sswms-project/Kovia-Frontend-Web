@@ -53,7 +53,7 @@ export function CreateGoodsReturnRequestDialog({
       <DialogContent className="max-h-[85dvh] min-w-0 overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? 'Sửa nháp khách trả hàng' : 'Tạo yêu cầu trả hàng'}
+            {isEditing ? 'Sửa nháp khách trả hàng' : 'Tạo yêu cầu khách trả hàng'}
           </DialogTitle>
           <DialogDescription>
             Số lượng tối đa đã trừ các yêu cầu trả hàng chưa bị từ chối.
@@ -182,7 +182,7 @@ export function CreateGoodsReturnRequestDialog({
               </Button>
               <Button type="submit" disabled={isPending}>
                 {isPending ? <Spinner data-icon="inline-start" /> : null}
-                {isEditing ? 'Lưu nháp' : 'Tạo yêu cầu trả hàng'}
+                {isEditing ? 'Lưu nháp' : 'Tạo yêu cầu khách trả hàng'}
               </Button>
             </DialogFooter>
           </form>

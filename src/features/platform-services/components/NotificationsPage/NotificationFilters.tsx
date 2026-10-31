@@ -36,6 +36,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   StockDiscrepancyUpdate: 'Chênh lệch tồn kho',
   InboundArrivalUpcoming: 'Hàng sắp về',
   SupplierReturnUpdate: 'Trả hàng NCC',
+  DailyOperationsDigest: 'Tóm tắt đầu ngày',
 }
 
 interface NotificationFiltersProps {

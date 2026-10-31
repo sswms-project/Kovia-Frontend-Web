@@ -1,4 +1,8 @@
 import { axiosClient } from '@/lib/axios'
+import type {
+  TransferDestinationPreviewRequest,
+  TransferDestinationSuggestion,
+} from '../schemas/transfer-destination-preview.schema'
 import { warehouseStagingPointsSchema } from '@/features/warehouse/schemas/warehouse-staging-points.schema'
 import { transferWriteConfig } from '../utils/transfer-client'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
@@ -53,6 +57,7 @@ import type { ReceivableSlot } from '../utils/transfer-receive'
 import type { AssignableWarehouseStaff } from '@/features/inbound/types/inbound.types'
 import type {
   TransferAssignmentTask,
+  AssignTransferDestinationWorkflowRequest,
   TransferTaskType,
   TransferReceiptSheet,
   TransferPutAwaySheet,
@@ -70,6 +75,16 @@ const validateStagingPoints = <TData extends { stagingPoints?: unknown }>(
 }
 
 export const transferService = {
+  assignDestinationWorkflow: (
+    transferId: string,
+    shipmentId: string,
+    request: AssignTransferDestinationWorkflowRequest
+  ) =>
+    axiosClient
+      .put<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.transfers.destinationAssignment(transferId, shipmentId), request, transferWriteConfig())
+      .then(unwrap),
   deleteDraft: (id: string, expectedVersion: string) =>
     axiosClient
       .delete<
@@ -215,6 +230,13 @@ export const transferService = {
       .get<ApiResponse<TransferReceivableSlotOption[]>>(API_ENDPOINTS.transfers.receivableSlots, {
         params,
       })
+      .then(unwrap),
+
+  previewDestinations: (request: TransferDestinationPreviewRequest, signal?: AbortSignal) =>
+    axiosClient
+      .post<
+        ApiResponse<TransferDestinationSuggestion[]>
+      >(API_ENDPOINTS.transfers.destinationSuggestions, request, { signal })
       .then(unwrap),
 
   /** Vị trí kho nhập cho lập kế hoạch/cất hàng: chỉ cần quyền nhận chuyển kho, không cần quyền tạo phiếu. */

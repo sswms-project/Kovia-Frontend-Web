@@ -41,6 +41,8 @@ interface TransferLineRowProps {
   readonly showAvailabilityWarning: boolean
   readonly onProductSearchChange: (scope: string, value: string) => void
   readonly onRemove: (index: number) => void
+  readonly onDestinationManualChange?: (index: number) => void
+  readonly destinationSuggestionNote?: string
   /** Chỉ chủ và người kho xuất thấy "Vị trí đi"; người kho nhập không biết nơi lấy. */
   readonly showSourceSlot: boolean
   readonly sourceWarehouseId: string
@@ -74,6 +76,8 @@ export function TransferLineRow({
   showAvailabilityWarning,
   onProductSearchChange,
   onRemove,
+  onDestinationManualChange,
+  destinationSuggestionNote,
   showSourceSlot,
   sourceWarehouseId,
   selectedSourceSlot,
@@ -147,6 +151,7 @@ export function TransferLineRow({
             })
             form.setValue(`lines.${index}.unitId`, '', { shouldDirty: true })
             form.setValue(`lines.${index}.sourceSlotId`, '', { shouldDirty: true })
+            form.setValue(`lines.${index}.destinationSlotId`, '', { shouldDirty: true })
           }}
         />
         <FieldError>{errors?.productId?.message}</FieldError>
@@ -255,6 +260,8 @@ export function TransferLineRow({
           isLoading={isDestinationSlotLoading}
           locked={isDestinationSlotLocked}
           onSearchChange={onDestinationSlotSearchChange}
+          onManualChange={() => onDestinationManualChange?.(index)}
+          suggestionNote={destinationSuggestionNote}
         />
       ) : null}
       <Button

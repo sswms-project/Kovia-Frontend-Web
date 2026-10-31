@@ -429,7 +429,9 @@ function TaskIdentity({ task }: { readonly task: MyWarehouseTask }) {
       </span>
       <div className="min-w-0">
         <p className="text-sm font-medium">
-          {taskTypeLabel[task.taskType] ?? task.taskType}
+          {task.isCombinedTransferReceipt
+            ? 'Nhận và cất hàng điều chuyển'
+            : (taskTypeLabel[task.taskType] ?? task.taskType)}
           <span className="text-muted-foreground font-normal"> · {task.workSummary}</span>
         </p>
         <p className="text-muted-foreground mt-0.5 truncate text-xs">

@@ -131,6 +131,7 @@ export default function TransferPickTaskPage({
           <div className="shrink-0">
             <StagingPointChoice
               id="transfer-outbound-staging"
+              className="bg-card"
               title="Đưa hàng tới điểm chờ xuất"
               points={sheet.stagingPoints}
               value={stagingSlotId}

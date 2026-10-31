@@ -21,6 +21,7 @@ export type WarehouseTaskDeadlineStatus =
   | 'Cancelled'
 
 export interface MyWarehouseTask {
+  isCombinedTransferReceipt?: boolean
   id: string
   taskType: WarehouseTaskType
   referenceCode: string

@@ -1,13 +1,7 @@
 import { Sparkles } from 'lucide-react'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-
-const SUGGESTED_PROMPTS = [
-  'Kho nào đang có nhiều sản phẩm sắp hết hàng?',
-  'Trong tháng này có bao nhiêu yêu cầu xuất kho đã hoàn tất?',
-  'Có yêu cầu kho nào đang bị trễ xử lý không?',
-  'Sản phẩm nào nên nhập thêm hàng?',
-  'Trang dự báo tồn kho ở đâu?',
-] as const
+import { getSuggestedPrompts } from '../../utils/ai-suggested-prompts'
 
 interface AiSuggestedPromptsProps {
   readonly disabled: boolean
@@ -15,6 +9,7 @@ interface AiSuggestedPromptsProps {
 }
 
 export function AiSuggestedPrompts({ disabled, onSelect }: AiSuggestedPromptsProps) {
+  const suggestedPrompts = getSuggestedPrompts(usePathname())
   return (
     <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
       <span className="bg-tertiary/10 text-tertiary flex size-10 items-center justify-center rounded-full">
@@ -27,7 +22,7 @@ export function AiSuggestedPrompts({ disabled, onSelect }: AiSuggestedPromptsPro
         </p>
       </div>
       <ul className="flex w-full flex-col gap-2" aria-label="Câu hỏi gợi ý">
-        {SUGGESTED_PROMPTS.map((prompt) => (
+        {suggestedPrompts.map((prompt) => (
           <li key={prompt}>
             <Button
               type="button"

@@ -241,6 +241,7 @@ export const queryKeys = {
   inboundDocumentImports: {
     all: ['inbound-document-imports'] as const,
     detail: (id: string) => ['inbound-document-imports', 'detail', id] as const,
+    document: (id: string) => ['inbound-document-imports', 'document', id] as const,
   },
   transfers: {
     destinationLoad: (warehouseId: string, date: string, excludeTransferId?: string) =>

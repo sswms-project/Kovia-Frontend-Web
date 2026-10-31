@@ -2,6 +2,8 @@
 
 This document defines how SSWMS Frontend code should be structured, split, reused, and kept maintainable.
 
+Folder map, ownership table, hooks/forms lifecycle and refactor triggers: [FOLDER_STRUCTURE.md](FOLDER_STRUCTURE.md).
+
 ## Core Principles
 
 - Prefer simple, readable code over clever abstractions.
@@ -19,24 +21,31 @@ Use these folders when a feature grows:
 
 ```text
 src/features/<feature>/
-  components/  # Feature-specific UI composition
+  pages/       # <Name>Page.tsx (default export), rendered by src/app/**/page.tsx
+  components/  # Feature-specific UI composition (components/<PageName>/ + index.ts barrel)
   hooks/       # Feature-specific React hooks and React Query hooks
   services/    # API wrappers and service functions
   schemas/     # Zod schemas
   types/       # Feature-specific TypeScript types
-  utils/       # Pure feature-only helper functions
+  utils/       # Pure feature-only helper functions and mappers
 ```
 
 Shared app-level code belongs outside feature folders:
 
 ```text
+src/app/            # Next.js routes only: (private)/, (public)/, layouts, thin page.tsx
 src/components/ui/  # Shared UI primitives
-src/components/     # Shared app components composed from primitives
+src/components/     # Shared app components (layout/, operations/, forms/, barcode/, ErrorState…)
+src/config/         # permissionCodes.ts, roles.ts, route-permissions.ts
+src/routes/         # APP_ROUTES (app-routes.ts), API_ENDPOINTS (api-endpoints.ts)
 src/hooks/          # Shared hooks used by multiple features
-src/lib/            # Shared clients, utilities, and infrastructure
+src/lib/            # axios, logger, query-keys, api-error and other shared utilities
+src/providers/      # App-wide React providers
 src/types/          # Shared API and domain types
 src/stores/         # Shared Zustand stores
 ```
+
+A route `page.tsx` only forwards params/redirects and renders the feature page; it holds no hooks or business logic.
 
 Do not create a shared folder just because code might be reused later. Start inside the feature, then promote after a second real use case appears.
 
@@ -90,6 +99,11 @@ pnpm dlx shadcn@latest add <component-name>
 - Do not store server data in Zustand. Use TanStack React Query.
 - Name hooks with `use...`, for example `useVerifyEmailQuery` or `useRegisterMutation`.
 - Keep hooks independent from visual layout. A hook should return data, state, and actions, not JSX.
+- One hook = one cohesive behavior, resource, or workflow. Return a small API; never a whole-page `controller` with dozens of setters.
+- Pure calculations (formatting, option building, payload mapping) are plain functions in `utils/`, not `use...` hooks.
+- A hook shares logic, not instance state: call a form/workflow hook once at its owner and pass what children need.
+- Call hooks at the top level; lazy data uses `enabled: isOpen && Boolean(warehouseId)`, never a conditional hook call.
+- Use `useMemo`/`useCallback` only with a concrete reason.
 
 Create a hook when:
 
@@ -105,8 +119,12 @@ Do not create a hook when:
 ## Services And API
 
 - Keep API calls in service functions or feature API files, not inside JSX event handlers.
-- Use the shared Axios client from `src/lib/axios.ts`.
-- Return unwrapped response data from API helpers.
+- Use the shared Axios client `axiosClient` from `src/lib/axios.ts`; do not create another instance or attach tokens in feature code.
+- Take endpoint paths from `API_ENDPOINTS` (`src/routes/api-endpoints.ts`) and app URLs from `APP_ROUTES` (`src/routes/app-routes.ts`).
+- Return unwrapped response data from API helpers: `response.data.data` for `ApiResponse<T>`, `response.data` for Blob downloads.
+- Pages and components never call `*Service.*` directly (including downloads); go through a feature hook.
+- Services do not catch errors or own toast, dialogs, navigation, or React state.
+- Build query keys from `queryKeys` in `src/lib/query-keys.ts`, including every parameter the query depends on.
 - Let React Query handle loading, error, success, retry, and cache state.
 - Use typed request and response DTOs.
 - Reuse existing query keys and API hooks before creating new ones.
@@ -268,4 +286,8 @@ Before finishing a feature, verify:
 - Business logic is not buried inside visual-only components.
 - Types come from source of truth when possible.
 - Backend payload names and response shapes match the backend contract.
+- Route `page.tsx` is thin; views do not call React Query hooks or services; pages reach HTTP only through hooks.
+- Each form has one owner and one `useForm`; query data is not mirrored into local state or a store.
+- Multi-step saves block duplicate submission, never report success after a failed step, and keep dirty input for retry.
+- Review signals were checked (page/orchestrator >~250 lines, hook/view >~150, >~10 inputs/outputs); see the gate in `FOLDER_STRUCTURE.md` §9.
 - The code is understandable without excessive comments.

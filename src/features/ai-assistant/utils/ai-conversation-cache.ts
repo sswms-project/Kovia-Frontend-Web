@@ -26,6 +26,21 @@ export function appendAiChatTurn(
   }
 }
 
+export function setAiMessageHelpful(
+  current: AiConversationMessages | undefined,
+  messageId: string,
+  helpful: boolean | null
+): AiConversationMessages | undefined {
+  if (!current) return current
+
+  return {
+    ...current,
+    messages: current.messages.map((message) =>
+      message.id === messageId ? { ...message, helpful } : message
+    ),
+  }
+}
+
 export function updateAiDraftStatus(
   current: AiConversationMessages | undefined,
   update: Pick<AiDraftStatusInfo, 'draftId' | 'status' | 'resultEntityId'>

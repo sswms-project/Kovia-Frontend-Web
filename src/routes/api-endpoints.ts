@@ -399,6 +399,8 @@ export const API_ENDPOINTS = {
     deleteDraft: (id: string) => `/transfers/drafts/${id}`,
     assignmentSnapshot: (transferId: string, shipmentId: string) =>
       `/transfers/${transferId}/shipments/${shipmentId}/assignment-snapshot`,
+    destinationAssignment: (transferId: string, shipmentId: string) =>
+      `/transfers/${transferId}/shipments/${shipmentId}/destination-assignment`,
     decision: (id: string) => `/transfers/${id}/decision`,
     withdraw: (id: string) => `/transfers/${id}/withdraw`,
     destinationLoad: '/transfers/destination-load',
@@ -421,6 +423,7 @@ export const API_ENDPOINTS = {
     sourceProducts: '/transfers/source-products',
     receivableSlot: '/transfers/receivable-slot',
     receivableSlots: '/transfers/receivable-slots',
+    destinationSuggestions: '/transfers/destination-suggestions',
     putAwaySlots: '/transfers/putaway-slots',
     sourceLocations: '/transfers/source-locations',
     nextCode: '/transfers/next-code',
@@ -478,6 +481,8 @@ export const API_ENDPOINTS = {
       `/transfers/${transferId}/discrepancies/${discrepancyId}/resolve`,
   },
   stockIssueRequests: {
+    sourceOptions: (id: string) => `/stock-issue-requests/${id}/source-options`,
+    pickingSources: (id: string) => `/stock-issue-requests/${id}/picking-sources`,
     allowedActions: (id: string) => `/stock-issue-requests/${id}/allowed-actions`,
     withdraw: (id: string) => `/stock-issue-requests/${id}/withdraw`,
     nextCode: '/stock-issue-requests/next-code',
@@ -560,5 +565,6 @@ export const API_ENDPOINTS = {
     confirmAction: (draftId: string) => `/ai/actions/${draftId}/confirm`,
     cancelAction: (draftId: string) => `/ai/actions/${draftId}/cancel`,
     updateActionQuantities: (draftId: string) => `/ai/actions/${draftId}/quantities`,
+    rateMessage: (messageId: string) => `/ai/messages/${messageId}/feedback`,
   },
 } as const

@@ -43,6 +43,10 @@ export interface AiActionDetail {
 }
 
 /** Mirrors UpdateAiActionDraftQuantitiesRequest. */
+export interface RateAiMessageRequest {
+  readonly helpful: boolean | null
+}
+
 export interface UpdateAiDraftQuantitiesRequest {
   readonly expectedDate?: string
   readonly lines: readonly { readonly productId: string; readonly quantity: number }[]
@@ -71,6 +75,8 @@ export interface AiMessage {
   readonly intent: string | null
   readonly cards: readonly AiCard[]
   readonly createdAt: string
+  /** Người dùng đánh giá câu trả lời; null khi chưa đánh giá. */
+  readonly helpful?: boolean | null
 }
 
 export interface AiDraftStatusInfo {
@@ -111,4 +117,6 @@ export interface AiActionExecution {
 export interface SendAiChatMessageRequest {
   readonly conversationId: string | null
   readonly message: string
+  /** Trang đang mở, để trợ lý hiểu "kho này", "sản phẩm này". */
+  readonly pagePath?: string
 }

@@ -1,5 +1,95 @@
 # AI Review Handoff
 
+## 2026-10-31 — Clarify return workspace terminology
+
+State: READY_FOR_CODEX_REVIEW. Assigned implementer self-verification only.
+
+- Shared return tabs now read Khách trả hàng and Trả hàng nhà cung cấp. Customer-return list/create/detail labels and supplier-return detail title follow the same terminology. Routes, permission keys and behavior remain unchanged.
+- Scoped ESLint and diff whitespace checks passed. Text-only UI edits reuse existing navigation/layout; no new UI primitives or dependencies. No API/DB writes or deployment; device visual acceptance was not performed.
+
+## 2026-10-31 — Dev PR readiness and final fix review
+
+State: APPROVED_FINAL for dev integration. Original implementer self-review, not independent review or deployment approval.
+
+- Rechecked FR-SOURCE-01/02 and direct merge regressions: uncertain release retains the exact request/command ID, blocks dismissal/navigation and exposes exact retry; expired authorization no longer blocks manual selection. Merge keeps dev's map permissions alongside stale-picking/replay protection. No remaining Blocker/High identified within this final review scope.
+- Post-merge verification: 41 stock-issue/transfer/task tests passed; separate source/map regression run passed 31 tests. Production TypeScript passed. Default TypeScript includes old tmp fixtures with existing errors; production configuration excludes those fixtures. Evidence: ../outputs/pr-dev-fe-20261031.log, ../outputs/dev-sync-fe-20261031.log and ../outputs/dev-sync-fe-production-types-20261031.log.
+- No deployed API/DB writes or migration runs. Physical-device and opt-in SQL Server race acceptance remain unverified. Local instructions and outputs are excluded.
+
+## 2026-10-30 — Source review findings fixed
+
+State: READY_FOR_FINAL_REVIEW. Assigned implementer fixes/self-verification, not independent review.
+
+- FR-SOURCE-01 resolved: freeze release payload/command ID and synchronously guard duplicate submission. Unknown outcomes keep assignment dialog/selection and navigation locked; a dedicated retry resends the frozen intent even if form/draft/version inputs change. Known rejections unlock selection. Source adjustment/picking replay behavior remains unchanged.
+- FR-SOURCE-02 resolved: manual selector only blocks a non-revoked/non-completed demand whose validUntil exceeds existing ticking state.now. No automation setting is changed.
+- 19 focused FE tests pass, including promoted unknown-release reproduction and active/expired demand cases. Scoped lint and final production build tracked in ../outputs/outbound-source-fix-build-20261030.log. No API/DB writes or application startup. Not committed/pushed in this fix turn. SQL Server race and physical-device acceptance remain pending.
+
+## 2026-10-30 — Source adjustment/capacity review round 1 after commit
+
+State: APPROVED_FINAL (no Blocker/High found; Medium findings below remain open). Separate self-review by original implementer, not independent review. Scope: 7525ccd0/7d264073, outbound source plan and transfer-capacity display. No production source edits during this review.
+
+- Medium — OPEN, FR-SOURCE-01: use-stock-issue-workflow.ts:476-486 only preserves release command ID while the serialized body stays unchanged. A 500/timeout leaves the release dialog dismissible and the manual plan editable; reopening with a changed reason/source creates a fresh command ID before the earlier result is reconciled. Freeze the original release intent and expose exact replay/reconciliation until its outcome is known, as already done for source adjustment/picking. BE status/version checks prevent assuming duplicate stock corruption, but the approved spec's safe retry behavior is not fulfilled. External hook reproduction: after mocked 500, close/reopen with changed reason sends a different ID/body; ../outputs/outbound-source-review-replay-20261030.log (1 reproduction fails, 5 existing tests pass).
+- Medium — OPEN, FR-SOURCE-02: CrossDockSection.tsx:33-44 treats every non-completed/non-revoked demand as active, without comparing validUntil. An expired authorization disables manual source selection although BE StockIssueManualAllocation only blocks still-valid demands. Use the existing ticking state.now plus validUntil; allow manual selection after expiration while keeping active demands blocked. Current workaround requires explicit revocation of an expired demand.
+- BE report finding BR-SOURCE-01 is recorded in Backend/docs/AI_REVIEW.md: actual cross-dock picks can be attributed to a released decision after manual reallocation.
+- Existing verification remains 16 focused FE tests plus lint/production TypeScript/build passing. New external review reproduction is intentionally failing and excluded from commit. No production code fix, push, application startup or deployed API/DB writes. Device/visual and SQL Server race acceptance remain pending.
+
+## 2026-10-30 — Outbound manual picking sources
+
+State: READY_FOR_CODEX_REVIEW. Assigned implementer: Codex; self-verification only.
+
+- Source adjustment is inside the existing detail picking-plan card. Shared searchable combobox distinguishes position/lot/expiry and shows effective availability in entered units. Mobile dialog stacks controls; desktop uses source/quantity columns. Supports splitting and validates remaining totals, positive whole entered quantities, duplicates and reason.
+- Pending selections are local, explicitly unapplied until the existing release/assignment action succeeds. Shared leave-page protection and discard confirmation preserve user intent. Only server-supported ordinary orders and current management permission expose editing; active automation must be revoked first. Released/Picking writes change unpicked reservations only.
+- Unknown write results retain the original command ID/payload for replay, including after a realtime version change. Staff's existing scan dialog observes the current detail version and blocks stale scans, while permitting exact replay of uncertain picks. Long FEFO/FIFO reasoning uses shared Tooltip/Popover (hover/focus, one-tap, Escape).
+- 16 focused FE tests pass (schema, draft/release integration, stale version, replay/double-submit, staff scan refresh, one-tap explanation, keeping uncertain commands mounted after realtime changes, selected-source lookup and option-version guarding). Production TypeScript, lint and production build verified. Source search/debounce/option shaping has a dedicated query hook; row and form selectors remain independent owners. GitNexus total diff is high-risk because the workflow hook is shared by list/detail; both paths are covered. Prior transfer-capacity edits are retained separately.
+- No migration, API writes, application startup, deployment, commit or push. Protected AGENTS.md/CLAUDE.md edits preserved. Real browser/device 360/390px, desktop and zoom 125% acceptance remains pending; jsdom tests do not establish visual layout or camera behavior. BE must be deployed together for source-option/document-version/capability fields.
+
+## 2026-10-30 — Transfer destination occupancy/capacity
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Added optional BE capacitySummary to receivable options/preview result. Existing LookupCombobox descriptions show actual occupied/configured capacity in one unit. Selected field keeps the description below the input, including suggestion-only positions outside the lookup page; manual dropdown selections remember their description. Missing summary renders “Chưa xác định sức chứa”. Same layout primitives/tokens, no new dependency.
+- Verification: 14 focused formatter, preview hook and field tests passed. Initial hook assertion raced the separate RHF/label state updates; now waits for the known label before asserting description. Production TypeScript, scoped ESLint and isolated Next production build passed (../outputs/transfer-capacity-build-20261030.log). No live API requests or database writes; browser/physical-device acceptance not performed.
+
+## 2026-10-30 — BE integration findings addressed
+
+State: READY_FOR_FINAL_REVIEW. No FE production source changes needed. BE now checks both phase versions through forced updates, returns the unfinished same-person workflow together, and scans all eligible preview positions for a whole-row fit. Previously recorded findings are addressed; regression evidence is in Backend/docs/AI_REVIEW.md. FE's latest 16-test review run remains applicable because its source/contracts are unchanged. Not deployed or independently reviewed.
+
+## 2026-10-30 — Morning transfer changes, review round 1
+
+State: NEEDS_CLAUDE_FIX (BE integration findings). Original implementer self-review; not independent. Scope: c74d6b67, 60f23412 and small task surface change 7cdb60a8.
+
+- Open BE findings recorded in Backend/docs/AI_REVIEW.md: unchanged-phase concurrency gap in joint assignment (High), Return on the combined workflow leaves blocked putaway assigned (Medium), whole-line destination search incorrectly limited to first 25 ranked candidates (Medium). FE trusts these API outcomes and exposes the returned phase/action, so these need resolution before treating the workflow as ready.
+- Reran 16 focused FE tests: all pass. Three external BE invariant repros fail on current source; no production source edited, no deployment or live DB access. Existing passing suites do not cover these scenarios. Mobile handoff describes intended flow; commit-boundary and Return behavior need correction before release.
+
+## 2026-10-30 — One transfer receipt/putaway workflow for the same staff
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Selecting both destination phases calls one destination-assignment API with both versions/expected assignees. Single-phase assignments retain their existing API. Unknown-result verification checks both phases before retry/completion; changed companion blocks both writes. Same dialog, priority/due controls and manual split assignment remain available.
+- Optional BE isCombinedTransferReceipt flag labels queue cards and task directory as “Nhận và cất hàng điều chuyển”. BE returns one active phase, so existing routes/action IDs lead to receiving first and putaway after inspection. Existing receipt-submit continuation remains unchanged. No schema/migration or new UI primitive.
+- Verification: 16 focused FE tests passed (11 destination preview plus 4 assignment and 1 queue phase-routing test). Covers one joint request, single request path, stale companion, lost-response verification without duplicate submission, combined title and route transition. Production TypeScript, scoped ESLint, isolated Next build and diff checks passed. No authenticated browser/physical-phone acceptance, business API calls, DB writes or deployment.
+
+## 2026-10-30 — Transfer form destination suggestions
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
+
+- Create/draft transfer rows with blank destinations use one debounced, cancellable batch preview and retain the existing searchable dropdown/map. Manual selection, search and explicit clear opt out of autofill; product changes clear the old destination. Suggestions show full paths, including results outside the lookup's first page.
+- Results are scoped to viewer, warehouse and stable form row IDs. Changed quantity/unit/product/warehouse or manual choices invalidate generated placements and recalculate shared capacity. Delayed responses cannot overwrite manual choices, deleted/replaced rows or a form being confirmed/saved. Cached placeholder/error lookup rows from another warehouse are hidden.
+- Verification: 11 focused hook tests passed, covering autofill, manual choice/clear, shared capacity invalidation, stale responses, row deletion, permission and save/confirm guards, and API failure fallback. Exact-source production TypeScript, scoped ESLint and isolated Next production build passed. Plain repository-wide TypeScript also includes old tmp/outputs fixtures and reports pre-existing fixture errors; production configuration passes. No business API/DB calls, migrations or application startup. Browser/physical-device acceptance remains manual.
+
+## 2026-10-30 — Transfer pick staging card surface
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only.
+
+- TransferPickTaskPage passes bg-card through the existing StagingPointChoice className prop, giving the outbound staging card the shared white surface in light mode. Other usages and all selection/execution behavior unchanged.
+- GitNexus impact LOW. Scoped ESLint and diff checks passed. No API/DB calls, commit or deployment. Browser/device visual acceptance not performed for this one-class style change.
+
+## 2026-10-29 — Staff task filter surfaces
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only.
+
+- Added bg-card to the three existing NativeSelect wrappers on MyWarehouseTasksPage (type, status, deadline). NativeSelect uses a transparent select; the wrapper now provides the shared card surface instead of showing the page background. Shared primitive, filter logic, labels, focus states and responsive grid unchanged.
+- Verification: scoped ESLint and diff whitespace checks passed. No API calls, database access, commit or deploy. No browser/device visual acceptance performed for this small styling change.
+
 ## 2026-10-28 — Transfer destination names
 
 State: READY_FOR_CODEX_REVIEW. Implementer self-verification only; not deployed.
@@ -2682,3 +2772,17 @@ READY_FOR_FINAL_REVIEW (assigned implementer self-verification).
 APPROVED_FINAL for F1/F2 in the reviewed scope (self-review, not independent approval).
 
 - Rechecked actual page edit hydration, saved-line grouping, current picker-page independence, normal-location filters and damaged-receiving opt-in.103tests, production TypeScript, scoped ESLint and Next production build passed. No remaining High/Blocker or original Medium F2 in this focused review; no authenticated live application workflow claimed. F1/F2 CLOSED. Stop review loop.
+
+## 2026-10-29 — Web stock/picking map locator
+
+READY_FOR_CODEX_REVIEW (implementation self-verification; not independent approval).
+
+- Added Xem sơ đồ at inventory row locations in desktop/small-screen layouts and at the selected reserved source in the picking dialog. Reuses the existing read-only Konva canvas and layout/scene GET; no new backend endpoint, inventory query from the map, allocation change or stock write. Opens the exact slot/rack hierarchy by ID, supports RackLevel default slots, marks the rack and keeps textual slot identity. No per-slot coordinate or route optimization claim.
+- Page/workflow supplies warehouses:view capability and user/tenant/permission scope. Loading/error/403/unplaced/inactive/wrong-warehouse cases avoid showing stale or generated target geometry. Source readiness/version/scope changes invalidate the dialog. Opening from picking pauses the camera; Escape returns to the picking dialog and keeps unsaved source input.
+- Focused verification: 23 tests in 3 files; required typecheck and scoped ESLint; actual Next UI checked with mocked HTTP at 1440x1000 and 390x844, inventory/picking source maps, focus/Escape, unplaced and denied fallback. Tests and detailed environment/source fingerprint are in the Kovia workspace dossier outputs/workflow/tasks/web-map-locator/evidence.json. Notification hub connection errors were expected without a running backend. No live-backend/device/camera test, full suite, production build or time-savings measurement claimed.
+- Backend analyzed read-only at freshly fetched origin/dev 6e9d86d822cd662bda932f9f9a81ddfa845a13ee. Existing permission/tenant/warehouse-assignment guards remain required; consider a minimal scoped locator projection only if staff policy/payload measurements justify it. Routing requires navigable graph, approach points and measured scale before optimization claims. Full findings: backend-analysis.md in the canonical dossier.
+- Branch feat/web-map-locator in an isolated worktree from freshly fetched origin/dev baf3087f31b001522d7d1e3eb6de39f7d69b8071. Existing reporting edits in the main FE checkout preserved. No commit, push, PR, deployment, migration or seed.
+
+### 2026-10-29 — Pre-push self-review
+
+User authorized checking, committing and pushing both feature branches. Revalidated all 13 recorded file hashes against the saved web checkpoint; no feature source drift. Reviewed read-only scene access, selected allocated source, default-slot resolution, inactive/unplaced targets and stale permission/source/version guards. Refreshed dev has three notification commits touching two unrelated files; this existing feature branch retains its reviewed base without modifying those files. Re-ran required TypeScript, scoped ESLint and the 23 focused tests before commit. Previous mocked browser inventory/picking evidence is reused because web behavior is unchanged. No live-backend/device coverage, production build, full-suite pass, independent approval, PR, merge or deployment is implied.

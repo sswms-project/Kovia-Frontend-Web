@@ -68,7 +68,7 @@ export function GoodsReturnRequestDetail({
   const events = item
     ? [
         {
-          action: 'Tạo yêu cầu trả hàng',
+          action: 'Tạo yêu cầu khách trả hàng',
           createdAt: item.createdAt,
           actorId: item.createdBy,
           actorName: item.createdByName ?? '',
@@ -79,7 +79,7 @@ export function GoodsReturnRequestDetail({
         ...(item.approvedAt
           ? [
               {
-                action: 'Duyệt yêu cầu trả hàng',
+                action: 'Duyệt yêu cầu khách trả hàng',
                 createdAt: item.approvedAt,
                 actorId: item.approvedBy ?? '',
                 actorName: item.approvedByName ?? '',
@@ -93,7 +93,7 @@ export function GoodsReturnRequestDetail({
     : []
   return (
     <ReturnDocumentFrame
-      title="Trả hàng khách"
+      title="Khách trả hàng"
       code={item?.goodsReturnRequestCode}
       subtitle={
         item

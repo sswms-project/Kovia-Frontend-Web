@@ -3,6 +3,17 @@ import type { TransferShipmentStatus } from './transfer.types'
 export type TransferTaskKind = 'pick' | 'receive' | 'putaway'
 export type TransferTaskType = 'TransferPick' | 'TransferReceive' | 'TransferPutAway'
 
+export interface AssignTransferDestinationWorkflowRequest {
+  staffId: string
+  receiveVersion: string
+  expectedReceiveStaffId: string | null
+  putAwayVersion: string
+  expectedPutAwayStaffId: string | null
+  priority: 'Normal' | 'Urgent'
+  dueAt: string | null
+  reason: string | null
+}
+
 export interface TransferAssignmentTask {
   readonly id: string
   readonly taskType: TransferTaskType
