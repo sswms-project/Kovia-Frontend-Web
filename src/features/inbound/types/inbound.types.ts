@@ -271,6 +271,7 @@ export interface GoodsReceiptDetail extends Omit<
   supplierCode?: string | null
   supplierName?: string | null
   sourceName?: string | null
+  inboundRequestCreatedByName?: string | null
   receivingAssignedTo: string | null
   receivingAssignedToName: string | null
   warehouseCode: string
