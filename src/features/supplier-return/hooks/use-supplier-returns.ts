@@ -66,6 +66,8 @@ function useInvalidateAfterTransition() {
   return () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.supplierReturns.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.returnWork.all }),
+      queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] }),
       queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all }),
     ])
 }

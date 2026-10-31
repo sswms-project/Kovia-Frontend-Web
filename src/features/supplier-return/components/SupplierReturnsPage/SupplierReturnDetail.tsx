@@ -34,6 +34,8 @@ import type { SupplierReturn } from '../../types/supplier-return.types'
 import { SupplierReturnStatusBadge } from './SupplierReturnStatusBadge'
 
 interface SupplierReturnDetailProps {
+  readonly workPanel?: ReactNode
+  readonly workStarted?: boolean
   readonly editingActions?: ReactNode
   readonly item: SupplierReturn | null
   readonly listHref: string
@@ -53,6 +55,8 @@ interface SupplierReturnDetailProps {
 }
 
 export function SupplierReturnDetail({
+  workPanel,
+  workStarted = false,
   editingActions,
   item,
   listHref,
@@ -76,7 +80,9 @@ export function SupplierReturnDetail({
   const acknowledged = versionKey !== null && acknowledgedVersion === versionKey
   const isCreator = Boolean(item && currentUserId && item.createdById === currentUserId)
   const canCancel =
-    (item?.status === 'Pending' || item?.status === 'Approved') && (canApprove || isCreator)
+    !workStarted &&
+    (item?.status === 'Pending' || item?.status === 'Approved') &&
+    (canApprove || isCreator)
   const canDecide = canApprove && item?.status === 'Pending'
   const canDeliver = canDispatch && item?.status === 'Approved'
   const showDelivered = item?.status === 'Completed'
@@ -208,6 +214,7 @@ export function SupplierReturnDetail({
     >
       {item ? (
         <>
+          {workPanel}
           {isCreator && canDecide && canSelfApprove ? (
             <label
               htmlFor={acknowledgementId}

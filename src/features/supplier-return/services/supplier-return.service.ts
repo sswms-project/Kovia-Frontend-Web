@@ -14,6 +14,10 @@ import type {
 import type { InventoryStock } from '@/features/inventory/types/inventory.types'
 
 export const supplierReturnService = {
+  getNextCode: () =>
+    axiosClient
+      .get<ApiResponse<string>>(API_ENDPOINTS.supplierReturns.nextCode)
+      .then((response) => response.data),
   getSourceReceipts: (params: {
     warehouseId: string
     supplierId: string

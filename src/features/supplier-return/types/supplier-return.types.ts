@@ -96,6 +96,7 @@ export interface SupplierReturnListQuery {
 }
 
 export interface CreateSupplierReturnRequest {
+  readonly supplierReturnCode?: string
   readonly sourceGoodsReceiptId: string
   readonly warehouseId: string
   readonly supplierId: string
@@ -123,6 +124,9 @@ export interface SupplierReturnReasonRequest {
 }
 
 export interface ConfirmSupplierReturnDeliveryRequest {
+  taskId?: string
+  taskVersion?: string
+  commandId?: string
   readonly expectedVersion?: string | null
   readonly lines: readonly { itemId: string; deliveredQuantity: number }[]
 }

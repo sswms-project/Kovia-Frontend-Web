@@ -354,6 +354,8 @@ export function useApproveGoodsReturnRequestMutation() {
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.goodsReturnRequests.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.returnWork.all })
+      void queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] })
       void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })
       void queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all })
     },
@@ -369,6 +371,8 @@ export function useRejectGoodsReturnRequestMutation() {
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.goodsReturnRequests.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.returnWork.all }),
+        queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] }),
         queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all }),
       ]),
     onError: (error) => logger.error(error),
@@ -382,6 +386,8 @@ export function useRestockGoodsReturnRequestMutation() {
       stockIssueService.restockGoodsReturnRequest(goodsReturnRequestId, request),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.goodsReturnRequests.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.returnWork.all })
+      void queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] })
       void queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })
       void queryClient.invalidateQueries({ queryKey: queryKeys.stockIssueRequests.all })
     },
