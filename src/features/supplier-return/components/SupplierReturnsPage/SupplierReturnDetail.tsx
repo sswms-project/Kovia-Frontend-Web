@@ -34,6 +34,7 @@ import type { SupplierReturn } from '../../types/supplier-return.types'
 import { SupplierReturnStatusBadge } from './SupplierReturnStatusBadge'
 
 interface SupplierReturnDetailProps {
+  readonly taskView?: boolean
   readonly workPanel?: ReactNode
   readonly workStarted?: boolean
   readonly editingActions?: ReactNode
@@ -55,6 +56,7 @@ interface SupplierReturnDetailProps {
 }
 
 export function SupplierReturnDetail({
+  taskView = false,
   workPanel,
   workStarted = false,
   editingActions,
@@ -127,7 +129,8 @@ export function SupplierReturnDetail({
     : []
   return (
     <ReturnDocumentFrame
-      title="Trả hàng nhà cung cấp"
+      taskView={taskView}
+      title={taskView ? 'Giao trả nhà cung cấp' : 'Trả hàng nhà cung cấp'}
       code={item?.code}
       subtitle={
         item ? `${item.supplierName} · ${item.warehouseName}` : 'Thông tin hàng trả nhà cung cấp'
@@ -138,7 +141,14 @@ export function SupplierReturnDetail({
       onRetry={onRetry}
       status={item ? <SupplierReturnStatusBadge status={item.status} /> : null}
       actions={
-        item ? (
+        taskView ? (
+          item && canDeliver ? (
+            <Button disabled={isPending} onClick={() => onDeliver(item)}>
+              <PackageCheck aria-hidden="true" />
+              Xác nhận giao trả NCC
+            </Button>
+          ) : null
+        ) : item ? (
           <>
             {editingActions}
             {canDecide && (!isCreator || canSelfApprove) ? (

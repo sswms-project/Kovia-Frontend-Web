@@ -59,7 +59,13 @@ import {
 } from '../types/stock-issue.types'
 import { P } from '@/config/permissionCodes'
 
-export default function GoodsReturnRequestsPage({ returnId }: { readonly returnId?: string }) {
+export default function GoodsReturnRequestsPage({
+  returnId,
+  taskView = false,
+}: {
+  readonly returnId?: string
+  readonly taskView?: boolean
+}) {
   const router = useRouter()
   const restockCommand =
     useReturnCommand<
@@ -200,6 +206,8 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
         options.find((option) => option.slotId === line.restockSlotId) ??
         options.find((option) => option.isOriginalSlot) ??
         options[0]
+      if (line.restockSlotId !== (selected?.slotId ?? null))
+        restockForm.setValue(`items.${index}.scannedSlotCode`, '')
       restockForm.setValue(`items.${index}.restockSlotId`, selected?.slotId ?? null)
     })
   }, [
@@ -264,11 +272,14 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
         () => ({
           goodsReturnRequestId: restockingItem!.id,
           request: {
-            items: values.items.map(({ returnItemId, restockSlotId, condition }) => ({
-              condition,
-              returnItemId,
-              restockSlotId,
-            })),
+            items: values.items.map(
+              ({ returnItemId, restockSlotId, condition, scannedSlotCode }) => ({
+                condition,
+                returnItemId,
+                restockSlotId,
+                scannedSlotCode: condition === 'Scrap' ? null : scannedSlotCode,
+              })
+            ),
             expectedVersion: inspection.version,
             ...returnWork.proof(values, inspection.version),
           },
@@ -296,6 +307,7 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
     >
       {returnId ? (
         <GoodsReturnRequestDetail
+          taskView={taskView}
           workPanel={<ReturnWorkPanel key={returnId} supplier={false} documentId={returnId} />}
           editingActions={
             <ReturnDocumentActions
@@ -312,7 +324,7 @@ export default function GoodsReturnRequestsPage({ returnId }: { readonly returnI
           item={returnDetailQuery.data ?? null}
           isLoading={returnDetailQuery.isLoading}
           isError={returnDetailQuery.isError}
-          listHref={list.listHref}
+          listHref={taskView ? APP_ROUTES.myTasks : list.listHref}
           canApprove={
             Boolean(meQuery.data?.permissions.includes(P.GOODS_RETURN_REQUESTS_APPROVE)) &&
             !meQuery.isFetching &&

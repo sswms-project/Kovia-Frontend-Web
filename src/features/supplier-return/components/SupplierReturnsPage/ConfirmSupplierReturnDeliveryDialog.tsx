@@ -41,7 +41,7 @@ export function ConfirmSupplierReturnDeliveryDialog({
         if (!isPending && !isUncertain) onOpenChange(open)
       }}
     >
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="flex max-h-[90dvh] min-w-0 flex-col overflow-hidden max-sm:inset-0 max-sm:h-dvh max-sm:max-h-dvh max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Xác nhận đã giao hàng trả NCC</DialogTitle>
           <DialogDescription>
@@ -51,7 +51,11 @@ export function ConfirmSupplierReturnDeliveryDialog({
           </DialogDescription>
         </DialogHeader>
         {item ? (
-          <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+          <form
+            className="flex min-h-0 flex-1 flex-col gap-3"
+            onSubmit={form.handleSubmit(onSubmit)}
+            noValidate
+          >
             {isUncertain && (
               <Alert>
                 <AlertDescription className="flex flex-col items-start gap-2">
@@ -67,7 +71,7 @@ export function ConfirmSupplierReturnDeliveryDialog({
             )}
             <fieldset
               disabled={isPending || isUncertain}
-              className="flex min-h-0 min-w-0 flex-col gap-4"
+              className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
             >
               <FieldGroup>
                 {item.items.map((line, index) => {
@@ -95,6 +99,7 @@ export function ConfirmSupplierReturnDeliveryDialog({
                         <Input
                           id={`supplier-return-delivered-${index}`}
                           type="number"
+                          className="h-11 text-base"
                           inputMode="decimal"
                           min={0}
                           max={line.quantity}
@@ -112,7 +117,7 @@ export function ConfirmSupplierReturnDeliveryDialog({
                 <FieldError errors={[itemsError?.root ?? itemsError]} />
               </FieldGroup>
             </fieldset>
-            <DialogFooter className="mt-6">
+            <DialogFooter className="bg-card shrink-0 border-t pt-3 pb-[env(safe-area-inset-bottom)] max-sm:[&_button]:min-h-11">
               <Button
                 type="button"
                 variant="outline"

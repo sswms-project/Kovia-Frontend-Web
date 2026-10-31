@@ -41,9 +41,14 @@ export default function ReturnWorkTaskPage({ supplier, taskId }: ReturnWorkTaskP
       </div>
     )
   return supplier ? (
-    <SupplierReturnsPage key={query.data.sourceDocumentId} returnId={query.data.sourceDocumentId} />
+    <SupplierReturnsPage
+      taskView
+      key={query.data.sourceDocumentId}
+      returnId={query.data.sourceDocumentId}
+    />
   ) : (
     <GoodsReturnRequestsPage
+      taskView
       key={query.data.sourceDocumentId}
       returnId={query.data.sourceDocumentId}
     />

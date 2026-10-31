@@ -57,7 +57,13 @@ import {
 } from '../schemas/supplier-return.schema'
 import { SUPPLIER_RETURN_STATUSES, type SupplierReturn } from '../types/supplier-return.types'
 
-export default function SupplierReturnsPage({ returnId }: { readonly returnId?: string }) {
+export default function SupplierReturnsPage({
+  returnId,
+  taskView = false,
+}: {
+  readonly returnId?: string
+  readonly taskView?: boolean
+}) {
   const router = useRouter()
   const deliveryCommand =
     useReturnCommand<
@@ -290,6 +296,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     >
       {returnId ? (
         <SupplierReturnDetail
+          taskView={taskView}
           workPanel={<ReturnWorkPanel key={returnId} supplier={true} documentId={returnId} />}
           editingActions={
             <ReturnDocumentActions
@@ -302,7 +309,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
           item={detailQuery.data ?? null}
           isLoading={detailQuery.isLoading}
           isError={detailQuery.isError}
-          listHref={list.listHref}
+          listHref={taskView ? APP_ROUTES.myTasks : list.listHref}
           canApprove={canApprove && !meQuery.isFetching && !detailQuery.isFetching}
           canSelfApprove={canSelfApprove}
           canViewSourceReceipt={permissions.includes(P.GOODS_RECEIPTS_VIEW)}
