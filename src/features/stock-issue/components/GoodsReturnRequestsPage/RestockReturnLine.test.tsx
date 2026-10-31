@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
 import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -88,7 +89,13 @@ it('rejects wrong/manual sentinel codes, confirms a rack label, and clears proof
   fireEvent.click(screen.getByRole('button', { name: 'Camera test' }))
   expect(form.getValues('items.0.scannedSlotCode')).toBe('KOVIA:LOC:RACK:original')
   expect(screen.getByText('Đã xác nhận vị trí cất')).toBeTruthy()
-  fireEvent.change(screen.getByLabelText('Vị trí cất hàng'), { target: { value: 'b' } })
+  const user = userEvent.setup()
+  const location = screen.getByRole('combobox', { name: 'Vị trí cất hàng' })
+  await user.click(location)
+  await user.clear(location)
+  await user.type(location, 'A05')
+  expect(screen.queryByRole('option', { name: 'Khu K01 / Kệ A04' })).toBeNull()
+  await user.click(screen.getByRole('option', { name: 'Khu K02 / Kệ A05' }))
   expect(form.getValues('items.0.scannedSlotCode')).toBe('')
   fireEvent.change(screen.getByLabelText('Hoặc nhập mã vị trí'), { target: { value: 'a05' } })
   fireEvent.keyDown(screen.getByLabelText('Hoặc nhập mã vị trí'), { key: 'Enter' })

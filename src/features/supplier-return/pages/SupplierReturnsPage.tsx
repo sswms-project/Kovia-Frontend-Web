@@ -244,6 +244,8 @@ export default function SupplierReturnsPage({
         itemId: line.id,
         approvedQuantity: line.quantity,
         deliveredQuantity: line.quantity,
+        scannedSlotCode: '',
+        scannedProductCode: '',
         quantityPrecision: line.quantityPrecision ?? 2,
       })),
     })
@@ -268,6 +270,8 @@ export default function SupplierReturnsPage({
             lines: values.items.map((item) => ({
               itemId: item.itemId,
               deliveredQuantity: item.deliveredQuantity,
+              scannedSlotCode: item.deliveredQuantity > 0 ? item.scannedSlotCode : null,
+              scannedProductCode: item.deliveredQuantity > 0 ? item.scannedProductCode : null,
             })),
           },
         }),

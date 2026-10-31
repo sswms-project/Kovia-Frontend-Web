@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
+import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -26,6 +28,7 @@ export function RestockReturnLine({
   readonly options: readonly { condition: string; options: GoodsReturnSlotSuggestion[] }[]
   readonly disabled: boolean
 }) {
+  const [locationSearch, setLocationSearch] = useState('')
   const current = form.watch(`items.${index}`)
   const condition = current?.condition ?? line.condition
   const requiresSlot = condition !== 'Scrap'
@@ -80,29 +83,36 @@ export function RestockReturnLine({
           )}
         </Field>
         {requiresSlot ? (
-          <Field>
+          <Field className="[&_[data-slot=input-group]]:min-h-11 [&_input]:text-base sm:[&_input]:text-sm">
             <FieldLabel htmlFor={`return-slot-${line.id}`}>Vị trí cất hàng</FieldLabel>
-            <NativeSelect
+            <LookupCombobox
               id={`return-slot-${line.id}`}
-              className="w-full [&_select]:min-h-11 [&_select]:text-base sm:[&_select]:text-sm"
               value={current?.restockSlotId ?? ''}
+              options={slots
+                .filter((slot) =>
+                  `${slot.path} ${slot.slotCode}`
+                    .toLocaleLowerCase('vi')
+                    .includes(locationSearch.trim().toLocaleLowerCase('vi'))
+                )
+                .map((slot) => ({ value: slot.slotId, label: slot.path }))}
+              selectedOption={
+                selected ? { value: selected.slotId, label: selected.path } : undefined
+              }
+              placeholder="Chọn hoặc tìm vị trí cất hàng"
+              emptyMessage="Không có vị trí phù hợp."
+              ariaLabel="Vị trí cất hàng"
+              isLoading={false}
+              isInvalid={Boolean(errors?.restockSlotId)}
+              onSearchChange={setLocationSearch}
               disabled={disabled || slots.length === 0}
-              aria-invalid={Boolean(errors?.restockSlotId)}
-              onChange={(event) => {
+              onChange={(value) => {
                 form.setValue(`items.${index}.scannedSlotCode`, '', { shouldDirty: true })
-                form.setValue(`items.${index}.restockSlotId`, event.target.value || null, {
+                form.setValue(`items.${index}.restockSlotId`, value || null, {
                   shouldValidate: true,
                   shouldDirty: true,
                 })
               }}
-            >
-              <NativeSelectOption value="">Chọn vị trí</NativeSelectOption>
-              {slots.map((slot) => (
-                <NativeSelectOption key={slot.slotId} value={slot.slotId}>
-                  {slot.path}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+            />
             {selected && (
               <p className="text-muted-foreground text-sm break-words">{selected.path}</p>
             )}

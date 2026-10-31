@@ -263,7 +263,9 @@ export function SupplierReturnDetail({
                       {line.sku}
                     </p>
                   </div>
-                  <p className="text-sm wrap-anywhere">{formatInventoryLocation(line)}</p>
+                  <p className="text-sm wrap-anywhere">
+                    {line.sourceLocation || formatInventoryLocation(line)}
+                  </p>
                   <dl className="grid grid-cols-2 gap-3">
                     <ReturnDetailField label="Số lượng trả">
                       {formatInventoryQuantity(line.quantity)} {line.unit}
@@ -278,9 +280,17 @@ export function SupplierReturnDetail({
                       {formatEligibilityStatus(line.eligibilityStatus)}
                     </ReturnDetailField>
                     {showDelivered ? (
-                      <ReturnDetailField label="Đã giao">
-                        {formatInventoryQuantity(line.deliveredQuantity ?? 0)} {line.unit}
-                      </ReturnDetailField>
+                      <>
+                        <ReturnDetailField label="Đã giao">
+                          {formatInventoryQuantity(line.deliveredQuantity ?? 0)} {line.unit}
+                        </ReturnDetailField>
+                        <ReturnDetailField label="Chưa giao · đã nhả giữ chỗ">
+                          {formatInventoryQuantity(
+                            Math.max(0, line.quantity - (line.deliveredQuantity ?? 0))
+                          )}{' '}
+                          {line.unit}
+                        </ReturnDetailField>
+                      </>
                     ) : null}
                   </dl>
                 </article>
@@ -295,6 +305,9 @@ export function SupplierReturnDetail({
                     <TableHead>Tình trạng</TableHead>
                     <TableHead className="text-right">Số lượng trả</TableHead>
                     {showDelivered ? <TableHead className="text-right">Đã giao</TableHead> : null}
+                    {showDelivered ? (
+                      <TableHead className="text-right">Chưa giao · đã nhả giữ chỗ</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -305,7 +318,7 @@ export function SupplierReturnDetail({
                         <p className="text-muted-foreground font-mono text-xs">{line.sku}</p>
                       </TableCell>
                       <TableCell className="max-w-72 wrap-anywhere whitespace-normal">
-                        <p>{formatInventoryLocation(line)}</p>
+                        <p>{line.sourceLocation || formatInventoryLocation(line)}</p>
                         <p className="text-muted-foreground text-xs">
                           {line.lotNumber ?? 'Không theo lô'}
                         </p>
@@ -320,9 +333,17 @@ export function SupplierReturnDetail({
                         {formatInventoryQuantity(line.quantity)} {line.unit}
                       </TableCell>
                       {showDelivered ? (
-                        <TableCell className="text-right">
-                          {formatInventoryQuantity(line.deliveredQuantity ?? 0)} {line.unit}
-                        </TableCell>
+                        <>
+                          <TableCell className="text-right">
+                            {formatInventoryQuantity(line.deliveredQuantity ?? 0)} {line.unit}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatInventoryQuantity(
+                              Math.max(0, line.quantity - (line.deliveredQuantity ?? 0))
+                            )}{' '}
+                            {line.unit}
+                          </TableCell>
+                        </>
                       ) : null}
                     </TableRow>
                   ))}

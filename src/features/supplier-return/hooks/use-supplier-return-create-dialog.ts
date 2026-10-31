@@ -232,6 +232,12 @@ export function useSupplierReturnCreateDialog({
       },
       stocks: stocksQuery.data?.items ?? [],
       isStocksLoading: stocksQuery.isFetching || stockSearch.trim() !== debouncedStockSearch,
+      autoSelectSingleStock:
+        !editingDocument &&
+        !stockSearch.trim() &&
+        !debouncedStockSearch &&
+        stockPage === 1 &&
+        stocksQuery.data?.totalCount === 1,
       isPending: createMutation.isPending || saveMutation.isPending,
       onStockSearchChange: setStockSearch,
       stockPage,
