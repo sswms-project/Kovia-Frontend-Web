@@ -520,6 +520,7 @@ export const API_ENDPOINTS = {
       `/stock-issue-requests/${stockIssueRequestId}/goods-return-requests/suggestions`,
   },
   goodsReturnRequests: {
+    nextCode: '/goods-return-requests/next-code',
     list: '/goods-return-requests',
     detail: (goodsReturnRequestId: string) => `/goods-return-requests/${goodsReturnRequestId}`,
     approve: (goodsReturnRequestId: string) =>
@@ -536,6 +537,7 @@ export const API_ENDPOINTS = {
   ) =>
     `/${kind === 'goodsReturnRequests' ? 'goods-return-requests' : 'supplier-returns'}/${id}/${action === 'DeleteDraft' ? 'draft' : action.toLowerCase()}`,
   supplierReturns: {
+    nextCode: '/supplier-returns/next-code',
     list: '/supplier-returns',
     detail: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}`,
     approve: (supplierReturnId: string) => `/supplier-returns/${supplierReturnId}/approve`,

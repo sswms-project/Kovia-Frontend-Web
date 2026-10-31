@@ -30,6 +30,7 @@ import { useSuppliersQuery } from '@/features/supplier/hooks/use-suppliers'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { getApiErrorMessage } from '@/lib/api-error'
+import { useSupplierReturnCode } from '../hooks/use-supplier-return-code'
 import {
   ConfirmSupplierReturnDeliveryDialog,
   CreateSupplierReturnDialog,
@@ -63,6 +64,7 @@ import { SUPPLIER_RETURN_STATUSES, type SupplierReturn } from '../types/supplier
 const STOCK_PAGE_SIZE = 100
 
 const EMPTY_CREATE_VALUES: CreateSupplierReturnFormValues = {
+  supplierReturnCode: '',
   warehouseId: '',
   supplierId: '',
   sourceGoodsReceiptId: '',
@@ -183,6 +185,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     resolver: zodResolver(createSupplierReturnSchema),
     defaultValues: EMPTY_CREATE_VALUES,
   })
+  const codeSuggestion = useSupplierReturnCode(createForm, isCreateOpen && !editingDocument)
   const reasonForm = useForm<SupplierReturnReasonFormValues>({
     resolver: zodResolver(supplierReturnReasonSchema),
     defaultValues: { reason: '' },
@@ -249,6 +252,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
   }
 
   function openCreate() {
+    codeSuggestion.reset()
     createForm.reset(EMPTY_CREATE_VALUES)
     setStockSearch('')
     setReceiptSearch('')
@@ -257,6 +261,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
 
   function closeCreate() {
     if (createMutation.isPending || saveMutation.isPending) return
+    codeSuggestion.reset()
     createForm.reset(EMPTY_CREATE_VALUES)
     setStockSearch('')
     if (editingDocument) setEditingDocument(null)
@@ -267,6 +272,7 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
     const document = detailQuery.data
     if (!document?.version || !document.allowedActions?.includes('Update')) return
     createForm.reset({
+      supplierReturnCode: document.code,
       warehouseId: document.warehouseId,
       supplierId: document.supplierId,
       sourceGoodsReceiptId: document.sourceGoodsReceiptId ?? '',
@@ -308,12 +314,18 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
         })
         toast.success('Đã lưu nháp. Bạn có thể kiểm tra và gửi duyệt lại.')
       } else {
-        await createMutation.mutateAsync(content)
+        await createMutation.mutateAsync({
+          ...content,
+          supplierReturnCode: values.supplierReturnCode,
+        })
         toast.success('Đã lập phiếu trả hàng NCC và giữ tồn.')
       }
       closeCreate()
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Không thể lập phiếu trả hàng NCC.'))
+      const message = getApiErrorMessage(error, 'Không thể lập phiếu trả hàng NCC.')
+      if (!editingDocument && message.startsWith('Mã '))
+        createForm.setError('supplierReturnCode', { type: 'server', message })
+      toast.error(message)
     }
   }
 
@@ -521,6 +533,8 @@ export default function SupplierReturnsPage({ returnId }: { readonly returnId?: 
         />
       )}
       <CreateSupplierReturnDialog
+        codeSuggestionStatus={codeSuggestion.status}
+        onCodeChange={codeSuggestion.onChange}
         key={`${isCreateOpen}:${editingDocument?.id ?? 'new'}`}
         isEditing={Boolean(editingDocument)}
         open={isCreateOpen}

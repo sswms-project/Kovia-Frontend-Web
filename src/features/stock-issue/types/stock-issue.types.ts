@@ -319,6 +319,7 @@ export interface CreateGoodsReturnRequestItemRequest {
 }
 
 export interface CreateGoodsReturnRequestRequest {
+  goodsReturnRequestCode?: string
   reason: string
   items: CreateGoodsReturnRequestItemRequest[]
 }

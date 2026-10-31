@@ -1,5 +1,26 @@
 # AI Review Handoff
 
+## 2026-10-31 — BE RC-01 fixed
+
+State: READY_FOR_FINAL_REVIEW for the shared return-code task. No FE production changes in this fix.
+
+- Backend now batches occupied candidate checks and preserves a fast path and final DB gap verification. RC-01 and its read-count regression evidence are recorded in Backend/docs/AI_REVIEW.md; 195 related BE tests passed. Previous 5 FE tests, lint and production build remain applicable. No deployment or DB mutation.
+
+## 2026-10-31 — Return document codes review round 1
+
+State: APPROVED_FINAL for this FE scope (no actionable Blocker/High/Medium identified). Original implementer separate self-review, not independent review. No production source changes during review.
+
+- Reviewed request mapping, optional code validation, shared field wiring, suggestion hydration/session guards, manual clearing, read-only editing and field error rendering against the plan. Existing evidence remains 5 focused tests plus scoped lint/production TypeScript/build passing; physical-device visual acceptance remains unverified.
+- BE Medium RC-01 remains open in Backend/docs/AI_REVIEW.md: sequential candidate probes can delay suggestions/server-generated codes and extend the supplier storage lock. External repository-call-count reproduction confirms the issue; no deployed latency claims or DB writes.
+
+## 2026-10-31 — Editable return code fields
+
+State: READY_FOR_CODEX_REVIEW. Assigned implementer self-verification, not independent review.
+
+- Reuse BusinessCodeField and useCodeSuggestion for KTH customer-return / THNCC supplier-return suggestions. Both forms permit custom or empty (server-generated) codes; scopes are per create session, late suggestions do not overwrite manual input/clearing, and existing edit codes remain read-only. Create payloads carry optional code fields; duplicate responses render at the code input.
+- 5 focused hook tests passed (source hydration/custom customer payload, late/manual clearing, new supplier session, read-only editing and offline suggestion fallback). Scoped ESLint, production TypeScript and isolated production Next build passed. No deployed API/DB calls or migration.
+- Plan: ../outputs/return-document-codes-plan-20261031.md. Evidence: ../outputs/return-codes-fe-tests-20261031.log, return-codes-fe-lint-20261031.log and return-codes-fe-build-20261031.log. Mobile/desktop visual acceptance and SQL Server race acceptance remain unverified; existing shared responsive field/dialog layouts retained.
+
 ## 2026-10-31 — Clarify return workspace terminology
 
 State: READY_FOR_CODEX_REVIEW. Assigned implementer self-verification only.

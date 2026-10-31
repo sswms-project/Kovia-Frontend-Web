@@ -96,6 +96,7 @@ export interface SupplierReturnListQuery {
 }
 
 export interface CreateSupplierReturnRequest {
+  readonly supplierReturnCode?: string
   readonly sourceGoodsReceiptId: string
   readonly warehouseId: string
   readonly supplierId: string
