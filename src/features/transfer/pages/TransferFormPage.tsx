@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { P } from '@/config/permissionCodes'
+import { AiDraftPrefillNotice } from '@/features/ai-assistant/components/AiDraftPrefillNotice'
 import {
   useInboundRequestProductDetails,
   useInboundRequestUnitConversions,
@@ -37,6 +38,7 @@ import {
   type TransferLineLockInfo,
 } from '../components/TransferFormPage'
 import { TransferChangedBanner, TransferConfirmDialog } from '../components/TransferShared'
+import { useTransferAiDraft } from '../hooks/use-transfer-ai-draft'
 import { useTransferFormActions } from '../hooks/use-transfer-form-actions'
 import { useTransferDestinationPreview } from '../hooks/use-transfer-destination-preview'
 import { describeTransferLocationCapacity } from '../utils/transfer-location-capacity'
@@ -75,7 +77,14 @@ interface ProductSearchState {
   readonly value: string
 }
 
-export default function TransferFormPage({ transferId }: { readonly transferId?: string }) {
+export default function TransferFormPage({
+  transferId,
+  aiDraftId,
+}: {
+  readonly transferId?: string
+  /** Bản nháp của Trợ lý AI dùng để điền sẵn form tạo mới. */
+  readonly aiDraftId?: string
+}) {
   const router = useRouter()
   const { viewer, isReady } = useTransferViewer()
   const detailQuery = useTransferQuery(transferId ?? null)
@@ -246,11 +255,17 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
     [requesterOptionsQuery.data]
   )
 
+  const aiDraft = useTransferAiDraft({
+    draftId: mode === 'create' ? (aiDraftId ?? null) : null,
+    form,
+  })
+
   const actions = useTransferFormActions({
     mode,
     transferId,
     detail,
     form,
+    onRequestSubmitted: aiDraft.complete,
     refetchDetail: detailQuery.refetch,
     dismissRealtime: realtime.dismiss,
   })
@@ -477,6 +492,10 @@ export default function TransferFormPage({ transferId }: { readonly transferId?:
             )}
           </AlertDescription>
         </Alert>
+      ) : null}
+
+      {aiDraftId && mode === 'create' ? (
+        <AiDraftPrefillNotice isLoading={aiDraft.isLoading} error={aiDraft.error} />
       ) : null}
 
       {unavailable ? (

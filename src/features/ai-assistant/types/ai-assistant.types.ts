@@ -17,11 +17,6 @@ export const AI_ACTIONS = {
 
 export type AiAction = (typeof AI_ACTIONS)[keyof typeof AI_ACTIONS]
 
-/** Phiếu xuất kho và phiếu trả NCC không có ngày dự kiến nên chỉ sửa số lượng. */
-export function isAiDraftWithoutDate(action?: string | null) {
-  return action === AI_ACTIONS.createStockIssueRequest || action === AI_ACTIONS.createSupplierReturn
-}
-
 export const AI_DRAFT_STATUSES = {
   pending: 'Pending',
   executed: 'Executed',
@@ -31,25 +26,31 @@ export const AI_DRAFT_STATUSES = {
 
 export type AiDraftStatus = (typeof AI_DRAFT_STATUSES)[keyof typeof AI_DRAFT_STATUSES]
 
+export type AiDraftProcessingAction = 'confirm' | 'cancel'
+
+/** Bản nháp đang được xử lý và thao tác nào đang chạy, để chỉ nút đó hiện spinner. */
+export interface AiDraftProcessing {
+  readonly draftId: string
+  readonly action: AiDraftProcessingAction
+}
+
 export interface AiActionDetail {
   readonly label: string
   readonly value: string
-  /** Có giá trị khi dòng này là một dòng hàng mà người dùng được chỉnh số lượng trước khi xác nhận. */
-  readonly productId?: string | null
-  readonly quantity?: number | null
-  readonly unit?: string | null
-  /** Ngày dự kiến hàng về (yyyy-MM-dd) khi dòng này là dòng ngày của bản nháp; sửa được trước khi xác nhận. */
-  readonly dateValue?: string | null
 }
 
-/** Mirrors UpdateAiActionDraftQuantitiesRequest. */
-export interface RateAiMessageRequest {
-  readonly helpful: boolean | null
+/** Bản nháp chờ xác nhận; `payload` là JSON camelCase của lệnh tạo phiếu tương ứng ở BE. */
+export interface AiActionDraft<TPayload = unknown> {
+  readonly draftId: string
+  readonly action: string
+  readonly status: AiDraftStatus
+  readonly expiresAt: string
+  readonly payload: TPayload
 }
 
-export interface UpdateAiDraftQuantitiesRequest {
-  readonly expectedDate?: string
-  readonly lines: readonly { readonly productId: string; readonly quantity: number }[]
+/** Đánh dấu bản nháp đã thực hiện sau khi người dùng tự tạo phiếu bằng form. */
+export interface CompleteAiActionRequest {
+  readonly resultEntityId: string
 }
 
 export interface AiCard {
@@ -75,8 +76,6 @@ export interface AiMessage {
   readonly intent: string | null
   readonly cards: readonly AiCard[]
   readonly createdAt: string
-  /** Người dùng đánh giá câu trả lời; null khi chưa đánh giá. */
-  readonly helpful?: boolean | null
 }
 
 export interface AiDraftStatusInfo {

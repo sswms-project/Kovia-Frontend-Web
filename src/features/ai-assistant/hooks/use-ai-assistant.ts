@@ -1,169 +1,55 @@
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { usePathname } from 'next/navigation'
+import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
+import { useAiAssistantPanelStore } from '@/stores/ai-assistant-panel.store'
 import type { ApiErrorResponse } from '@/types/api'
 import { aiAssistantService } from '../services/ai-assistant.service'
-import {
-  AI_ACTIONS,
-  type AiActionExecution,
-  type AiChatResponse,
-  type AiConversation,
-  type AiConversationMessages,
-  type SendAiChatMessageRequest,
-  type UpdateAiDraftQuantitiesRequest,
+import type {
+  AiChatResponse,
+  AiConversation,
+  AiConversationMessages,
+  SendAiChatMessageRequest,
 } from '../types/ai-assistant.types'
-import {
-  appendAiChatTurn,
-  setAiMessageHelpful,
-  updateAiDraftStatus,
-} from '../utils/ai-conversation-cache'
-
-export interface AiDraftActionVariables {
-  readonly draftId: string
-  readonly conversationId: string | null
-}
-
-// Lists that change once a confirmed draft has been executed.
-const ACTION_RESULT_QUERY_KEYS: Record<string, QueryKey> = {
-  [AI_ACTIONS.createInboundRequest]: queryKeys.inboundRequests.all,
-  [AI_ACTIONS.createTransfer]: queryKeys.transfers.all,
-  [AI_ACTIONS.createStockAdjustment]: queryKeys.stockAdjustments.all,
-  [AI_ACTIONS.createStockIssueRequest]: queryKeys.stockIssueRequests.all,
-  [AI_ACTIONS.createSupplierReturn]: queryKeys.supplierReturns.all,
-}
+import { appendAiChatTurn } from '../utils/ai-conversation-cache'
 
 export function useAiConversationsQuery() {
   return useQuery<AiConversation[], ApiErrorResponse>({
     queryKey: queryKeys.aiAssistant.conversations,
-    queryFn: () => aiAssistantService.getConversations().then((response) => response.data),
+    queryFn: () => aiAssistantService.getConversations(),
   })
 }
 
 export function useAiConversationMessagesQuery(conversationId: string | null) {
   return useQuery<AiConversationMessages, ApiErrorResponse>({
     queryKey: queryKeys.aiAssistant.messages(conversationId ?? ''),
-    queryFn: () =>
-      aiAssistantService.getMessages(conversationId ?? '').then((response) => response.data),
+    queryFn: () => aiAssistantService.getMessages(conversationId ?? ''),
     enabled: Boolean(conversationId),
   })
 }
 
+// Toast, cache and the open conversation are handled here, not in the caller's mutate() callbacks:
+// closing the panel while a request is in flight unmounts the caller, and v5 skips those callbacks.
 export function useSendAiChatMessageMutation() {
   const queryClient = useQueryClient()
   const pathname = usePathname()
+  const setConversationId = useAiAssistantPanelStore((state) => state.setConversationId)
   return useMutation<AiChatResponse, ApiErrorResponse, SendAiChatMessageRequest>({
     mutationFn: (request) =>
-      aiAssistantService
-        .sendMessage({ ...request, pagePath: request.pagePath ?? pathname })
-        .then((response) => response.data),
+      aiAssistantService.sendMessage({ ...request, pagePath: request.pagePath ?? pathname }),
     onSuccess: (response) => {
       queryClient.setQueryData<AiConversationMessages>(
         queryKeys.aiAssistant.messages(response.conversationId),
         (current) => appendAiChatTurn(current, response)
       )
+      setConversationId(response.conversationId)
       void queryClient.invalidateQueries({ queryKey: queryKeys.aiAssistant.conversations })
     },
-    onError: (error) => logger.error(error),
-  })
-}
-
-export function useConfirmAiActionMutation() {
-  const queryClient = useQueryClient()
-  return useMutation<AiActionExecution, ApiErrorResponse, AiDraftActionVariables>({
-    mutationFn: ({ draftId }) =>
-      aiAssistantService.confirmAction(draftId).then((response) => response.data),
-    onSuccess: (execution, { conversationId }) => {
-      if (conversationId) {
-        queryClient.setQueryData<AiConversationMessages>(
-          queryKeys.aiAssistant.messages(conversationId),
-          (current) => updateAiDraftStatus(current, execution)
-        )
-      }
-      const resultQueryKey = ACTION_RESULT_QUERY_KEYS[execution.action]
-      if (resultQueryKey) void queryClient.invalidateQueries({ queryKey: resultQueryKey })
-    },
-    onError: (error, { conversationId }) => {
+    onError: (error) => {
       logger.error(error)
-      // The draft may have expired or been handled elsewhere: reload its real status.
-      if (conversationId) {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.aiAssistant.messages(conversationId),
-        })
-      }
-    },
-  })
-}
-
-export interface AiDraftQuantitiesVariables
-  extends AiDraftActionVariables, UpdateAiDraftQuantitiesRequest {}
-
-export function useUpdateAiDraftQuantitiesMutation() {
-  const queryClient = useQueryClient()
-  // The BE rewrites the card stored in the conversation, so success and failure both reload it.
-  const reload = (conversationId: string | null) => {
-    if (conversationId) {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.aiAssistant.messages(conversationId),
-      })
-    }
-  }
-  return useMutation<unknown, ApiErrorResponse, AiDraftQuantitiesVariables>({
-    mutationFn: ({ draftId, lines, expectedDate }) =>
-      aiAssistantService.updateActionQuantities(draftId, { lines, expectedDate }),
-    onSuccess: (_, { conversationId }) => reload(conversationId),
-    onError: (error, { conversationId }) => {
-      logger.error(error)
-      reload(conversationId)
-    },
-  })
-}
-
-export interface AiMessageRatingVariables {
-  readonly messageId: string
-  readonly helpful: boolean | null
-  readonly conversationId: string
-}
-
-export function useRateAiMessageMutation() {
-  const queryClient = useQueryClient()
-  return useMutation<unknown, ApiErrorResponse, AiMessageRatingVariables>({
-    mutationFn: ({ messageId, helpful }) => aiAssistantService.rateMessage(messageId, { helpful }),
-    // Đổi ngay trên giao diện; nếu lỗi thì tải lại trạng thái thật từ máy chủ.
-    onMutate: ({ messageId, helpful, conversationId }) => {
-      queryClient.setQueryData<AiConversationMessages>(
-        queryKeys.aiAssistant.messages(conversationId),
-        (current) => setAiMessageHelpful(current, messageId, helpful)
-      )
-    },
-    onError: (error, { conversationId }) => {
-      logger.error(error)
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.aiAssistant.messages(conversationId),
-      })
-    },
-  })
-}
-
-export function useCancelAiActionMutation() {
-  const queryClient = useQueryClient()
-  return useMutation<unknown, ApiErrorResponse, AiDraftActionVariables>({
-    mutationFn: ({ draftId }) => aiAssistantService.cancelAction(draftId),
-    onSuccess: (_, { draftId, conversationId }) => {
-      if (!conversationId) return
-      queryClient.setQueryData<AiConversationMessages>(
-        queryKeys.aiAssistant.messages(conversationId),
-        (current) =>
-          updateAiDraftStatus(current, { draftId, status: 'Cancelled', resultEntityId: null })
-      )
-    },
-    onError: (error, { conversationId }) => {
-      logger.error(error)
-      if (conversationId) {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.aiAssistant.messages(conversationId),
-        })
-      }
+      toast.error(getApiErrorMessage(error, 'Trợ lý AI chưa trả lời được. Vui lòng thử lại.'))
     },
   })
 }

@@ -13,6 +13,7 @@ import {
 } from '@/components/operations/OperationalState'
 import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDialog'
 import { Button } from '@/components/ui/button'
+import { AiDraftPrefillNotice } from '@/features/ai-assistant/components/AiDraftPrefillNotice'
 import type { LookupOption } from '@/features/inbound-request/components/InboundRequestFormPage'
 import { StockRecipientFormDialog } from '@/features/stock-recipient/components/StockRecipientsPage'
 import { getPutawayBaseQuantity } from '@/features/inbound/utils/putaway-units'
@@ -56,6 +57,7 @@ import {
 import { stockIssueService } from '../services/stock-issue.service'
 import type { StockIssueProductOption } from '../types/stock-issue.types'
 import { canEditStockIssueRequest, formatStockIssueQuantity } from '../utils/stock-issue-format'
+import { useStockIssueAiDraft } from '../hooks/use-stock-issue-ai-draft'
 import { useStockIssueEditingActions } from '../hooks/use-stock-issue-editing'
 
 const EMPTY_LINE = { productId: '', quantity: 1, unitId: '', note: '' }
@@ -72,8 +74,11 @@ function productLabel(sku: string, productName: string) {
 
 export default function StockIssueRequestFormPage({
   stockIssueRequestId,
+  aiDraftId,
 }: {
   readonly stockIssueRequestId?: string
+  /** Bản nháp của Trợ lý AI dùng để điền sẵn form tạo mới. */
+  readonly aiDraftId?: string
 } = {}) {
   const router = useRouter()
   const isEditing = Boolean(stockIssueRequestId)
@@ -175,6 +180,8 @@ export default function StockIssueRequestFormPage({
     }
   })
   Object.assign(productsById, pickedProducts)
+  const aiDraft = useStockIssueAiDraft({ draftId: isEditing ? null : (aiDraftId ?? null), form })
+  Object.assign(productsById, aiDraft.productsById)
   const nextRecipientCode = useNextStockRecipientCodeQuery(isQuickRecipientOpen, codeSessionKey)
   const nextRequestCode = useNextStockIssueRequestCodeQuery(!isEditing, requestCodeSessionKey)
   const createMutation = useCreateStockIssueRequestMutation()
@@ -268,6 +275,7 @@ export default function StockIssueRequestFormPage({
         address: listedRecipient.address,
       }
     : (recipientSnapshots[selectedRecipientId] ??
+      aiDraft.recipientSnapshot ??
       (savedRequest && savedRequest.stockRecipientId === selectedRecipientId
         ? {
             recipientName: savedRequest.recipientName,
@@ -374,6 +382,7 @@ export default function StockIssueRequestFormPage({
         ...request,
         stockIssueRequestCode: values.stockIssueRequestCode || null,
       })
+      aiDraft.complete(created.data)
       const failedUploads = await uploadAttachments(created.data)
       if (failedUploads.length > 0)
         toast.warning(
@@ -507,12 +516,18 @@ export default function StockIssueRequestFormPage({
             ? `Chỉnh sửa ${detailQuery.data?.stockIssueRequestCode ?? 'yêu cầu xuất kho'}`
             : 'Tạo yêu cầu xuất kho'
         }
+        notice={
+          aiDraftId && !isEditing ? (
+            <AiDraftPrefillNotice isLoading={aiDraft.isLoading} error={aiDraft.error} />
+          ) : null
+        }
         isEditing={isEditing}
         form={form}
         fields={fieldArray.fields}
         warehouseOptions={warehouseOptions}
         selectedWarehouseOption={
           warehouseOption ??
+          aiDraft.warehouseOption ??
           (savedRequest
             ? { value: savedRequest.warehouseId, label: savedRequest.warehouseName }
             : undefined)
@@ -520,6 +535,7 @@ export default function StockIssueRequestFormPage({
         recipientOptions={recipientOptions}
         selectedRecipientOption={
           recipientOption ??
+          aiDraft.recipientOption ??
           (savedRequest
             ? {
                 value: savedRequest.stockRecipientId,

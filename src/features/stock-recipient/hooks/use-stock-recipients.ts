@@ -49,11 +49,12 @@ export function useNextStockRecipientCodeQuery(enabled: boolean, sessionKey?: st
   })
 }
 
-export function useStockRecipientQuery(stockRecipientId: string) {
+export function useStockRecipientQuery(stockRecipientId: string, enabled = true) {
   return useQuery<StockRecipient, ApiErrorResponse>({
     queryKey: queryKeys.stockRecipients.detail(stockRecipientId),
     queryFn: () =>
       stockRecipientService.getStockRecipient(stockRecipientId).then((response) => response.data),
+    enabled: enabled && Boolean(stockRecipientId),
   })
 }
 

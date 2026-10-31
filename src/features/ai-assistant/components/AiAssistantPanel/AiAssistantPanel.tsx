@@ -1,67 +1,43 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Sparkles } from 'lucide-react'
-import { toast } from 'sonner'
 import { SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { getApiErrorMessage } from '@/lib/api-error'
+import { useAiAssistantPanelStore } from '@/stores/ai-assistant-panel.store'
+import {
+  useCancelAiActionMutation,
+  useConfirmAiActionMutation,
+} from '../../hooks/use-ai-draft-actions'
 import {
   useAiConversationMessagesQuery,
   useAiConversationsQuery,
-  useCancelAiActionMutation,
-  useConfirmAiActionMutation,
-  useRateAiMessageMutation,
   useSendAiChatMessageMutation,
-  useUpdateAiDraftQuantitiesMutation,
 } from '../../hooks/use-ai-assistant'
-import {
-  aiDraftQuantitiesSchema,
-  aiStockIssueDraftQuantitiesSchema,
-  type AiDraftQuantitiesForm,
-} from '../../schemas/ai-draft-quantities.schema'
-import { isAiDraftWithoutDate } from '../../types/ai-assistant.types'
+import type { AiDraftProcessing } from '../../types/ai-assistant.types'
 import { aiChatMessageSchema, type AiChatMessageForm } from '../../schemas/ai-chat-message.schema'
 import { AiChatComposer } from './AiChatComposer'
 import { AiChatThread } from './AiChatThread'
 import { AiConversationMenu } from './AiConversationMenu'
-import type { AiDraftQuantityEdit } from './AiDraftQuantityEditor'
 
 interface AiAssistantPanelProps {
-  readonly conversationId: string | null
-  readonly onConversationChange: (conversationId: string | null) => void
   readonly onNavigate: () => void
 }
 
 /**
  * Orchestrator for the assistant sub-domain: owns the chat queries/mutations and passes data
- * and callbacks down to display-only components.
+ * and callbacks down to display-only components. Toasts and the open conversation are owned by
+ * the mutation hooks, so a result is still reported if the panel is closed while it is pending.
  */
-export function AiAssistantPanel({
-  conversationId,
-  onConversationChange,
-  onNavigate,
-}: AiAssistantPanelProps) {
+export function AiAssistantPanel({ onNavigate }: AiAssistantPanelProps) {
+  const conversationId = useAiAssistantPanelStore((state) => state.conversationId)
+  const setConversationId = useAiAssistantPanelStore((state) => state.setConversationId)
   const conversationsQuery = useAiConversationsQuery()
   const messagesQuery = useAiConversationMessagesQuery(conversationId)
   const sendMutation = useSendAiChatMessageMutation()
   const confirmMutation = useConfirmAiActionMutation()
   const cancelMutation = useCancelAiActionMutation()
-  const quantitiesMutation = useUpdateAiDraftQuantitiesMutation()
-  const rateMutation = useRateAiMessageMutation()
-  const [editingDraftId, setEditingDraftId] = useState<string | null>(null)
-  // Bản nháp nhập kho cần ngày dự kiến, phiếu xuất kho thì không; chọn luật theo bản nháp đang sửa.
-  const editingAction = useRef<string | null>(null)
-  const quantitiesForm = useForm<AiDraftQuantitiesForm>({
-    resolver: (values, context, options) =>
-      zodResolver(
-        isAiDraftWithoutDate(editingAction.current)
-          ? aiStockIssueDraftQuantitiesSchema
-          : aiDraftQuantitiesSchema
-      )(values, context, options),
-    defaultValues: { expectedDate: '', lines: [] },
-  })
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
   const form = useForm<AiChatMessageForm>({
     resolver: zodResolver(aiChatMessageSchema),
@@ -69,11 +45,14 @@ export function AiAssistantPanel({
   })
 
   const drafts = new Map((messagesQuery.data?.drafts ?? []).map((draft) => [draft.draftId, draft]))
-  const processingDraftId =
-    (confirmMutation.isPending ? confirmMutation.variables?.draftId : undefined) ??
-    (cancelMutation.isPending ? cancelMutation.variables?.draftId : undefined) ??
-    (quantitiesMutation.isPending ? quantitiesMutation.variables?.draftId : undefined) ??
-    null
+  // One draft action runs at a time; confirm outranks cancel.
+  const confirmingDraftId = confirmMutation.isPending ? confirmMutation.variables?.draftId : null
+  const cancellingDraftId = cancelMutation.isPending ? cancelMutation.variables?.draftId : null
+  const processing: AiDraftProcessing | null = confirmingDraftId
+    ? { draftId: confirmingDraftId, action: 'confirm' }
+    : cancellingDraftId
+      ? { draftId: cancellingDraftId, action: 'cancel' }
+      : null
 
   const sendMessage = (message: string) => {
     if (sendMutation.isPending) return
@@ -82,66 +61,16 @@ export function AiAssistantPanel({
     sendMutation.mutate(
       { conversationId, message },
       {
-        onSuccess: (response) => onConversationChange(response.conversationId),
-        onError: (error) => {
-          toast.error(getApiErrorMessage(error, 'Trợ lý AI chưa trả lời được. Vui lòng thử lại.'))
-          form.setValue('message', message)
-        },
+        // Only while the panel is open: put the question back so the user can resend it.
+        onError: () => form.setValue('message', message),
         onSettled: () => setPendingMessage(null),
       }
     )
   }
 
-  const handleConfirm = (draftId: string) =>
-    confirmMutation.mutate(
-      { draftId, conversationId },
-      {
-        onSuccess: () => toast.success('Đã thực hiện thao tác.'),
-        onError: (error) => toast.error(getApiErrorMessage(error)),
-      }
-    )
+  const handleConfirm = (draftId: string) => confirmMutation.mutate({ draftId, conversationId })
 
-  const handleRate = (messageId: string, helpful: boolean | null) => {
-    if (!conversationId) return
-    rateMutation.mutate(
-      { messageId, helpful, conversationId },
-      { onError: (error) => toast.error(getApiErrorMessage(error)) }
-    )
-  }
-
-  const handleCancel = (draftId: string) =>
-    cancelMutation.mutate(
-      { draftId, conversationId },
-      {
-        onSuccess: () => toast.success('Đã hủy bản nháp.'),
-        onError: (error) => toast.error(getApiErrorMessage(error)),
-      }
-    )
-
-  const quantityEdit: AiDraftQuantityEdit = {
-    editingDraftId,
-    form: quantitiesForm,
-    isSaving: quantitiesMutation.isPending,
-    onStart: (draftId, values, action) => {
-      editingAction.current = action ?? null
-      quantitiesForm.reset(values)
-      setEditingDraftId(draftId)
-    },
-    onCancel: () => setEditingDraftId(null),
-    onSubmit: quantitiesForm.handleSubmit(({ lines, expectedDate }) => {
-      if (!editingDraftId) return
-      quantitiesMutation.mutate(
-        { draftId: editingDraftId, conversationId, lines, expectedDate: expectedDate || undefined },
-        {
-          onSuccess: () => {
-            toast.success('Đã cập nhật bản nháp.')
-            setEditingDraftId(null)
-          },
-          onError: (error) => toast.error(getApiErrorMessage(error)),
-        }
-      )
-    }),
-  }
+  const handleCancel = (draftId: string) => cancelMutation.mutate({ draftId, conversationId })
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -159,8 +88,8 @@ export function AiAssistantPanel({
           isError={conversationsQuery.isError}
           activeConversationId={conversationId}
           disabled={sendMutation.isPending}
-          onSelect={onConversationChange}
-          onNewConversation={() => onConversationChange(null)}
+          onSelect={setConversationId}
+          onNewConversation={() => setConversationId(null)}
         />
       </SheetHeader>
 
@@ -171,13 +100,11 @@ export function AiAssistantPanel({
         isError={Boolean(conversationId) && messagesQuery.isError}
         onRetry={() => void messagesQuery.refetch()}
         onSuggestion={sendMessage}
-        onRate={handleRate}
         drafts={drafts}
-        processingDraftId={processingDraftId}
+        processing={processing}
         onConfirmAction={handleConfirm}
         onCancelAction={handleCancel}
         onNavigate={onNavigate}
-        quantityEdit={quantityEdit}
       />
 
       <AiChatComposer
