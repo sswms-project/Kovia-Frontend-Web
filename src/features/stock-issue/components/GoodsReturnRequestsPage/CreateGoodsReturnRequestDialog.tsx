@@ -135,7 +135,7 @@ export function CreateGoodsReturnRequestDialog({
                       aria-invalid={Boolean(form.formState.errors.lines?.[index]?.quantity)}
                       type="number"
                       min={0}
-                      step="0.01"
+                      step={1}
                       max={allowableByPickDetail[line.stockIssuePickDetailId] ?? 0}
                       {...form.register(`lines.${index}.quantity`, { valueAsNumber: true })}
                     />

@@ -29,6 +29,7 @@ import {
 import { GoodsReturnRequestStatusBadge } from './GoodsReturnRequestStatusBadge'
 
 interface GoodsReturnRequestDetailProps {
+  readonly workPanel?: ReactNode
   readonly editingActions?: ReactNode
   readonly item: GoodsReturnRequestSummary | null
   readonly listHref: string
@@ -46,6 +47,7 @@ interface GoodsReturnRequestDetailProps {
 }
 
 export function GoodsReturnRequestDetail({
+  workPanel,
   editingActions,
   item,
   listHref,
@@ -159,6 +161,7 @@ export function GoodsReturnRequestDetail({
     >
       {item ? (
         <>
+          {workPanel}
           <section className="bg-card min-w-0 border" aria-labelledby="return-lines-heading">
             <h2 id="return-lines-heading" className="border-b px-4 py-3 font-semibold">
               Hàng hóa trả lại{' '}

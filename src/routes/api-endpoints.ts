@@ -519,6 +519,14 @@ export const API_ENDPOINTS = {
     goodsReturnSuggestions: (stockIssueRequestId: string) =>
       `/stock-issue-requests/${stockIssueRequestId}/goods-return-requests/suggestions`,
   },
+  returnWork: {
+    document: (supplier: boolean, id: string) => `/return-work/${supplier}/documents/${id}`,
+    task: (supplier: boolean, id: string) => `/return-work/${supplier}/tasks/${id}`,
+    staff: (supplier: boolean, id: string) => `/return-work/${supplier}/documents/${id}/staff`,
+    assignment: (supplier: boolean, id: string) =>
+      `/return-work/${supplier}/documents/${id}/assignment`,
+    actions: (supplier: boolean, id: string) => `/return-work/${supplier}/documents/${id}/actions`,
+  },
   goodsReturnRequests: {
     nextCode: '/goods-return-requests/next-code',
     list: '/goods-return-requests',

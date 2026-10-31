@@ -431,6 +431,9 @@ export interface GoodsReturnRestockOptions {
 }
 
 export interface RestockGoodsReturnRequest {
+  taskId?: string
+  taskVersion?: string
+  commandId?: string
   expectedVersion?: string | null
   items: RestockGoodsReturnRequestItem[]
 }

@@ -124,6 +124,9 @@ export interface SupplierReturnReasonRequest {
 }
 
 export interface ConfirmSupplierReturnDeliveryRequest {
+  taskId?: string
+  taskVersion?: string
+  commandId?: string
   readonly expectedVersion?: string | null
   readonly lines: readonly { itemId: string; deliveredQuantity: number }[]
 }
