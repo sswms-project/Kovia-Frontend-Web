@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Check,
+  FileDown,
   MapPinned,
   PackageCheck,
   Pencil,
@@ -70,6 +71,28 @@ export function ReceiptDetail({
     receipt.items.some((item) => item.usableQuantity > 0) &&
     receipt.items.every((item) => item.damagedQuantity === 0)
   const [isRejectOpen, setIsRejectOpen] = useState(false)
+  const [isExportingPdf, setIsExportingPdf] = useState(false)
+
+  async function exportPdf() {
+    setIsExportingPdf(true)
+    try {
+      const [{ pdf }, { ReceiptPdfDocument }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('./ReceiptPdfDocument'),
+      ])
+      const blob = await pdf(<ReceiptPdfDocument receipt={receipt} />).toBlob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `Phieu-nhap-kho-${receipt.receiptCode}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Không thể xuất PDF phiếu nhập kho.')
+    } finally {
+      setIsExportingPdf(false)
+    }
+  }
 
   const hasPutAwayDetails = receipt.items.some((item) => item.putAwayDetails.length > 0)
   const hasPutAwayPlan = receipt.items.some((item) => item.putAwayPlan.length > 0)
@@ -119,6 +142,15 @@ export function ReceiptDetail({
           </div>
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
             <ReceiptHistorySheet events={receipt.history} receiptCode={receipt.receiptCode} />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isExportingPdf}
+              onClick={() => void exportPdf()}
+            >
+              <FileDown aria-hidden="true" />
+              {isExportingPdf ? 'Đang xuất...' : 'Xuất PDF'}
+            </Button>
             {allowedActions.includes('Update') ? (
               <Button type="button" variant="outline" disabled={isPending} onClick={onUpdate}>
                 <Pencil aria-hidden="true" />
