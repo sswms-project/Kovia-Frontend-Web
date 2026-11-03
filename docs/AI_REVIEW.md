@@ -1,5 +1,15 @@
 # AI Review Handoff
 
+## 2026-11-03 — Owner-applied role permission templates
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only.
+
+- Reused workspace draft/save, AlertDialog and Button for BE-owned recommended IDs. Template confirmation previews additions/removals, replaces only selected role draft, filters unavailable IDs and clears search for review. Explicit Save required; Discard, unsaved navigation protection and conflict handling preserved. Personal overrides remain unchanged and are disclosed.
+- Older API missing/null recommendation metadata hides the action; read-only users have no template action, pending save disables selection. No permission key/role enforcement duplicated on FE.
+- Verification: 5 interaction tests passed (explicit save delta, discard, 409 draft preservation, legacy/read-only and pending); production TypeScript and scoped ESLint passed. No browser/device visual QA or deployed API writes. GitNexus impact LOW, limited to role workspace/header.
+- Applied shadcn, React best practices and Web Interface Guidelines: named button, decorative icon hidden, AlertDialog title/description, shared focus/modal behavior, wrapped action toolbar. Spec: docs/features/2026-11-03-role-permission-templates.md.
+- No commit/push/runtime restart performed in this task.
+
 ## 2026-10-31 — Remove supplier return add-row step
 
 State: READY_FOR_CODEX_REVIEW. Implementer verification only.

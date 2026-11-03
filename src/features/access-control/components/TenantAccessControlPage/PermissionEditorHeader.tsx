@@ -1,4 +1,5 @@
 import { ChevronsUp, RotateCcw, Save } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -18,6 +19,7 @@ interface PermissionEditorHeaderProps {
   readonly onCollapseAll: () => void
   readonly onDiscard: () => void
   readonly onSave: () => void
+  readonly templateAction?: ReactNode
 }
 
 export function PermissionEditorHeader({
@@ -33,6 +35,7 @@ export function PermissionEditorHeader({
   onCollapseAll,
   onDiscard,
   onSave,
+  templateAction,
 }: PermissionEditorHeaderProps) {
   return (
     <div className="border-border bg-muted/20 flex shrink-0 flex-col gap-2 border-b px-3 py-2.5 sm:px-4 xl:flex-row xl:items-center">
@@ -71,6 +74,7 @@ export function PermissionEditorHeader({
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        {canManage && templateAction}
         {!canManage && <Badge variant="outline">Chỉ xem</Badge>}
         {canManage && dirty && <Badge variant="secondary">Chưa lưu</Badge>}
         {canManage && dirty && (

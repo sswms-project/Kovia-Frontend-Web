@@ -2,6 +2,7 @@ export interface TenantRolePolicy {
   roleId: string
   roleName: string
   assignedPermissionIds: string[]
+  recommendedPermissionIds?: string[] | null
 }
 
 export interface TenantAssignablePermission {
