@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## 2026-11-04 — Full warehouse location viewer from inventory
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only. Inventory and stock-picking location links now reuse the transfer warehouse viewer, initialize selection by validated warehouse/slot IDs, and focus the resolved rack once its canvas is measured. Rack-level default slots select the rack; unplaced racks use the shared placement notice without focusing generated geometry. Existing access-scope invalidation and denied/retry behavior are preserved. The shared viewer, its inventory hook, and canvas also serve transfer and warehouse layout; new initialization is optional for existing callers. Targeted map/location tests and source-only TypeScript pass. No database write or migration.
+
+## 2026-11-04 — Report and inventory display
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only. Improved anomaly badge contrast, report back button and default-slot label, uses server-provided report export name, and enlarges the existing inventory location map dialog to the viewport. The existing inventory map retains its selection and fit controls; it is not yet the full transfer viewer workspace. Forecast navigation and API already use inventory:view; no grants changed. Targeted ESLint, source-only TypeScript and 10 location-map tests pass; workspace-wide TypeScript includes unrelated temporary QA files with existing errors.
+
 ## 2026-11-04 — Role template review fixes
 
 State: READY_FOR_CODEX_REVIEW. Implementer verification only. Template dialog lists recommendations unavailable under the delegation ceiling before the user selects and saves. Missing field from older API remains compatible; no new write or permission grant.

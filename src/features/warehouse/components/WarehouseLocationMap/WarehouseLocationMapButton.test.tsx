@@ -5,10 +5,20 @@ import { WarehouseLocationMapButton } from './WarehouseLocationMapButton'
 import { warehouseLayoutSceneService } from '../../services/warehouse-layout-scene.service'
 import { locationScene } from '../../utils/warehouse-stock-location.test-fixtures'
 
-vi.mock('next/dynamic', () => ({
-  default: () => (props: { selection: { id: string } }) => (
-    <div data-testid="map-canvas">{props.selection.id}</div>
+vi.mock('../WarehouseDesigner', () => ({
+  WarehouseLayoutViewerWorkspace: (props: {
+    inventoryState: { selection: { kind: string; id: string } }
+    initialFocusRackId?: string
+    onClose: () => void
+  }) => (
+    <div data-testid="map-canvas" data-focus={props.initialFocusRackId}>
+      {props.inventoryState.selection.kind}:{props.inventoryState.selection.id}
+      <button onClick={props.onClose}>Đóng sơ đồ</button>
+    </div>
   ),
+}))
+vi.mock('../../hooks/use-layout-viewer-inventory', () => ({
+  useLayoutViewerInventory: (_warehouseId: string, selection: unknown) => ({ selection }),
 }))
 vi.mock('../../services/warehouse-layout-scene.service', () => ({
   warehouseLayoutSceneService: { getScene: vi.fn() },
@@ -53,9 +63,9 @@ describe('warehouse map location session', () => {
     const trigger = screen.getByRole('button', { name: /Xem sơ đồ vị trí/ })
     trigger.focus()
     fireEvent.click(trigger)
-    expect(await screen.findByTestId('map-canvas')).toHaveTextContent('rack-a')
-    expect(screen.getByText('Z1 → R1 → S1')).toBeVisible()
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(await screen.findByTestId('map-canvas')).toHaveTextContent('slot:slot-a')
+    expect(screen.getByTestId('map-canvas')).toHaveAttribute('data-focus', 'rack-a')
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng sơ đồ' }))
     await waitFor(() => expect(trigger).toHaveFocus())
   })
   it('does not expose map access or request data without capability', () => {
@@ -101,20 +111,29 @@ describe('warehouse map location session', () => {
     mount()
     fireEvent.click(screen.getByRole('button', { name: /Xem sơ đồ vị trí/ }))
     await screen.findByTestId('map-canvas')
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng sơ đồ' }))
     fireEvent.click(screen.getByRole('button', { name: /Xem sơ đồ vị trí/ }))
     expect(screen.queryByTestId('map-canvas')).not.toBeInTheDocument()
     expect(await screen.findByRole('alert')).toHaveTextContent('Bạn không có quyền')
     expect(screen.queryByTestId('map-canvas')).not.toBeInTheDocument()
   })
-  it('uses textual fallback for unplaced racks, without displaying generated coordinates', async () => {
+  it('does not focus generated coordinates for unplaced racks', async () => {
     const scene = locationScene()
     scene.racks[0]!.x = null
     vi.mocked(warehouseLayoutSceneService.getScene).mockResolvedValue(response(scene))
     mount()
     fireEvent.click(screen.getByRole('button', { name: /Xem sơ đồ vị trí/ }))
-    expect(await screen.findByText(/Kệ hoặc khu vực chưa được đặt/)).toBeVisible()
-    expect(screen.queryByTestId('map-canvas')).not.toBeInTheDocument()
+    expect(await screen.findByTestId('map-canvas')).toHaveTextContent('slot:slot-a')
+    expect(screen.getByTestId('map-canvas')).not.toHaveAttribute('data-focus')
+  })
+  it('selects the rack for a system-default slot', async () => {
+    const scene = locationScene()
+    scene.slots[0]!.slotCode = '__SYSTEM_DEFAULT__'
+    vi.mocked(warehouseLayoutSceneService.getScene).mockResolvedValue(response(scene))
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: /Xem sơ đồ vị trí/ }))
+    expect(await screen.findByTestId('map-canvas')).toHaveTextContent('rack:rack-a')
+    expect(screen.getByTestId('map-canvas')).toHaveAttribute('data-focus', 'rack-a')
   })
   it('rejects a scene for another warehouse', async () => {
     vi.mocked(warehouseLayoutSceneService.getScene).mockResolvedValue(
