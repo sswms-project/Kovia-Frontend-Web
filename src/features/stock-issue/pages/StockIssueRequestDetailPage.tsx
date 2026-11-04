@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PdfExportButton } from '@/components/documents/PdfExportButton'
 import type { StockIssueManualSourceDraft } from '../types/stock-issue.types'
 
 import {
@@ -48,15 +49,34 @@ export default function StockIssueRequestDetailPage({
       <StockIssueRequestDetail
         canEdit={actions.data?.allowedActions.includes('Update') ?? false}
         editingActions={
-          actions.data?.allowedActions.includes('Withdraw') ? (
-            <Button
-              variant="outline"
-              disabled={actions.isFetching || withdraw.dialog.isPending}
-              onClick={withdraw.open}
-            >
-              <RotateCcw /> Thu hồi để sửa
-            </Button>
-          ) : null
+          <>
+            <PdfExportButton
+              disabled={order.status === 'Cancelled' || detailQuery.isFetching}
+              prepare={async (fontFamily) => {
+                const result = await detailQuery.refetch()
+                if (result.isError || !result.data)
+                  throw new Error('Không thể kiểm tra dữ liệu mới nhất. Vui lòng thử lại.')
+                const snapshot = result.data
+                const { StockIssuePdfDocument } =
+                  await import('../components/StockIssueRequestDetailPage/StockIssuePdfDocument')
+                const draft = snapshot.status !== 'Dispatched'
+                return {
+                  document: <StockIssuePdfDocument order={snapshot} fontFamily={fontFamily} />,
+                  fileName: `Phiếu xuất kho - ${snapshot.stockIssueRequestCode}${draft ? ' - Bản nháp' : ''}.pdf`,
+                  draft,
+                }
+              }}
+            />
+            {actions.data?.allowedActions.includes('Withdraw') ? (
+              <Button
+                variant="outline"
+                disabled={actions.isFetching || withdraw.dialog.isPending}
+                onClick={withdraw.open}
+              >
+                <RotateCcw /> Thu hồi để sửa
+              </Button>
+            ) : null}
+          </>
         }
         order={order}
         capabilities={workflow.capabilities}

@@ -11,6 +11,7 @@ import { CycleCountPriorityBadge } from '../CycleCountUrgency'
 import type { CycleCountDialog } from './types'
 
 interface CycleCountDetailHeaderProps {
+  readonly pdfAction?: import('react').ReactNode
   readonly detail: CycleCountDetail
   readonly allowedActions: readonly string[]
   readonly isPending: boolean
@@ -23,6 +24,7 @@ interface CycleCountDetailHeaderProps {
 }
 
 export function CycleCountDetailHeader({
+  pdfAction,
   detail,
   allowedActions,
   isPending,
@@ -59,6 +61,7 @@ export function CycleCountDetailHeader({
           <FileDown />
           Xuất Excel
         </Button>
+        {pdfAction}
         {allowedActions.includes('Cancel') ? (
           <Button variant="outline" disabled={isPending} onClick={() => onOpenDialog('cancel')}>
             <Ban />

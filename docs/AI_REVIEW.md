@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## 2026-11-04 — Vietnamese PDF download names
+
+State: READY_FOR_CODEX_REVIEW. Download names now use Vietnamese accents and spaces: Phiếu xuất kho / Biên bản kiểm kê, with a Bản nháp suffix when applicable. Existing filename sanitization remains in the shared download button. Scoped ESLint and diff whitespace validation performed; no PDF content or data-flow changes.
+
+## 2026-11-04 — Stock issue and cycle count PDF
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only. Added lazy PDF export to both detail pages with successful snapshot refresh, cancellation/empty-data guards, quantity conversion checks, blind-count preservation and dirty-count disabling. Official 02-VT/05-VT layouts inspected locally from Government Gazette. Generated and visually checked complete one-page and draft multi-page fixtures, with draft footer on every page. Seven focused tests, source-only TypeScript and scoped ESLint pass. Production compile passes but full build type checking is blocked by existing temporary QA files under outputs. No deployed DB writes or BE changes. Manual device/account checks outstanding. Spec: docs/features/2026-11-03-stock-issue-cycle-count-pdf-plan.md.
+
 ## 2026-11-04 — Separate forecast viewing permission
 
 State: READY_FOR_CODEX_REVIEW. Forecast menu, catalog and direct page access now require inventory:forecast:view; the guarded page does not request forecast data when access is denied. Existing stock visibility is unaffected. Focused access tests and lint passed; source-only TypeScript checked separately. No permission is granted automatically by this UI change.

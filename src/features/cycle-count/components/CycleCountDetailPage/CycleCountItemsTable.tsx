@@ -98,6 +98,7 @@ function getItemState(item: CycleCountItem, detail: CycleCountDetail) {
 }
 
 interface CycleCountItemsTableProps {
+  readonly onDirtyChange?: (dirty: boolean) => void
   readonly detail: CycleCountDetail
   readonly allowedActions: readonly string[]
   readonly isPending: boolean
@@ -113,6 +114,7 @@ interface CycleCountItemsTableProps {
 }
 
 export function CycleCountItemsTable({
+  onDirtyChange,
   detail,
   allowedActions,
   isPending,
@@ -307,6 +309,9 @@ export function CycleCountItemsTable({
 
   // Nháp đã giữ trên máy, nhưng vẫn nhắc trước khi rời trang vì kết quả chưa về server.
   const hasUnsavedDrafts = dirtyEntries.length > 0
+  useEffect(() => {
+    onDirtyChange?.(hasUnsavedDrafts)
+  }, [hasUnsavedDrafts, onDirtyChange])
   useEffect(() => {
     if (!hasUnsavedDrafts) return
     const warnBeforeLeave = (event: BeforeUnloadEvent) => event.preventDefault()
