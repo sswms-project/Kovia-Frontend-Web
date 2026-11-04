@@ -33,6 +33,7 @@ export function WarehouseLayoutViewerWorkspace({
   warehouseId,
   warehouseName,
   title,
+  initialFocusRackId,
   picker,
   inventoryState,
   scene,
@@ -85,6 +86,7 @@ export function WarehouseLayoutViewerWorkspace({
       ref={canvasRef}
       scene={scene}
       selection={selection}
+      initialFocusRackId={initialFocusRackId}
       mode="viewer"
       metric={metric}
       highlight={metric === 'capacity' ? highlight : 'all'}

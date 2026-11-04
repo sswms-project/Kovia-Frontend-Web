@@ -34,6 +34,7 @@ export function WarehouseCanvas({
   rackTools,
   scene,
   selection,
+  initialFocusRackId,
   canConfigure,
   mode = 'designer',
   metric = 'off',
@@ -97,6 +98,12 @@ export function WarehouseCanvas({
     rackEditing,
     activeZoneIds: data.activeZoneIds,
   })
+  const didFocusInitialRack = useRef(false)
+  useEffect(() => {
+    if (!initialFocusRackId || didFocusInitialRack.current || !size.width || !size.height) return
+    didFocusInitialRack.current = true
+    fitRacks([initialFocusRackId])
+  }, [initialFocusRackId, size.width, size.height, fitRacks])
   const rackGestures = useRackCanvasGestures({
     scene,
     controls: mode === 'designer' ? rackEditing : undefined,

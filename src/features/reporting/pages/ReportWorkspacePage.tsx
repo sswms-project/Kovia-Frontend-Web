@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { FileSpreadsheet } from 'lucide-react'
+import { ArrowLeft, FileSpreadsheet } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
@@ -191,13 +191,11 @@ export default function ReportWorkspacePage({
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-2">
       {!definition || !canView ? (
         <header className="flex min-w-0 items-center gap-3">
-          <Link
-            href={APP_ROUTES.reports}
-            aria-label="Quay lại Báo cáo kho"
-            className="text-primary hover:bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-md text-xl"
-          >
-            ←
-          </Link>
+          <Button asChild variant="outline" size="icon">
+            <Link href={APP_ROUTES.reports} aria-label="Quay lại Báo cáo kho">
+              <ArrowLeft aria-hidden="true" />
+            </Link>
+          </Button>
           <h1 className="min-w-0 text-xl font-semibold">{definition?.name ?? 'Báo cáo kho'}</h1>
         </header>
       ) : null}
@@ -211,13 +209,11 @@ export default function ReportWorkspacePage({
         <ReportFilters
           heading={
             <header className="flex min-w-0 items-center gap-3">
-              <Link
-                href={APP_ROUTES.reports}
-                aria-label="Quay lại Báo cáo kho"
-                className="text-primary hover:bg-primary/10 flex size-10 shrink-0 items-center justify-center rounded-md text-xl"
-              >
-                ←
-              </Link>
+              <Button asChild variant="outline" size="icon">
+                <Link href={APP_ROUTES.reports} aria-label="Quay lại Báo cáo kho">
+                  <ArrowLeft aria-hidden="true" />
+                </Link>
+              </Button>
               <h1 className="min-w-0 text-xl font-semibold">{definition?.name ?? 'Báo cáo kho'}</h1>
             </header>
           }

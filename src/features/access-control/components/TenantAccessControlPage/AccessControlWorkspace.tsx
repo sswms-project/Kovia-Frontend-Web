@@ -18,11 +18,13 @@ import {
   filterPermissionGroups,
   getRoleById,
   groupTenantPermissions,
+  getTenantRoleContent,
   rebasePermissionDraft,
 } from '../../utils/tenant-access-control'
 import { PermissionCatalog } from './PermissionCatalog'
 import { AccessControlModeTabs } from './AccessControlModeTabs'
 import { PermissionEditorHeader } from './PermissionEditorHeader'
+import { PermissionTemplateButton } from './PermissionTemplateButton'
 import { RoleSelector } from './RoleSelector'
 import { UnsavedChangesDialog } from './UnsavedChangesDialog'
 
@@ -106,6 +108,8 @@ export function AccessControlWorkspace({
     [permissionGroups, searchText]
   )
   const isDirty = !arePermissionSetsEqual(draftIds, baselineIds)
+  const recommendedIds = selectedRole.recommendedPermissionIds
+  const templateIds = new Set(recommendedIds?.filter((id) => eligiblePermissionIds.has(id)))
 
   useEffect(() => {
     if (getRoleById(workspace.roles, selectedRoleId)) return
@@ -303,6 +307,23 @@ export function AccessControlWorkspace({
           className="border-border bg-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-md border"
         >
           <PermissionEditorHeader
+            templateAction={
+              recommendedIds != null && (
+                <PermissionTemplateButton
+                  roleLabel={getTenantRoleContent(selectedRole.roleName).label}
+                  unavailablePermissions={selectedRole.unavailableRecommendedPermissions ?? []}
+                  addedCount={[...templateIds].filter((id) => !draftIds.has(id)).length}
+                  removedCount={[...draftIds].filter((id) => !templateIds.has(id)).length}
+                  disabled={saving || !canManage}
+                  onApply={() => {
+                    if (saving || !canManage) return
+                    setDraftIds(templateIds)
+                    setMutationError(null)
+                    setSearchText('')
+                  }}
+                />
+              )
+            }
             selectedCount={draftIds.size}
             permissionCount={workspace.permissions.length}
             categoryCount={permissionGroups.length}

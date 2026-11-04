@@ -72,6 +72,7 @@ export const P = {
 
   // Inventory
   INVENTORY_VIEW: 'inventory:view',
+  INVENTORY_FORECAST_VIEW: 'inventory:forecast:view',
   INVENTORY_RESERVE: 'inventory:reserve',
   INVENTORY_REPORT_DAMAGED: 'inventory:report-damaged',
   INVENTORY_SELF_APPROVE_OPENING_STOCK: 'inventory:self-approve-opening-stock',

@@ -29,11 +29,12 @@ interface ReportTableProps {
 }
 const quantityFormatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 6 })
 
-function formatCell(value: unknown, dataType: string): string {
+function formatCell(value: unknown, dataType: string, key: string): string {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'number') return quantityFormatter.format(value)
   if (typeof value === 'boolean') return value ? 'Có' : 'Không'
   if (typeof value !== 'string') return '—'
+  if (key === 'slotCode' && value === '__SYSTEM_DEFAULT__') return 'Theo kệ'
   if (dataType === 'datetime')
     return new Date(value).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
   return dataType === 'status' ? reportStatusLabel(value) : value
@@ -178,14 +179,14 @@ export const ReportTable = memo(function ReportTable({
                         href={sourceLinks.get(row.id) ?? { pathname: '/' }}
                         className="text-primary font-medium hover:underline"
                       >
-                        {formatCell(values[column.key], column.dataType)}
+                        {formatCell(values[column.key], column.dataType, column.key)}
                       </Link>
                     ) : isBalance &&
                       ['openingBalance', 'closingBalance'].includes(column.key) &&
                       values[column.key] == null ? (
                       <span className="text-warning text-xs font-normal">Chưa xác định</span>
                     ) : (
-                      formatCell(values[column.key], column.dataType)
+                      formatCell(values[column.key], column.dataType, column.key)
                     )}
                   </TableCell>
                 ))}

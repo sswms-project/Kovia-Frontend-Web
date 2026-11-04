@@ -1,5 +1,43 @@
 # AI Review Handoff
 
+## 2026-11-04 — PDF review corrections
+
+State: READY_FOR_CODEX_REVIEW. Unsaved detection now compares drafts independently of save eligibility, including cleared/invalid quantities, notes and incomplete damage details; PDF and submission stay blocked and the footer no longer claims everything was saved. Equivalent valid quantities are not marked dirty. Cycle count PDF rows include the shared Vietnamese quality label. Sixteen focused FE tests, source-only TypeScript and scoped ESLint passed; regenerated PDF visually verified with Good/Damaged rows. These fixes do not address the separately recorded report-level forecast visibility or missing rack identity in some reports. No deployed DB write.
+
+## 2026-11-04 — Vietnamese PDF download names
+
+State: READY_FOR_CODEX_REVIEW. Download names now use Vietnamese accents and spaces: Phiếu xuất kho / Biên bản kiểm kê, with a Bản nháp suffix when applicable. Existing filename sanitization remains in the shared download button. Scoped ESLint and diff whitespace validation performed; no PDF content or data-flow changes.
+
+## 2026-11-04 — Stock issue and cycle count PDF
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only. Added lazy PDF export to both detail pages with successful snapshot refresh, cancellation/empty-data guards, quantity conversion checks, blind-count preservation and dirty-count disabling. Official 02-VT/05-VT layouts inspected locally from Government Gazette. Generated and visually checked complete one-page and draft multi-page fixtures, with draft footer on every page. Seven focused tests, source-only TypeScript and scoped ESLint pass. Production compile passes but full build type checking is blocked by existing temporary QA files under outputs. No deployed DB writes or BE changes. Manual device/account checks outstanding. Spec: docs/features/2026-11-03-stock-issue-cycle-count-pdf-plan.md.
+
+## 2026-11-04 — Separate forecast viewing permission
+
+State: READY_FOR_CODEX_REVIEW. Forecast menu, catalog and direct page access now require inventory:forecast:view; the guarded page does not request forecast data when access is denied. Existing stock visibility is unaffected. Focused access tests and lint passed; source-only TypeScript checked separately. No permission is granted automatically by this UI change.
+
+## 2026-11-04 — Full warehouse location viewer from inventory
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only. Inventory and stock-picking location links now reuse the transfer warehouse viewer, initialize selection by validated warehouse/slot IDs, and focus the resolved rack once its canvas is measured. Rack-level default slots select the rack; unplaced racks use the shared placement notice without focusing generated geometry. Existing access-scope invalidation and denied/retry behavior are preserved. The shared viewer, its inventory hook, and canvas also serve transfer and warehouse layout; new initialization is optional for existing callers. Targeted map/location tests and source-only TypeScript pass. No database write or migration.
+
+## 2026-11-04 — Report and inventory display
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only. Improved anomaly badge contrast, report back button and default-slot label, uses server-provided report export name, and enlarges the existing inventory location map dialog to the viewport. The existing inventory map retains its selection and fit controls; it is not yet the full transfer viewer workspace. Forecast navigation and API already use inventory:view; no grants changed. Targeted ESLint, source-only TypeScript and 10 location-map tests pass; workspace-wide TypeScript includes unrelated temporary QA files with existing errors.
+
+## 2026-11-04 — Role template review fixes
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only. Template dialog lists recommendations unavailable under the delegation ceiling before the user selects and saves. Missing field from older API remains compatible; no new write or permission grant.
+
+## 2026-11-03 — Owner-applied role permission templates
+
+State: READY_FOR_CODEX_REVIEW. Implementer self-verification only.
+
+- Reused workspace draft/save, AlertDialog and Button for BE-owned recommended IDs. Template confirmation previews additions/removals, replaces only selected role draft, filters unavailable IDs and clears search for review. Explicit Save required; Discard, unsaved navigation protection and conflict handling preserved. Personal overrides remain unchanged and are disclosed.
+- Older API missing/null recommendation metadata hides the action; read-only users have no template action, pending save disables selection. No permission key/role enforcement duplicated on FE.
+- Verification: 5 interaction tests passed (explicit save delta, discard, 409 draft preservation, legacy/read-only and pending); production TypeScript and scoped ESLint passed. No browser/device visual QA or deployed API writes. GitNexus impact LOW, limited to role workspace/header.
+- Applied shadcn, React best practices and Web Interface Guidelines: named button, decorative icon hidden, AlertDialog title/description, shared focus/modal behavior, wrapped action toolbar. Spec: docs/features/2026-11-03-role-permission-templates.md.
+- No commit/push/runtime restart performed in this task.
+
 ## 2026-10-31 — Remove supplier return add-row step
 
 State: READY_FOR_CODEX_REVIEW. Implementer verification only.
