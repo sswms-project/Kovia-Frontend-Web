@@ -22,6 +22,7 @@ export interface WarehouseLayoutViewerWorkspaceProps {
   readonly warehouseId: string
   readonly warehouseName: string
   readonly title?: string
+  readonly initialFocusRackId?: string
   readonly picker?: WarehouseLayoutPicker
   readonly inventoryState: LayoutViewerInventoryState
   readonly scene: WarehouseLayoutEditorScene

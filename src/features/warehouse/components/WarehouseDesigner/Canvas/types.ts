@@ -22,6 +22,7 @@ export interface WarehouseCanvasProps {
   readonly ref?: Ref<WarehouseCanvasHandle>
   readonly scene: WarehouseLayoutEditorScene
   readonly selection: WarehouseLayoutSelection | null
+  readonly initialFocusRackId?: string
   readonly canConfigure: boolean
   readonly mode?: CanvasMode
   /** Chỉ số vẽ trực tiếp lên kệ và ô; chỉ có tác dụng ở chế độ xem. */

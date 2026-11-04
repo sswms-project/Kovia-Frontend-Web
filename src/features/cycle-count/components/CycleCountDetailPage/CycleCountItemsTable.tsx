@@ -58,6 +58,7 @@ import {
   formatCycleCountDay,
 } from '../../utils/cycle-count-format'
 import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
+import { isCycleCountQuantityChanged } from '../../utils/cycle-count-draft-changes'
 import { formatStockLocation } from '../../utils/cycle-count-scope'
 import { StockAdjustmentStatusBadge } from '../CycleCountStatusBadge'
 import { CycleCountDamageDialog } from './CycleCountDamageDialog'
@@ -98,6 +99,7 @@ function getItemState(item: CycleCountItem, detail: CycleCountDetail) {
 }
 
 interface CycleCountItemsTableProps {
+  readonly onDirtyChange?: (dirty: boolean) => void
   readonly detail: CycleCountDetail
   readonly allowedActions: readonly string[]
   readonly isPending: boolean
@@ -113,6 +115,7 @@ interface CycleCountItemsTableProps {
 }
 
 export function CycleCountItemsTable({
+  onDirtyChange,
   detail,
   allowedActions,
   isPending,
@@ -306,7 +309,22 @@ export function CycleCountItemsTable({
   }
 
   // Nháp đã giữ trên máy, nhưng vẫn nhắc trước khi rời trang vì kết quả chưa về server.
-  const hasUnsavedDrafts = dirtyEntries.length > 0
+  const hasUnsavedDrafts = items.some((item) => {
+    const noteDraft = noteDrafts[item.id]
+    const damageDraft = damageDrafts[item.id]
+    return (
+      isRecordable(item) &&
+      (isCycleCountQuantityChanged(drafts[item.id], item.countedQuantity) ||
+        isCycleCountQuantityChanged(damagedDrafts[item.id], item.countedDamagedQuantity ?? 0) ||
+        (noteDraft !== undefined && noteDraft.trim() !== (item.note ?? '').trim()) ||
+        (damageDraft !== undefined &&
+          (damageDraft.reason.trim() !== (item.damageReason ?? '').trim() ||
+            damageDraft.evidence.length > 0)))
+    )
+  })
+  useEffect(() => {
+    onDirtyChange?.(hasUnsavedDrafts)
+  }, [hasUnsavedDrafts, onDirtyChange])
   useEffect(() => {
     if (!hasUnsavedDrafts) return
     const warnBeforeLeave = (event: BeforeUnloadEvent) => event.preventDefault()
@@ -807,9 +825,11 @@ export function CycleCountItemsTable({
                 ? `${dirtyEntries.length} dòng chưa lưu. Lưu trước khi hoàn thành kiểm kê.`
                 : incompleteDamageCount > 0
                   ? `${incompleteDamageCount} dòng hàng hỏng cần thêm ảnh và lý do trước khi lưu.`
-                  : canSubmit
-                    ? 'Mọi thay đổi đã được lưu.'
-                    : 'Mọi thay đổi đã được lưu. Nhập đủ số đếm tất cả dòng để hoàn thành.'}
+                  : hasUnsavedDrafts
+                    ? 'Có thay đổi chưa hợp lệ hoặc chưa lưu. Kiểm tra lại trước khi xuất PDF hoặc gửi kết quả.'
+                    : canSubmit
+                      ? 'Mọi thay đổi đã được lưu.'
+                      : 'Mọi thay đổi đã được lưu. Nhập đủ số đếm tất cả dòng để hoàn thành.'}
             </ItemDescription>
           </ItemContent>
           <ItemActions className="grid w-full grid-cols-3 gap-2 md:flex md:w-auto md:flex-wrap">
@@ -851,7 +871,7 @@ export function CycleCountItemsTable({
                 <Button
                   className="col-span-3 h-auto min-h-11 w-full whitespace-normal md:h-8 md:min-h-8 md:w-auto"
                   disabled={
-                    !canSubmit || dirtyEntries.length > 0 || incompleteDamageCount > 0 || isPending
+                    !canSubmit || hasUnsavedDrafts || incompleteDamageCount > 0 || isPending
                   }
                 >
                   <Send />

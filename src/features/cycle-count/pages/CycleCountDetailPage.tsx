@@ -1,6 +1,7 @@
 'use client'
 
 import { toast } from 'sonner'
+import { PdfExportButton } from '@/components/documents/PdfExportButton'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -112,6 +113,25 @@ export default function CycleCountDetailPage({ cycleCountId }: { readonly cycleC
     )
   return (
     <CycleCountDetailView
+      pdfAction={(disabled) => (
+        <PdfExportButton
+          disabled={disabled || detail.isFetching || detail.data.status === 'Cancelled'}
+          prepare={async (fontFamily) => {
+            const result = await detail.refetch()
+            if (result.isError || !result.data)
+              throw new Error('Không thể kiểm tra dữ liệu mới nhất. Vui lòng thử lại.')
+            const snapshot = result.data
+            const { CycleCountPdfDocument } =
+              await import('../components/CycleCountDetailPage/CycleCountPdfDocument')
+            const draft = snapshot.status !== 'Completed'
+            return {
+              document: <CycleCountPdfDocument detail={snapshot} fontFamily={fontFamily} />,
+              fileName: `Biên bản kiểm kê - ${snapshot.code}${draft ? ' - Bản nháp' : ''}.pdf`,
+              draft,
+            }
+          }}
+        />
+      )}
       detail={detail.data}
       allowedActions={actions.data?.allowedActions ?? []}
       isPending={pending}

@@ -8,7 +8,13 @@ import { useForecastWorkspace } from '../hooks/use-forecast-workspace'
 
 export default function InventoryForecastPage() {
   const meQuery = useMeQuery()
-  const permissions = meQuery.data?.permissions ?? []
+  if (meQuery.isPending) return <p role="status">Đang kiểm tra quyền truy cập…</p>
+  if (meQuery.isError || !meQuery.data?.permissions.includes(P.INVENTORY_FORECAST_VIEW))
+    return <p role="alert">Bạn không có quyền xem dự báo tồn kho.</p>
+  return <ForecastWorkspacePage permissions={meQuery.data.permissions} />
+}
+
+function ForecastWorkspacePage({ permissions }: { readonly permissions: readonly string[] }) {
   const warehousesQuery = useWarehousesQuery({
     top: 100,
     skip: 0,

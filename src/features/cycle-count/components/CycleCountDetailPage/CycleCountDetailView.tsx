@@ -39,6 +39,7 @@ interface CycleCountDetailViewProps {
   readonly onRecount: (itemIds: string[], reason: string) => Promise<boolean>
   readonly onFinalize: () => Promise<void>
   readonly onExport: () => Promise<void>
+  readonly pdfAction?: (disabled: boolean) => import('react').ReactNode
   readonly onCancel: (reason: string) => Promise<boolean>
   readonly onCreateVoucher: (itemIds: string[], reason: string) => Promise<boolean>
 }
@@ -62,10 +63,12 @@ export function CycleCountDetailView({
   onRecount,
   onFinalize,
   onExport,
+  pdfAction,
   onCancel,
   onCreateVoucher,
 }: CycleCountDetailViewProps) {
   const [dialog, setDialog] = useState<CycleCountDialog | null>(null)
+  const [hasUnsavedItems, setHasUnsavedItems] = useState(false)
   // Dòng được chọn sẵn từ panel hàng hỏng chỉ giữ lại nếu quản lý xác nhận đếm lại.
   const [isRecountFromPanel, setIsRecountFromPanel] = useState(false)
   const selectedItemIds = recountForm.watch('itemIds')
@@ -137,6 +140,7 @@ export function CycleCountDetailView({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
       <CycleCountDetailHeader
+        pdfAction={pdfAction?.(hasUnsavedItems || isPending)}
         detail={detail}
         allowedActions={allowedActions}
         isPending={isPending}
@@ -188,6 +192,7 @@ export function CycleCountDetailView({
         varianceCount={varianceCount}
       />
       <CycleCountItemsTable
+        onDirtyChange={setHasUnsavedItems}
         detail={detail}
         allowedActions={allowedActions}
         isPending={isPending}

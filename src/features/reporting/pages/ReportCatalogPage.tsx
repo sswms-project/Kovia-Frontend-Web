@@ -18,7 +18,7 @@ export default function ReportCatalogPage() {
   const catalog = useWarehouseReportCatalog(canView, [...permissions].sort().join('|'))
   return (
     <ReportCatalogView
-      canForecast={permissions.includes(P.INVENTORY_VIEW)}
+      canForecast={permissions.includes(P.INVENTORY_FORECAST_VIEW)}
       reports={canView ? (catalog.data ?? []) : []}
       search={search}
       group={group}

@@ -4,8 +4,11 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import type { LayoutViewerInventoryState } from '../types/warehouse-layout-viewer.types'
 import type { WarehouseLayoutSelection } from '../types/warehouse-layout-scene.types'
 
-export function useLayoutViewerInventory(warehouseId: string): LayoutViewerInventoryState {
-  const [selection, setSelection] = useState<WarehouseLayoutSelection | null>(null)
+export function useLayoutViewerInventory(
+  warehouseId: string,
+  initialSelection: WarehouseLayoutSelection | null = null
+): LayoutViewerInventoryState {
+  const [selection, setSelection] = useState<WarehouseLayoutSelection | null>(initialSelection)
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [inventorySearchTerm, setInventorySearchTerm] = useState('')

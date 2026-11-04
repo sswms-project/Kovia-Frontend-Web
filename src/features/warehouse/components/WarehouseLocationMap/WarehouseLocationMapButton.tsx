@@ -65,14 +65,16 @@ function LocationMapSession(props: WarehouseLocationMapButtonProps) {
           <MapPin aria-hidden="true" /> Xem sơ đồ
         </Button>
       </DialogTrigger>
-      <DialogContent className="flex h-[90dvh] max-h-dvh flex-col gap-3 sm:max-w-5xl">
+      <DialogContent className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-3 sm:max-w-none">
         <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>Vị trí hàng trên sơ đồ</DialogTitle>
           <DialogDescription className="break-words">
             {props.productLabel} · {props.warehouseName} / {props.locationLabel}
           </DialogDescription>
         </DialogHeader>
-        {open && props.ready && <WarehouseLocationMapContent {...props} />}
+        {open && props.ready && (
+          <WarehouseLocationMapContent {...props} onClose={() => setOpen(false)} />
+        )}
       </DialogContent>
     </Dialog>
   )

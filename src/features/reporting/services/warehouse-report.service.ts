@@ -1,4 +1,5 @@
 import { axiosClient } from '@/lib/axios'
+import { downloadInventoryExport, inventoryExportFileName } from '@/lib/excel-download'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import type { ApiResponse } from '@/types/api'
 import {
@@ -57,18 +58,11 @@ export const warehouseReportService = {
         },
       ],
     })
-    const url = URL.createObjectURL(
+    downloadInventoryExport(
       new Blob([response.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
+      }),
+      inventoryExportFileName(response.headers['content-disposition'])
     )
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `kovia-${type}.xlsx`
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    // Keep the object URL alive until the browser has consumed the download.
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   },
 }

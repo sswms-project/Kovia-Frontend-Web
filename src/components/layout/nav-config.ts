@@ -91,7 +91,7 @@ const tenantReportsSection: NavSection = {
       APP_ROUTES.reportForecast,
       'Dự báo & bổ sung hàng',
       TrendingUp,
-      P.INVENTORY_VIEW
+      P.INVENTORY_FORECAST_VIEW
     ),
     requiredNavItem(
       APP_ROUTES.inventoryAnomalies,
