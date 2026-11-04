@@ -39,6 +39,7 @@ describe('warehouse PDF rendering', () => {
       items: Array.from({ length: 35 }, (_, i) => ({
         id: String(i),
         productName: 'Vật tư tiếng Việt',
+        qualityStatus: i % 2 === 0 ? 'Good' : 'Damaged',
         productSku: `SKU-${i}`,
         unitName: 'Cái',
         zoneCode: 'K01',

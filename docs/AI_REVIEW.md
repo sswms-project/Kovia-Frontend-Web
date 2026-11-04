@@ -1,5 +1,9 @@
 # AI Review Handoff
 
+## 2026-11-04 — PDF review corrections
+
+State: READY_FOR_CODEX_REVIEW. Unsaved detection now compares drafts independently of save eligibility, including cleared/invalid quantities, notes and incomplete damage details; PDF and submission stay blocked and the footer no longer claims everything was saved. Equivalent valid quantities are not marked dirty. Cycle count PDF rows include the shared Vietnamese quality label. Sixteen focused FE tests, source-only TypeScript and scoped ESLint passed; regenerated PDF visually verified with Good/Damaged rows. These fixes do not address the separately recorded report-level forecast visibility or missing rack identity in some reports. No deployed DB write.
+
 ## 2026-11-04 — Vietnamese PDF download names
 
 State: READY_FOR_CODEX_REVIEW. Download names now use Vietnamese accents and spaces: Phiếu xuất kho / Biên bản kiểm kê, with a Bản nháp suffix when applicable. Existing filename sanitization remains in the shared download button. Scoped ESLint and diff whitespace validation performed; no PDF content or data-flow changes.

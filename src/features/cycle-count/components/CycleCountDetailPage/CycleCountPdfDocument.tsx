@@ -111,7 +111,7 @@ export function CycleCountPdfDocument({
           {detail.items.map((item, index) => {
             const values = cycleCountPdfValues(item)
             const location = formatStockLocation(item)
-            const label = `${item.productName}\n${location}\nLô: ${item.lotNumber ?? 'Không theo lô'}${item.expiryDate ? ` · HSD: ${item.expiryDate}` : ''}${item.countedAt ? `\nĐếm: ${pdfDate(item.countedAt)}` : ''}\nHỏng trong thực kiểm: ${pdfQuantity(values.damagedQuantity)}${item.note ? `\n${item.note}` : ''}`
+            const label = `${item.productName}\n${location}\nChất lượng: ${values.qualityLabel}\nLô: ${item.lotNumber ?? 'Không theo lô'}${item.expiryDate ? ` · HSD: ${item.expiryDate}` : ''}${item.countedAt ? `\nĐếm: ${pdfDate(item.countedAt)}` : ''}\nHỏng trong thực kiểm: ${pdfQuantity(values.damagedQuantity)}${item.note ? `\n${item.note}` : ''}`
             const cells = [
               String(index + 1),
               label,

@@ -1,4 +1,5 @@
 import type { CycleCountItem } from '../types/cycle-count.types'
+import { CYCLE_COUNT_QUALITY_LABELS } from './cycle-count-format'
 
 /** Preserve hidden and uncounted values from the authorized detail response. */
 export function cycleCountPdfValues(item: CycleCountItem) {
@@ -19,6 +20,7 @@ export function cycleCountPdfValues(item: CycleCountItem) {
     throw new Error('Không thể xuất PDF: số hỏng vượt số thực kiểm.')
   const hidden = item.systemQuantity === null
   return {
+    qualityLabel: CYCLE_COUNT_QUALITY_LABELS[item.qualityStatus] ?? 'Chưa xác định',
     systemQuantity: item.systemQuantity,
     countedQuantity: item.countedQuantity,
     damagedQuantity: item.countedDamagedQuantity,

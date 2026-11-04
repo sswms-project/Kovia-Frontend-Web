@@ -3,6 +3,20 @@ import type { CycleCountItem } from '../types/cycle-count.types'
 import { cycleCountPdfValues } from './cycle-count-pdf-values'
 
 describe('cycle count PDF values', () => {
+  it.each([
+    ['Good', 'Tốt'],
+    ['Damaged', 'Hỏng'],
+    ['Quarantine', 'Cách ly'],
+  ] as const)('identifies %s rows', (qualityStatus, qualityLabel) => {
+    const row = {
+      systemQuantity: 3,
+      countedQuantity: 3,
+      countedDamagedQuantity: 0,
+      difference: 0,
+      qualityStatus,
+    } as CycleCountItem
+    expect(cycleCountPdfValues(row).qualityLabel).toBe(qualityLabel)
+  })
   it('keeps blind quantities hidden even if difference is supplied', () => {
     const row = {
       systemQuantity: null,
