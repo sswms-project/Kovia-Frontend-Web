@@ -3,6 +3,7 @@ import { USER_ROLES, type UserRole } from './roles'
 import { P } from './permissionCodes'
 
 export const ROUTE_CAPABILITIES = {
+  [APP_ROUTES.reportForecast]: P.INVENTORY_FORECAST_VIEW,
   [APP_ROUTES.inventoryOpeningStockImport]: P.INVENTORY_RESERVE,
   [APP_ROUTES.inventoryAnomalies]: P.INVENTORY_ANOMALIES_VIEW,
   [APP_ROUTES.productImport]: P.PRODUCTS_IMPORT,

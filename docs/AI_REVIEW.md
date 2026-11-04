@@ -1,5 +1,9 @@
 # AI Review Handoff
 
+## 2026-11-04 — Separate forecast viewing permission
+
+State: READY_FOR_CODEX_REVIEW. Forecast menu, catalog and direct page access now require inventory:forecast:view; the guarded page does not request forecast data when access is denied. Existing stock visibility is unaffected. Focused access tests and lint passed; source-only TypeScript checked separately. No permission is granted automatically by this UI change.
+
 ## 2026-11-04 — Full warehouse location viewer from inventory
 
 State: READY_FOR_CODEX_REVIEW. Implementer verification only. Inventory and stock-picking location links now reuse the transfer warehouse viewer, initialize selection by validated warehouse/slot IDs, and focus the resolved rack once its canvas is measured. Rack-level default slots select the rack; unplaced racks use the shared placement notice without focusing generated geometry. Existing access-scope invalidation and denied/retry behavior are preserved. The shared viewer, its inventory hook, and canvas also serve transfer and warehouse layout; new initialization is optional for existing callers. Targeted map/location tests and source-only TypeScript pass. No database write or migration.
