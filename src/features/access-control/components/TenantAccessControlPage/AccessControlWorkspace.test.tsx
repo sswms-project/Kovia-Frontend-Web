@@ -23,7 +23,12 @@ function setup(
         roleId: 'manager',
         roleName: USER_ROLES.WarehouseManager,
         assignedPermissionIds: ['old'],
-        ...(options.legacy ? {} : { recommendedPermissionIds: ['view', 'outside-ceiling'] }),
+        ...(options.legacy
+          ? {}
+          : {
+              recommendedPermissionIds: ['view', 'outside-ceiling'],
+              unavailableRecommendedPermissions: ['Nhập kho: Tạo phiếu nhận hàng'],
+            }),
       },
     ],
     permissions: ['old', 'view'].map((id) => ({
@@ -71,6 +76,7 @@ describe('role permission template draft', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dùng mẫu đề xuất' }))
     expect(screen.getByRole('alertdialog')).toHaveTextContent('thêm 1 quyền, bỏ 1 quyền')
     expect(screen.getByRole('alertdialog')).toHaveTextContent('Dùng mẫu quyền Quản lý kho?')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Nhập kho: Tạo phiếu nhận hàng')
     expect(onSave).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Chọn mẫu, chưa lưu' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())

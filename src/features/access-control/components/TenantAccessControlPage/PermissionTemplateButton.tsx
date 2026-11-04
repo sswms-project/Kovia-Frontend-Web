@@ -17,6 +17,7 @@ interface PermissionTemplateButtonProps {
   readonly addedCount: number
   readonly removedCount: number
   readonly disabled: boolean
+  readonly unavailablePermissions: readonly string[]
   readonly onApply: () => void
 }
 
@@ -25,6 +26,7 @@ export function PermissionTemplateButton({
   addedCount,
   removedCount,
   disabled,
+  unavailablePermissions,
   onApply,
 }: PermissionTemplateButtonProps) {
   return (
@@ -43,6 +45,20 @@ export function PermissionTemplateButton({
             quyền. Bạn có thể kiểm tra và chỉnh lại danh sách trước khi bấm “Lưu thay đổi”. Quyền
             riêng đã cấp theo nhân sự vẫn được giữ nguyên.
           </AlertDialogDescription>
+          {unavailablePermissions.length > 0 && (
+            <div className="text-destructive max-h-40 overflow-auto text-sm" role="status">
+              <p>
+                Mẫu chưa đầy đủ: {unavailablePermissions.length} quyền chưa thể cấp trong phạm vi
+                hiện tại.
+              </p>
+              <ul className="list-inside list-disc">
+                {unavailablePermissions.map((permission) => (
+                  <li key={permission}>{permission}</li>
+                ))}
+              </ul>
+              <p>Liên hệ quản trị hệ thống để kiểm tra phạm vi phân quyền trước khi áp dụng.</p>
+            </div>
+          )}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Quay lại</AlertDialogCancel>

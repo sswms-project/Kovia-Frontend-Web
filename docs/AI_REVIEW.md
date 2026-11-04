@@ -1,5 +1,9 @@
 # AI Review Handoff
 
+## 2026-11-04 — Role template review fixes
+
+State: READY_FOR_CODEX_REVIEW. Implementer verification only. Template dialog lists recommendations unavailable under the delegation ceiling before the user selects and saves. Missing field from older API remains compatible; no new write or permission grant.
+
 ## 2026-11-03 — Owner-applied role permission templates
 
 State: READY_FOR_CODEX_REVIEW. Implementer self-verification only.

@@ -311,6 +311,7 @@ export function AccessControlWorkspace({
               recommendedIds != null && (
                 <PermissionTemplateButton
                   roleLabel={getTenantRoleContent(selectedRole.roleName).label}
+                  unavailablePermissions={selectedRole.unavailableRecommendedPermissions ?? []}
                   addedCount={[...templateIds].filter((id) => !draftIds.has(id)).length}
                   removedCount={[...draftIds].filter((id) => !templateIds.has(id)).length}
                   disabled={saving || !canManage}
