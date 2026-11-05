@@ -2981,3 +2981,17 @@ State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification, not i
 - Verification: 2 real-component regressions passed (modal-local popup, search/select a late category, clear category and defer apply). Source TypeScript passed with pre-existing untracked outputs/tmp QA excluded; default typecheck remains blocked by those old QA files. Changed-source ESLint and Prettier passed. Full-workspace lint failed while including old generated/QA files under output/outputs/tmp; that is not reported as passing.
 - Isolated Vite preview used synthetic options only, without backend requests: Chromium desktop 1440x900 and mobile viewport 390x844 showed a bounded list, 6px shared scrollbar and working mouse-wheel scroll through 60 long category paths; screenshots inspected. Touch gesture emulation did not produce a scroll result, so actual phone touch remains manual QA and is not claimed passed.
 - No BE edits, API business requests, migrations or DB writes. No commit/push requested. Local QA fixtures and unrelated instruction/configuration edits remain outside the feature changes.
+
+## AI-CHAT-ERROR-DIAGNOSTICS-20261105
+
+Follow-up: expected chat rate limits (HTTP 429) now use warning toast/log instead of console.error,
+so this handled condition does not trigger the Next development error indicator. Unexpected 502
+errors retain error toast/log. BE/AI now preserve provider 429 with a specific Vietnamese message.
+Verification: two real React Query mutation tests passed (429 warning, 502 error, one service call);
+changed-file ESLint and Prettier passed. No global logger suppression. State: READY_FOR_CODEX_REVIEW.
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation/self-review.
+
+- Chat mutation logs errors with the existing formatApiError helper (status/message) instead of a raw object that Next development overlay renders as {}. Toast/cache/mutation ownership unchanged; no headers/tokens logged.
+- User-provided console shows ERR_CONNECTION_REFUSED on BE 7070 for chat and SignalR negotiation. This demonstrates temporary BE unavailability, not an AI upstream error or warehouse permission rejection. BE warehouse authorization fix is recorded in the Backend handoff.
+- Verification: changed-file ESLint and Prettier passed. GitNexus impact LOW (AiAssistantPanel direct caller). No new UI/state/network behavior or dependency. FE dev server uses Fast Refresh; real chat retry remains manual QA. No commit/push requested.
