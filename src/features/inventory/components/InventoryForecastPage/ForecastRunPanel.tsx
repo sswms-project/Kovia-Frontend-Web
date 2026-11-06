@@ -304,7 +304,7 @@ export function ForecastRunPanel({
               <TabsTrigger value="replenishment">
                 Bổ sung hàng ({run.replenishmentSuggestions.length})
               </TabsTrigger>
-              <TabsTrigger value="demand">Nhu cầu & sai số</TabsTrigger>
+              <TabsTrigger value="demand">Dự báo & đối chiếu</TabsTrigger>
               {run.rebalancingSuggestions.length > 0 ? (
                 <TabsTrigger value="rebalancing">Điều chuyển</TabsTrigger>
               ) : null}

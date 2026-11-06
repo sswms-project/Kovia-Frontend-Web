@@ -1,5 +1,14 @@
 # AI Review Handoff
 
+## FORECAST-PLAIN-LANGUAGE-20261105
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation/self-review, not independent approval.
+
+- Renamed demand tab to Dự báo & đối chiếu and updated its replenishment cross-reference. Replaced visible MAE/backtesting/WAPE labels with plain Vietnamese; metric values show product units or %, unavailable metrics say Chưa tính được. Candidate comparison uses Sai lệch/ngày and Đang dùng; algorithm names retain short explanations.
+- Existing Tooltip/Popover/Button primitives compose a forecast-local explanation control: hover or click, keyboard focus/Escape, labeled icon, 44px touch target below sm, viewport-bounded content and suppressed tooltip while popover is open. Data warnings keep the original text in the explanation; visible summary is shorter. Detailed holdout-window and accuracy caveats remain accessible without filling the screen.
+- Calculations, data fetching, stored runs, charts and BE contracts unchanged. Tests exercise rendered values/units, hover/click/keyboard dismissal/focus and undefined percentage without inventing zero. Two component tests, changed-file ESLint/Prettier and source-only TypeScript passed. Full pnpm typecheck includes pre-existing QA files under outputs/tmp, so is not represented as clean. A concurrent test rerun hit a native worker memory error; the final serial rerun passed both tests without unhandled errors.
+- GitNexus impact LOW for ForecastDemandView, CandidateTable, Metric, ForecastRunPanel and ReplenishmentList. New helper kept feature-local; existing cohesive chart/diagnostics view retained rather than splitting purely by line count. No API business writes, dependency changes or commit/push requested. Real phone/browser visual QA remains manual.
+
 ## 2026-11-04 — PDF review corrections
 
 State: READY_FOR_CODEX_REVIEW. Unsaved detection now compares drafts independently of save eligibility, including cleared/invalid quantities, notes and incomplete damage details; PDF and submission stay blocked and the footer no longer claims everything was saved. Equivalent valid quantities are not marked dirty. Cycle count PDF rows include the shared Vietnamese quality label. Sixteen focused FE tests, source-only TypeScript and scoped ESLint passed; regenerated PDF visually verified with Good/Damaged rows. These fixes do not address the separately recorded report-level forecast visibility or missing rack identity in some reports. No deployed DB write.
