@@ -178,7 +178,11 @@ export function ForecastRunPanel({
               disabled={!workspace.warehouseId || workspace.isCreating}
             >
               <PackagePlus className="size-4" aria-hidden="true" />
-              {workspace.isCreating ? 'Đang tính & lập nháp…' : 'Tính & lập nháp'}
+              {workspace.isCreating
+                ? 'Đang tính & lập nháp…'
+                : run?.status === 'Failed'
+                  ? 'Tính lại'
+                  : 'Tính & lập nháp'}
             </Button>
           ) : null}
           {run?.status === 'Completed' && canRun ? (
@@ -252,6 +256,22 @@ export function ForecastRunPanel({
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+      ) : run.status === 'Failed' ? (
+        <>
+          <Alert variant="destructive">
+            <AlertDescription>
+              {run.failureReason || 'Không thể hoàn tất dự báo. Vui lòng thử lại sau.'}
+            </AlertDescription>
+          </Alert>
+          <OperationalEmptyState
+            title="Chưa có kết quả dự báo"
+            description={
+              canRun
+                ? 'Bấm “Tính lại” hoặc chọn phiên đã hoàn tất trong “Phiên đã lưu”.'
+                : 'Chọn phiên đã hoàn tất trong “Phiên đã lưu” để xem kết quả.'
+            }
+          />
+        </>
       ) : (
         <>
           <div
@@ -278,13 +298,6 @@ export function ForecastRunPanel({
               nháp chờ kiểm tra
             </span>
           </div>
-          {run.status === 'Failed' ? (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {run.failureReason || 'Phiên thất bại. Hãy tạo phiên mới.'}
-              </AlertDescription>
-            </Alert>
-          ) : null}
           {run.details?.draftCreationNotice ? (
             <Alert>
               <AlertDescription>{run.details.draftCreationNotice}</AlertDescription>
@@ -345,11 +358,13 @@ export function ForecastRunPanel({
           </Tabs>
         </>
       )}
-      <ReplenishmentReviewDialog
-        workspace={workspace}
-        canReview={canReview}
-        canViewInbound={canViewInbound}
-      />
+      {run?.status === 'Completed' ? (
+        <ReplenishmentReviewDialog
+          workspace={workspace}
+          canReview={canReview}
+          canViewInbound={canViewInbound}
+        />
+      ) : null}
     </div>
   )
 }

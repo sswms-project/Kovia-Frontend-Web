@@ -3004,3 +3004,13 @@ State: READY_FOR_CODEX_REVIEW. Codex implementation/self-review.
 - Chat mutation logs errors with the existing formatApiError helper (status/message) instead of a raw object that Next development overlay renders as {}. Toast/cache/mutation ownership unchanged; no headers/tokens logged.
 - User-provided console shows ERR_CONNECTION_REFUSED on BE 7070 for chat and SignalR negotiation. This demonstrates temporary BE unavailability, not an AI upstream error or warehouse permission rejection. BE warehouse authorization fix is recorded in the Backend handoff.
 - Verification: changed-file ESLint and Prettier passed. GitNexus impact LOW (AiAssistantPanel direct caller). No new UI/state/network behavior or dependency. FE dev server uses Fast Refresh; real chat retry remains manual QA. No commit/push requested.
+
+## FORECAST-FAILED-RESULTS-20261106
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-review, not independent approval.
+
+- Failed forecasts now have a separate failure/empty state. They no longer display result tabs, zero-count summaries, legacy diagnostics warnings or replenishment review actions. The existing create form offers Tính lại and retains its pending/permission guards. Completed legacy results retain their explanation.
+- GitNexus impact before edit: LOW, direct caller InventoryForecastPage. No hook/API/calculation/schema changes or new dependency.
+- Verification: 8 component regressions passed, changed-source ESLint and source TypeScript passed. Full-workspace typecheck is not claimed; existing untracked QA files are excluded by the source configuration. Prettier and diff whitespace checks passed.
+- Visible Chrome manual retest with Manager at DN-01: stopped only the verified local AI process; new run at 17:15:37 on 06/11 failed and displayed the upstream error plus Chưa có kết quả dự báo. No legacy/zero-stock/shortage conclusion appeared. Inventory returned HTTP 200 while AI was down. After AI restoration, clicking Tính lại produced a Completed run at 17:17:08 with four product results. Pending controls prevented duplicate clicks. Evidence: workspace outputs/l2-fix-20261106.
+- Normal forecast application flows created two run records. No new seed, direct SQL write or migration; automatic migration remained disabled. BE and AI source unchanged. No commit/push requested.
