@@ -3,7 +3,6 @@ import { useId, useState, type ReactNode } from 'react'
 import { ChartNoAxesCombined, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Sheet,
   SheetContent,
@@ -20,6 +19,7 @@ import type {
 } from '../../schemas/warehouse-report.schema'
 import { reportStatusLabel } from '../../utils/report-status'
 import { reportMonthPeriod } from '../../utils/report-period'
+import { ReportFilterSelect } from './ReportFilterSelect'
 
 interface ReportFiltersProps {
   readonly form: UseFormReturn<ReportFilterValues>
@@ -49,6 +49,9 @@ export function ReportFilters({
   const productId = useWatch({ control: form.control, name: 'productId' })
   const categoryId = useWatch({ control: form.control, name: 'categoryId' })
   const assigneeId = useWatch({ control: form.control, name: 'assigneeId' })
+  const status = useWatch({ control: form.control, name: 'status' })
+  const taskType = useWatch({ control: form.control, name: 'taskType' })
+  const deadline = useWatch({ control: form.control, name: 'deadline' })
   const dateFrom = useWatch({ control: form.control, name: 'dateFrom' })
   const dateTo = useWatch({ control: form.control, name: 'dateTo' })
   const currentMonth = reportMonthPeriod(false)
@@ -126,104 +129,91 @@ export function ReportFilters({
               {definition.name}. Chỉ cập nhật kết quả khi bấm “Xem báo cáo”.
             </SheetDescription>
           </SheetHeader>
-          <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto px-4 pb-4 sm:grid-cols-2 [&_input]:h-10 [&_input]:text-sm [&_label]:w-full [&_label]:min-w-0 [&_label]:text-sm [&_select]:h-10 [&_select]:text-sm">
+          <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto overscroll-contain px-4 pb-4 sm:grid-cols-2 [&_[data-slot=input-group]]:h-10 [&_input]:h-10 [&_input]:text-sm [&_label]:w-full [&_label]:min-w-0 [&_label]:text-sm">
             <label className="min-w-0 space-y-1 text-sm sm:col-span-2">
               <span>Kho</span>
-              <NativeSelect
-                form={formId}
-                className="w-full"
-                {...form.register('warehouseId')}
+              <ReportFilterSelect
+                label="Kho"
                 value={warehouseId}
-                aria-label="Kho"
-              >
-                <NativeSelectOption value="">Tất cả kho được phép</NativeSelectOption>
-                {options?.warehouses.map((warehouse) => (
-                  <NativeSelectOption key={warehouse.id} value={warehouse.id}>
-                    {warehouse.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+                emptyLabel="Tất cả kho được phép"
+                options={(options?.warehouses ?? []).map((warehouse) => ({
+                  value: warehouse.id,
+                  label: warehouse.name,
+                }))}
+                onChange={(value) => form.setValue('warehouseId', value)}
+              />
             </label>
             {!isTask ? (
               <label className="w-52 min-w-0 space-y-1 text-xs">
                 <span>Nhóm vật tư / hàng hóa</span>
-                <NativeSelect
-                  form={formId}
-                  className="w-full"
-                  aria-label="Nhóm vật tư / hàng hóa"
+                <ReportFilterSelect
+                  label="Nhóm vật tư / hàng hóa"
                   value={categoryId}
-                  onChange={(event) => {
-                    form.setValue('categoryId', event.target.value)
+                  emptyLabel="Tất cả nhóm hàng"
+                  options={(options?.categories ?? []).map((category) => ({
+                    value: category.id,
+                    label: category.name,
+                  }))}
+                  onChange={(value) => {
+                    form.setValue('categoryId', value)
                     form.setValue('productId', '', { shouldValidate: true })
                   }}
-                >
-                  <NativeSelectOption value="">Tất cả nhóm hàng</NativeSelectOption>
-                  {options?.categories?.map((category) => (
-                    <NativeSelectOption key={category.id} value={category.id}>
-                      {category.name}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                />
               </label>
             ) : null}
             {!isTask ? (
               <label className="w-64 min-w-0 shrink-0 space-y-1 text-xs">
                 <span>Mặt hàng{definition.requiresProduct ? ' *' : ''}</span>
-                <NativeSelect
-                  form={formId}
-                  className="w-full"
-                  {...form.register('productId')}
+                <ReportFilterSelect
+                  label="Mặt hàng"
                   value={productId}
-                  aria-label="Mặt hàng"
-                >
-                  <NativeSelectOption value="">
-                    {definition.requiresProduct ? 'Chọn mặt hàng' : 'Tất cả mặt hàng'}
-                  </NativeSelectOption>
-                  {options?.products.map((product) => (
-                    <NativeSelectOption key={product.id} value={product.id}>
-                      {product.sku} · {product.name}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                  emptyLabel={definition.requiresProduct ? 'Chọn mặt hàng' : 'Tất cả mặt hàng'}
+                  isInvalid={Boolean(form.formState.errors.productId)}
+                  options={(options?.products ?? []).map((product) => ({
+                    value: product.id,
+                    label: `${product.sku} - ${product.name}`,
+                  }))}
+                  onChange={(value) => form.setValue('productId', value, { shouldValidate: true })}
+                />
               </label>
             ) : null}
             {states[definition.type] ? (
               <label className="w-44 min-w-0 shrink-0 space-y-1 text-xs">
                 <span>Trạng thái</span>
-                <NativeSelect form={formId} className="w-full" {...form.register('status')}>
-                  <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-                  {states[definition.type]?.map((value) => (
-                    <NativeSelectOption key={value} value={value}>
-                      {reportStatusLabel(value)}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                <ReportFilterSelect
+                  label="Trạng thái"
+                  value={status}
+                  emptyLabel="Tất cả trạng thái"
+                  options={(states[definition.type] ?? []).map((value) => ({
+                    value,
+                    label: reportStatusLabel(value),
+                  }))}
+                  onChange={(value) => form.setValue('status', value)}
+                />
               </label>
             ) : null}
             {isTask ? (
               <>
                 <label className="w-44 min-w-0 shrink-0 space-y-1 text-xs">
                   <span>Người được giao</span>
-                  <NativeSelect
-                    form={formId}
-                    className="w-full"
-                    {...form.register('assigneeId')}
+                  <ReportFilterSelect
+                    label="Người được giao"
                     value={assigneeId}
-                    aria-label="Người được giao"
-                  >
-                    <NativeSelectOption value="">Tất cả nhân viên</NativeSelectOption>
-                    {options?.assignees.map((user) => (
-                      <NativeSelectOption key={user.id} value={user.id}>
-                        {user.name}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
+                    emptyLabel="Tất cả nhân viên"
+                    options={(options?.assignees ?? []).map((user) => ({
+                      value: user.id,
+                      label: user.name,
+                    }))}
+                    onChange={(value) => form.setValue('assigneeId', value)}
+                  />
                 </label>
                 <label className="w-44 min-w-0 shrink-0 space-y-1 text-xs">
                   <span>Loại công việc</span>
-                  <NativeSelect form={formId} className="w-full" {...form.register('taskType')}>
-                    <NativeSelectOption value="">Tất cả loại</NativeSelectOption>
-                    {[
+                  <ReportFilterSelect
+                    label="Loại công việc"
+                    value={taskType}
+                    emptyLabel="Tất cả loại"
+                    options={[
                       'Receiving',
                       'PutAway',
                       'CycleCount',
@@ -231,36 +221,41 @@ export function ReportFilters({
                       'TransferPick',
                       'TransferReceive',
                       'TransferPutAway',
-                    ].map((value) => (
-                      <NativeSelectOption key={value} value={value}>
-                        {reportStatusLabel(value)}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
+                    ].map((value) => ({ value, label: reportStatusLabel(value) }))}
+                    onChange={(value) => form.setValue('taskType', value)}
+                  />
                 </label>
                 <label className="w-44 min-w-0 shrink-0 space-y-1 text-xs">
                   <span>Hạn xử lý</span>
-                  <NativeSelect form={formId} className="w-full" {...form.register('deadline')}>
-                    <NativeSelectOption value="">Tất cả tình trạng hạn</NativeSelectOption>
-                    {['Overdue', 'DueSoon', 'NoDeadline', 'OnTrack', 'Terminal'].map((value) => (
-                      <NativeSelectOption key={value} value={value}>
-                        {reportStatusLabel(value)}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
+                  <ReportFilterSelect
+                    label="Hạn xử lý"
+                    value={deadline}
+                    emptyLabel="Tất cả tình trạng hạn"
+                    options={['Overdue', 'DueSoon', 'NoDeadline', 'OnTrack', 'Terminal'].map(
+                      (value) => ({ value, label: reportStatusLabel(value) })
+                    )}
+                    onChange={(value) => form.setValue('deadline', value)}
+                  />
                 </label>
               </>
             ) : null}
             {definition.usesPeriod ? (
               <label className="min-w-0 space-y-1 text-sm sm:col-span-2">
                 <span>Kỳ báo cáo</span>
-                <NativeSelect
-                  form={formId}
-                  className="w-full"
-                  aria-label="Kỳ báo cáo"
+                <ReportFilterSelect
+                  label="Kỳ báo cáo"
                   value={period}
-                  onChange={(event) => {
-                    const value = event.target.value
+                  emptyLabel="Chọn kỳ báo cáo"
+                  options={[
+                    { value: 'current', label: 'Tháng này' },
+                    { value: 'previous', label: 'Tháng trước' },
+                    { value: 'custom', label: 'Tùy chọn ngày' },
+                    ...(!['inventory-balance', 'slow-moving'].includes(definition.type)
+                      ? [{ value: 'all', label: 'Tất cả ngày' }]
+                      : []),
+                  ]}
+                  onChange={(value) => {
+                    if (!value) return
                     form.setValue('allDates', value === 'all')
                     if (value === 'current' || value === 'previous') {
                       const dates = reportMonthPeriod(value === 'previous')
@@ -269,14 +264,7 @@ export function ReportFilters({
                     }
                     if (value === 'custom') setParametersOpen(true)
                   }}
-                >
-                  <NativeSelectOption value="current">Tháng này</NativeSelectOption>
-                  <NativeSelectOption value="previous">Tháng trước</NativeSelectOption>
-                  <NativeSelectOption value="custom">Tùy chọn ngày</NativeSelectOption>
-                  {!['inventory-balance', 'slow-moving'].includes(definition.type) ? (
-                    <NativeSelectOption value="all">Tất cả ngày</NativeSelectOption>
-                  ) : null}
-                </NativeSelect>
+                />
               </label>
             ) : (
               <span className="text-muted-foreground py-2 text-xs">

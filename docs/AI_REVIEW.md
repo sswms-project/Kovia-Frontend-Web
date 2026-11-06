@@ -1,5 +1,14 @@
 # AI Review Handoff
 
+## FORECAST-PLAIN-LANGUAGE-20261105
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation/self-review, not independent approval.
+
+- Renamed demand tab to Dự báo & đối chiếu and updated its replenishment cross-reference. Replaced visible MAE/backtesting/WAPE labels with plain Vietnamese; metric values show product units or %, unavailable metrics say Chưa tính được. Candidate comparison uses Sai lệch/ngày and Đang dùng; algorithm names retain short explanations.
+- Existing Tooltip/Popover/Button primitives compose a forecast-local explanation control: hover or click, keyboard focus/Escape, labeled icon, 44px touch target below sm, viewport-bounded content and suppressed tooltip while popover is open. Data warnings keep the original text in the explanation; visible summary is shorter. Detailed holdout-window and accuracy caveats remain accessible without filling the screen.
+- Calculations, data fetching, stored runs, charts and BE contracts unchanged. Tests exercise rendered values/units, hover/click/keyboard dismissal/focus and undefined percentage without inventing zero. Two component tests, changed-file ESLint/Prettier and source-only TypeScript passed. Full pnpm typecheck includes pre-existing QA files under outputs/tmp, so is not represented as clean. A concurrent test rerun hit a native worker memory error; the final serial rerun passed both tests without unhandled errors.
+- GitNexus impact LOW for ForecastDemandView, CandidateTable, Metric, ForecastRunPanel and ReplenishmentList. New helper kept feature-local; existing cohesive chart/diagnostics view retained rather than splitting purely by line count. No API business writes, dependency changes or commit/push requested. Real phone/browser visual QA remains manual.
+
 ## 2026-11-04 — PDF review corrections
 
 State: READY_FOR_CODEX_REVIEW. Unsaved detection now compares drafts independently of save eligibility, including cleared/invalid quantities, notes and incomplete damage details; PDF and submission stay blocked and the footer no longer claims everything was saved. Equivalent valid quantities are not marked dirty. Cycle count PDF rows include the shared Vietnamese quality label. Sixteen focused FE tests, source-only TypeScript and scoped ESLint passed; regenerated PDF visually verified with Good/Damaged rows. These fixes do not address the separately recorded report-level forecast visibility or missing rack identity in some reports. No deployed DB write.
@@ -2971,3 +2980,37 @@ State: READY_FOR_CODEX_REVIEW. Codex implementation/self-verification, not indep
 - Additive contract: optional scanCodes in options and scannedSlotCode on receipt items. Existing clients may omit scan data; null fields serialize as absent so pre-existing idempotency hashes are unchanged. Provided scan data is part of the frozen command/hash. This is not mandatory scan enforcement for clients that omit the field. Deploy paired BE/FE for complete default-rack label support; no schema/migration changes.
 - Verification: 78 BE tests passed (isolated InMemory), 4 FE regressions passed, changed-source ESLint and production TypeScript passed. Mocked Next browser fixtures at 320x640, 390x844 and 1440x1000 passed wrong/manual match, condition-reset, overflow/44px-select/footer checks. External HTTP blocked; expected Vercel analytics load error only. Screenshots saved under workspace outputs/return-mobile-\* and return-desktop-customer-1440.png. Temporary preview route/server removed/stopped.
 - Final Next production build passed with the temporary preview route absent. Real phone camera/audio/keyboard and end-to-end logged-in profiles remain manual QA. No deployed API business requests, deployed DB writes, migration/seed or runtime BE restart. No commit/push requested; protected local config/instruction changes remain outside task delivery.
+
+## REPORT-FILTER-SCROLL-20261104 — implementation handoff
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification, not independent approval.
+
+- Replaced browser-native report parameter selects with the existing LookupCombobox through a report-local adapter. Dropdowns now use the existing modal-local portal and slim scrollbar rather than the OS-native option popup. Shared UI primitives and global CSS remain unchanged.
+- Category changes still clear the selected product; changes only apply on Xem báo cáo. Added local option search, retained all/reset choices, period semantics and task-specific filters. The Sheet content keeps a bounded scroll owner and overscroll containment.
+- Verification: 2 real-component regressions passed (modal-local popup, search/select a late category, clear category and defer apply). Source TypeScript passed with pre-existing untracked outputs/tmp QA excluded; default typecheck remains blocked by those old QA files. Changed-source ESLint and Prettier passed. Full-workspace lint failed while including old generated/QA files under output/outputs/tmp; that is not reported as passing.
+- Isolated Vite preview used synthetic options only, without backend requests: Chromium desktop 1440x900 and mobile viewport 390x844 showed a bounded list, 6px shared scrollbar and working mouse-wheel scroll through 60 long category paths; screenshots inspected. Touch gesture emulation did not produce a scroll result, so actual phone touch remains manual QA and is not claimed passed.
+- No BE edits, API business requests, migrations or DB writes. No commit/push requested. Local QA fixtures and unrelated instruction/configuration edits remain outside the feature changes.
+
+## AI-CHAT-ERROR-DIAGNOSTICS-20261105
+
+Follow-up: expected chat rate limits (HTTP 429) now use warning toast/log instead of console.error,
+so this handled condition does not trigger the Next development error indicator. Unexpected 502
+errors retain error toast/log. BE/AI now preserve provider 429 with a specific Vietnamese message.
+Verification: two real React Query mutation tests passed (429 warning, 502 error, one service call);
+changed-file ESLint and Prettier passed. No global logger suppression. State: READY_FOR_CODEX_REVIEW.
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation/self-review.
+
+- Chat mutation logs errors with the existing formatApiError helper (status/message) instead of a raw object that Next development overlay renders as {}. Toast/cache/mutation ownership unchanged; no headers/tokens logged.
+- User-provided console shows ERR_CONNECTION_REFUSED on BE 7070 for chat and SignalR negotiation. This demonstrates temporary BE unavailability, not an AI upstream error or warehouse permission rejection. BE warehouse authorization fix is recorded in the Backend handoff.
+- Verification: changed-file ESLint and Prettier passed. GitNexus impact LOW (AiAssistantPanel direct caller). No new UI/state/network behavior or dependency. FE dev server uses Fast Refresh; real chat retry remains manual QA. No commit/push requested.
+
+## FORECAST-FAILED-RESULTS-20261106
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-review, not independent approval.
+
+- Failed forecasts now have a separate failure/empty state. They no longer display result tabs, zero-count summaries, legacy diagnostics warnings or replenishment review actions. The existing create form offers Tính lại and retains its pending/permission guards. Completed legacy results retain their explanation.
+- GitNexus impact before edit: LOW, direct caller InventoryForecastPage. No hook/API/calculation/schema changes or new dependency.
+- Verification: 8 component regressions passed, changed-source ESLint and source TypeScript passed. Full-workspace typecheck is not claimed; existing untracked QA files are excluded by the source configuration. Prettier and diff whitespace checks passed.
+- Visible Chrome manual retest with Manager at DN-01: stopped only the verified local AI process; new run at 17:15:37 on 06/11 failed and displayed the upstream error plus Chưa có kết quả dự báo. No legacy/zero-stock/shortage conclusion appeared. Inventory returned HTTP 200 while AI was down. After AI restoration, clicking Tính lại produced a Completed run at 17:17:08 with four product results. Pending controls prevented duplicate clicks. Evidence: workspace outputs/l2-fix-20261106.
+- Normal forecast application flows created two run records. No new seed, direct SQL write or migration; automatic migration remained disabled. BE and AI source unchanged. No commit/push requested.
