@@ -24,6 +24,19 @@ import type { DemandForecastDiagnostics, ForecastRun } from '../../types/invento
 import { buildDemandChartData } from '../../utils/forecast-chart'
 import { forecastModelLabel } from '../../utils/forecast-overview'
 import { formatInventoryDateOnly, formatInventoryQuantity } from '../../utils/inventory-format'
+import { ForecastExplanation } from './ForecastExplanation'
+
+const METHOD_HELP: Record<string, string> = {
+  'naive-average': 'Lấy nhu cầu trung bình mỗi ngày trong lịch sử làm mức dự báo cho các ngày tới.',
+  'weekday-average':
+    'Tính mức trung bình riêng cho từng thứ trong tuần, ví dụ so thứ Hai với các thứ Hai trước đó.',
+  'holt-winters-weekly':
+    'Holt-Winters: tính cả xu hướng tăng/giảm và nhịp lặp lại theo chu kỳ 7 ngày.',
+  'croston-sba':
+    'Croston: dành cho mặt hàng xuất không đều, có nhiều ngày không phát sinh nhu cầu.',
+  'lightgbm-global':
+    'LightGBM: dùng mô hình học máy nhận diện các đặc điểm trong dữ liệu lịch sử để dự báo nhu cầu.',
+}
 
 export function ForecastDemandView({
   run,
@@ -85,24 +98,48 @@ export function ForecastDemandView({
             </span>
             <span>ĐVT: {product.unitName || 'Cơ sở'}</span>
             {product.basis === 'Forecast' ? (
-              <span>Mô hình: {forecastModelLabel(product.method)}</span>
+              <span>Cách dự báo: {forecastModelLabel(product.method)}</span>
             ) : null}
           </div>
           {product.warning ? (
             <Alert>
-              <AlertDescription>{product.warning}</AlertDescription>
+              <AlertDescription className="flex items-center justify-between gap-2">
+                <span>
+                  {product.stockoutDays > 0
+                    ? 'Có ngày hết hàng, nên một phần nhu cầu được ước tính.'
+                    : 'Có lưu ý về dữ liệu dùng dự báo.'}
+                </span>
+                <ForecastExplanation label="Lưu ý về dữ liệu dự báo" text={product.warning} />
+              </AlertDescription>
             </Alert>
           ) : null}
           <div className="grid gap-3 text-sm sm:grid-cols-3">
-            <Metric label="MAE kiểm thử lùi (ngoài mẫu)" value={product.holdoutMae} />
-            <Metric label="MAE nếu chỉ dùng trung bình" value={product.baselineMae} />
-            <Metric label="WAPE kiểm thử lùi (%)" value={product.holdoutWape} />
+            <Metric
+              label="Sai lệch trung bình/ngày"
+              value={product.holdoutMae}
+              unit={product.unitName}
+              help="MAE: mức chênh lệch tuyệt đối trung bình mỗi ngày giữa dự báo và số lượng thực tế khi kiểm tra trên dữ liệu quá khứ. Cùng đơn vị với mặt hàng. Số càng thấp càng tốt."
+            />
+            <Metric
+              label="Sai lệch cách tính cơ bản"
+              value={product.baselineMae}
+              unit={product.unitName}
+              help="MAE của cách lấy nhu cầu trung bình các ngày. Đây là mốc so sánh để biết cách dự báo được chọn có giảm sai lệch hay không, không phải lượng hàng cần nhập."
+            />
+            <Metric
+              label="Tỷ lệ sai lệch"
+              value={product.holdoutWape}
+              unit="%"
+              help="WAPE: tổng chênh lệch tuyệt đối chia cho tổng nhu cầu thực tế, nhân 100%. Số càng thấp càng tốt; đây không phải phần trăm độ chính xác. Không tính được khi chưa đủ dữ liệu hoặc tổng nhu cầu thực tế bằng 0."
+            />
           </div>
-          <p className="text-muted-foreground text-xs">
-            Sai số càng thấp càng tốt. Mỗi mô hình được thử dự báo lại tối đa 3 đoạn 7 ngày gần nhất
-            của chính lịch sử này; mô hình sai ít nhất được chọn. Không phải xác suất hoặc cam kết
-            độ chính xác.
-          </p>
+          <div className="text-muted-foreground flex items-center gap-2 text-xs">
+            <p>Sai lệch càng thấp, dự báo càng sát dữ liệu đã kiểm tra.</p>
+            <ForecastExplanation
+              label="Cách đánh giá dự báo"
+              text="Hệ thống thử dự báo lại tối đa 3 giai đoạn 7 ngày gần nhất, dùng dữ liệu trước mỗi giai đoạn để dự báo và so với số thực tế. Cách có sai lệch trung bình thấp nhất được chọn. Đây là kết quả kiểm tra quá khứ, không bảo đảm độ chính xác tương tự trong tương lai."
+            />
+          </div>
           <CandidateTable product={product} />
           <ResponsiveContainer width="100%" height={300}>
             <ComposedChart data={data}>
@@ -154,7 +191,7 @@ export function ForecastDemandView({
           <p className="text-muted-foreground text-xs">
             {mae === null
               ? 'Chưa có ngày dự báo đã kết thúc để đối chiếu thực tế.'
-              : `MAE đối chiếu: ${formatInventoryQuantity(mae)} ${product.unitName}, trên ${evaluated.length} ngày.`}
+              : `Sai lệch so với thực tế: ${formatInventoryQuantity(mae)} ${product.unitName}/ngày, trên ${evaluated.length} ngày.`}
           </p>
         </>
       )}
@@ -165,37 +202,63 @@ export function ForecastDemandView({
 function CandidateTable({ product }: { readonly product: DemandForecastDiagnostics }) {
   if (!product.candidates?.length) return null
   return (
-    <Table aria-label="So sánh mô hình">
+    <Table aria-label="So sánh cách dự báo">
       <TableHeader>
         <TableRow>
-          <TableHead>Mô hình đã thử</TableHead>
-          <TableHead className="text-right">MAE kiểm thử lùi</TableHead>
+          <TableHead>Cách dự báo đã thử</TableHead>
+          <TableHead className="text-right">Sai lệch/ngày ({product.unitName})</TableHead>
           <TableHead />
         </TableRow>
       </TableHeader>
       <TableBody>
-        {product.candidates.map((candidate) => (
-          <TableRow key={candidate.modelName}>
-            <TableCell>{forecastModelLabel(candidate.modelName)}</TableCell>
-            <TableCell className="text-right tabular-nums">
-              {formatInventoryQuantity(candidate.mae)}
-            </TableCell>
-            <TableCell>
-              {candidate.modelName === product.method ? <Badge>Đã chọn</Badge> : null}
-            </TableCell>
-          </TableRow>
-        ))}
+        {product.candidates.map((candidate) => {
+          const methodHelp = METHOD_HELP[candidate.modelName]
+          return (
+            <TableRow key={candidate.modelName}>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <span>{forecastModelLabel(candidate.modelName)}</span>
+                  {methodHelp ? (
+                    <ForecastExplanation
+                      label={`Giải thích cách ${forecastModelLabel(candidate.modelName).toLowerCase()}`}
+                      text={methodHelp}
+                    />
+                  ) : null}
+                </div>
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {formatInventoryQuantity(candidate.mae)}
+              </TableCell>
+              <TableCell>
+                {candidate.modelName === product.method ? <Badge>Đang dùng</Badge> : null}
+              </TableCell>
+            </TableRow>
+          )
+        })}
       </TableBody>
     </Table>
   )
 }
 
-function Metric({ label, value }: { readonly label: string; readonly value: number | null }) {
+function Metric({
+  label,
+  value,
+  unit,
+  help,
+}: {
+  readonly label: string
+  readonly value: number | null
+  readonly unit: string
+  readonly help: string
+}) {
   return (
     <div className="bg-muted/40 rounded-lg border p-3">
-      <p className="text-muted-foreground text-xs">{label}</p>
+      <div className="text-muted-foreground flex items-center justify-between gap-2 text-xs">
+        <p>{label}</p>
+        <ForecastExplanation label={`Giải thích ${label.toLowerCase()}`} text={help} />
+      </div>
       <p className="mt-1 text-lg font-semibold tabular-nums">
-        {value === null ? 'Không đủ mẫu' : formatInventoryQuantity(value)}
+        {value === null ? 'Chưa tính được' : `${formatInventoryQuantity(value)} ${unit}`}
       </p>
     </div>
   )

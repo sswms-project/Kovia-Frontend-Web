@@ -60,7 +60,7 @@ export function ReplenishmentList({
               <TableRow>
                 <TableCell colSpan={8} className="text-muted-foreground py-12 text-center">
                   Không có lượng thiếu cần lập nháp. Kiểm tra tồn, chính sách và kế hoạch nhập tại
-                  tab Nhu cầu & sai số.
+                  tab Dự báo & đối chiếu.
                 </TableCell>
               </TableRow>
             ) : null}
