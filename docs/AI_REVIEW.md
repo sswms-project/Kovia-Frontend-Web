@@ -3014,3 +3014,11 @@ State: READY_FOR_CODEX_REVIEW. Codex implementation and self-review, not indepen
 - Verification: 8 component regressions passed, changed-source ESLint and source TypeScript passed. Full-workspace typecheck is not claimed; existing untracked QA files are excluded by the source configuration. Prettier and diff whitespace checks passed.
 - Visible Chrome manual retest with Manager at DN-01: stopped only the verified local AI process; new run at 17:15:37 on 06/11 failed and displayed the upstream error plus Chưa có kết quả dự báo. No legacy/zero-stock/shortage conclusion appeared. Inventory returned HTTP 200 while AI was down. After AI restoration, clicking Tính lại produced a Completed run at 17:17:08 with four product results. Pending controls prevented duplicate clicks. Evidence: workspace outputs/l2-fix-20261106.
 - Normal forecast application flows created two run records. No new seed, direct SQL write or migration; automatic migration remained disabled. BE and AI source unchanged. No commit/push requested.
+
+## K2-STOCK-CARD-DISPLAY-20261106
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation/self-review, not independent approval.
+
+- Stock-card location cells use optional BE locationPath and wrap the full zone/rack hierarchy. Older API responses remain accepted with the existing fallback. Added Inbound -> Nhập kho to existing shared report labels; no quantity calculation or permission changes.
+- GitNexus shared-label impact HIGH was reported before edit; table formatter/callers checked. Existing UI primitives reused, no dependency added.
+- Verification: 7 reporting component tests passed (5 table regressions + 2 filters); changed-source ESLint and source TypeScript passed. Default full-workspace typecheck is not claimed because existing generated QA files are excluded. Visible Chrome and downloaded Excel verified against the pre-fix 72-row export, with all non-display columns unchanged. Backend also passed 25 reporting tests. No commit/push requested.

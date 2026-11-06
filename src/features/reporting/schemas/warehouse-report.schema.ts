@@ -168,6 +168,7 @@ export const reportRowSchema = z.discriminatedUnion('rowType', [
   commonRow.extend({
     rowType: z.literal('stock-card'),
     slotCode: z.string(),
+    locationPath: z.string().nullish(),
     occurredAt: z.string(),
     movementType: z.string(),
     increase: z.number(),

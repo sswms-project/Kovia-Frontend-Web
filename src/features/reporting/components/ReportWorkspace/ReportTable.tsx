@@ -29,7 +29,13 @@ interface ReportTableProps {
 }
 const quantityFormatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 6 })
 
-function formatCell(value: unknown, dataType: string, key: string): string {
+function formatCell(
+  value: unknown,
+  dataType: string,
+  key: string,
+  locationPath?: string | null
+): string {
+  if (key === 'slotCode' && locationPath) return locationPath
   if (value === null || value === undefined) return '—'
   if (typeof value === 'number') return quantityFormatter.format(value)
   if (typeof value === 'boolean') return value ? 'Có' : 'Không'
@@ -116,6 +122,7 @@ export const ReportTable = memo(function ReportTable({
         <TableBody>
           {report.items.map((row) => {
             const values: Readonly<Record<string, unknown>> = row
+            const locationPath = row.rowType === 'stock-card' ? row.locationPath : undefined
             return (
               <TableRow
                 key={row.id}
@@ -144,6 +151,9 @@ export const ReportTable = memo(function ReportTable({
                       'whitespace-nowrap',
                       column.key === 'warehouseName' && 'max-w-32 min-w-28 whitespace-normal',
                       column.key === 'categoryName' && 'max-w-48 min-w-36 whitespace-normal',
+                      report.reportType === 'stock-card' &&
+                        column.key === 'slotCode' &&
+                        'max-w-80 min-w-48 whitespace-normal',
                       column.dataType === 'number' && 'text-right tabular-nums',
                       column.key === productKey &&
                         'bg-card sticky left-0 z-10 max-w-72 min-w-56 whitespace-normal',
@@ -179,14 +189,14 @@ export const ReportTable = memo(function ReportTable({
                         href={sourceLinks.get(row.id) ?? { pathname: '/' }}
                         className="text-primary font-medium hover:underline"
                       >
-                        {formatCell(values[column.key], column.dataType, column.key)}
+                        {formatCell(values[column.key], column.dataType, column.key, locationPath)}
                       </Link>
                     ) : isBalance &&
                       ['openingBalance', 'closingBalance'].includes(column.key) &&
                       values[column.key] == null ? (
                       <span className="text-warning text-xs font-normal">Chưa xác định</span>
                     ) : (
-                      formatCell(values[column.key], column.dataType, column.key)
+                      formatCell(values[column.key], column.dataType, column.key, locationPath)
                     )}
                   </TableCell>
                 ))}
