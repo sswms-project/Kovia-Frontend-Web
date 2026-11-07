@@ -50,6 +50,7 @@ export interface RegisterRequestDto {
   password: string
   confirmPassword: string
   acceptTerms: boolean
+  termsVersionId?: string
   selectedPlanId?: string
   selectedBillingCycle?: BillingCycle
 }

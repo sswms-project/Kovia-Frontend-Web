@@ -63,6 +63,7 @@ import type {
 import type { TenantUserPermissionSubjectQuery } from '@/features/access-control/types/tenant-access-control.types'
 
 export const queryKeys = {
+  legalDocuments: ['legal-documents'] as const,
   platformAdmin: {
     all: ['platform-admin'] as const,
     dashboard: ['platform-admin', 'dashboard'] as const,
