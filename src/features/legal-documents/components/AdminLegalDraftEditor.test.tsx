@@ -26,7 +26,10 @@ const draft: LegalDetail = {
   content: 'Nội dung cũ',
 }
 
-function mount(reload = vi.fn().mockResolvedValue(draft)) {
+function mount(
+  reload = vi.fn().mockResolvedValue(draft),
+  loadCurrent: () => Promise<LegalDetail['document'] | null> = async () => null
+) {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <Link href="/admin/legal-documents">Liên kết đầu trang</Link>
@@ -34,7 +37,7 @@ function mount(reload = vi.fn().mockResolvedValue(draft)) {
         detail={draft}
         canEdit
         canPublish
-        loadCurrent={async () => null}
+        loadCurrent={loadCurrent}
         reload={reload}
       />
     </QueryClientProvider>
@@ -43,6 +46,37 @@ function mount(reload = vi.fn().mockResolvedValue(draft)) {
 }
 
 describe('bảo vệ bản nháp điều khoản', () => {
+  it('mở xác nhận công bố trực tiếp và gửi đúng phiên bản sau khi xác nhận', async () => {
+    const current = { ...draft.document, id: 'current', status: 'Current' as const, version: 2 }
+    const publish = vi
+      .spyOn(legalDocumentsService, 'publish')
+      .mockResolvedValue({} as Awaited<ReturnType<typeof legalDocumentsService.publish>>)
+    try {
+      const field = mount(undefined, async () => current)
+      fireEvent.click(screen.getByRole('button', { name: 'Công bố' }))
+      expect(await screen.findByRole('alertdialog')).toBeVisible()
+      expect(screen.getByText('Bản 3 có hiệu lực ngay.')).toBeVisible()
+      expect(publish).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Hủy' }))
+      fireEvent.change(field, { target: { value: 'Nội dung chưa lưu' } })
+      expect(screen.getByRole('button', { name: 'Công bố' })).toBeDisabled()
+      fireEvent.change(field, { target: { value: draft.content } })
+      fireEvent.click(screen.getByRole('button', { name: 'Công bố' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Công bố ngay' }))
+      await waitFor(() =>
+        expect(publish).toHaveBeenCalledExactlyOnceWith(
+          'Terms',
+          'draft',
+          'revision-1',
+          'current',
+          false
+        )
+      )
+    } finally {
+      publish.mockRestore()
+    }
+  })
+
   it('khóa nhập trong lúc lưu để lần tải lại không làm mất chữ vừa gõ', async () => {
     let finish = () => {}
     const update = vi.spyOn(legalDocumentsService, 'update').mockImplementation(

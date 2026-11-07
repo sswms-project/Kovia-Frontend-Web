@@ -1,7 +1,8 @@
 'use client'
 
+import { ScrollText, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,7 +37,7 @@ import { legalDate } from '../components/LegalDocumentReader'
 import { LegalRegistrationActivation } from '../components/LegalRegistrationActivation'
 import { useLegalDirectory, useLegalMutation } from '../hooks/use-legal-documents'
 import { legalDocumentsService as service } from '../services/legal-documents.service'
-import { legalKindLabels, type LegalKind, type LegalStatus } from '../types/legal-documents.types'
+import { legalKindLabels, type LegalStatus } from '../types/legal-documents.types'
 
 const statusLabels = {
   Draft: 'Bản nháp',
@@ -44,8 +45,12 @@ const statusLabels = {
   Superseded: 'Đã thay thế',
 } as const
 
+const documentTabClassName =
+  'border-border bg-card h-auto min-h-11 min-w-0 flex-none px-3 py-2 text-center whitespace-normal sm:whitespace-nowrap'
+
 export default function AdminLegalDocumentsPage() {
-  const [kind, setKind] = useState<LegalKind>('Terms')
+  const searchParams = useSearchParams()
+  const kind = searchParams.get('kind') === 'privacy' ? 'Privacy' : 'Terms'
   const [status, setStatus] = useState<LegalStatus | 'all'>('all')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -63,8 +68,8 @@ export default function AdminLegalDocumentsPage() {
   const directory = query.data
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Điều khoản và chính sách</h1>
         {permissions.includes(P.ADMIN_LEGAL_EDIT) &&
           directory &&
@@ -87,19 +92,30 @@ export default function AdminLegalDocumentsPage() {
               Tạo bản nháp
             </Button>
           ))}
-      </div>
+      </header>
       {permissions.includes(P.ADMIN_LEGAL_PUBLISH) && <LegalRegistrationActivation />}
       <Tabs
         value={kind}
         onValueChange={(value) => {
-          setKind(value === 'Privacy' ? 'Privacy' : 'Terms')
+          if (value !== 'Terms' && value !== 'Privacy') return
           setStatus('all')
           setPage(1)
+          window.history.replaceState(null, '', APP_ROUTES.admin.legalDocumentsForKind(value))
         }}
       >
-        <TabsList className="h-auto max-w-full flex-wrap">
-          <TabsTrigger value="Terms">{legalKindLabels.Terms}</TabsTrigger>
-          <TabsTrigger value="Privacy">{legalKindLabels.Privacy}</TabsTrigger>
+        <TabsList
+          variant="workspace"
+          aria-label="Loại văn bản"
+          className="grid w-full grid-cols-2 items-stretch gap-2 p-0 sm:inline-flex sm:w-fit"
+        >
+          <TabsTrigger value="Terms" className={documentTabClassName}>
+            <ScrollText data-icon="inline-start" aria-hidden="true" />
+            {legalKindLabels.Terms}
+          </TabsTrigger>
+          <TabsTrigger value="Privacy" className={documentTabClassName}>
+            <ShieldCheck data-icon="inline-start" aria-hidden="true" />
+            {legalKindLabels.Privacy}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
       {directory && (

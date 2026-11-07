@@ -245,6 +245,7 @@ export function RegisterForm({
             >
               <Checkbox
                 id="acceptTerms"
+                aria-labelledby="acceptTerms-label"
                 checked={field.value && agreedVersion === termsId}
                 disabled={legalBlocked}
                 onCheckedChange={(checked) => {
@@ -254,20 +255,38 @@ export function RegisterForm({
                 aria-invalid={Boolean(errors.acceptTerms)}
                 className="border-border data-checked:border-primary data-checked:bg-primary mt-0.5 rounded-sm"
               />
-              <>
-                <FieldLabel
-                  htmlFor="acceptTerms"
-                  className="text-foreground/70 block text-sm leading-5"
-                >
-                  Tôi đồng ý với Điều khoản sử dụng của Kovia
-                  {legal?.terms ? ` (phiên bản ${legal.terms.version})` : ''}.
-                </FieldLabel>
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  {legal?.terms && <LegalDocumentReader document={legal.terms} />}
-                  {legal?.privacy && <LegalDocumentReader document={legal.privacy} />}
-                </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <p className="text-foreground/70 text-sm leading-5">
+                  <span id="acceptTerms-label">
+                    <label htmlFor="acceptTerms">Tôi đồng ý với</label>{' '}
+                    {legal?.terms ? (
+                      <LegalDocumentReader
+                        document={legal.terms}
+                        triggerLabel="Điều khoản sử dụng"
+                      />
+                    ) : (
+                      <Link
+                        href={APP_ROUTES.legalDocuments}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary font-semibold underline underline-offset-2"
+                      >
+                        Điều khoản sử dụng
+                      </Link>
+                    )}{' '}
+                    <label htmlFor="acceptTerms">
+                      của Kovia{legal?.terms ? ` (phiên bản ${legal.terms.version})` : ''}.
+                    </label>
+                  </span>
+                  {legal?.privacy && (
+                    <>
+                      {' '}
+                      <LegalDocumentReader document={legal.privacy} />
+                    </>
+                  )}
+                </p>
                 <FieldError>{errors.acceptTerms?.message}</FieldError>
-              </>
+              </div>
             </Field>
           )}
         />

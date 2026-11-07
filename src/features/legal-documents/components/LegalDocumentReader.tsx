@@ -27,15 +27,21 @@ export const legalDate = (value: string) =>
     timeZone: 'Asia/Ho_Chi_Minh',
   }).format(new Date(value))
 
-export function LegalDocumentReader({ document }: { readonly document: LegalSummary }) {
+export function LegalDocumentReader({
+  document,
+  triggerLabel,
+}: {
+  readonly document: LegalSummary
+  readonly triggerLabel?: string
+}) {
   const [open, setOpen] = useState(false)
   const query = useLegalDetail(document.id, false, open)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button type="button" className="text-primary font-medium underline underline-offset-2">
-          {document.title}
+        <button type="button" className="text-primary font-semibold underline underline-offset-2">
+          {triggerLabel ?? document.title}
         </button>
       </DialogTrigger>
       <DialogContent className="flex h-dvh max-h-dvh max-w-full flex-col sm:h-auto sm:max-h-[85dvh] sm:max-w-3xl">

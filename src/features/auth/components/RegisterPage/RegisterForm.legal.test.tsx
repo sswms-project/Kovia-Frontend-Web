@@ -6,6 +6,30 @@ import { legalDocumentsService } from '@/features/legal-documents/services/legal
 import { RegisterForm } from './RegisterForm'
 
 describe('đăng ký với phiên bản điều khoản', () => {
+  it('cho mở trang điều khoản từ form trống khi chưa có bản công bố', () => {
+    const onSubmit = vi.fn()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RegisterForm
+          onSubmit={onSubmit}
+          legal={{ requireVersion: false, terms: null, privacy: null }}
+          legalUnavailable={false}
+          onRetryLegal={vi.fn()}
+          isLoading={false}
+          selectedBillingCycle="Monthly"
+          isPlanLoading={false}
+        />
+      </QueryClientProvider>
+    )
+
+    const link = screen.getByRole('link', { name: 'Điều khoản sử dụng' })
+    expect(link).toHaveAttribute('href', '/legal')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toBeVisible()
+    expect(screen.getByRole('checkbox', { name: /Tôi đồng ý/ })).not.toBeChecked()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   it('yêu cầu tích lại khi văn bản đổi và giữ phần thông tin đã nhập', async () => {
     const client = new QueryClient()
     const terms = {

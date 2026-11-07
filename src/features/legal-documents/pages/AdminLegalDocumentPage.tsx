@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,23 +36,28 @@ function AdminDocumentView({
   )
   const canEdit = permissions.includes(P.ADMIN_LEGAL_EDIT)
   return (
-    <div className="flex flex-col gap-4 pb-3">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          {document.status !== 'Draft' && (
-            <Link href={APP_ROUTES.admin.legalDocuments} className="text-primary text-sm underline">
-              Quay lại danh sách
+    <div className="flex w-full min-w-0 flex-col gap-5 pb-3">
+      <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button asChild variant="outline" size="icon">
+            <Link
+              href={APP_ROUTES.admin.legalDocumentsForKind(document.kind)}
+              aria-label="Quay lại danh sách"
+            >
+              <ArrowLeft aria-hidden="true" />
             </Link>
-          )}
-          <h1 className="text-xl font-semibold">{document.title}</h1>
-          <p className="text-muted-foreground text-sm">
-            {legalKindLabels[document.kind]} ·{' '}
-            {document.version ? `Phiên bản ${document.version}` : 'Bản nháp'}
-            {document.publishedAt ? ` · Hiệu lực từ ${legalDate(document.publishedAt)}` : ''}
-          </p>
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold wrap-anywhere">{document.title}</h1>
+            <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+              {legalKindLabels[document.kind]} ·{' '}
+              {document.version ? `Phiên bản ${document.version}` : 'Bản nháp'}
+              {document.publishedAt ? ` · Hiệu lực từ ${legalDate(document.publishedAt)}` : ''}
+            </p>
+          </div>
         </div>
         {document.version && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 lg:shrink-0">
             <Button asChild variant="outline">
               <Link href={APP_ROUTES.legalDocument(document.id)}>Mở bản công khai</Link>
             </Button>
