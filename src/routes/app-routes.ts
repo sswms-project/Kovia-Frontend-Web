@@ -4,6 +4,7 @@ export const APP_ROUTES = {
   legalDocuments: '/legal',
   legalDocument: (id: string) => `/legal/${id}` as const,
   myLegalTerms: '/settings/legal-documents',
+  myLegalTermsHistory: '/settings/legal-documents?view=history',
   home: '/',
   pricing: '/pricing',
   auth: {
@@ -129,6 +130,10 @@ export const APP_ROUTES = {
     subscriptionPlans: '/admin/subscription-plans',
     announcements: '/admin/announcements',
     legalDocuments: '/admin/legal-documents',
+    legalDocumentsForKind: (kind: 'Terms' | 'Privacy') =>
+      kind === 'Privacy'
+        ? ('/admin/legal-documents?kind=privacy' as const)
+        : '/admin/legal-documents',
     legalDocument: (id: string) => `/admin/legal-documents/${id}` as const,
     payments: '/admin/payments',
   },

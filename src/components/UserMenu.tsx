@@ -1,7 +1,7 @@
 'use client'
 
 import { useQueryClient } from '@tanstack/react-query'
-import { LoaderCircle, LogOut, Settings, User } from 'lucide-react'
+import { LoaderCircle, LogOut, ScrollText, Settings, User } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getRoleLabel, USER_ROLES } from '@/config/roles'
+import { getRoleLabel } from '@/config/roles'
 import { useLogoutMutation } from '@/features/auth'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { useAuthStore } from '@/stores/auth.store'
@@ -87,13 +87,11 @@ export function UserMenu() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href={APP_ROUTES.legalDocuments}>Điều khoản và chính sách</Link>
+            <Link href={APP_ROUTES.myLegalTerms}>
+              <ScrollText aria-hidden="true" />
+              Điều khoản và Chính sách
+            </Link>
           </DropdownMenuItem>
-          {user.role === USER_ROLES.TenantOwner && (
-            <DropdownMenuItem asChild>
-              <Link href={APP_ROUTES.myLegalTerms}>Lịch sử xác nhận điều khoản</Link>
-            </DropdownMenuItem>
-          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
