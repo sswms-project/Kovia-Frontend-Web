@@ -2,6 +2,7 @@
 
 import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
+import Link from 'next/link'
 import { useAuthStore } from '@/stores/auth.store'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -138,17 +139,24 @@ export function LoginPage({ returnUrl }: { readonly returnUrl?: string }) {
   }
 
   return (
-    <LoginForm
-      onSubmit={handleLogin}
-      isLoading={loginMutation.isPending}
-      captcha={captcha}
-      isCaptchaLoading={captchaMutation.isPending}
-      authNotice={authNotice}
-      requiresVerification={requiresVerification}
-      isResending={resendMutation.isPending}
-      lockSeconds={lockSeconds}
-      onRefreshCaptcha={() => void refreshCaptcha()}
-      onResendVerification={() => void resendVerification()}
-    />
+    <>
+      <LoginForm
+        onSubmit={handleLogin}
+        isLoading={loginMutation.isPending}
+        captcha={captcha}
+        isCaptchaLoading={captchaMutation.isPending}
+        authNotice={authNotice}
+        requiresVerification={requiresVerification}
+        isResending={resendMutation.isPending}
+        lockSeconds={lockSeconds}
+        onRefreshCaptcha={() => void refreshCaptcha()}
+        onResendVerification={() => void resendVerification()}
+      />
+      <footer className="p-3 text-center text-sm">
+        <Link href={APP_ROUTES.legalDocuments} className="text-primary underline">
+          Điều khoản và chính sách
+        </Link>
+      </footer>
+    </>
   )
 }

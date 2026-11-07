@@ -1,6 +1,9 @@
 import type { Route } from 'next'
 
 export const APP_ROUTES = {
+  legalDocuments: '/legal',
+  legalDocument: (id: string) => `/legal/${id}` as const,
+  myLegalTerms: '/settings/legal-documents',
   home: '/',
   pricing: '/pricing',
   auth: {
@@ -125,6 +128,8 @@ export const APP_ROUTES = {
     roles: '/admin/roles',
     subscriptionPlans: '/admin/subscription-plans',
     announcements: '/admin/announcements',
+    legalDocuments: '/admin/legal-documents',
+    legalDocument: (id: string) => `/admin/legal-documents/${id}` as const,
     payments: '/admin/payments',
   },
   products: '/products',

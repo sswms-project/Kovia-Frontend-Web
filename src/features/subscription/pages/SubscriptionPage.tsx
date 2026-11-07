@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { APP_ROUTES } from '@/routes/app-routes'
 import { CreditCard, Landmark } from 'lucide-react'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Label } from '@/components/ui/label'
@@ -252,6 +254,9 @@ export function SubscriptionPage() {
             <p className="text-muted-foreground text-sm">
               Chỉ các gói đang được mở đăng ký mới được hiển thị.
             </p>
+            <Link href={APP_ROUTES.legalDocuments} className="text-primary text-sm underline">
+              Xem điều khoản dịch vụ
+            </Link>
           </div>
           <BillingCycleToggle
             value={selectedBillingCycle}

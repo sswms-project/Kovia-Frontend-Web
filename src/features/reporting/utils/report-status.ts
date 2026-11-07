@@ -8,6 +8,7 @@ const labels: Record<string, string> = {
   DamageHold: 'Giữ xử lý hỏng',
   Quarantine: 'Cách ly',
   PutAway: 'Cất hàng',
+  Inbound: 'Nhập kho',
   Receiving: 'Nhận hàng',
   CycleCount: 'Kiểm kê',
   Relocation: 'Chuyển vị trí',

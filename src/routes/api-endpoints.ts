@@ -1,4 +1,16 @@
 export const API_ENDPOINTS = {
+  legalDocuments: {
+    public: '/public/legal-documents',
+    admin: '/admin/legal-documents',
+    detail: (id: string, admin: boolean) => `/${admin ? 'admin' : 'public'}/legal-documents/${id}`,
+    drafts: '/admin/legal-documents/drafts',
+    draft: (id: string) => `/admin/legal-documents/drafts/${id}`,
+    publish: '/admin/legal-documents/publish',
+    activateRegistration: '/admin/legal-documents/activate-registration',
+    myTerms: '/settings/legal-documents/my-terms',
+    acceptances: (id: string) => `/admin/legal-documents/${id}/acceptances`,
+    audit: (id: string) => `/admin/legal-documents/${id}/audit`,
+  },
   listExports: '/list-exports',
   archivedDocument: (documentType: string, id: string) =>
     `/archived-documents/${encodeURIComponent(documentType)}/${encodeURIComponent(id)}`,
