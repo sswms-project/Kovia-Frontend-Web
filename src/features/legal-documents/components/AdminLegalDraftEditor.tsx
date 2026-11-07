@@ -55,9 +55,9 @@ export function AdminLegalDraftEditor({ detail, canEdit, canPublish, loadCurrent
     detail: LegalDetail
     current: LegalSummary | null
   } | null>(null)
-  const [previewing, setPreviewing] = useState(false)
+  const [checkingCurrent, setCheckingCurrent] = useState(false)
   const [reloading, setReloading] = useState(false)
-  const [previewError, setPreviewError] = useState(false)
+  const [currentLoadError, setCurrentLoadError] = useState(false)
   const [confirm, setConfirm] = useState<'delete' | 'publish' | null>(null)
   const [requiresConfirmation, setRequiresConfirmation] = useState(false)
   const form = useForm<LegalDraftValues>({
@@ -66,6 +66,7 @@ export function AdminLegalDraftEditor({ detail, canEdit, canPublish, loadCurrent
   })
   const { isDirty, errors } = form.formState
   const { kind, id, revision } = saved.document
+  const listHref = APP_ROUTES.admin.legalDocumentsForKind(kind)
   const save = useLegalMutation(
     (values: LegalDraftValues) => service.update(kind, id, revision, values),
     'Đã lưu bản nháp.'
@@ -80,10 +81,11 @@ export function AdminLegalDraftEditor({ detail, canEdit, canPublish, loadCurrent
     save.isPending ||
     remove.isPending ||
     publish.isPending ||
-    previewing ||
+    checkingCurrent ||
     reloading ||
     form.formState.isSubmitting
   const stale = detail.document.revision !== revision
+  const hasPublicationContent = Boolean(saved.content.trim() && saved.document.summary.trim())
   const navigation = useImportNavigation(isDirty || busy, busy, 'Vui lòng đợi bản nháp lưu xong.')
 
   async function loadDraft() {
@@ -98,16 +100,20 @@ export function AdminLegalDraftEditor({ detail, canEdit, canPublish, loadCurrent
     }
   }
 
-  async function openPreview() {
-    setPreviewing(true)
-    setPreviewError(false)
+  async function openDocumentReview(mode: 'preview' | 'publish') {
+    setCheckingCurrent(true)
+    setCurrentLoadError(false)
     try {
       const current = await loadCurrent()
       setPreview({ detail: saved, current })
+      if (mode === 'publish') {
+        setRequiresConfirmation(false)
+        setConfirm('publish')
+      }
     } catch {
-      setPreviewError(true)
+      setCurrentLoadError(true)
     } finally {
-      setPreviewing(false)
+      setCheckingCurrent(false)
     }
   }
 
@@ -167,9 +173,9 @@ export function AdminLegalDraftEditor({ detail, canEdit, canPublish, loadCurrent
           />
           <FieldError>{errors.summary?.message}</FieldError>
         </Field>
-        {previewError && (
+        {currentLoadError && (
           <p role="alert" className="text-destructive text-sm">
-            Không tải được phiên bản hiện hành. Vui lòng thử xem trước lại.
+            Không tải được phiên bản hiện hành. Vui lòng thử lại.
           </p>
         )}
         {(stale || save.isError || publish.isError) && (
@@ -200,10 +206,19 @@ export function AdminLegalDraftEditor({ detail, canEdit, canPublish, loadCurrent
             type="button"
             variant="outline"
             disabled={busy || isDirty || stale}
-            onClick={() => void openPreview()}
+            onClick={() => void openDocumentReview('preview')}
           >
             Xem trước
           </Button>
+          {canPublish && (
+            <Button
+              type="button"
+              disabled={busy || isDirty || stale || !hasPublicationContent}
+              onClick={() => void openDocumentReview('publish')}
+            >
+              Công bố
+            </Button>
+          )}
           {canEdit && (
             <Button
               type="button"
@@ -214,20 +229,15 @@ export function AdminLegalDraftEditor({ detail, canEdit, canPublish, loadCurrent
               Xóa bản nháp
             </Button>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy}
-            onClick={() =>
-              navigation.requestDiscard(() => router.push(APP_ROUTES.admin.legalDocuments))
-            }
-          >
-            Quay lại danh sách
-          </Button>
         </div>
         {isDirty && (
           <p className="text-muted-foreground text-xs">
             Lưu thay đổi trước khi xem trước và công bố.
+          </p>
+        )}
+        {canPublish && !isDirty && !hasPublicationContent && (
+          <p className="text-muted-foreground text-xs">
+            Lưu nội dung và tóm tắt thay đổi để có thể công bố.
           </p>
         )}
       </form>
@@ -303,7 +313,7 @@ export function AdminLegalDraftEditor({ detail, canEdit, canPublish, loadCurrent
                 disabled={busy}
                 onClick={() =>
                   remove.mutate(undefined, {
-                    onSuccess: () => router.push(APP_ROUTES.admin.legalDocuments),
+                    onSuccess: () => router.push(listHref),
                   })
                 }
               >

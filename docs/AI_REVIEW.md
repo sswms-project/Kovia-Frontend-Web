@@ -3046,3 +3046,38 @@ State: READY_FOR_FINAL_REVIEW. Codex implementation and self-verification.
 
 - The draft editor protects pending writes and reloads from further input, and uses the shared unsaved-change guard. Registration checks both exact document reads before enabling agreement and offers retry with preserved input. The Admin list exposes one-time registration activation after publication of both documents.
 - Chrome used the real editor and shared components with synthetic data at 320 × 430. The 1,000-character summary scrolled inside the dialog, the publish button stayed visible, and focus went to Cancel. Changed-file ESLint, source TypeScript and all five focused component tests passed. No live publication was performed.
+
+## LEGAL-DOCUMENTS-20261107 — mobile layout and navigation
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification.
+
+- The Admin tab list gives both labels space to wrap on narrow screens. The document type is stored in the list URL. Returning from a document or deleting a draft opens the matching tab. The public list provides a direct link to sign in.
+- Playwright on Chrome verified the real UI components with fixture API data at 320, 390, and 1440 px. The tabs cleared the status text without horizontal scrolling. Keyboard selection, refresh, back from a draft and published detail, draft deletion, and the public sign-in link passed. Changed-file ESLint, source TypeScript, and five focused tests passed.
+
+## LEGAL-DOCUMENTS-20261107 — shared web layout
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification.
+
+- Both public legal routes use the same header, footer and theme as the pricing page. Admin detail uses the standard icon back button and workspace header. The owner history uses the common list panel, empty state and pagination.
+- Chrome verified six screen states at 320, 390 and 1440 px with fixture API data. The Admin back link preserved the active document tab and prompted before leaving an edited draft. Changed-file ESLint, source TypeScript and five focused tests passed.
+
+## LEGAL-DOCUMENTS-20261107 — registration link before publication
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification.
+
+- The registration form shows a public legal page link when either document is unavailable. The link opens in a separate tab. Published versions retain their inline reader and version-bound agreement.
+- Verified with Chrome on the local registration page against public metadata with no published documents. The link opened the public page without a form submission. Three focused tests passed.
+
+## LEGAL-DOCUMENTS-20261107 — account menu and acceptance history
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification.
+
+- A single account-menu entry opens both legal documents within the private workspace. Tenant Owners can switch to their acceptance history and back within that route. Other roles can read published documents and the page does not request the private history endpoint for them.
+- Verified on local Chrome with Tenant Owner and Warehouse Staff accounts. Staff could open both document sections. A direct history URL still showed the document view for Staff without a private history request. ESLint, source TypeScript and six focused tests passed.
+
+## LEGAL-DOCUMENTS-20261107 — direct publication confirmation
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification.
+
+- A saved draft with content and a summary can open the publication confirmation directly. Preview remains available. The direct path uses the same current-version check and passes the same revision and predecessor to the publication API.
+- Three editor tests and changed-file ESLint passed. On local Chrome at 320 × 430, the direct confirmation opened with visible actions. Cancel sent no publication request.
