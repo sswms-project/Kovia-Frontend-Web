@@ -3014,3 +3014,35 @@ State: READY_FOR_CODEX_REVIEW. Codex implementation and self-review, not indepen
 - Verification: 8 component regressions passed, changed-source ESLint and source TypeScript passed. Full-workspace typecheck is not claimed; existing untracked QA files are excluded by the source configuration. Prettier and diff whitespace checks passed.
 - Visible Chrome manual retest with Manager at DN-01: stopped only the verified local AI process; new run at 17:15:37 on 06/11 failed and displayed the upstream error plus Chưa có kết quả dự báo. No legacy/zero-stock/shortage conclusion appeared. Inventory returned HTTP 200 while AI was down. After AI restoration, clicking Tính lại produced a Completed run at 17:17:08 with four product results. Pending controls prevented duplicate clicks. Evidence: workspace outputs/l2-fix-20261106.
 - Normal forecast application flows created two run records. No new seed, direct SQL write or migration; automatic migration remained disabled. BE and AI source unchanged. No commit/push requested.
+
+## K2-STOCK-CARD-DISPLAY-20261106
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation/self-review, not independent approval.
+
+- Stock-card location cells use optional BE locationPath and wrap the full zone/rack hierarchy. Older API responses remain accepted with the existing fallback. Added Inbound -> Nhập kho to existing shared report labels; no quantity calculation or permission changes.
+- GitNexus shared-label impact HIGH was reported before edit; table formatter/callers checked. Existing UI primitives reused, no dependency added.
+- Verification: 7 reporting component tests passed (5 table regressions + 2 filters); changed-source ESLint and source TypeScript passed. Default full-workspace typecheck is not claimed because existing generated QA files are excluded. Visible Chrome and downloaded Excel verified against the pre-fix 72-row export, with all non-display columns unchanged. Backend also passed 25 reporting tests. No commit/push requested.
+
+## LEGAL-DOCUMENTS-20261107
+
+State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification.
+
+- Added the platform legal workspace, revision-bound editor preview, publication confirmation, public document reader, owner confirmation history and dashboard reminder. Registration opens the exact versions in a reader without leaving the form. A changed version clears the visible agreement while preserving input. Subscription shows a link to the public documents.
+- Existing Kovia tables, dialogs, design tokens and React Query are reused. Both preview and public reading use the same text-based Markdown renderer, with a restricted link protocol list.
+- Verification: Next route type generation, source TypeScript, changed-file ESLint and two component regressions passed. Source TypeScript excludes pre-existing generated QA files. Live browser end-to-end and production content review remain release checks. GitNexus recorded the feature connections to registration, account navigation, the owner dashboard and subscription.
+
+## LEGAL-DOCUMENTS-20261107 — review round 1
+
+State: NEEDS_CLAUDE_FIX. Codex self-review of the working tree.
+
+- **High** — `src/features/legal-documents/components/AdminLegalDraftEditor.tsx:94` and `:145`. While saving, the editor still accepts input. The response resets the form and discards keystrokes entered during the request. The header link in `pages/AdminLegalDocumentPage.tsx:41` also bypasses the editor's dirty-state confirmation.
+- **Medium** — `src/features/auth/components/RegisterPage/RegisterForm.tsx:83`. The activation gate checks version metadata. A failed exact-document read still permits checking agreement and leaves submit enabled. Feed content availability into the registration gate and retain the retry/unchanged form behavior.
+- **Medium** — `src/features/legal-documents/components/AdminLegalDraftEditor.tsx:266`. The centered alert has no height bound or internal scroll. In a 320×430 mobile viewport with a valid 1,000-character summary, it was 591.5px tall and the publish button extended to y=455. The confirmation also opens without moving focus to Cancel. Use a bounded scroll body with visible actions and the shared cancel primitive.
+- Evidence: two component reproductions under `outputs/legal-ui-review-20261107` passed as reproductions. Chrome used synthetic data and the real editor/shared UI and CSS. No database or production browser flow was exercised.
+
+## LEGAL-DOCUMENTS-20261107 — fixes after review round 1
+
+State: READY_FOR_FINAL_REVIEW. Codex implementation and self-verification.
+
+- The draft editor protects pending writes and reloads from further input, and uses the shared unsaved-change guard. Registration checks both exact document reads before enabling agreement and offers retry with preserved input. The Admin list exposes one-time registration activation after publication of both documents.
+- Chrome used the real editor and shared components with synthetic data at 320 × 430. The 1,000-character summary scrolled inside the dialog, the publish button stayed visible, and focus went to Cancel. Changed-file ESLint, source TypeScript and all five focused component tests passed. No live publication was performed.

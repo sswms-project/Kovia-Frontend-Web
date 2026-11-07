@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { getRoleLabel } from '@/config/roles'
+import { getRoleLabel, USER_ROLES } from '@/config/roles'
 import { useLogoutMutation } from '@/features/auth'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { useAuthStore } from '@/stores/auth.store'
@@ -86,6 +86,14 @@ export function UserMenu() {
               Cài đặt tài khoản
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={APP_ROUTES.legalDocuments}>Điều khoản và chính sách</Link>
+          </DropdownMenuItem>
+          {user.role === USER_ROLES.TenantOwner && (
+            <DropdownMenuItem asChild>
+              <Link href={APP_ROUTES.myLegalTerms}>Lịch sử xác nhận điều khoản</Link>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem

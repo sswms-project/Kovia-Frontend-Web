@@ -11,6 +11,7 @@ import { usePublicSubscriptionPlansQuery } from '@/features/subscription/hooks/u
 import type { BillingCycle } from '@/features/subscription/types/subscription.types'
 import type { RegisterFormValues } from '../schemas/register.schema'
 import { BenefitsPanel, RegisterForm, RegisterSuccess } from '../components/RegisterPage'
+import { useLegalRegistration } from '@/features/legal-documents/hooks/use-legal-documents'
 
 interface RegisterPageProps {
   readonly selectedPlanId?: string
@@ -21,10 +22,11 @@ export function RegisterPage({ selectedPlanId, selectedBillingCycle }: RegisterP
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
   const registerMutation = useRegisterMutation()
   const plansQuery = usePublicSubscriptionPlansQuery()
+  const legalQuery = useLegalRegistration()
   const billingCycle: BillingCycle = selectedBillingCycle === 'Yearly' ? 'Yearly' : 'Monthly'
   const selectedPlan = plansQuery.data?.find((plan) => plan.id === selectedPlanId)
 
-  async function handleRegister(values: RegisterFormValues) {
+  async function handleRegister(values: RegisterFormValues, termsVersionId?: string) {
     try {
       const response = await registerMutation.mutateAsync({
         tenantName: values.tenantName.trim(),
@@ -35,6 +37,7 @@ export function RegisterPage({ selectedPlanId, selectedBillingCycle }: RegisterP
         password: values.password,
         confirmPassword: values.confirmPassword,
         acceptTerms: values.acceptTerms,
+        termsVersionId,
         ...(selectedPlan
           ? { selectedPlanId: selectedPlan.id, selectedBillingCycle: billingCycle }
           : {}),
@@ -43,6 +46,7 @@ export function RegisterPage({ selectedPlanId, selectedBillingCycle }: RegisterP
       toast.success('Đăng ký thành công. Vui lòng kiểm tra email xác minh.')
     } catch {
       // onError in useRegisterMutation handles logging + toast
+      void legalQuery.refetch()
     }
   }
 
@@ -86,6 +90,9 @@ export function RegisterPage({ selectedPlanId, selectedBillingCycle }: RegisterP
             ) : (
               <RegisterForm
                 onSubmit={handleRegister}
+                legal={legalQuery.data}
+                legalUnavailable={legalQuery.isError}
+                onRetryLegal={() => void legalQuery.refetch()}
                 isLoading={registerMutation.isPending}
                 selectedPlan={selectedPlan}
                 selectedBillingCycle={billingCycle}

@@ -224,6 +224,12 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
           requiredPermission: P.ADMIN_ANNOUNCEMENTS_SEND,
         },
         {
+          href: APP_ROUTES.admin.legalDocuments,
+          label: 'Điều khoản và chính sách',
+          icon: ScrollText,
+          requiredPermission: P.ADMIN_LEGAL_VIEW,
+        },
+        {
           href: APP_ROUTES.admin.payments,
           label: 'Giao dịch thanh toán',
           icon: ReceiptText,
