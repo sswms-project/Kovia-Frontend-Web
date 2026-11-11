@@ -29,6 +29,9 @@ export function ReceiptOverview({ receipt }: ReceiptOverviewProps) {
           />
         )}
         <Metadata label="Yêu cầu nhập kho" value={receipt.inboundRequestCode} />
+        {receipt.inboundRequestCreatedByName ? (
+          <Metadata label="Người tạo yêu cầu nhập" value={receipt.inboundRequestCreatedByName} />
+        ) : null}
         <Metadata label="Kho nhận" value={receipt.warehouseName} />
         <Metadata
           label="Người ghi nhận"
