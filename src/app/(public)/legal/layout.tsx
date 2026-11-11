@@ -7,7 +7,7 @@ export default function PublicLegalLayout({ children }: { readonly children: Rea
     <div className="theme-home bg-background text-foreground flex min-h-dvh flex-col">
       <HomeHeader />
       {children}
-      <HomeFooter />
+      <HomeFooter showCallToAction={false} />
     </div>
   )
 }
