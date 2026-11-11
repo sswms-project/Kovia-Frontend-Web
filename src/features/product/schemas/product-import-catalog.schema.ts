@@ -6,7 +6,7 @@ export const productImportCatalogSchema = z
     entries: z
       .array(
         z.object({
-          id: z.string().uuid(),
+          id: z.guid(),
           categories: z.boolean(),
           value: z.string(),
           rowNumber: z.number().int(),

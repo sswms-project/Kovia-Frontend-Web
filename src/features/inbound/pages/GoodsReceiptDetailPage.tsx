@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { APP_ROUTES } from '@/routes/app-routes'
+import { P } from '@/config/permissionCodes'
+import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -46,6 +48,8 @@ import type { ReceivingTask } from '../types/inbound.types'
 
 export default function GoodsReceiptDetailPage({ receiptId }: { readonly receiptId: string }) {
   const router = useRouter()
+  const meQuery = useMeQuery()
+  const canPutAway = meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_PUTAWAY) ?? false
   const [isEditing, setIsEditing] = useState(false)
   const [editVersion, setEditVersion] = useState('')
   const detailQuery = useGoodsReceiptQuery(receiptId)
@@ -273,6 +277,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
       )
       if (
         action === 'approve' &&
+        canPutAway &&
         !keepAtReceiving &&
         detailQuery.data?.items.some((item) => item.receivedQuantity > 0)
       )
