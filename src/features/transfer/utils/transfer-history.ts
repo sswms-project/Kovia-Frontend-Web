@@ -68,9 +68,21 @@ export function buildTransferHistory(detail: TransferDetail): LifecycleEvent[] {
   }
   for (const shipment of detail.shipments ?? []) {
     events.push(
-      event(`Tạo đợt xuất ${shipment.shipmentNumber}`, shipment.createdAt),
-      event(`Xuất đợt ${shipment.shipmentNumber}`, shipment.dispatchedAt),
-      event(`Nhận đợt ${shipment.shipmentNumber}`, shipment.receivedAt)
+      event(
+        `Tạo đợt xuất ${shipment.shipmentNumber}`,
+        shipment.createdAt,
+        shipment.createdByName ?? ''
+      ),
+      event(
+        `Xuất đợt ${shipment.shipmentNumber}`,
+        shipment.dispatchedAt,
+        shipment.dispatchedByName ?? ''
+      ),
+      event(
+        `Nhận đợt ${shipment.shipmentNumber}`,
+        shipment.receivedAt,
+        shipment.receivedByName ?? ''
+      )
     )
   }
   for (const discrepancy of detail.discrepancies ?? []) {
@@ -93,7 +105,7 @@ export function buildTransferHistory(detail: TransferDetail): LifecycleEvent[] {
   events.push(
     event('Dừng phần còn lại', detail.stoppedAt, '', detail.stopReason),
     event('Hủy phiếu', detail.cancelledAt, '', detail.cancellationReason),
-    event('Hoàn tất', detail.completedAt)
+    event('Hoàn tất', detail.completedAt, detail.completedByName ?? '')
   )
 
   return events
