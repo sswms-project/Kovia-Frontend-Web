@@ -25,6 +25,7 @@ import type { GoodsReceiptFormValues } from '../../schemas/inbound.schema'
 import type { ReceivingTask } from '../../types/inbound.types'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import { ReceiveQuickActions } from './ReceiveQuickActions'
+import { clearExceptionReasonWhenNoIssue } from '../../utils/receipt-exception-note'
 
 interface ReceiveGoodsDialogProps {
   readonly receivingLocationField?: ReactNode
@@ -225,7 +226,7 @@ export function ReceiveGoodsDialog({
                           setValue(`lines.${index}.receivedQty`, 0, { shouldDirty: true })
                           setValue(`lines.${index}.damagedQty`, 0, { shouldDirty: true })
                           setValue(`lines.${index}.rejectedQty`, 0, { shouldDirty: true })
-                          setValue(`lines.${index}.rejectedQty`, 0, { shouldDirty: true })
+                          clearExceptionReasonWhenNoIssue(form, index)
                         }}
                       >
                         {line.baseUnitId ? (
@@ -275,7 +276,10 @@ export function ReceiveGoodsDialog({
                           acceptanceFirst && canEditReceivedQuantity
                             ? `lines.${index}.rejectedQty`
                             : `lines.${index}.damagedQty`,
-                          { setValueAs: (value: string) => (value === '' ? 0 : Number(value)) }
+                          {
+                            setValueAs: (value: string) => (value === '' ? 0 : Number(value)),
+                            onChange: () => clearExceptionReasonWhenNoIssue(form, index),
+                          }
                         )}
                       />
                       <FieldError>{classificationError?.message}</FieldError>

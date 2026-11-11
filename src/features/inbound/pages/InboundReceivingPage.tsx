@@ -350,12 +350,13 @@ export default function InboundReceivingPage() {
       toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
       return
     }
+    const refusalPayload = shouldSubmit
+      ? refusal.payload(values.lines.some((line) => (line.rejectedQty ?? 0) > 0))
+      : {}
+    if (!refusalPayload) return
     saveInProgress.current = true
     setIsSaving(true)
     try {
-      const refusalPayload = shouldSubmit
-        ? refusal.payload(values.lines.some((line) => (line.rejectedQty ?? 0) > 0))
-        : {}
       const request: CreateReceiptInput = {
         inboundRequestId: values.inboundRequestId,
         expectedInboundVersion: selectedTask.version,

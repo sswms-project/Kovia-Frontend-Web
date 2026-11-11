@@ -136,13 +136,14 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
       toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
       return
     }
+    const refusalPayload = shouldSubmit
+      ? refusal.payload(
+          !detailQuery.data?.arrivalConfirmedAt &&
+            values.lines.some((line) => (line.rejectedQty ?? 0) > 0)
+        )
+      : {}
+    if (!refusalPayload) return
     try {
-      const refusalPayload = shouldSubmit
-        ? refusal.payload(
-            !detailQuery.data?.arrivalConfirmedAt &&
-              values.lines.some((line) => (line.rejectedQty ?? 0) > 0)
-          )
-        : {}
       await updateMutation.mutateAsync({
         receiptId,
         request: {
@@ -242,14 +243,16 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
           toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
           return false
         }
+        const refusalPayload = refusal.payload(
+          !receipt.arrivalConfirmedAt &&
+            receipt.items.some((item) => (item.rejectedQuantity ?? 0) > 0)
+        )
+        if (!refusalPayload) return false
         await submitMutation.mutateAsync({
           receiptId,
           expectedVersion: receipt.version,
           receivingSlotId,
-          ...refusal.payload(
-            !receipt.arrivalConfirmedAt &&
-              receipt.items.some((item) => (item.rejectedQuantity ?? 0) > 0)
-          ),
+          ...refusalPayload,
         })
       } else if (action === 'approve') {
         const receipt = detailQuery.data

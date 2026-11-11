@@ -9,6 +9,7 @@ import { CameraScanControl } from '@/components/operations/scanning'
 import { cn } from '@/lib/utils'
 import type { GoodsReceiptFormValues } from '../../schemas/inbound.schema'
 import type { ReceivingTask, ReceivingTaskLine } from '../../types/inbound.types'
+import { clearExceptionReasonWhenNoIssue } from '../../utils/receipt-exception-note'
 import {
   getReceiptUnit,
   getRemainingReceiptQuantity,
@@ -47,6 +48,7 @@ export function ReceiveQuickActions({ task, form, disabled }: ReceiveQuickAction
         form.setValue(`lines.${index}.enteredUnitId`, remaining.unitId, { shouldDirty: true })
         form.setValue(`lines.${index}.damagedQty`, 0, { shouldDirty: true })
         form.setValue(`lines.${index}.rejectedQty`, 0, { shouldDirty: true })
+        clearExceptionReasonWhenNoIssue(form, index)
       }
       form.setValue(`lines.${index}.receivedQty`, remaining.quantity, {
         shouldDirty: true,
