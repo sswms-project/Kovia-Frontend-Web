@@ -51,6 +51,7 @@ import {
 } from '../schemas/inbound.schema'
 import { getPutawayAllocationState } from '../schemas/putaway-allocation.schema'
 import type { GoodsReceiptDetail, PutawayRequest } from '../types/inbound.types'
+import { getPutawayExecutionLockReason } from '../utils/putaway-access'
 import { getPutawaySlotOptions } from '../utils/putaway-slot-options'
 import { getPutawayRemainingInput } from '../utils/putaway-units'
 import {
@@ -570,6 +571,12 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
   // Chỉ người được giao mới ghi nhận cất hàng; quản lý xem màn này để chốt vị trí cho họ.
   // Giao việc và lưu vị trí là hai quyền riêng: có một trong hai là đủ để vào chế độ quản lý.
   const isPlanning = (canPlan || canAssign) && receipt.putAwayAssignedTo !== currentUserId
+  const lockedReason = getPutawayExecutionLockReason({
+    assignedTo: receipt.putAwayAssignedTo,
+    assignedToName: receipt.putAwayAssignedToName,
+    currentUserId,
+    isPlanning,
+  })
   const canCancel =
     (meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_APPROVE) ?? false) &&
     receipt.items.some((item) => item.remainingPutAwayQuantity > 0) &&
@@ -613,6 +620,7 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
         evidence={evidence}
         suggestion={suggestion}
         canPlan={canPlan}
+        lockedReason={lockedReason}
         planning={
           isPlanning
             ? {
