@@ -31,6 +31,7 @@ import type {
 } from '../types/stock-issue.types'
 import { buildStockPickingLines } from '../utils/stock-issue-picking'
 import { isPickAssignedToUser } from '../utils/stock-issue-format'
+import { buildStockIssuePickerOptions } from '../utils/stock-issue-picker-options'
 import { crossDockService } from '../services/cross-dock.service'
 import {
   assignWarehouseTaskSchema,
@@ -119,27 +120,10 @@ export function useStockIssueWorkflow(
     { top: 100, skip: 0, needTotalCount: true },
     canLoadPickers
   )
-  const managerQuery = useStaffListQuery(
-    STAFF_DIRECTORY_KINDS.managers,
-    { top: 100, skip: 0, needTotalCount: true },
-    canLoadPickers
+  const pickerOptions = useMemo(
+    () => buildStockIssuePickerOptions(staffQuery.data?.items ?? [], pickerWarehouseId),
+    [pickerWarehouseId, staffQuery.data?.items]
   )
-  const pickerOptions = useMemo(() => {
-    const candidates = [...(staffQuery.data?.items ?? []), ...(managerQuery.data?.items ?? [])]
-    return candidates
-      .filter(
-        (staff, index) =>
-          staff.status === 'Active' &&
-          Boolean(pickerWarehouseId && staff.assignedWarehouseIds.includes(pickerWarehouseId)) &&
-          candidates.findIndex((candidate) => candidate.id === staff.id) === index
-      )
-      .map((staff) => ({
-        id: staff.id,
-        name: staff.fullName,
-        fullName: staff.fullName,
-        email: staff.email,
-      }))
-  }, [managerQuery.data?.items, pickerWarehouseId, staffQuery.data?.items])
 
   const recordPickingMutation = useRecordStockPickingMutation()
   const confirmDispatchMutation = useConfirmStockDispatchMutation()
@@ -466,7 +450,6 @@ export function useStockIssueWorkflow(
       !releasingOrder ||
       releaseMutation.isPending ||
       staffQuery.isError ||
-      managerQuery.isError ||
       !pickerOptions.some((option) => option.id === values.staffId)
     )
       return
@@ -620,12 +603,11 @@ export function useStockIssueWorkflow(
       order: releasingOrder,
       form: releaseForm,
       isPending: releaseMutation.isPending,
-      isLoadingStaff: staffQuery.isLoading || managerQuery.isLoading,
-      isErrorStaff: staffQuery.isError || managerQuery.isError,
-      isFetchingStaff: staffQuery.isFetching || managerQuery.isFetching,
+      isLoadingStaff: staffQuery.isLoading,
+      isErrorStaff: staffQuery.isError,
+      isFetchingStaff: staffQuery.isFetching,
       onRetryStaff: () => {
         void staffQuery.refetch()
-        void managerQuery.refetch()
       },
       onClose: () => {
         if (!releasing.current && !releaseUncertain) setReleasingOrder(null)
