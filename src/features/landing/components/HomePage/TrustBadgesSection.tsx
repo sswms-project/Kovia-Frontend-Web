@@ -2,6 +2,8 @@
 
 import { motion, useReducedMotion } from 'framer-motion'
 import { Activity, FileCheck2, LockKeyhole, ShieldCheck } from 'lucide-react'
+import Link from 'next/link'
+import { APP_ROUTES } from '@/routes/app-routes'
 
 const trustCertifications = [
   {
@@ -16,8 +18,9 @@ const trustCertifications = [
   },
   {
     icon: LockKeyhole,
-    title: 'GDPR',
-    description: 'Bảo vệ dữ liệu cá nhân',
+    title: 'Bảo vệ dữ liệu cá nhân',
+    description: 'Xem chính sách của Kovia',
+    href: APP_ROUTES.legalDocuments,
   },
   {
     icon: Activity,
@@ -32,7 +35,7 @@ export function TrustBadgesSection() {
   return (
     <section
       className="border-border/60 bg-surface-container-low/60 border-y"
-      aria-label="Chứng nhận độ tin cậy"
+      aria-label="Thông tin về bảo mật và độ tin cậy"
     >
       <div className="mx-auto w-full max-w-(--container-landing) px-4 py-10 md:px-6">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -51,7 +54,16 @@ export function TrustBadgesSection() {
                   <CertificationIcon className="size-5" aria-hidden="true" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold tracking-tight">{certification.title}</p>
+                  {certification.href ? (
+                    <Link
+                      className="text-primary text-sm font-bold tracking-tight underline underline-offset-4"
+                      href={certification.href}
+                    >
+                      {certification.title}
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-bold tracking-tight">{certification.title}</p>
+                  )}
                   <p className="text-muted-foreground text-xs">{certification.description}</p>
                 </div>
               </motion.div>
