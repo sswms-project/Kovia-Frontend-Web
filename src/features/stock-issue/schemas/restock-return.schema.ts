@@ -6,9 +6,9 @@ export const restockReturnSchema = z.object({
     .array(
       z
         .object({
-          returnItemId: z.string().uuid(),
+          returnItemId: z.guid('Dòng hàng hoàn không hợp lệ.'),
           condition: z.enum(GOODS_RETURN_REQUEST_ITEM_CONDITIONS),
-          restockSlotId: z.string().uuid().nullable(),
+          restockSlotId: z.guid('Vị trí nhập kho không hợp lệ.').nullable(),
           scannedSlotCode: z.string().trim().max(100, 'Mã vị trí tối đa 100 ký tự.').optional(),
         })
         .superRefine((item, context) => {

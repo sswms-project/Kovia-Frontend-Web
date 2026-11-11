@@ -187,6 +187,7 @@ export function getNotificationQueryKeys(
 }
 
 const notificationReferenceRoutes: Record<string, (id: string) => string> = {
+  LegalDocumentVersion: APP_ROUTES.legalDocument,
   InboundRequest: APP_ROUTES.inboundRequestDetail,
   GoodsReceipt: APP_ROUTES.goodsReceiptDetail,
   StockAdjustment: APP_ROUTES.stockAdjustmentDetail,
