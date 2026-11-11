@@ -56,8 +56,8 @@ export function ReceiptDamageIsolationDialog({
                 .filter((item) => (item.remainingDamageIsolationQuantity ?? 0) > 0)
                 .map((item) => (
                   <NativeSelectOption key={item.id} value={item.id}>
-                    {item.productSKU} · còn {formatQuantity(item.remainingDamageIsolationQuantity)}{' '}
-                    {item.baseUnitName}
+                    {item.productSKU} · còn{' '}
+                    {formatQuantity(item.remainingDamageIsolationQuantity ?? 0)} {item.baseUnitName}
                   </NativeSelectOption>
                 ))}
             </NativeSelect>
