@@ -100,7 +100,10 @@ export function useCreateGoodsReturn() {
           return {
             stockIssuePickDetailId: detail.id,
             productName: item.productName,
+            sku: item.sku,
             lotNumber: detail.lotNumber,
+            sourceSlotCode: detail.slotCode,
+            issuedQuantity: detail.pickedQuantity,
             returnableQuantity: detail.returnableQuantity,
             quantity: saved?.quantity ?? 0,
             condition: saved?.condition ?? ('Good' as const),
@@ -117,6 +120,7 @@ export function useCreateGoodsReturn() {
         lines.push({
           stockIssuePickDetailId: saved.stockIssuePickDetailId,
           productName: saved.productName,
+          sku: saved.sku,
           lotNumber: saved.lotNumber,
           returnableQuantity: 0,
           quantity: saved.quantity,
