@@ -2,6 +2,7 @@ import { formatQuantity } from '@/features/inbound-request/utils/inbound-request
 import type { GoodsReceiptItem } from '../types/inbound.types'
 import { putawayLineSchema, type PutawayFormValues } from './inbound.schema'
 import { getPutawayBaseQuantity, getPutawayRemainingInput } from '../utils/putaway-units'
+import { getSlotRemainingInBaseUnit } from '../utils/putaway-slot-options'
 
 type AllocationField = keyof PutawayFormValues['lines'][number]
 interface AllocationSlot {
@@ -9,6 +10,8 @@ interface AllocationSlot {
   code: string
   allowsMixedProducts?: boolean
   unavailableReason?: string
+  remainingCapacity?: number | null
+  capacityUnitId?: string | null
 }
 
 // Reserve only complete, valid rows in display order. Hundredths avoid 0.1 + 0.2 rounding drift.
@@ -23,6 +26,7 @@ export function getPutawayAllocationState(
   const productBySlot = new Map<string, string>()
   const requestedByItem = new Map<string, number>()
   const allocations = new Set<string>()
+  const assignedBySlot = new Map<string, number>()
   let totalAssigned = 0
 
   const rows = lines.map((line) => {
@@ -66,6 +70,18 @@ export function getPutawayAllocationState(
         if (!slot) error('slotId', 'Vui lòng chọn vị trí lưu trữ còn khả dụng.')
         else {
           if (slot.unavailableReason) error('slotId', slot.unavailableReason)
+          const slotRemaining = item ? getSlotRemainingInBaseUnit(slot, item.baseUnitId) : null
+          if (slotRemaining !== null && quantity > 0) {
+            const free = Math.max(
+              0,
+              Math.round(slotRemaining * 100) - (assignedBySlot.get(slot.id) ?? 0)
+            )
+            if (quantity > free)
+              error(
+                'enteredQuantity',
+                `Vượt sức chứa còn lại của vị trí (còn ${formatQuantity(free / 100)} ${item?.baseUnitName}).`
+              )
+          }
           if (
             slot.allowsMixedProducts === false &&
             item &&
@@ -90,6 +106,7 @@ export function getPutawayAllocationState(
         (assignedByItem.get(line.goodsReceiptItemId) ?? 0) + quantity
       )
       productBySlot.set(line.slotId, item!.productId)
+      assignedBySlot.set(line.slotId, (assignedBySlot.get(line.slotId) ?? 0) + quantity)
       allocations.add(allocationKey)
       totalAssigned += quantity
     }

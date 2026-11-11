@@ -55,6 +55,9 @@ export interface SlotOption {
   allowsMixedProducts?: boolean
   capacityLabel: string
   unavailableReason?: string
+  /** Remaining capacity in `capacityUnitId`; null when unlimited or unknown. */
+  remainingCapacity?: number | null
+  capacityUnitId?: string | null
 }
 
 export interface PutawayPlanningState {

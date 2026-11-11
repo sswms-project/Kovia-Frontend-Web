@@ -4,6 +4,8 @@ import type {
   PutAwaySlotSuggestion,
   SavePutAwayPlanRequest,
 } from '../types/inbound.types'
+import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
+import { getSlotRemainingInBaseUnit } from './putaway-slot-options'
 
 export interface PlanDraftLine {
   /** Khóa ổn định cho React; không gửi lên Backend. */
@@ -17,6 +19,8 @@ export type PlanDrafts = Readonly<Record<string, readonly PlanDraftLine[]>>
 interface PlanSlot {
   readonly id: string
   readonly unavailableReason?: string
+  readonly remainingCapacity?: number | null
+  readonly capacityUnitId?: string | null
 }
 
 export interface PlanDraftValidation {
@@ -58,6 +62,7 @@ export function validatePlanDrafts(
   const lineWarnings = new Map<string, string>()
   const itemErrors = new Map<string, string>()
   const plannedByItem = new Map<string, number>()
+  const plannedBySlot = new Map<string, number>()
 
   for (const item of getPlannableItems(items)) {
     const lines = drafts[item.id] ?? []
@@ -76,7 +81,17 @@ export function validatePlanDrafts(
         lineErrors.set(key, lineErrors.get(key) ?? 'Số lượng phải lớn hơn 0.')
       else if (toCents(line.quantity) / 100 !== line.quantity)
         lineErrors.set(key, lineErrors.get(key) ?? 'Số lượng chỉ có tối đa hai chữ số thập phân.')
-      else planned += toCents(line.quantity)
+      else {
+        planned += toCents(line.quantity)
+        const slotRemaining = getSlotRemainingInBaseUnit(slot, item.baseUnitId)
+        const used = (plannedBySlot.get(line.slotId) ?? 0) + toCents(line.quantity)
+        plannedBySlot.set(line.slotId, used)
+        if (slotRemaining !== null && used > toCents(slotRemaining) && !lineErrors.has(key))
+          lineWarnings.set(
+            key,
+            `Vượt sức chứa còn lại của vị trí (còn ${formatQuantity(slotRemaining)} ${item.baseUnitName}).`
+          )
+      }
     }
     plannedByItem.set(item.id, planned / 100)
     if (planned > toCents(item.remainingPutAwayQuantity))

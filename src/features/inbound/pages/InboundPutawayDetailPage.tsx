@@ -172,7 +172,10 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
     resolver: zodResolver(cancelPutawayTaskSchema),
     defaultValues: { reason: '', hasUnrecordedPhysicalMovement: false },
   })
-  const slots: SlotOption[] = getPutawaySlotOptions(layoutQuery.data ?? [])
+  const slots: SlotOption[] = getPutawaySlotOptions(
+    layoutQuery.data ?? [],
+    receiptQuery.data?.receivingSlotId
+  )
   const suggestion = usePutawayFormSuggestions({
     autoFill:
       allowedActionsQuery.data?.allowedActions.includes('PlanPutAway') === true &&
