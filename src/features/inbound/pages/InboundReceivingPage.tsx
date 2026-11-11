@@ -66,6 +66,7 @@ import {
 import { goodsReceiptSchema, type GoodsReceiptFormValues } from '../schemas/inbound.schema'
 import type { ReceivingTask } from '../types/inbound.types'
 import { inboundService } from '../services/inbound.service'
+import { startImportErrorMessage } from '../utils/document-import-error'
 import {
   toOperationalDateTimeEnd,
   toOperationalDateTimeStart,
@@ -222,6 +223,17 @@ export default function InboundReceivingPage() {
     importForm.clearErrors()
   }
 
+  function retryImport() {
+    // An import resumed from a task has no local file to resend; let the user pick it again.
+    if (!importFile) {
+      cancelImport()
+      return
+    }
+    setImportId('')
+    initializedImportIdRef.current = ''
+    void analyzeDocument()
+  }
+
   function openDocumentImport(task: ReceivingTask) {
     resetImport()
     setImportTask(task)
@@ -261,11 +273,7 @@ export default function InboundReceivingPage() {
     } catch (error) {
       if (isApiErrorResponse(error)) logger.warn(formatApiError(error))
       else logger.error(error)
-      toast.error(
-        isApiErrorResponse(error) && error.statusCode === 429
-          ? 'Đã hết hạn mức phân tích AI tạm thời. Vui lòng thử lại sau hoặc nhập hàng thủ công.'
-          : 'Không thể phân tích chứng từ. Bạn vẫn có thể nhập hàng thủ công.'
-      )
+      toast.error(startImportErrorMessage(error))
     }
   }
 
@@ -586,6 +594,7 @@ export default function InboundReceivingPage() {
         onAnalyze={() => void analyzeDocument()}
         onSaveReview={() => void importForm.handleSubmit(saveDocumentReview)()}
         onCreateDraft={() => void createDraftFromDocument()}
+        onRetryImport={retryImport}
         onCancelImport={cancelImport}
         onManualFallback={() => {
           if (!importTask) return
