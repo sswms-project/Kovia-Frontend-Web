@@ -15,7 +15,9 @@ export function useReceivingLocationSelection(
   warehouseId: string | undefined,
   sessionKey: string,
   enabled: boolean,
-  forDamageIsolation = false
+  forDamageIsolation = false,
+  // Saved slot of a draft receipt; BE returns it as the suggested (preselected) location.
+  selectedSlotId?: string | null
 ) {
   const key = `${warehouseId}:${sessionKey}:${forDamageIsolation}`
   const [stored, setStored] = useState<Selection>({ key, search: '', page: 1, selected: null })
@@ -32,10 +34,18 @@ export function useReceivingLocationSelection(
       search,
       state.page,
       forDamageIsolation,
+      selectedSlotId ?? null,
     ],
     queryFn: ({ signal }) =>
       inboundService
-        .receivingLocations(warehouseId!, search, state.page, signal, forDamageIsolation)
+        .receivingLocations(
+          warehouseId!,
+          search,
+          state.page,
+          signal,
+          forDamageIsolation,
+          selectedSlotId ?? undefined
+        )
         .then((response) => response.data),
     enabled: enabled && !!warehouseId && !isSearching,
     retry: false,

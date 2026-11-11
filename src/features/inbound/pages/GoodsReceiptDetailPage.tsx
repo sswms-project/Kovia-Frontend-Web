@@ -69,7 +69,9 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
   const receivingLocation = useReceivingLocationSelection(
     detailQuery.data?.warehouseId,
     receiptId,
-    !detailQuery.data?.arrivalConfirmedAt && !!actionsQuery.data?.allowedActions.includes('Submit')
+    !detailQuery.data?.arrivalConfirmedAt && !!actionsQuery.data?.allowedActions.includes('Submit'),
+    false,
+    detailQuery.data?.receivingSlotId
   )
   const submitMutation = useSubmitGoodsReceiptMutation()
   const approveMutation = useApproveGoodsReceiptMutation()
