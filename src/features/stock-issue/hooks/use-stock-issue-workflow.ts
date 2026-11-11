@@ -30,6 +30,7 @@ import type {
   ReleaseStockIssueRequestRequest,
 } from '../types/stock-issue.types'
 import { buildStockPickingLines } from '../utils/stock-issue-picking'
+import { isPickAssignedToUser } from '../utils/stock-issue-format'
 import { crossDockService } from '../services/cross-dock.service'
 import {
   assignWarehouseTaskSchema,
@@ -214,6 +215,12 @@ export function useStockIssueWorkflow(
       !order.version
     )
       return
+    if (!isPickAssignedToUser(order, meQuery.data?.id)) {
+      toast.warning(
+        `Phiếu này do ${order.assignedStaffName || 'người được giao lấy hàng'} phụ trách lấy hàng.`
+      )
+      return
+    }
     preparingPick.current = true
     try {
       const fresh = await client.fetchQuery({
@@ -564,7 +571,13 @@ export function useStockIssueWorkflow(
     onRecordStockPicking: (order) => {
       void openPicking(order)
     },
-    onReportPickIssue: setReportingOrder,
+    onReportPickIssue: (order: StockIssueRequestSummary) => {
+      if (isPickAssignedToUser(order, meQuery.data?.id)) setReportingOrder(order)
+      else
+        toast.warning(
+          `Phiếu này do ${order.assignedStaffName || 'người được giao lấy hàng'} phụ trách lấy hàng.`
+        )
+    },
     onAuthorizeDispatch: setAuthorizingOrder,
     onConfirmDispatch: (order) => {
       if (canConfirmDispatch(order)) setDispatchingOrder(order)
