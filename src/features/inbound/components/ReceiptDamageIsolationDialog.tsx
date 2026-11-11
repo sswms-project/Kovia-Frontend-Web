@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { CameraScanControl } from '@/components/operations/scanning'
+import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import type { useReceiptDamageIsolation } from '../hooks/use-receipt-damage-isolation'
 import { ReceivingLocationPicker } from './ReceivingLocationPicker'
@@ -55,7 +56,7 @@ export function ReceiptDamageIsolationDialog({
                 .filter((item) => (item.remainingDamageIsolationQuantity ?? 0) > 0)
                 .map((item) => (
                   <NativeSelectOption key={item.id} value={item.id}>
-                    {item.productSKU} · còn {item.remainingDamageIsolationQuantity}{' '}
+                    {item.productSKU} · còn {formatQuantity(item.remainingDamageIsolationQuantity)}{' '}
                     {item.baseUnitName}
                   </NativeSelectOption>
                 ))}

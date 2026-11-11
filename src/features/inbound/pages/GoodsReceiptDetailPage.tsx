@@ -32,6 +32,7 @@ import { useReceivingLocationSelection } from '../hooks/use-receiving-location-s
 import { ReceivingLocationPicker } from '../components/ReceivingLocationPicker'
 import { RefusalEvidencePanel } from '../components/RefusalEvidencePanel'
 import { ReceiptDamageIsolationDialog } from '../components/ReceiptDamageIsolationDialog'
+import { needsReceivingLocationPick } from '../utils/receipt-receiving-location'
 import { useReceiptDamageIsolation } from '../hooks/use-receipt-damage-isolation'
 import { useRefusalEvidence } from '../hooks/use-refusal-evidence'
 import { usePutawayPlanEditor } from '../hooks/use-putaway-plan-editor'
@@ -380,8 +381,8 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
       {!isEditing &&
         !receipt.arrivalConfirmedAt &&
         actionsQuery.data?.allowedActions.includes('Submit') && (
-          <div className="shrink-0 border-b pb-4">
-            {receipt.items.some((item) => item.receivedQuantity > 0) && (
+          <div className="shrink-0 border-b pb-4 empty:hidden">
+            {needsReceivingLocationPick(receipt) && (
               <ReceivingLocationPicker state={receivingLocation} disabled={isPending} />
             )}
             {receipt.items.some((item) => (item.rejectedQuantity ?? 0) > 0) && (
