@@ -8,7 +8,7 @@ import {
   useSpring,
   useTransform,
 } from 'framer-motion'
-import { ArrowUpRight, PackageCheck, Sparkles } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, PackageCheck, Sparkles } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRef } from 'react'
@@ -23,6 +23,12 @@ const WarehouseScene3D = dynamic(
   () => import('./WarehouseScene3D').then((module) => module.WarehouseScene3D),
   { ssr: false, loading: () => <WarehouseScene /> }
 )
+
+const heroProofPoints = [
+  'Đa kho, đa tổ chức',
+  'Quét mã vạch bằng điện thoại',
+  'Không cần thẻ tín dụng',
+] as const
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -110,6 +116,14 @@ export function HeroSection() {
               <Link href={APP_ROUTES.auth.login}>Đăng nhập hệ thống</Link>
             </Button>
           </div>
+          <ul className="text-muted-foreground mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            {heroProofPoints.map((point) => (
+              <li key={point} className="flex items-center gap-1.5">
+                <CheckCircle2 className="text-primary size-4" aria-hidden="true" />
+                {point}
+              </li>
+            ))}
+          </ul>
         </motion.div>
 
         {/* CSS-3D warehouse scene with mouse + scroll parallax */}

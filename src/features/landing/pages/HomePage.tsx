@@ -1,11 +1,13 @@
 import {
   DataInsightsSection,
+  FaqSection,
   FeatureHighlightsSection,
   HeroSection,
   HomeFooter,
   HomeHeader,
   PricingSection,
-  TrustBadgesSection,
+  RoleWorkspacesSection,
+  WarehouseFlowSection,
 } from '../components/HomePage'
 
 export function HomePage() {
@@ -14,10 +16,12 @@ export function HomePage() {
       <HomeHeader />
       <main className="flex-1">
         <HeroSection />
-        <TrustBadgesSection />
+        <WarehouseFlowSection />
         <FeatureHighlightsSection />
+        <RoleWorkspacesSection />
         <DataInsightsSection />
         <PricingSection />
+        <FaqSection />
       </main>
       <HomeFooter />
     </div>
