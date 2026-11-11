@@ -33,7 +33,7 @@ import {
 import { useSuppliersQuery } from '@/features/supplier/hooks/use-suppliers'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { APP_ROUTES } from '@/routes/app-routes'
+import { productListHref } from '../utils/product-list-return'
 import {
   ProductDetailSidebar,
   ProductBarcodePanel,
@@ -505,7 +505,10 @@ export default function ProductDetailPage({ productId }: ProductDetailPageProps)
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="icon">
-            <Link href={APP_ROUTES.products} aria-label="Quay lại danh sách sản phẩm">
+            <Link
+              href={productListHref(searchParams.get('list')) as never}
+              aria-label="Quay lại danh sách sản phẩm"
+            >
               <ArrowLeft aria-hidden="true" />
             </Link>
           </Button>
