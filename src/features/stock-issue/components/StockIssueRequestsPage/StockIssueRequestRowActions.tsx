@@ -29,6 +29,7 @@ import {
   canCancelStockIssueRequest,
   canEditStockIssueRequest,
   canRecordStockPicking,
+  isPickAssignedToUser,
 } from '../../utils/stock-issue-format'
 
 interface StockIssueRequestRowActionsProps {
@@ -42,7 +43,10 @@ export function StockIssueRequestRowActions({
   capabilities,
   handlers,
 }: StockIssueRequestRowActionsProps) {
-  const canPickNow = capabilities.canPick && canRecordStockPicking(order.status)
+  const canPickNow =
+    capabilities.canPick &&
+    canRecordStockPicking(order.status) &&
+    isPickAssignedToUser(order, capabilities.currentUserId)
   const canCancelNow = capabilities.canCancel && canCancelStockIssueRequest(order.status)
 
   return (

@@ -32,6 +32,7 @@ import { useReceivingLocationSelection } from '../hooks/use-receiving-location-s
 import { ReceivingLocationPicker } from '../components/ReceivingLocationPicker'
 import { RefusalEvidencePanel } from '../components/RefusalEvidencePanel'
 import { ReceiptDamageIsolationDialog } from '../components/ReceiptDamageIsolationDialog'
+import { needsReceivingLocationPick } from '../utils/receipt-receiving-location'
 import { useReceiptDamageIsolation } from '../hooks/use-receipt-damage-isolation'
 import { useRefusalEvidence } from '../hooks/use-refusal-evidence'
 import { usePutawayPlanEditor } from '../hooks/use-putaway-plan-editor'
@@ -69,7 +70,9 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
   const receivingLocation = useReceivingLocationSelection(
     detailQuery.data?.warehouseId,
     receiptId,
-    !detailQuery.data?.arrivalConfirmedAt && !!actionsQuery.data?.allowedActions.includes('Submit')
+    !detailQuery.data?.arrivalConfirmedAt && !!actionsQuery.data?.allowedActions.includes('Submit'),
+    false,
+    detailQuery.data?.receivingSlotId
   )
   const submitMutation = useSubmitGoodsReceiptMutation()
   const approveMutation = useApproveGoodsReceiptMutation()
@@ -134,13 +137,14 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
       toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
       return
     }
+    const refusalPayload = shouldSubmit
+      ? refusal.payload(
+          !detailQuery.data?.arrivalConfirmedAt &&
+            values.lines.some((line) => (line.rejectedQty ?? 0) > 0)
+        )
+      : {}
+    if (!refusalPayload) return
     try {
-      const refusalPayload = shouldSubmit
-        ? refusal.payload(
-            !detailQuery.data?.arrivalConfirmedAt &&
-              values.lines.some((line) => (line.rejectedQty ?? 0) > 0)
-          )
-        : {}
       await updateMutation.mutateAsync({
         receiptId,
         request: {
@@ -240,14 +244,16 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
           toast.error('Vui lòng chọn vị trí thực tế nhận hàng trước khi xác nhận.')
           return false
         }
+        const refusalPayload = refusal.payload(
+          !receipt.arrivalConfirmedAt &&
+            receipt.items.some((item) => (item.rejectedQuantity ?? 0) > 0)
+        )
+        if (!refusalPayload) return false
         await submitMutation.mutateAsync({
           receiptId,
           expectedVersion: receipt.version,
           receivingSlotId,
-          ...refusal.payload(
-            !receipt.arrivalConfirmedAt &&
-              receipt.items.some((item) => (item.rejectedQuantity ?? 0) > 0)
-          ),
+          ...refusalPayload,
         })
       } else if (action === 'approve') {
         const receipt = detailQuery.data
@@ -375,8 +381,8 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
       {!isEditing &&
         !receipt.arrivalConfirmedAt &&
         actionsQuery.data?.allowedActions.includes('Submit') && (
-          <div className="shrink-0 border-b pb-4">
-            {receipt.items.some((item) => item.receivedQuantity > 0) && (
+          <div className="shrink-0 border-b pb-4 empty:hidden">
+            {needsReceivingLocationPick(receipt) && (
               <ReceivingLocationPicker state={receivingLocation} disabled={isPending} />
             )}
             {receipt.items.some((item) => (item.rejectedQuantity ?? 0) > 0) && (

@@ -49,24 +49,34 @@ export const pdfStyles = StyleSheet.create({
     textAlign: 'center',
   },
 })
+export type PdfIssuer = {
+  name: string
+  address?: string | null
+  taxCode?: string | null
+}
+const blank = '…………………………'
 export function PdfFormHeader({
   form,
   title,
   code,
   draft,
   department,
+  issuer,
 }: {
   form: string
   title: string
   code: string
   draft: boolean
   department: string
+  issuer?: PdfIssuer | null
 }) {
   return (
     <>
       <View style={[pdfStyles.row, { justifyContent: 'space-between' }]}>
-        <View>
-          <Text>Đơn vị: …………………………</Text>
+        <View style={{ width: '48%' }}>
+          <Text>Đơn vị: {issuer?.name || blank}</Text>
+          <Text>Địa chỉ: {issuer?.address || blank}</Text>
+          <Text>Mã số thuế: {issuer?.taxCode || blank}</Text>
           <Text>Bộ phận: {department}</Text>
         </View>
         <View style={{ width: '50%', textAlign: 'center', fontSize: 8 }}>
@@ -87,16 +97,37 @@ export function PdfCell({
   width,
   children,
   bold = false,
+  fontSize,
 }: {
   width: number
   children?: ReactNode
   bold?: boolean
+  fontSize?: number
 }) {
   return (
-    <View style={[pdfStyles.cell, { width: `${width}%`, fontWeight: bold ? 700 : 400 }]}>
+    <View
+      style={[
+        pdfStyles.cell,
+        { width: `${width}%`, fontWeight: bold ? 700 : 400, ...(fontSize ? { fontSize } : {}) },
+      ]}
+    >
       <Text>{children ?? ''}</Text>
     </View>
   )
+}
+// react-pdf never breaks a word without hyphenation points and always adds a visible '-' at those
+// points, so long codes (SKU) are split into explicit lines instead, preferring existing separators.
+export function splitPdfCode(value: string, maxChars: number) {
+  const lines: string[] = []
+  let rest = value
+  while (rest.length > maxChars) {
+    const head = rest.slice(0, maxChars)
+    const separator = Math.max(...['-', '_', '/', '.', ' '].map((c) => head.lastIndexOf(c)))
+    const cut = separator > 0 ? separator + 1 : maxChars
+    lines.push(rest.slice(0, cut).trimEnd())
+    rest = rest.slice(cut).trimStart()
+  }
+  return rest ? [...lines, rest] : lines
 }
 export function PdfSignatures({ labels }: { labels: string[] }) {
   return (

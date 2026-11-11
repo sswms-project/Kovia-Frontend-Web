@@ -33,7 +33,10 @@ export function usePutawayPlanEditor(receipt: GoodsReceiptDetail | undefined) {
   const heldSlotsQuery = usePutawayHeldSlotsQuery(receipt?.id ?? '', isOpen)
   const saveMutation = useSavePutawayPlanMutation()
   const suggestMutation = usePutawaySuggestionsMutation()
-  const slots = useMemo(() => getPutawaySlotOptions(layoutQuery.data ?? []), [layoutQuery.data])
+  const slots = useMemo(
+    () => getPutawaySlotOptions(layoutQuery.data ?? [], receipt?.receivingSlotId),
+    [layoutQuery.data, receipt?.receivingSlotId]
+  )
   const items = useMemo(() => receipt?.items ?? [], [receipt])
   const validation = useMemo(() => validatePlanDrafts(items, drafts, slots), [items, drafts, slots])
 

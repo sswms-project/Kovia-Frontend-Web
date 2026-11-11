@@ -63,12 +63,13 @@ export const inboundService = {
     searchTerm: string,
     pageNumber: number,
     signal?: AbortSignal,
-    forDamageIsolation = false
+    forDamageIsolation = false,
+    selectedSlotId?: string
   ) =>
     axiosClient
       .get<
         ApiResponse<{ items: ReceivingLocation[]; totalCount: number }>
-      >(API_ENDPOINTS.goodsReceipts.receivingLocations, { params: { warehouseId, searchTerm, pageNumber, ...(forDamageIsolation ? { forDamageIsolation: true } : {}) }, signal })
+      >(API_ENDPOINTS.goodsReceipts.receivingLocations, { params: { warehouseId, searchTerm, pageNumber, ...(forDamageIsolation ? { forDamageIsolation: true } : {}), ...(selectedSlotId ? { selectedSlotId } : {}) }, signal })
       .then((response) => response.data),
   reconcileArrivalStock: (receiptId: string, request: LegacyReceiptStockRequest) =>
     axiosClient

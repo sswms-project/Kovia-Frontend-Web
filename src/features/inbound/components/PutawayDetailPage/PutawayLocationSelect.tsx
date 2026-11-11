@@ -69,9 +69,14 @@ export function PutawayLocationSelect({
                 .join(' ') || undefined
             }
             disabled={disabled || slots.length === 0}
-            className="bg-card w-full min-w-0 justify-between gap-2 font-normal"
+            className="bg-card w-full min-w-0 justify-between gap-2 overflow-hidden font-normal"
           >
-            <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-left',
+                !selected && 'text-muted-foreground'
+              )}
+            >
               {selected
                 ? locationLabel(selected)
                 : slots.length > 0
@@ -79,7 +84,7 @@ export function PutawayLocationSelect({
                   : 'Không có vị trí khả dụng'}
             </span>
             {compact && selected ? (
-              <span className="text-muted-foreground ml-auto shrink-0 text-xs tabular-nums">
+              <span className="text-muted-foreground max-w-[45%] shrink-0 truncate text-xs tabular-nums">
                 {capacityLabel(selected)}
               </span>
             ) : null}
@@ -97,7 +102,7 @@ export function PutawayLocationSelect({
           aria-label="Chọn vị trí lưu trữ"
           align="start"
           sideOffset={4}
-          className="bg-card data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 animation-duration-200 w-(--radix-popover-trigger-width) max-w-[calc(100vw-2rem)] overflow-hidden p-0 motion-reduce:animate-none"
+          className="bg-card data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 animation-duration-200 w-[max(var(--radix-popover-trigger-width),min(28rem,calc(100vw-2rem)))] max-w-[calc(100vw-2rem)] overflow-hidden p-0 motion-reduce:animate-none"
         >
           <Command
             label="Tìm vị trí lưu trữ"

@@ -1,3 +1,4 @@
+import { putAwayStockNote } from './transfer-putaway-stock'
 import type { TransferDetail, TransferShipment } from '../types/transfer.types'
 import {
   openDiscrepancies,
@@ -145,8 +146,7 @@ export function getTransferNextSteps(
       steps.push({
         id: `open-putaway-${shipment.id}`,
         title: `${label} còn hàng đã nhận, chưa cất`,
-        description:
-          'Quét vị trí và cất hàng tốt. Hàng hỏng, thiếu được xử lý riêng; tồn kho tăng khi xác nhận cất.',
+        description: `Quét vị trí và cất hàng tốt. Hàng hỏng, thiếu được xử lý riêng. ${putAwayStockNote(shipment.receiptFlowVersion)}`,
         actionLabel: 'Cất hàng',
         action: { type: 'openPutAway', shipmentId: shipment.id },
       })

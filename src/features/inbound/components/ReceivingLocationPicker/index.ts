@@ -1,1 +1,1 @@
-export { ReceivingLocationPicker } from './ReceivingLocationPicker'
+export { ReceivingLocationPicker, formatReceivingLocationLabel } from './ReceivingLocationPicker'
