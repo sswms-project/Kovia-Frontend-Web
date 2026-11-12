@@ -25,6 +25,7 @@ import {
   canCancelStockIssueRequest,
   canEditStockIssueRequest,
   canRecordStockPicking,
+  isPickAssignedToUser,
 } from '../../utils/stock-issue-format'
 import {
   StockIssueAttachmentList,
@@ -64,7 +65,10 @@ export function StockIssueRequestDetail({
   onRemovePickDetail,
   pickingPlan,
 }: StockIssueRequestDetailProps) {
-  const canPickNow = capabilities.canPick && canRecordStockPicking(order.status)
+  const canPickNow =
+    capabilities.canPick &&
+    canRecordStockPicking(order.status) &&
+    isPickAssignedToUser(order, capabilities.currentUserId)
   const canReassignPicker =
     capabilities.canAssignPicker &&
     (order.status === 'ReleasedForPicking' || order.status === 'Picking')

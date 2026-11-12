@@ -3,6 +3,9 @@ import { getApiErrorMessage } from '@/lib/api-error'
 import { legacyReceiptEvidenceFileSchema } from '../schemas/legacy-receipt-stock.schema'
 import { inboundService } from '../services/inbound.service'
 
+export const REFUSAL_EVIDENCE_REQUIRED =
+  'Xác nhận bên giao giữ/mang về hàng từ chối và đính kèm bằng chứng trước khi gửi.'
+
 export function useRefusalEvidence(warehouseId: string | undefined, sessionKey: string) {
   const key = `${warehouseId}:${sessionKey}`
   const [record, setRecord] = useState<{
@@ -41,12 +44,15 @@ export function useRefusalEvidence(warehouseId: string | undefined, sessionKey: 
       setBusy(false)
     }
   }
+  // Returns null and shows the message inline (via `error`) instead of throwing, so callers can stop
+  // before any mutation and the user sees the reason next to the evidence panel.
   function payload(required: boolean) {
     if (!required) return {}
-    if (!acknowledged || files.length === 0 || busy)
-      throw new Error(
-        'Xác nhận bên giao giữ/mang về hàng từ chối và đính kèm bằng chứng trước khi gửi.'
-      )
+    if (!acknowledged || files.length === 0 || busy) {
+      setError(REFUSAL_EVIDENCE_REQUIRED)
+      return null
+    }
+    setError(null)
     return { refusedGoodsHandedBack: true, refusalEvidenceIds: files.map((file) => file.id) }
   }
   return {
@@ -57,7 +63,9 @@ export function useRefusalEvidence(warehouseId: string | undefined, sessionKey: 
     upload,
     payload,
     toggle: () => {
-      if (!lock.current) setRecord({ key, files, acknowledged: !acknowledged })
+      if (lock.current) return
+      setError(null)
+      setRecord({ key, files, acknowledged: !acknowledged })
     },
     remove: (id: string) => {
       if (!lock.current)

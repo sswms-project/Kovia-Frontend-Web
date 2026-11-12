@@ -24,9 +24,11 @@ import type { CreateGoodsReturnRequestFormValues } from '../../schemas/stock-iss
 import type { StockIssueRequestSummary } from '../../types/stock-issue.types'
 import type { GoodsReturnLineSuggestion } from '../../types/stock-issue.types'
 import {
+  describeReturnLineSource,
   describeSlotSuggestion,
   formatSlotSuggestionLabel,
 } from '../../utils/goods-return-suggestion'
+import { formatStockIssueQuantity } from '../../utils/stock-issue-format'
 
 export function CreateGoodsReturnRequestDialog({
   isEditing = false,
@@ -116,11 +118,14 @@ export function CreateGoodsReturnRequestDialog({
                   >
                     <div>
                       <p className="text-sm font-medium">{line.productName}</p>
-                      <p className="text-muted-foreground font-mono text-xs">
-                        {line.lotNumber ? `Lô ${line.lotNumber}` : 'Theo số lượng'}
+                      <p className="text-muted-foreground font-mono text-xs break-words">
+                        {describeReturnLineSource(line)}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        Có thể trả: {allowableByPickDetail[line.stockIssuePickDetailId] ?? 0}
+                        Có thể trả:{' '}
+                        {formatStockIssueQuantity(
+                          allowableByPickDetail[line.stockIssuePickDetailId] ?? 0
+                        )}
                       </p>
                       {isEditing && line.quantity > line.returnableQuantity ? (
                         <p className="text-destructive text-xs" role="status">

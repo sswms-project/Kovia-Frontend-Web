@@ -18,6 +18,8 @@ import { logger } from '@/lib/logger'
 import { USER_ROLES } from '@/config/roles'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
+import { ROUTE_CAPABILITIES } from '@/config/route-permissions'
+import { useUnauthorizedRedirect } from '@/hooks/use-unauthorized-redirect'
 import { useAssignableStaffQuery } from '@/features/inbound/hooks/use-inbound'
 import {
   formatApiError,
@@ -81,6 +83,14 @@ export default function InboundRequestFormPage({
   const codeSessionKey = useId()
   const isOwner = useAuthStore((state) => state.user?.role === USER_ROLES.TenantOwner)
   const meQuery = useMeQuery()
+  useUnauthorizedRedirect(
+    meQuery.isSuccess,
+    meQuery.data?.permissions.includes(
+      inboundRequestId
+        ? P.INBOUND_REQUESTS_EDIT
+        : ROUTE_CAPABILITIES[APP_ROUTES.inboundRequestCreate]
+    ) ?? false
+  )
   const canAssign =
     !inboundRequestId && Boolean(meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_CREATE))
   const hydratedInboundRequestId = useRef<string | null>(null)

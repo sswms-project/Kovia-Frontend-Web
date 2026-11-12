@@ -4,6 +4,14 @@ import { Input } from '@/components/ui/input'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import type { useReceivingLocationSelection } from '../../hooks/use-receiving-location-selection'
+import type { ReceivingLocation } from '../../types/receipt-commands.types'
+
+export function formatReceivingLocationLabel(location: ReceivingLocation) {
+  if (location.remainingCapacity == null) return location.displayPath
+  const remaining = location.remainingCapacity.toLocaleString('vi-VN')
+  const unit = location.capacityUnitSymbol ? ` ${location.capacityUnitSymbol}` : ''
+  return `${location.displayPath} · còn ${remaining}${unit}`
+}
 
 interface ReceivingLocationPickerProps {
   readonly state: ReturnType<typeof useReceivingLocationSelection>
@@ -43,12 +51,12 @@ export function ReceivingLocationPicker({ state, disabled }: ReceivingLocationPi
         <NativeSelectOption value="">Chọn vị trí hàng đang đặt</NativeSelectOption>
         {state.selected && !items.some((item) => item.id === state.selected?.id) && (
           <NativeSelectOption value={state.selected.id}>
-            {state.selected.displayPath}
+            {formatReceivingLocationLabel(state.selected)}
           </NativeSelectOption>
         )}
         {items.map((item) => (
           <NativeSelectOption key={item.id} value={item.id}>
-            {item.displayPath}
+            {formatReceivingLocationLabel(item)}
           </NativeSelectOption>
         ))}
       </NativeSelect>
