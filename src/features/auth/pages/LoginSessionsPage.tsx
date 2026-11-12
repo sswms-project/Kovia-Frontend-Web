@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LaptopMinimal } from 'lucide-react'
+import { LaptopMinimal, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
+import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,7 +44,13 @@ function ConfirmLogout({
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="outline" className="min-h-11" disabled={disabled}>
+        <Button
+          type="button"
+          variant={clientLabel ? 'outline' : 'destructive'}
+          className={clientLabel ? 'bg-card min-h-11' : 'border-destructive/40 min-h-11'}
+          disabled={disabled}
+        >
+          <LogOut data-icon="inline-start" aria-hidden="true" />
           {label}
         </Button>
       </AlertDialogTrigger>
@@ -107,10 +114,10 @@ export function LoginSessionsPage() {
 
   return (
     <section
-      className="mx-auto grid w-full max-w-3xl gap-4 pb-4"
+      className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 pb-3"
       aria-labelledby="login-sessions-title"
     >
-      <header>
+      <header className="shrink-0 border-b pb-4">
         <h1 id="login-sessions-title" className="text-xl font-semibold">
           Thiết bị đăng nhập
         </h1>
@@ -125,15 +132,20 @@ export function LoginSessionsPage() {
       ) : sessions.isError ? (
         <div className="flex flex-wrap items-center gap-3" role="alert">
           <p>Không thể tải danh sách thiết bị.</p>
-          <Button type="button" variant="outline" onClick={() => void sessions.refetch()}>
+          <Button
+            type="button"
+            variant="outline"
+            className="bg-card"
+            onClick={() => void sessions.refetch()}
+          >
             Thử lại
           </Button>
         </div>
       ) : sessions.isPending ? (
         <p role="status">Đang tải thiết bị…</p>
       ) : (
-        <>
-          <ul className="bg-card border-border divide-border divide-y border">
+        <OperationalListPanel aria-label="Danh sách thiết bị đăng nhập">
+          <ul data-slot="operational-list-body" className="divide-border divide-y">
             {sessions.data.map((session) => (
               <li key={session.id} className="flex flex-wrap items-start gap-3 p-4 sm:items-center">
                 <LaptopMinimal className="text-primary mt-0.5 size-5 shrink-0" aria-hidden="true" />
@@ -159,14 +171,14 @@ export function LoginSessionsPage() {
               </li>
             ))}
           </ul>
-          <div className="sm:justify-self-end">
+          <div className="flex shrink-0 justify-end border-t p-4">
             <ConfirmLogout
               label="Đăng xuất tất cả thiết bị"
               disabled={revoke.isPending || sessions.isFetching}
               onConfirm={() => signOut(null)}
             />
           </div>
-        </>
+        </OperationalListPanel>
       )}
     </section>
   )
