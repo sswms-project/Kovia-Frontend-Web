@@ -117,7 +117,7 @@ export function AssignWarehouseTaskDialog({
 
   return (
     <Dialog open={Boolean(target)} onOpenChange={(open) => !isBusy && onOpenChange(open)}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         {target && (
           <>
             <DialogHeader>
@@ -291,7 +291,8 @@ export function AssignWarehouseTaskDialog({
                 </AlertDescription>
               </Alert>
             )}
-            <DialogFooter>
+            {/* Sticky so the save action stays reachable when the body scrolls on short or narrow screens. */}
+            <DialogFooter className="bg-popover sticky -bottom-4 z-10 -mx-4 border-t px-4 py-3">
               {canUnassign ? (
                 <Button
                   type="button"

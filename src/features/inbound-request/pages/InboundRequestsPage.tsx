@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
+import { ROUTE_CAPABILITIES } from '@/config/route-permissions'
+import { useUnauthorizedRedirect } from '@/hooks/use-unauthorized-redirect'
 import {
   InboundPageHeader,
   InboundMasterDetail,
@@ -78,6 +80,10 @@ export default function InboundRequestsPage() {
   const [deleteIntent, setDeleteIntent] = useState<DeleteIntent | null>(null)
   const [workflowIntent, setWorkflowIntent] = useState<WorkflowIntent | null>(null)
   const meQuery = useMeQuery()
+  useUnauthorizedRedirect(
+    meQuery.isSuccess,
+    meQuery.data?.permissions.includes(ROUTE_CAPABILITIES[APP_ROUTES.inboundRequests]) ?? false
+  )
   const deleteMutation = useDeleteInboundRequestMutation()
   const deleteManyMutation = useDeleteInboundRequestsMutation()
   const duplicateMutation = useDuplicateInboundRequestMutation()

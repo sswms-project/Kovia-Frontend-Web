@@ -1,5 +1,6 @@
 'use client'
 
+import { putAwayStockNote } from '../utils/transfer-putaway-stock'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Sparkles } from 'lucide-react'
@@ -617,7 +618,7 @@ export default function TransferPutAwayPage({
         open={putAway.confirmOpen}
         onOpenChange={putAway.setConfirmOpen}
         title="Ghi nhận cất hàng?"
-        description="Tồn kho nhận sẽ tăng theo các khai báo này. Có thể cất một phần rồi tiếp tục phần còn lại."
+        description={`${putAwayStockNote(sheet?.receipt.receiptFlowVersion)} Có thể cất một phần rồi tiếp tục phần còn lại.`}
         confirmLabel="Xác nhận cất hàng"
         pendingLabel="Đang cất…"
         isPending={putAway.isPending}

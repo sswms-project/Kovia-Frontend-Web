@@ -1,7 +1,7 @@
 'use client'
 
 import { useQueryClient } from '@tanstack/react-query'
-import { LoaderCircle, LogOut, ScrollText, Settings, User } from 'lucide-react'
+import { LaptopMinimal, LoaderCircle, LogOut, ScrollText, Settings, User } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { getRoleLabel } from '@/config/roles'
 import { useLogoutMutation } from '@/features/auth'
+import { getStoredAccessToken, tokenMatchesUser } from '@/lib/axios'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -39,6 +40,8 @@ export function UserMenu() {
   if (!user) return null
 
   function finishLogout() {
+    const token = getStoredAccessToken()
+    if (token && !tokenMatchesUser(token, user)) return
     clearAuth()
     queryClient.clear()
     router.replace(APP_ROUTES.auth.login)
@@ -86,6 +89,14 @@ export function UserMenu() {
               Cài đặt tài khoản
             </Link>
           </DropdownMenuItem>
+          {user.loginSessionId && (
+            <DropdownMenuItem asChild>
+              <Link href={APP_ROUTES.settings.loginSessions}>
+                <LaptopMinimal aria-hidden="true" />
+                Thiết bị đăng nhập
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild>
             <Link href={APP_ROUTES.myLegalTerms}>
               <ScrollText aria-hidden="true" />

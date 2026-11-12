@@ -171,7 +171,11 @@ export const recordStockPickingSchema = z
 export const returnLineSchema = z.object({
   stockIssuePickDetailId: dotNetGuidSchema('Dòng lấy hàng không hợp lệ.'),
   productName: z.string(),
+  sku: z.string().optional(),
   lotNumber: z.string().nullable(),
+  // Display-only: where the issued goods were picked from, so lines of the same SKU/lot are distinguishable.
+  sourceSlotCode: z.string().nullable().optional(),
+  issuedQuantity: z.number().nullable().optional(),
   returnableQuantity: z.number().min(0),
   quantity: z.number().min(0, 'Số lượng không được âm.'),
   condition: z.enum(GOODS_RETURN_REQUEST_ITEM_CONDITIONS),

@@ -285,6 +285,9 @@ export interface TransferShipment {
   readonly receiveTaskDueAt?: string | null
   readonly putAwayTaskPriority?: 'Normal' | 'Urgent' | null
   readonly putAwayTaskDueAt?: string | null
+  readonly createdByName?: string | null
+  readonly dispatchedByName?: string | null
+  readonly receivedByName?: string | null
   id: string
   shipmentNumber: number
   status: TransferShipmentStatus
@@ -353,6 +356,7 @@ export interface TransferFeedback {
 }
 
 export interface TransferDetail {
+  completedByName?: string | null
   requestEvents?: Array<{
     action: string
     actorId: string

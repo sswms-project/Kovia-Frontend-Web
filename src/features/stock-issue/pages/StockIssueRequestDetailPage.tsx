@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PdfExportButton } from '@/components/documents/PdfExportButton'
+import { organizationService } from '@/features/organization/services/organization.service'
 import type { StockIssueManualSourceDraft } from '../types/stock-issue.types'
 
 import {
@@ -57,11 +58,28 @@ export default function StockIssueRequestDetailPage({
                 if (result.isError || !result.data)
                   throw new Error('Không thể kiểm tra dữ liệu mới nhất. Vui lòng thử lại.')
                 const snapshot = result.data
+                // Users without organization:view still get the PDF, with blank issuer lines.
+                const organization = await organizationService
+                  .getOrganization()
+                  .then((response) => response.data)
+                  .catch(() => null)
                 const { StockIssuePdfDocument } =
                   await import('../components/StockIssueRequestDetailPage/StockIssuePdfDocument')
                 const draft = snapshot.status !== 'Dispatched'
                 return {
-                  document: <StockIssuePdfDocument order={snapshot} fontFamily={fontFamily} />,
+                  document: (
+                    <StockIssuePdfDocument
+                      order={snapshot}
+                      fontFamily={fontFamily}
+                      issuer={
+                        organization && {
+                          name: organization.tenantName,
+                          address: organization.address,
+                          taxCode: organization.taxCode,
+                        }
+                      }
+                    />
+                  ),
                   fileName: `Phiếu xuất kho - ${snapshot.stockIssueRequestCode}${draft ? ' - Bản nháp' : ''}.pdf`,
                   draft,
                 }

@@ -37,7 +37,8 @@ export type NavItem = {
   readonly href?: string
   readonly label: string
   readonly icon: LucideIcon
-  readonly requiredPermission?: string
+  // Mảng nghĩa là chỉ cần một trong các quyền.
+  readonly requiredPermission?: string | readonly string[]
   readonly match?: 'exact' | 'prefix'
   readonly activePrefixes?: readonly string[]
   // Đường dẫn con có mục menu riêng, không được làm sáng mục cha khớp theo tiền tố.
@@ -56,6 +57,12 @@ export type NavSection = {
   readonly separatorAfter?: boolean
   readonly presentation?: 'catalog'
 }
+
+// Trang công việc kho tự hiển thị phần "của tôi" (view-own) và hàng đợi điều phối (view-all).
+const WAREHOUSE_TASK_VIEW_PERMISSIONS = [
+  P.WAREHOUSE_TASKS_VIEW_ALL,
+  P.WAREHOUSE_TASKS_VIEW_OWN,
+] as const
 
 export const CATALOG_GROUPS = [
   { id: 'products', label: 'Vật tư hàng hóa', icon: Package },
@@ -268,7 +275,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
             APP_ROUTES.myTasks,
             'Công việc hiện tại',
             ClipboardList,
-            P.WAREHOUSE_TASKS_VIEW_ALL
+            WAREHOUSE_TASK_VIEW_PERMISSIONS
           ),
           match: 'exact',
         },
@@ -276,7 +283,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
           APP_ROUTES.myTaskHistory,
           'Lịch sử công việc',
           ScrollText,
-          P.WAREHOUSE_TASKS_VIEW_ALL
+          WAREHOUSE_TASK_VIEW_PERMISSIONS
         ),
       ],
     },
@@ -369,7 +376,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
             APP_ROUTES.myTasks,
             'Công việc hiện tại',
             ClipboardList,
-            P.WAREHOUSE_TASKS_VIEW_OWN
+            WAREHOUSE_TASK_VIEW_PERMISSIONS
           ),
           match: 'exact',
         },
@@ -377,7 +384,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
           APP_ROUTES.myTaskHistory,
           'Lịch sử công việc',
           ScrollText,
-          P.WAREHOUSE_TASKS_VIEW_OWN
+          WAREHOUSE_TASK_VIEW_PERMISSIONS
         ),
       ],
     },
@@ -409,7 +416,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
             APP_ROUTES.myTasks,
             'Công việc hiện tại',
             ClipboardList,
-            P.WAREHOUSE_TASKS_VIEW_OWN
+            WAREHOUSE_TASK_VIEW_PERMISSIONS
           ),
           match: 'exact',
         },
@@ -417,7 +424,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
           APP_ROUTES.myTaskHistory,
           'Lịch sử công việc',
           ScrollText,
-          P.WAREHOUSE_TASKS_VIEW_OWN
+          WAREHOUSE_TASK_VIEW_PERMISSIONS
         ),
       ],
     },
@@ -484,16 +491,26 @@ export function getVisibleNavSections(
           }
           return item
         })
-        .filter((item) => !item.requiredPermission || permissions.has(item.requiredPermission)),
+        .filter((item) => hasNavPermission(item.requiredPermission, permissions)),
     }))
     .filter((section) => section.items.length > 0)
+}
+
+function hasNavPermission(
+  required: NavItem['requiredPermission'],
+  permissions: ReadonlySet<string>
+): boolean {
+  if (!required) return true
+  return typeof required === 'string'
+    ? permissions.has(required)
+    : required.some((code) => permissions.has(code))
 }
 
 function requiredNavItem(
   href: string,
   label: string,
   icon: LucideIcon,
-  requiredPermission: string,
+  requiredPermission: NonNullable<NavItem['requiredPermission']>,
   activePrefixes?: readonly string[]
 ): NavItem {
   return { href, label, icon, requiredPermission, activePrefixes }

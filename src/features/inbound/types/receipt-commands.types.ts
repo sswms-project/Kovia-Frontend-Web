@@ -2,6 +2,9 @@ import type { ReceiptLineRequest } from './inbound.types'
 
 export interface ReceivingLocation {
   isSuggested?: boolean
+  remainingCapacity?: number | null
+  capacityUnitId?: string | null
+  capacityUnitSymbol?: string | null
   id: string
   zoneCode: string
   rackCode: string

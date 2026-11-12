@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
 import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -18,7 +19,9 @@ import {
   type Verify2FAErrorKind,
 } from '../hooks/use-auth'
 import type { VerifyTwoFactorFormValues } from '../schemas/verify-two-factor.schema'
-import type { AuthUser } from '../types/auth.types'
+import type { AuthUser, LoginResponseDto } from '../types/auth.types'
+import { LoginSessionSelection } from '../components/LoginSessionSelection'
+import { getBrowserClientLabel } from '../utils/browser-client-label'
 import { resolvePostLoginRoute } from '../utils/post-login-route'
 
 // sessionStorage chỉ có ở client — dùng cùng kỹ thuật useSyncExternalStore đã có ở
@@ -41,6 +44,10 @@ export function VerifyTwoFactorPage() {
   const [forcedMissing, setForcedMissing] = useState(false)
   const [step, setStep] = useState<VerifyStep>({ status: 'form' })
   const [apiErrorKind, setApiErrorKind] = useState<Verify2FAErrorKind | null>(null)
+  const [sessionSelection, setSessionSelection] = useState<{
+    data: LoginResponseDto
+    returnUrl: Route | null
+  } | null>(null)
   const verifyFlowIdRef = useRef(0)
 
   const tempToken = hasHydrated && !forcedMissing ? (getTwoFactorTempToken()?.trim() ?? null) : null
@@ -79,12 +86,17 @@ export function VerifyTwoFactorPage() {
     const flowId = verifyFlowIdRef.current
 
     verifyMutation.mutate(
-      { tempToken, otp: values.otp },
+      { tempToken, otp: values.otp, clientLabel: getBrowserClientLabel() },
       {
         onSuccess: async (response) => {
           if (flowId !== verifyFlowIdRef.current) return
 
           const result = response.data
+          if (result.sessionSelectionTicket) {
+            clearTwoFactorTempToken()
+            setSessionSelection({ data: result, returnUrl: takeAuthReturnUrl() })
+            return
+          }
           const accessToken = result.accessToken?.trim()
           const refreshToken = result.refreshToken?.trim()
 
@@ -126,6 +138,16 @@ export function VerifyTwoFactorPage() {
           setApiErrorKind(kind)
         },
       }
+    )
+  }
+
+  if (sessionSelection) {
+    return (
+      <LoginSessionSelection
+        initial={sessionSelection.data}
+        returnUrl={sessionSelection.returnUrl}
+        onBack={handleBackToLogin}
+      />
     )
   }
 

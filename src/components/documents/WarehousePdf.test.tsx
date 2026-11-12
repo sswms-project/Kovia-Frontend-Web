@@ -1,12 +1,28 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { renderToBuffer } from '@react-pdf/renderer'
-import { createPdfFontFamily } from './WarehousePdf'
+import { createPdfFontFamily, splitPdfCode } from './WarehousePdf'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { StockIssuePdfDocument } from '@/features/stock-issue/components/StockIssueRequestDetailPage/StockIssuePdfDocument'
 import { CycleCountPdfDocument } from '@/features/cycle-count/components/CycleCountDetailPage/CycleCountPdfDocument'
 import type { StockIssueRequestSummary } from '@/features/stock-issue/types/stock-issue.types'
 import type { CycleCountDetail } from '@/features/cycle-count/types/cycle-count.types'
+
+describe('splitPdfCode', () => {
+  it('keeps short codes intact', () => {
+    expect(splitPdfCode('SKU-1', 14)).toEqual(['SKU-1'])
+  })
+  it('breaks long codes after separators without changing characters', () => {
+    const sku = 'BOARD-MAINBOARD-ASUS-PRIME-B760M-A-WIFI-D4'
+    const lines = splitPdfCode(sku, 14)
+    expect(lines.join('')).toBe(sku)
+    expect(lines.every((line) => line.length <= 14)).toBe(true)
+    expect(lines[0]).toBe('BOARD-')
+  })
+  it('hard-splits codes without separators', () => {
+    expect(splitPdfCode('ABCDEFGHIJKLMNOPQRST', 8)).toEqual(['ABCDEFGH', 'IJKLMNOP', 'QRST'])
+  })
+})
 
 describe('warehouse PDF rendering', () => {
   it('renders Vietnamese documents over multiple pages from authorized snapshots', async () => {
@@ -22,7 +38,7 @@ describe('warehouse PDF rendering', () => {
       items: Array.from({ length: 55 }, (_, i) => ({
         id: String(i),
         productName: 'Vật tư tiếng Việt — hàng hóa cần giao',
-        sku: `SKU-${i}`,
+        sku: i === 0 ? 'BOARD-MAINBOARD-ASUS-PRIME-B760M-A-WIFI-D4' : `SKU-${i}`,
         enteredUnitName: 'Hộp',
         enteredQuantity: 2,
         quantity: 20,
@@ -53,7 +69,11 @@ describe('warehouse PDF rendering', () => {
       })),
     } as unknown as CycleCountDetail
     const issue = await renderToBuffer(
-      <StockIssuePdfDocument order={order} fontFamily={createPdfFontFamily()} />
+      <StockIssuePdfDocument
+        order={order}
+        fontFamily={createPdfFontFamily()}
+        issuer={{ name: 'Công ty TNHH Kovia', address: 'Đà Nẵng', taxCode: '0401234567' }}
+      />
     )
     const count = await renderToBuffer(
       <CycleCountPdfDocument detail={detail} fontFamily={createPdfFontFamily()} />

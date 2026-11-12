@@ -10,6 +10,8 @@ export const ROUTE_CAPABILITIES = {
   [APP_ROUTES.productImport]: P.PRODUCTS_IMPORT,
   [APP_ROUTES.unitImport]: P.UNITS_MANAGE,
   [APP_ROUTES.categoryImport]: P.CATEGORIES_MANAGE,
+  [APP_ROUTES.inboundRequests]: P.INBOUND_REQUESTS_VIEW,
+  [APP_ROUTES.inboundRequestCreate]: P.INBOUND_REQUESTS_CREATE,
 } as const
 
 interface RoutePermission {

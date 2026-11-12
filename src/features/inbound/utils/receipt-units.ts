@@ -1,3 +1,4 @@
+import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
 import type { ReceivingTaskLine } from '../types/inbound.types'
 
 export function getReceiptUnit(line: ReceivingTaskLine, unitId?: string) {
@@ -29,6 +30,23 @@ export function getRemainingReceiptQuantity(line: ReceivingTaskLine, unitId?: st
   return isRepresentable
     ? { unitId: unitId ?? line.baseUnitId, quantity: Number(quantity.toFixed(unit.precision)) }
     : { unitId: line.baseUnitId, quantity: line.remainingQuantity }
+}
+
+/** Báo ngay tại ô nhập khi số thực nhận vượt phần còn lại của dòng, theo đơn vị đang chọn. */
+export function getOverReceiveMessage(
+  line: ReceivingTaskLine,
+  unitId: string | undefined,
+  received: number | undefined
+): string | null {
+  if (received === undefined || !Number.isFinite(received)) return null
+  const unit = getReceiptUnit(line, unitId)
+  const remaining = getRemainingReceiptQuantity(line, unitId)
+  const max =
+    remaining.unitId === unitId ? remaining.quantity : line.remainingQuantity / unit.factor
+  const tolerance = 10 ** -(unit.precision + 3)
+  return received > max + tolerance
+    ? `Vượt số lượng còn lại (còn ${formatQuantity(max)} ${unit.name}).`
+    : null
 }
 
 export type ScannedReceiptLineMatch =

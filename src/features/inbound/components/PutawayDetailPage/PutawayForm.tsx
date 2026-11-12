@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  Lock,
   Ban,
   Check,
   ChevronDown,
@@ -16,6 +17,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useWatch, type FieldArrayWithId, type UseFormReturn } from 'react-hook-form'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
@@ -53,6 +55,9 @@ export interface SlotOption {
   allowsMixedProducts?: boolean
   capacityLabel: string
   unavailableReason?: string
+  /** Remaining capacity in `capacityUnitId`; null when unlimited or unknown. */
+  remainingCapacity?: number | null
+  capacityUnitId?: string | null
 }
 
 export interface PutawayPlanningState {
@@ -90,6 +95,8 @@ interface PutawayFormProps {
   readonly planning?: PutawayPlanningState
   /** Trạng thái quét mã vị trí của người đi cất; không có khi phiếu chưa được giao vị trí. */
   readonly scan?: PutawayScanState
+  /** Có giá trị khi người xem không được ghi nhận cất (nhiệm vụ giao cho người khác): khóa form. */
+  readonly lockedReason?: string | null
   readonly onPlan?: () => void
   readonly onCancel: () => void
   readonly onApplyPlan: () => void
@@ -116,6 +123,7 @@ export function PutawayForm({
   cancelLabel = 'Hủy phần còn lại',
   planning,
   scan,
+  lockedReason = null,
   onPlan,
   onCancel,
   onApplyPlan,
@@ -137,7 +145,8 @@ export function PutawayForm({
     reasonMissing && (isSubmitted || (overrideReason ?? '').length > 0)
       ? 'Vui lòng chọn nhóm lý do hoặc mô tả lý do (tối thiểu 5 ký tự).'
       : null
-  const allocationLocked = isPending || hasUncertainSubmission || Boolean(planning?.isSaving)
+  const allocationLocked =
+    isPending || hasUncertainSubmission || Boolean(planning?.isSaving) || lockedReason !== null
   // Chưa quét đủ mã thì chưa xác nhận được, trừ khi người cất đã báo không quét được và nêu lý do.
   const scanMissing =
     scan && !planning && !scan.skipRequested ? scan.requiredCount - scan.confirmedCount : 0
@@ -317,6 +326,13 @@ export function PutawayForm({
                 </>
               )}
             </p>
+          ) : null}
+          {lockedReason ? (
+            <Alert>
+              <Lock aria-hidden="true" />
+              <AlertTitle>Chỉ xem</AlertTitle>
+              <AlertDescription>{lockedReason}</AlertDescription>
+            </Alert>
           ) : null}
           <PutawayPlanNotice
             receipt={receipt}
@@ -624,6 +640,7 @@ export function PutawayForm({
             className={cn(planning && 'hidden')}
             disabled={
               isPending ||
+              lockedReason !== null ||
               (!hasUncertainSubmission &&
                 (!allocation.canSubmit || reasonMissing || scanMissing > 0))
             }

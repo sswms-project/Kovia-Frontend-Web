@@ -1,4 +1,12 @@
-import { AlertCircle, CheckCircle2, FileSearch, PackagePlus, RotateCcw, Undo2 } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileSearch,
+  PackagePlus,
+  RefreshCw,
+  RotateCcw,
+  Undo2,
+} from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -11,6 +19,7 @@ interface ImportStateProps {
   readonly importData: InboundDocumentImport | null
   readonly draftReceiptId: string | null
   readonly isLoading: boolean
+  readonly onRetry: () => void
   readonly onManualFallback: () => void
   readonly onCancel: () => void
 }
@@ -19,6 +28,7 @@ export function ImportState({
   importData,
   draftReceiptId,
   isLoading,
+  onRetry,
   onManualFallback,
   onCancel,
 }: ImportStateProps) {
@@ -94,6 +104,10 @@ export function ImportState({
           <Button type="button" variant="outline" onClick={onManualFallback}>
             <RotateCcw data-icon="inline-start" />
             Tiếp tục nhập thủ công
+          </Button>
+          <Button type="button" onClick={onRetry}>
+            <RefreshCw data-icon="inline-start" aria-hidden="true" />
+            Thử lại
           </Button>
         </div>
       </div>

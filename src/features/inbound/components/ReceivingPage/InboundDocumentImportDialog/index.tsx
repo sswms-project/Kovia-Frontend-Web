@@ -27,6 +27,7 @@ export function InboundDocumentImportDialog({
   onAnalyze,
   onSaveReview,
   onCreateDraft,
+  onRetryImport,
   onManualFallback,
   onCancelImport,
   onOpenChange,
@@ -79,6 +80,7 @@ export function InboundDocumentImportDialog({
               importData={importData}
               draftReceiptId={draftReceiptId}
               isLoading={isStarting || isLoadingImport}
+              onRetry={onRetryImport}
               onManualFallback={onManualFallback}
               onCancel={onCancelImport}
             />

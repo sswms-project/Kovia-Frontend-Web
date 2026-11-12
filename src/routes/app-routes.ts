@@ -148,6 +148,7 @@ export const APP_ROUTES = {
     `/audit-logs/documents/${encodeURIComponent(documentType)}/${encodeURIComponent(id)}` as Route,
   settings: {
     security: '/settings/security',
+    loginSessions: '/settings/login-sessions',
     accessControl: '/settings/access-control',
   },
 } as const

@@ -8,6 +8,7 @@ import type {
   ForgotPasswordResponseDto,
   LoginRequestDto,
   LoginResponseDto,
+  LoginSessionSummary,
   RegisterRequestDto,
   RegisterResponseDto,
   ResendVerificationRequestDto,
@@ -24,6 +25,21 @@ export const authService = {
     axiosClient
       .post<ApiResponse<LoginResponseDto>>(API_ENDPOINTS.auth.login, body)
       .then((r) => r.data),
+
+  completeSession: (ticket: string, replaceSessionId: string | null) =>
+    axiosClient
+      .post<
+        ApiResponse<LoginResponseDto>
+      >(API_ENDPOINTS.auth.completeSession, { ticket, replaceSessionId })
+      .then((r) => r.data),
+
+  listSessions: (signal: AbortSignal) =>
+    axiosClient
+      .get<ApiResponse<LoginSessionSummary[]>>(API_ENDPOINTS.auth.sessions, { signal })
+      .then((r) => r.data.data),
+
+  revokeSession: (id: string | null) =>
+    axiosClient.delete(id ? API_ENDPOINTS.auth.session(id) : API_ENDPOINTS.auth.sessions),
 
   createCaptcha: () =>
     axiosClient

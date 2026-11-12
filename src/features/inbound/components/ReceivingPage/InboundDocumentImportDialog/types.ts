@@ -16,6 +16,7 @@ export interface InboundDocumentImportDialogProps {
   readonly onAnalyze: () => void
   readonly onSaveReview: () => void
   readonly onCreateDraft: () => void
+  readonly onRetryImport: () => void
   readonly onManualFallback: () => void
   readonly onCancelImport: () => void
   readonly onOpenChange: (open: boolean) => void

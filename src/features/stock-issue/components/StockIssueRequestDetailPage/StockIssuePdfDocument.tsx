@@ -3,6 +3,8 @@ import {
   PdfCell,
   PdfFormHeader,
   PdfSignatures,
+  splitPdfCode,
+  type PdfIssuer,
   pdfDate,
   pdfQuantity,
   pdfStyles as s,
@@ -13,9 +15,11 @@ import { stockIssuePdfQuantities } from '../../utils/stock-issue-pdf-quantities'
 export function StockIssuePdfDocument({
   order,
   fontFamily,
+  issuer,
 }: {
   order: StockIssueRequestSummary
   fontFamily?: string
+  issuer?: PdfIssuer | null
 }) {
   if (order.status === 'Cancelled')
     throw new Error('Phiếu đã hủy không thể xuất PDF đang có hiệu lực.')
@@ -28,7 +32,7 @@ export function StockIssuePdfDocument({
     throw new Error(
       'Chưa đủ chi tiết thực xuất để dựng phiếu hoàn tất. Vui lòng đối chiếu dữ liệu.'
     )
-  const widths = [5, 29, 12, 10, 11, 11, 11, 11]
+  const widths = [5, 25, 16, 10, 11, 11, 11, 11]
   const labels = [
     'STT',
     'Tên, nhãn hiệu, quy cách, phẩm chất vật tư, dụng cụ, sản phẩm, hàng hóa',
@@ -52,6 +56,7 @@ export function StockIssuePdfDocument({
           code={order.stockIssueRequestCode}
           draft={order.status !== 'Dispatched'}
           department={order.warehouseName}
+          issuer={issuer}
         />
         <Text>Ngày lập: {pdfDate(order.createdAt)}</Text>
         <Text>Ngày xuất thực tế: {pdfDate(order.dispatchedAt)}</Text>
@@ -85,29 +90,29 @@ export function StockIssuePdfDocument({
               {[
                 String(index + 1),
                 item.productName,
-                item.sku,
+                splitPdfCode(item.sku, 14).join('\n'),
                 item.enteredUnitName,
                 pdfQuantity(requested),
                 pdfQuantity(issued),
                 '',
                 '',
               ].map((value, i) => (
-                <PdfCell key={i} width={widths[i]!}>
+                <PdfCell key={i} width={widths[i]!} fontSize={i === 2 ? 8 : undefined}>
                   {value}
                 </PdfCell>
               ))}
             </View>
           ))}
           <View wrap={false} style={s.row}>
-            <PdfCell width={34} bold>
+            <PdfCell width={widths[0]! + widths[1]!} bold>
               Cộng
             </PdfCell>
-            {[12, 10, 11, 11, 11].map((w, i) => (
+            {widths.slice(2, 7).map((w, i) => (
               <PdfCell key={i} width={w}>
                 x
               </PdfCell>
             ))}
-            <PdfCell width={11} />
+            <PdfCell width={widths[7]!} />
           </View>
         </View>
         <Text style={{ marginTop: 10 }}>Tổng số tiền (viết bằng chữ): ………………………………………………………</Text>

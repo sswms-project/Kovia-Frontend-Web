@@ -41,6 +41,7 @@ import { createProductSchema, type CreateProductFormValues } from '../schemas/pr
 import { categorySchema, type CategoryFormValues } from '../schemas/master-data.schema'
 import type { ProductListItem, ProductStatus, ProductStockStatus } from '../types/product.types'
 import { suggestCategoryCode } from '../utils/category-code'
+import { productDetailHref } from '../utils/product-list-return'
 
 function parseProductStatus(value: string): ProductStatus | '' {
   return value === 'Active' || value === 'Inactive' ? value : ''
@@ -213,7 +214,7 @@ export default function ProductListPage() {
       productForm.reset()
       setIsCreateOpen(false)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.push(APP_ROUTES.productDetail(id) as any)
+      router.push(productDetailHref(id, currentParams) as any)
     }
     return true
   }
@@ -261,12 +262,12 @@ export default function ProductListPage() {
 
   function handleView(product: ProductListItem) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    router.push(APP_ROUTES.productDetail(product.id) as any)
+    router.push(productDetailHref(product.id, currentParams) as any)
   }
 
   function handleEdit(product: ProductListItem) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    router.push(`${APP_ROUTES.productDetail(product.id)}?edit=1` as any)
+    router.push(productDetailHref(product.id, currentParams, { edit: true }) as any)
   }
 
   const listExport = useListExport({

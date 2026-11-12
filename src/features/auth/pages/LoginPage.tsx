@@ -15,7 +15,9 @@ import {
   useResendVerificationMutation,
 } from '../hooks/use-auth'
 import type { LoginFormValues } from '../schemas/login.schema'
-import type { AuthUser, CaptchaChallengeResponse } from '../types/auth.types'
+import type { AuthUser, CaptchaChallengeResponse, LoginResponseDto } from '../types/auth.types'
+import { LoginSessionSelection } from '../components/LoginSessionSelection'
+import { getBrowserClientLabel } from '../utils/browser-client-label'
 import { decodeJwtUser } from '../utils/decode-jwt-user'
 import { clearTwoFactorTempToken, saveTwoFactorTempToken } from '../utils/two-factor-temp-token'
 import { safeReturnUrl, saveAuthReturnUrl } from '../utils/auth-return-url'
@@ -33,6 +35,7 @@ export function LoginPage({ returnUrl }: { readonly returnUrl?: string }) {
   const [requiresVerification, setRequiresVerification] = useState(false)
   const [lastEmail, setLastEmail] = useState('')
   const [lockSeconds, setLockSeconds] = useState(0)
+  const [sessionSelection, setSessionSelection] = useState<LoginResponseDto | null>(null)
 
   useEffect(() => {
     if (lockSeconds <= 0) return
@@ -71,10 +74,15 @@ export function LoginPage({ returnUrl }: { readonly returnUrl?: string }) {
       const response = await loginMutation.mutateAsync({
         email: values.email,
         password: values.password,
+        clientLabel: getBrowserClientLabel(),
         ...(values.captchaId ? { captchaId: values.captchaId } : {}),
         ...(values.captchaAnswer ? { captchaAnswer: values.captchaAnswer } : {}),
       })
       const data = response.data
+      if (data.sessionSelectionTicket) {
+        setSessionSelection(data)
+        return
+      }
 
       if (data.requires2FA) {
         const tempToken = data.tempToken?.trim()
@@ -136,6 +144,19 @@ export function LoginPage({ returnUrl }: { readonly returnUrl?: string }) {
         toast.error(error.message ?? 'Đăng nhập thất bại. Vui lòng thử lại.')
       }
     }
+  }
+
+  if (sessionSelection) {
+    return (
+      <LoginSessionSelection
+        initial={sessionSelection}
+        returnUrl={safeReturnUrl(returnUrl)}
+        onBack={() => {
+          setSessionSelection(null)
+          setCaptcha(null)
+        }}
+      />
+    )
   }
 
   return (

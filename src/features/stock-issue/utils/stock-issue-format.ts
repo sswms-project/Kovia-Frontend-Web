@@ -51,6 +51,14 @@ export function canRecordStockPicking(status: StockIssueRequestStatus): boolean 
   return status === 'ReleasedForPicking' || status === 'Picking'
 }
 
+/** Phiếu đã giao cho nhân viên khác thì chỉ người được giao mới lấy hàng hoặc báo hàng lỗi. */
+export function isPickAssignedToUser(
+  order: { readonly assignedStaffId?: string | null },
+  currentUserId: string | null | undefined
+): boolean {
+  return !order.assignedStaffId || order.assignedStaffId === currentUserId
+}
+
 export function canEditStockIssueRequest(status: StockIssueRequestStatus): boolean {
   return status === 'Pending'
 }
