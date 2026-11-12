@@ -41,6 +41,9 @@ export const API_ENDPOINTS = {
     resetPassword: '/auth/reset-password',
     me: '/auth/me',
     verify2fa: '/auth/verify-2fa',
+    completeSession: '/auth/sessions/complete',
+    sessions: '/auth/sessions',
+    session: (id: string) => `/auth/sessions/${encodeURIComponent(id)}`,
     changePassword: '/auth/change-password',
   },
   // Authenticated endpoints
