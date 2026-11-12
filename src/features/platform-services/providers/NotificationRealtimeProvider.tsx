@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { HubConnectionState } from '@microsoft/signalr'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { getStoredAccessToken } from '@/lib/axios'
+import { getStoredAccessToken, tokenMatchesUser } from '@/lib/axios'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
 import { APP_ROUTES } from '@/routes/app-routes'
@@ -34,7 +34,41 @@ export function NotificationRealtimeProvider({ children }: NotificationRealtimeP
     let isStarting = false
     let restartAttempts = 0
     let restartTimer: ReturnType<typeof setTimeout> | undefined
-    const connection = createNotificationHubConnection(() => getStoredAccessToken() ?? '')
+    const connection = createNotificationHubConnection(() => {
+      const token = getStoredAccessToken()
+      return token && tokenMatchesUser(token, user) ? token : ''
+    })
+
+    const endSession = (message: string) => {
+      const current = useAuthStore.getState().user
+      if (disposed || current?.id !== user.id || current.loginSessionId !== user.loginSessionId)
+        return
+      const token = getStoredAccessToken()
+      if (token && !tokenMatchesUser(token, user)) return
+      useAuthStore.getState().clearAuth()
+      queryClient.clear()
+      toast.warning(message)
+      void connection.stop()
+      router.replace(APP_ROUTES.auth.login)
+    }
+
+    connection.on('LoginSessionEnded', (sessionId: unknown) => {
+      if (user.loginSessionId && sessionId === user.loginSessionId)
+        endSession('Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.')
+    })
+
+    const syncLogout = (event: StorageEvent) => {
+      if (event.key !== 'access_token' && event.key !== null) return
+      const token = getStoredAccessToken()
+      if (!token) endSession('Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.')
+      else if (!tokenMatchesUser(token, user)) {
+        // The auth store in this tab still describes the previous identity.
+        queryClient.clear()
+        void connection.stop()
+        window.location.reload()
+      }
+    }
+    window.addEventListener('storage', syncLogout)
 
     const invalidateNotifications = async (cancelRefetch = false) => {
       const filters = { queryKey: queryKeys.notifications.all }
@@ -149,6 +183,7 @@ export function NotificationRealtimeProvider({ children }: NotificationRealtimeP
     void start()
     return () => {
       disposed = true
+      window.removeEventListener('storage', syncLogout)
       window.removeEventListener('online', recover)
       window.removeEventListener('focus', recover)
       document.removeEventListener('visibilitychange', recover)

@@ -2,11 +2,8 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
 import { APP_ROUTES } from '@/routes/app-routes'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
-
-type PendingRequest = {
-  resolve: (token: string) => void
-  reject: (error: unknown) => void
-}
+import { decodeJwtUser } from '@/features/auth/utils/decode-jwt-user'
+import { useAuthStore } from '@/stores/auth.store'
 
 interface RefreshSessionResponse {
   accessToken: string | null
@@ -95,61 +92,119 @@ const redirectToLogin = (): void => {
 const AUTH_401_PASSTHROUGH_ENDPOINTS: string[] = [
   API_ENDPOINTS.auth.login,
   API_ENDPOINTS.auth.verify2fa,
+  API_ENDPOINTS.auth.completeSession,
   API_ENDPOINTS.auth.refreshToken,
-  API_ENDPOINTS.auth.logout,
 ]
 
 // ── Token refresh with queuing ─────────────────────────────────
 
-let isRefreshing = false
-let pendingRequests: PendingRequest[] = []
+function isSameSession(first: string, second: string) {
+  if (first === second) return true
+  try {
+    const a = decodeJwtUser(first)
+    const b = decodeJwtUser(second)
+    return a.id === b.id && a.tenantId === b.tenantId && a.loginSessionId === b.loginSessionId
+  } catch {
+    return false
+  }
+}
 
-const refreshAccessToken = async (): Promise<string> => {
+export function tokenMatchesUser(token: string, user: ReturnType<typeof decodeJwtUser> | null) {
+  if (!user) return false
+  try {
+    const identity = decodeJwtUser(token)
+    return (
+      identity.id === user.id &&
+      identity.tenantId === user.tenantId &&
+      identity.loginSessionId === user.loginSessionId
+    )
+  } catch {
+    return false
+  }
+}
+
+const refreshAccessToken = async (failedToken: string): Promise<string> => {
   const accessToken = getStoredAccessToken()
   const refreshToken = getRefreshToken()
   if (!accessToken || !refreshToken) throw new Error('Missing session token')
+  if (!isSameSession(failedToken, accessToken)) throw new Error('Session changed')
+  if (failedToken !== accessToken) return accessToken
 
-  const response = await axios.post<ApiResponse<RefreshSessionResponse>>(
-    `${API_BASE_URL}${API_ENDPOINTS.auth.refreshToken}`,
-    { accessToken, refreshToken }
-  )
+  const send = () =>
+    axios.post<ApiResponse<RefreshSessionResponse>>(
+      `${API_BASE_URL}${API_ENDPOINTS.auth.refreshToken}`,
+      { accessToken, refreshToken },
+      { timeout: 30_000 }
+    )
+  const response = await send()
+    .catch((error: unknown) => {
+      if (
+        axios.isAxiosError(error) &&
+        !axios.isCancel(error) &&
+        (!error.response || [502, 503, 504].includes(error.response.status)) &&
+        decodeJwtUser(accessToken).loginSessionId &&
+        getStoredAccessToken() === accessToken &&
+        getRefreshToken() === refreshToken
+      )
+        return send()
+      throw error
+    })
+    .catch((error: unknown) => {
+      const current = getStoredAccessToken()
+      if (
+        axios.isAxiosError(error) &&
+        error.response?.status === 401 &&
+        current === accessToken &&
+        getRefreshToken() === refreshToken
+      )
+        redirectToLogin()
+      throw error
+    })
   const refreshedSession = response.data.data
 
   if (!refreshedSession.accessToken || !refreshedSession.refreshToken) {
     throw new Error('Refresh response is missing session tokens')
   }
 
+  if (getStoredAccessToken() !== accessToken || getRefreshToken() !== refreshToken)
+    throw new Error('Session changed during refresh')
   setTokens(refreshedSession.accessToken, refreshedSession.refreshToken)
   return refreshedSession.accessToken
 }
 
-const handleTokenRefresh = async (): Promise<string> => {
-  if (isRefreshing) {
-    return new Promise((resolve, reject) => {
-      pendingRequests.push({ resolve, reject })
-    })
-  }
+const refreshes = new Map<string, Promise<string>>()
 
-  isRefreshing = true
-  try {
-    const newToken = await refreshAccessToken()
-    pendingRequests.forEach((req) => req.resolve(newToken))
-    return newToken
-  } catch (error) {
-    pendingRequests.forEach((req) => req.reject(error))
-    redirectToLogin()
-    throw error
-  } finally {
-    pendingRequests = []
-    isRefreshing = false
-  }
+const handleTokenRefresh = (failedToken: string): Promise<string> => {
+  const pending = refreshes.get(failedToken)
+  if (pending) return pending
+  const run = () => refreshAccessToken(failedToken)
+  const refresh = (
+    navigator.locks ? navigator.locks.request('kovia-auth-refresh', run) : run()
+  ).finally(() => refreshes.delete(failedToken))
+  refreshes.set(failedToken, refresh)
+  return refresh
 }
 
 // ── Request interceptor ────────────────────────────────────────
 
-axiosClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+type RetryConfig = InternalAxiosRequestConfig & { _retryToken?: string }
+
+axiosClient.interceptors.request.use((config: RetryConfig) => {
+  if (AUTH_401_PASSTHROUGH_ENDPOINTS.includes(config.url ?? '')) return config
   const token = getStoredAccessToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  const user = useAuthStore.getState().user
+  if (config._retryToken && token !== config._retryToken)
+    throw new Error('Session changed before retry')
+  if (token) {
+    if (!tokenMatchesUser(token, user))
+      throw {
+        statusCode: 409,
+        message: 'Tài khoản hoặc phiên đã thay đổi. Vui lòng tải lại trang.',
+      }
+    config.headers.Authorization = `Bearer ${token}`
+  } else if (user) {
+    throw { statusCode: 401, message: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.' }
+  }
   return config
 })
 
@@ -157,8 +212,14 @@ axiosClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 axiosClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+  async (error: unknown) => {
+    if (!axios.isAxiosError(error)) return Promise.reject(error)
+    const originalRequest = error.config as RetryConfig | undefined
+    const authorization = originalRequest?.headers.Authorization
+    const failedToken =
+      typeof authorization === 'string' && authorization.startsWith('Bearer ')
+        ? authorization.slice(7)
+        : null
     const isPassthroughEndpoint = AUTH_401_PASSTHROUGH_ENDPOINTS.some(
       (endpoint) => originalRequest?.url === endpoint
     )
@@ -166,16 +227,16 @@ axiosClient.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !isPassthroughEndpoint &&
-      !originalRequest?._retry &&
+      originalRequest &&
+      !originalRequest._retryToken &&
+      failedToken &&
       getRefreshToken()
     ) {
-      originalRequest._retry = true
       try {
-        const newToken = await handleTokenRefresh()
-        originalRequest.headers.Authorization = `Bearer ${newToken}`
+        originalRequest._retryToken = await handleTokenRefresh(failedToken)
         return axiosClient(originalRequest)
       } catch {
-        return Promise.reject(error)
+        return Promise.reject(normalizeApiError(error))
       }
     }
 

@@ -63,5 +63,14 @@ export function decodeJwtUser(token: string): AuthUser {
 
   const fullName = typeof payload.name === 'string' ? payload.name.trim() : ''
 
-  return { id, tenantId, fullName, email, role: roleClaim, isActive: true }
+  const loginSessionId = getOptionalStringClaim(payload, ['sid'])
+  return {
+    id,
+    tenantId,
+    fullName,
+    email,
+    role: roleClaim,
+    isActive: true,
+    ...(loginSessionId ? { loginSessionId } : {}),
+  }
 }
