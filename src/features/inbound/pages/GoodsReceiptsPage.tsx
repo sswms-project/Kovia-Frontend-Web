@@ -7,6 +7,10 @@ import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
+import { APP_ROUTES } from '@/routes/app-routes'
+import { getReceiptApprovalDestination } from '../utils/receipt-approval-destination'
 import { Check, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -47,6 +51,7 @@ import {
 import type { GoodsReceiptStatus, GoodsReceiptSummary } from '../types/inbound.types'
 
 export default function GoodsReceiptsPage() {
+  const router = useRouter()
   const [searchText, setSearchText] = useState('')
   const [status, setStatus] = useState<GoodsReceiptStatus | ''>('')
   const [createdFrom, setCreatedFrom] = useState('')
@@ -119,6 +124,14 @@ export default function GoodsReceiptsPage() {
     } catch (error) {
       logger.error(error)
       toast.error(getApiErrorMessage(error, 'Không thể duyệt kết quả kiểm hàng.'))
+      return
+    }
+
+    try {
+      router.push((await getReceiptApprovalDestination(approvalTarget.id)) as Route)
+    } catch {
+      toast.warning('Đã duyệt phiếu. Chưa thể kiểm tra bước cất hàng.')
+      router.push(APP_ROUTES.goodsReceiptDetail(approvalTarget.id) as Route)
     }
   }
 

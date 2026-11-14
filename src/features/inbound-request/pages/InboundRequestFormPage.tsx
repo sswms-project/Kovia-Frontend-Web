@@ -1,5 +1,16 @@
 'use client'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
@@ -101,6 +112,8 @@ export default function InboundRequestFormPage({
   const [productSearch, setProductSearch] = useState<ProductSearchState | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
   const [editCodeOnly, setEditCodeOnly] = useState(false)
+  const [confirmSelfApproval, setConfirmSelfApproval] = useState(false)
+  const [leavingAfterSave, setLeavingAfterSave] = useState(false)
   const debouncedWarehouseSearch = useDebouncedValue(warehouseSearchText.trim(), 300)
   const debouncedSupplierSearch = useDebouncedValue(supplierSearchText.trim(), 300)
   const debouncedProductSearch = useDebouncedValue(productSearch?.value.trim() ?? '', 300)
@@ -142,6 +155,8 @@ export default function InboundRequestFormPage({
   const unitsQuery = useUnitsQuery(true, RECORD_STATUS.Active)
   const detailQuery = useInboundRequestQuery(inboundRequestId ?? '')
   const actionsQuery = useInboundRequestAllowedActionsQuery(inboundRequestId ?? '')
+  const canSaveAndSelfApprove =
+    actionsQuery.data?.allowedActions.includes('UpdateAndSelfApprove') ?? false
   const nextCodeQuery = useNextInboundRequestCodeQuery(!isEditing, codeSessionKey)
   const codeMutation = useUpdateInboundRequestCodeMutation()
   const codeForm = useForm<InboundRequestCodeFormValues>({
@@ -273,13 +288,17 @@ export default function InboundRequestFormPage({
       return
     }
     let savedId = inboundRequestId ?? createdInboundRequestId.current
-    const autoApproved = !savedId && isOwner
+    const autoApproved = savedId ? canSaveAndSelfApprove : isOwner
     try {
       const request = toInboundRequestSaveRequest(values, detailQuery.data?.expectedDate)
       if (savedId) {
         await updateMutation.mutateAsync({
           inboundRequestId: savedId,
-          request: { ...request, expectedVersion: editingVersion.current },
+          request: {
+            ...request,
+            expectedVersion: editingVersion.current,
+            ...(canSaveAndSelfApprove ? { selfApprovalAcknowledged: true } : {}),
+          },
         })
       } else {
         const response = await createMutation.mutateAsync({
@@ -315,12 +334,15 @@ export default function InboundRequestFormPage({
       form.reset(values)
       toast.success(
         autoApproved
-          ? 'Yêu cầu nhập kho đã được tạo và phê duyệt.'
+          ? 'Yêu cầu nhập kho đã được lưu và phê duyệt.'
           : shouldSubmit
             ? 'Đã lưu và gửi yêu cầu nhập kho để duyệt.'
             : 'Đã lưu yêu cầu nhập kho.'
       )
-      if (savedId) router.push(APP_ROUTES.inboundRequestDetail(savedId) as Route)
+      if (savedId) {
+        setLeavingAfterSave(true)
+        router.replace(APP_ROUTES.inboundRequestDetail(savedId) as Route)
+      }
     } catch (error) {
       if (isApiErrorResponse(error) && error.statusCode >= 400 && error.statusCode < 500)
         logger.warn(formatApiError(error))
@@ -468,7 +490,8 @@ export default function InboundRequestFormPage({
         : []),
     ]
   )
-  if (isLoading) return <OperationalLoadingState rows={8} />
+  if (isLoading || leavingAfterSave || (isEditing && isPending && !canEditContents))
+    return <OperationalLoadingState rows={8} />
   if (isError) {
     return (
       <OperationalErrorState title="Không thể chuẩn bị biểu mẫu yêu cầu nhập kho" onRetry={retry} />
@@ -538,7 +561,7 @@ export default function InboundRequestFormPage({
             ? () => setEditCodeOnly(true)
             : undefined
         }
-        isApprovedEdit={isEditing && detail?.status !== 'Draft'}
+        isApprovedEdit={isEditing && (detail?.status !== 'Draft' || canSaveAndSelfApprove)}
         title={
           isEditing
             ? `Chỉnh sửa ${detailQuery.data?.inboundRequestCode ?? 'yêu cầu nhập kho'}`
@@ -577,8 +600,16 @@ export default function InboundRequestFormPage({
         onAddLine={() => fieldArray.append(EMPTY_LINE)}
         onRemoveLine={fieldArray.remove}
         onCancel={handleCancel}
-        onSaveDraft={() => void form.handleSubmit((values) => save(values, false))()}
-        onSaveAndSubmit={() => void form.handleSubmit((values) => save(values, true))()}
+        onSaveDraft={() =>
+          void form.handleSubmit((values) =>
+            canSaveAndSelfApprove ? setConfirmSelfApproval(true) : save(values, false)
+          )()
+        }
+        onSaveAndSubmit={() =>
+          void form.handleSubmit((values) =>
+            canSaveAndSelfApprove ? setConfirmSelfApproval(true) : save(values, true)
+          )()
+        }
         onWarehouseSearchChange={setWarehouseSearchText}
         onSupplierSearchChange={setSupplierSearchText}
         onProductSearchChange={onProductSearchChange}
@@ -588,6 +619,25 @@ export default function InboundRequestFormPage({
         onOpenChange={setShowLeaveDialog}
         onDiscard={leavePage}
       />
+      <AlertDialog open={confirmSelfApproval} onOpenChange={setConfirmSelfApproval}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Lưu yêu cầu nhập kho?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Phiên bản vừa chỉnh sửa sẽ được tự phê duyệt khi lưu.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Quay lại</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isPending || !canSaveAndSelfApprove}
+              onClick={() => void form.handleSubmit((values) => save(values, false))()}
+            >
+              Lưu
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

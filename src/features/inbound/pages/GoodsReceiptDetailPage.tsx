@@ -5,8 +5,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { APP_ROUTES } from '@/routes/app-routes'
-import { P } from '@/config/permissionCodes'
-import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -33,6 +31,7 @@ import { ReceivingLocationPicker } from '../components/ReceivingLocationPicker'
 import { RefusalEvidencePanel } from '../components/RefusalEvidencePanel'
 import { ReceiptDamageIsolationDialog } from '../components/ReceiptDamageIsolationDialog'
 import { needsReceivingLocationPick } from '../utils/receipt-receiving-location'
+import { getReceiptApprovalDestination } from '../utils/receipt-approval-destination'
 import { useReceiptDamageIsolation } from '../hooks/use-receipt-damage-isolation'
 import { useRefusalEvidence } from '../hooks/use-refusal-evidence'
 import { usePutawayPlanEditor } from '../hooks/use-putaway-plan-editor'
@@ -49,8 +48,6 @@ import type { ReceivingTask } from '../types/inbound.types'
 
 export default function GoodsReceiptDetailPage({ receiptId }: { readonly receiptId: string }) {
   const router = useRouter()
-  const meQuery = useMeQuery()
-  const canPutAway = meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_PUTAWAY) ?? false
   const [isEditing, setIsEditing] = useState(false)
   const [editVersion, setEditVersion] = useState('')
   const detailQuery = useGoodsReceiptQuery(receiptId)
@@ -281,13 +278,16 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
               : 'Đã duyệt kết quả kiểm hàng; hàng tiếp tục theo luồng cất/cách biệt.'
             : 'Đã trả phiếu nhận hàng để chỉnh sửa.'
       )
-      if (
-        action === 'approve' &&
-        canPutAway &&
-        !keepAtReceiving &&
-        detailQuery.data?.items.some((item) => item.receivedQuantity > 0)
-      )
-        router.push(APP_ROUTES.inboundPutawayDetail(receiptId) as Route)
+      if (action === 'approve' && !keepAtReceiving) {
+        try {
+          const destination = await getReceiptApprovalDestination(receiptId)
+          if (destination !== APP_ROUTES.goodsReceiptDetail(receiptId)) {
+            router.push(destination as Route)
+          }
+        } catch {
+          toast.warning('Đã duyệt phiếu. Chưa thể kiểm tra bước cất hàng.')
+        }
+      }
       return true
     } catch (error) {
       logMutationFailure(error)

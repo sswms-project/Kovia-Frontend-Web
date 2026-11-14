@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { useState } from 'react'
 import { LifecycleTimeline } from '@/components/operations/LifecycleTimeline'
+import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +89,7 @@ const INBOUND_REQUEST_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = 
   Approve: 'Phê duyệt yêu cầu',
   AssignReceivingTask: 'Phân công nhiệm vụ nhận hàng',
   Create: 'Tạo yêu cầu nhập kho',
+  CreateReceivingTask: 'Tạo nhiệm vụ nhận hàng',
   Delete: 'Xóa yêu cầu nhập kho',
   Duplicate: 'Sao chép yêu cầu nhập kho',
   PauseWarehouseTask: 'Tạm dừng nhiệm vụ nhận hàng',
@@ -97,6 +99,7 @@ const INBOUND_REQUEST_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = 
   ResendToSupplier: 'Gửi lại mail cho nhà cung cấp',
   ReturnWarehouseTask: 'Trả nhiệm vụ nhận hàng về hàng đợi',
   SendToSupplier: 'Gửi mail cho nhà cung cấp',
+  SelfApprove: 'Tự phê duyệt yêu cầu',
   SupplierConfirm: 'Nhà cung cấp xác nhận đơn',
   SupplierReject: 'Nhà cung cấp từ chối đơn',
   SupplierProposeDate: 'Nhà cung cấp đề xuất ngày giao khác',
@@ -108,6 +111,8 @@ const INBOUND_REQUEST_HISTORY_ACTION_LABELS: Readonly<Record<string, string>> = 
   Withdraw: 'Thu hồi yêu cầu để sửa',
   UpdateInboundRequestCode: 'Đổi mã yêu cầu nhập kho',
 }
+
+const HISTORY_PAGE_SIZE = 10
 
 const INBOUND_REQUEST_HISTORY_REASON_LABELS: Readonly<Record<string, string>> = {
   ResendToSupplier: 'Người nhận',
@@ -136,6 +141,12 @@ export function InboundRequestDetail({
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')
   const [selfApprovalAcknowledged, setSelfApprovalAcknowledged] = useState(false)
+  const [historyPage, setHistoryPage] = useState(1)
+  const visibleHistoryPage = Math.min(
+    historyPage,
+    Math.max(1, Math.ceil(inboundRequest.history.length / HISTORY_PAGE_SIZE))
+  )
+  const historyOffset = (visibleHistoryPage - 1) * HISTORY_PAGE_SIZE
   const [reconciliationAction, setReconciliationAction] = useState<
     | typeof INBOUND_REQUEST_ACTION.Cancel
     | typeof INBOUND_REQUEST_ACTION.CloseRemaining
@@ -411,7 +422,7 @@ export function InboundRequestDetail({
               Lịch sử xử lý
             </h2>
             <p className="text-muted-foreground mt-1 text-xs">
-              Các thay đổi đã thực hiện trên yêu cầu nhập kho
+              Các hoạt động trên yêu cầu và phiếu nhận hàng liên quan
             </p>
           </div>
           <span className="bg-muted text-muted-foreground shrink-0 rounded-sm px-2 py-1 text-xs font-medium">
@@ -419,10 +430,19 @@ export function InboundRequestDetail({
           </span>
         </header>
         <LifecycleTimeline
-          events={inboundRequest.history}
+          events={inboundRequest.history.slice(historyOffset, historyOffset + HISTORY_PAGE_SIZE)}
           actionLabels={INBOUND_REQUEST_HISTORY_ACTION_LABELS}
           reasonLabels={INBOUND_REQUEST_HISTORY_REASON_LABELS}
         />
+        {inboundRequest.history.length > HISTORY_PAGE_SIZE && (
+          <OperationalPagination
+            page={visibleHistoryPage}
+            pageSize={HISTORY_PAGE_SIZE}
+            totalCount={inboundRequest.history.length}
+            density="compact"
+            onPageChange={setHistoryPage}
+          />
+        )}
       </section>
 
       <AlertDialog
