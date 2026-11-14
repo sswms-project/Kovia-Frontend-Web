@@ -23,7 +23,8 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <MutationTopLoader />
       {children}
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/* Góc trên bên trái: góc dưới phải là nút Gửi của trợ lý AI, góc dưới trái là huy hiệu dev của Next.js. */}
+      <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-left" />
     </QueryClientProvider>
   )
 }
