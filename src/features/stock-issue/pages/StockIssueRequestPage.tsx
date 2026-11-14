@@ -8,7 +8,7 @@ import { useListExport } from '@/features/list-export/hooks/use-list-export'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
-import { Plus, Upload } from 'lucide-react'
+import { Plus, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
@@ -16,6 +16,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import {
   toOperationalDateTimeStart,
   toOperationalDateTimeEnd,
+  formatOperationalDate,
 } from '@/features/inbound-request/utils/inbound-request-format'
 import { APP_ROUTES } from '@/routes/app-routes'
 import {
@@ -32,11 +33,23 @@ import {
 } from '../hooks/use-stock-issue-requests'
 import { useStockIssueWorkflow } from '../hooks/use-stock-issue-workflow'
 import type { StockIssueRequestStatus } from '../types/stock-issue.types'
+import type { StockIssueListInitialFilters } from '../utils/stock-issue-list-filters'
 
-export default function StockIssueRequestPage() {
+interface StockIssueRequestPageProps {
+  /** Filters from the URL (validated by the route): a link opens exactly the list it describes. */
+  readonly initialFilters?: StockIssueListInitialFilters
+}
+
+export default function StockIssueRequestPage({ initialFilters = {} }: StockIssueRequestPageProps) {
   const [searchText, setSearchText] = useState('')
-  const [status, setStatus] = useState<StockIssueRequestStatus | ''>('')
-  const [warehouseId, setWarehouseId] = useState('')
+  const [status, setStatus] = useState<StockIssueRequestStatus | ''>(initialFilters.status ?? '')
+  const [warehouseId, setWarehouseId] = useState(initialFilters.warehouseId ?? '')
+  // Dispatch-date range has no control of its own on this page: it comes only from a link and can be removed.
+  const [dispatchedRange, setDispatchedRange] = useState(
+    initialFilters.dispatchedFrom && initialFilters.dispatchedTo
+      ? { from: initialFilters.dispatchedFrom, to: initialFilters.dispatchedTo }
+      : null
+  )
   const [stockRecipientId, setStockRecipientId] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -59,6 +72,12 @@ export default function StockIssueRequestPage() {
     ...(dateFrom ? { dateFrom: toOperationalDateTimeStart(dateFrom) } : {}),
     ...(dateTo ? { dateTo: toOperationalDateTimeEnd(dateTo) } : {}),
     ...(assignedToMe ? { assignedToMe } : {}),
+    ...(dispatchedRange
+      ? {
+          dispatchedFrom: toOperationalDateTimeStart(dispatchedRange.from),
+          dispatchedTo: toOperationalDateTimeEnd(dispatchedRange.to),
+        }
+      : {}),
   }
   const ordersQuery = useStockIssueRequestsQuery(exportFilters)
   const preview =
@@ -126,6 +145,27 @@ export default function StockIssueRequestPage() {
           </div>
         ) : null}
       </header>
+      {dispatchedRange ? (
+        <div className="bg-muted/60 flex shrink-0 flex-wrap items-center gap-2 rounded-md border px-3 py-1.5 text-sm">
+          <span>
+            Đang lọc theo <span className="font-medium">ngày xuất</span>{' '}
+            <span className="tabular-nums">
+              {formatOperationalDate(dispatchedRange.from)} –{' '}
+              {formatOperationalDate(dispatchedRange.to)}
+            </span>
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="ml-auto"
+            onClick={() => updateFilter(setDispatchedRange, null)}
+          >
+            <X aria-hidden="true" />
+            Bỏ lọc ngày xuất
+          </Button>
+        </div>
+      ) : null}
       <StockIssueGoodsWorkspace
         expanded={expanded}
         onExpandedChange={setExpanded}

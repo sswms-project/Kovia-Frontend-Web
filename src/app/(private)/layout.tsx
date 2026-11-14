@@ -14,38 +14,37 @@ export default function PrivateLayout({ children }: { children: React.ReactNode 
       <TooltipProvider>
         <NotificationRealtimeProvider>
           <SubscriptionReadOnlyProvider>
-            <AiAssistantDock>
-              <SidebarProvider
-                defaultOpen={true}
-                className="h-svh min-h-0 flex-col overflow-hidden print:h-auto print:overflow-visible"
-                style={
-                  {
-                    '--sidebar-width': '17.5rem',
-                    '--sidebar-width-icon': '3.5rem',
-                  } as React.CSSProperties
-                }
-              >
-                <AppHeader />
-                <div className="flex min-h-0 flex-1">
-                  <div className="print:hidden">
-                    <AppSidebar />
-                  </div>
-                  <SidebarInset className="h-full min-h-0 min-w-0 overflow-hidden print:m-0 print:block print:h-auto print:overflow-visible">
-                    <div
-                      data-slot="workspace-scroll-area"
-                      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4 lg:p-5 print:overflow-visible print:p-0 not-print:[&:has([data-compact-workspace-bottom])]:pb-2 [&:has([data-slot=operational-workspace-navigation])]:pt-1 not-print:[&:has([data-slot=transfer-directory])]:pb-2 not-print:[&:has(form[data-slot=transfer-scroll])]:pb-[15px]"
-                    >
-                      <div className="shrink-0 print:hidden">
-                        <SubscriptionReadOnlyBanner />
-                      </div>
-                      <SubscriptionWriteGuard>
-                        <PageTransition>{children}</PageTransition>
-                      </SubscriptionWriteGuard>
-                    </div>
-                  </SidebarInset>
+            <SidebarProvider
+              defaultOpen={true}
+              className="h-svh min-h-0 flex-col overflow-hidden print:h-auto print:overflow-visible"
+              style={
+                {
+                  '--sidebar-width': '17.5rem',
+                  '--sidebar-width-icon': '3.5rem',
+                } as React.CSSProperties
+              }
+            >
+              <AppHeader />
+              {/* Only this row (sidebar + page) makes room for the docked assistant: the header stays put. */}
+              <AiAssistantDock className="flex min-h-0 flex-1">
+                <div className="print:hidden">
+                  <AppSidebar />
                 </div>
-              </SidebarProvider>
-            </AiAssistantDock>
+                <SidebarInset className="h-full min-h-0 min-w-0 overflow-hidden print:m-0 print:block print:h-auto print:overflow-visible">
+                  <div
+                    data-slot="workspace-scroll-area"
+                    className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto p-3 sm:p-4 lg:p-5 print:overflow-visible print:p-0 not-print:[&:has([data-compact-workspace-bottom])]:pb-2 [&:has([data-slot=operational-workspace-navigation])]:pt-1 not-print:[&:has([data-slot=transfer-directory])]:pb-2 not-print:[&:has(form[data-slot=transfer-scroll])]:pb-[15px]"
+                  >
+                    <div className="shrink-0 print:hidden">
+                      <SubscriptionReadOnlyBanner />
+                    </div>
+                    <SubscriptionWriteGuard>
+                      <PageTransition>{children}</PageTransition>
+                    </SubscriptionWriteGuard>
+                  </div>
+                </SidebarInset>
+              </AiAssistantDock>
+            </SidebarProvider>
           </SubscriptionReadOnlyProvider>
         </NotificationRealtimeProvider>
       </TooltipProvider>

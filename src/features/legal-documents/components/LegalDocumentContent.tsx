@@ -76,6 +76,12 @@ export function LegalDocumentContent({ content }: { readonly content: string }) 
                 </TableBody>
               </Table>
             )
+          case 'code':
+            return (
+              <pre key={index} className="overflow-x-auto font-mono text-xs whitespace-pre">
+                {block.lines.join('\n')}
+              </pre>
+            )
           case 'paragraph':
             return (
               <p key={index} className="whitespace-pre-line">

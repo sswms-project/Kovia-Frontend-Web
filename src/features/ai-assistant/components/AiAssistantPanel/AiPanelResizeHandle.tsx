@@ -1,16 +1,7 @@
 'use client'
 
-import {
-  SidePanelResizeHandle,
-  clampSidePanelWidth,
-} from '@/components/operations/SidePanelResizeHandle'
-
-export const AI_PANEL_MIN_WIDTH = 340
-
-/** Luôn chừa đủ bề rộng cho trang nằm cạnh khung để người dùng còn thao tác được. */
-export function clampAiPanelWidth(width: number) {
-  return clampSidePanelWidth(width, AI_PANEL_MIN_WIDTH)
-}
+import { SidePanelResizeHandle } from '@/components/operations/SidePanelResizeHandle'
+import { AI_PANEL_MIN_WIDTH } from '../../utils/ai-panel-layout'
 
 interface AiPanelResizeHandleProps {
   readonly width: number
