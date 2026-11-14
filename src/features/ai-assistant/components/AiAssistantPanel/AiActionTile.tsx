@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 
 /** Khung chung cho mọi thẻ "bước tiếp theo" để thẻ mở trang và thẻ hỏi tiếp trông như một nhóm. */
 export const AI_ACTION_TILE_CLASS =
-  'group bg-card hover:bg-muted hover:border-primary/40 focus-visible:ring-ring flex w-full min-w-0 items-center gap-3 rounded-md border p-3 text-left transition-colors duration-150 outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-60'
+  'group bg-background hover:bg-muted hover:border-primary/40 focus-visible:ring-ring flex w-full min-w-0 items-center gap-2.5 rounded-md border px-3 py-2 text-left transition-colors duration-(--ai-motion-hover) outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-60'
 
 interface AiActionTileBodyProps {
   readonly icon: LucideIcon
@@ -20,7 +20,7 @@ export function AiActionTileBody({
 }: AiActionTileBodyProps) {
   return (
     <>
-      <span className="bg-tertiary/10 text-tertiary flex size-9 shrink-0 items-center justify-center rounded-md">
+      <span className="bg-tertiary/10 text-tertiary flex size-7 shrink-0 items-center justify-center rounded-md">
         <Icon className="size-4" aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1">
@@ -32,7 +32,7 @@ export function AiActionTileBody({
         ) : null}
       </span>
       <TrailingIcon
-        className="text-muted-foreground group-hover:text-primary size-4 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
+        className="text-muted-foreground group-hover:text-primary size-4 shrink-0 transition-transform duration-(--ai-motion-hover) group-hover:translate-x-0.5 motion-reduce:transition-none"
         aria-hidden="true"
       />
     </>

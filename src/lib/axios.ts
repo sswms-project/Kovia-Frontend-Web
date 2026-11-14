@@ -189,22 +189,28 @@ const handleTokenRefresh = (failedToken: string): Promise<string> => {
 
 type RetryConfig = InternalAxiosRequestConfig & { _retryToken?: string }
 
-axiosClient.interceptors.request.use((config: RetryConfig) => {
-  if (AUTH_401_PASSTHROUGH_ENDPOINTS.includes(config.url ?? '')) return config
+/** The token to send, or null for an anonymous request; throws when this tab's session is stale. */
+const resolveRequestToken = (retryToken?: string): string | null => {
   const token = getStoredAccessToken()
   const user = useAuthStore.getState().user
-  if (config._retryToken && token !== config._retryToken)
-    throw new Error('Session changed before retry')
+  if (retryToken && token !== retryToken) throw new Error('Session changed before retry')
   if (token) {
     if (!tokenMatchesUser(token, user))
       throw {
         statusCode: 409,
         message: 'Tài khoản hoặc phiên đã thay đổi. Vui lòng tải lại trang.',
       }
-    config.headers.Authorization = `Bearer ${token}`
-  } else if (user) {
-    throw { statusCode: 401, message: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.' }
+    return token
   }
+  if (user)
+    throw { statusCode: 401, message: 'Phiên đăng nhập đã kết thúc. Vui lòng đăng nhập lại.' }
+  return null
+}
+
+axiosClient.interceptors.request.use((config: RetryConfig) => {
+  if (AUTH_401_PASSTHROUGH_ENDPOINTS.includes(config.url ?? '')) return config
+  const token = resolveRequestToken(config._retryToken)
+  if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
@@ -245,3 +251,38 @@ axiosClient.interceptors.response.use(
     return Promise.reject(apiError)
   }
 )
+
+// ── Streaming requests ─────────────────────────────────────────
+
+/**
+ * POST for responses that must be read incrementally (SSE), which axios cannot expose in the
+ * browser. Same base URL, session checks and one-time refresh-and-retry on 401 as axiosClient;
+ * the caller reads `response.body` and handles non-2xx statuses.
+ */
+export const postStream = async (
+  path: string,
+  body: unknown,
+  signal: AbortSignal
+): Promise<Response> => {
+  const send = (token: string | null) =>
+    fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal,
+    })
+  const token = resolveRequestToken()
+  const response = await send(token)
+  if (response.status !== 401 || !token || !getRefreshToken()) return response
+  let refreshedToken: string
+  try {
+    refreshedToken = await handleTokenRefresh(token)
+  } catch {
+    return response
+  }
+  return send(resolveRequestToken(refreshedToken))
+}

@@ -585,6 +585,7 @@ export const API_ENDPOINTS = {
   },
   aiAssistant: {
     chat: '/ai/chat',
+    chatStream: '/ai/chat/stream',
     conversations: '/ai/conversations',
     messages: (conversationId: string) => `/ai/conversations/${conversationId}/messages`,
     confirmAction: (draftId: string) => `/ai/actions/${draftId}/confirm`,

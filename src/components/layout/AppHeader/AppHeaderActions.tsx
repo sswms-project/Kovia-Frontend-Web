@@ -12,7 +12,7 @@ export function AppHeaderActions() {
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <AiAssistantLauncher canUseAiAssistant={canUseAiAssistant(user)} />
+      <AiAssistantLauncher canUseAiAssistant={canUseAiAssistant(user)} userId={user?.id ?? null} />
       <NotificationHeaderController />
       <div className="hidden sm:block">
         <ThemeToggle />

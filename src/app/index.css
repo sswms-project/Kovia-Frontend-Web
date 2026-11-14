@@ -842,3 +842,163 @@ body {
     }
   }
 }
+
+/* ── Trợ lý AI: đang trả lời ─────────────────────────────────────────── */
+/* Chấm nhảy theo sóng, chữ trạng thái có vệt sáng chạy qua, robot nhấp nhô nhẹ. Tắt hết khi giảm chuyển động. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot='ai-typing-dot'] {
+    animation: ai-typing-wave 1.2s ease-in-out infinite;
+  }
+  [data-slot='ai-typing-dot']:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  [data-slot='ai-typing-dot']:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  [data-slot='ai-typing-label'] {
+    background: linear-gradient(
+        90deg,
+        var(--muted-foreground) 0%,
+        var(--muted-foreground) 40%,
+        var(--foreground) 50%,
+        var(--muted-foreground) 60%,
+        var(--muted-foreground) 100%
+      )
+      0 0 / 250% 100%;
+    background-clip: text;
+    color: transparent;
+    animation:
+      ai-typing-shimmer 1.8s linear infinite,
+      ai-typing-label-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  [data-slot='ai-mascot-thinking'] {
+    animation: ai-mascot-bob 1.6s ease-in-out infinite;
+  }
+
+  @keyframes ai-typing-wave {
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.45;
+    }
+    30% {
+      transform: translateY(-4px);
+      opacity: 1;
+    }
+  }
+
+  @keyframes ai-typing-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -50% 0;
+    }
+  }
+
+  @keyframes ai-typing-label-enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  @keyframes ai-mascot-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-2px);
+    }
+  }
+}
+
+/* Giảm chuyển động: không nhảy, không trượt — chấm chỉ mờ / sáng lần lượt để vẫn thấy trợ lý đang làm việc. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='ai-typing-dot'] {
+    animation: ai-typing-fade 1.4s ease-in-out infinite;
+  }
+  [data-slot='ai-typing-dot']:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  [data-slot='ai-typing-dot']:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes ai-typing-fade {
+    0%,
+    100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+/* ── Trợ lý AI: hệ chuyển động duy nhất ───────────────────────────────── */
+/* Thời lượng theo bảng spec (16-UX-Impeccable.md). Chỉ transform/opacity. Thoát nhanh hơn vào. */
+:root {
+  --ai-motion-hover: 120ms;
+  --ai-motion-step: 200ms;
+  --ai-motion-message: 220ms;
+  --ai-motion-card: 240ms;
+  --ai-motion-expand: 240ms;
+  --ai-motion-panel: 280ms;
+  --ai-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* data-ai-motion = vai trò của phần tử; keyframes `ai-rise` đổi theo prefers-reduced-motion
+   (trượt + mờ khi bình thường, chỉ mờ khi giảm chuyển động) nên mọi nơi dùng chung một quy tắc. */
+[data-ai-motion='message'] {
+  animation: ai-rise var(--ai-motion-message) var(--ai-ease-out) backwards;
+}
+[data-ai-motion='card'] {
+  animation: ai-rise var(--ai-motion-card) var(--ai-ease-out) backwards;
+}
+[data-ai-motion='step'] {
+  animation: ai-rise var(--ai-motion-step) var(--ai-ease-out) backwards;
+}
+[data-ai-motion='expand'][data-state='open'] {
+  animation: ai-drop var(--ai-motion-expand) var(--ai-ease-out) backwards;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes ai-rise {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  @keyframes ai-drop {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ai-rise {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes ai-drop {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+/* Chế độ tương phản cao: chữ trạng thái dùng màu hệ thống thay vì gradient trong suốt. */
+@media (forced-colors: active) {
+  [data-slot='ai-typing-label'] {
+    background: none;
+    color: CanvasText;
+  }
+}

@@ -1,9 +1,10 @@
 import type { Route } from 'next'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, ExternalLink } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { AiCard } from '../../types/ai-assistant.types'
-import { AI_NAVIGATION_ICONS, DefaultAiNavigationIcon } from '../../utils/ai-assistant-icons'
 import { isAiAppPath } from '../../utils/ai-assistant-links'
+import { getAiNavigationView } from '../../utils/ai-navigation-card'
 import { AI_ACTION_TILE_CLASS, AiActionTileBody } from './AiActionTile'
 
 interface AiNavigationCardProps {
@@ -13,20 +14,43 @@ interface AiNavigationCardProps {
 
 export function AiNavigationCard({ card, onNavigate }: AiNavigationCardProps) {
   if (!isAiAppPath(card.actionUrl)) return null
+  // The path comes from WMS-Model's fixed route templates and is re-validated by the BE and isAiAppPath.
+  const href = card.actionUrl as Route
+  const view = getAiNavigationView(card)
 
-  return (
-    <Link
-      // The path comes from WMS-Model's fixed route templates and is re-validated by the BE and isAiAppPath.
-      href={card.actionUrl as Route}
-      onNavigate={onNavigate}
-      className={AI_ACTION_TILE_CLASS}
-    >
+  // Ctrl/Cmd/middle click on the Link opens a new tab natively (and skips onNavigate, so the panel
+  // stays as it is); records also get an explicit button for that.
+  const tile = (
+    <Link href={href} onNavigate={onNavigate} className={AI_ACTION_TILE_CLASS}>
       <AiActionTileBody
-        icon={AI_NAVIGATION_ICONS[card.icon ?? ''] ?? DefaultAiNavigationIcon}
-        title={card.title ?? ''}
-        description={card.description}
+        icon={view.icon}
+        title={view.label}
+        description={view.description}
         trailingIcon={ArrowRight}
       />
     </Link>
+  )
+  if (!view.isRecord) return tile
+
+  return (
+    <div className="flex min-w-0 items-stretch gap-1">
+      {tile}
+      <Button
+        asChild
+        variant="ghost"
+        size="icon"
+        className="text-muted-foreground hover:text-foreground h-auto min-h-9 shrink-0"
+      >
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${view.label} (mở trong tab mới)`}
+          title="Mở trong tab mới"
+        >
+          <ExternalLink aria-hidden="true" />
+        </a>
+      </Button>
+    </div>
   )
 }
