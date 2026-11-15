@@ -592,9 +592,20 @@ export interface ReviewInboundDocumentLineRequest {
   expiryDate: string | null
 }
 
+export interface ReviewInboundDocumentHeaderRequest {
+  documentNumber: string | null
+  inboundRequestCode: string | null
+  supplierName: string | null
+  documentDate: string | null
+  supplierDeliveryDate: string | null
+  warehouseCode: string | null
+  warehouseName: string | null
+}
+
 export interface ReviewInboundDocumentImportRequest {
   id: string
   inboundRequestId: string
   acknowledgeWarehouseMismatch: boolean
+  header: ReviewInboundDocumentHeaderRequest
   lines: ReviewInboundDocumentLineRequest[]
 }

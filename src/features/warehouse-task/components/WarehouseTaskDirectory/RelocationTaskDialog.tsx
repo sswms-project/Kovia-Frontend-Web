@@ -249,7 +249,7 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
                     type="number"
                     min="0.01"
                     max={selectedLine.remainingQuantity}
-                    step="0.01"
+                    step="any"
                     {...props.executeForm.register('quantity', { valueAsNumber: true })}
                   />
                   <FieldError errors={[errors.quantity]} />

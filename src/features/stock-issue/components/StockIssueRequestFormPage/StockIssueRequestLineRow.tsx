@@ -148,11 +148,7 @@ export function StockIssueRequestLineRow({
           id={`stock-issue-quantity-${index}`}
           type="number"
           min="0"
-          step={
-            selectedUnit && selectedUnit.quantityPrecision > 0
-              ? 10 ** -selectedUnit.quantityPrecision
-              : 1
-          }
+          step="any"
           inputMode="decimal"
           disabled={isPending}
           aria-invalid={Boolean(errors?.quantity)}
