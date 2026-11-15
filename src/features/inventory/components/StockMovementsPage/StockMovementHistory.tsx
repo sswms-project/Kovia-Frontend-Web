@@ -11,6 +11,7 @@ import {
 import { OperationalPagination } from '@/components/operations/OperationalPagination'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { Button } from '@/components/ui/button'
+import { P } from '@/config/permissionCodes'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type {
   InventoryFilterOption,
@@ -152,8 +153,14 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
           />
         ) : (
           <>
-            <StockMovementMobileList items={items} />
-            <StockMovementDesktopTable items={items} />
+            <StockMovementMobileList
+              items={items}
+              canViewReceipts={props.permissions.includes(P.GOODS_RECEIPTS_VIEW)}
+            />
+            <StockMovementDesktopTable
+              items={items}
+              canViewReceipts={props.permissions.includes(P.GOODS_RECEIPTS_VIEW)}
+            />
             <OperationalPagination
               page={page}
               pageSize={pageSize}
