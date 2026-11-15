@@ -288,6 +288,13 @@ export interface TransferShipment {
   readonly createdByName?: string | null
   readonly dispatchedByName?: string | null
   readonly receivedByName?: string | null
+  readonly putAwayEvents?:
+    | readonly {
+        readonly actorId: string
+        readonly actorName: string | null
+        readonly createdAt: string
+      }[]
+    | null
   id: string
   shipmentNumber: number
   status: TransferShipmentStatus

@@ -35,7 +35,10 @@ export function LifecycleTimeline({
           <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0">
               <p className="text-sm leading-5 font-medium">
-                {actionLabels?.[event.action] ?? event.action}
+                {event.sourceDocumentCode
+                  ? (event.actionLabel ?? 'Cập nhật chứng từ')
+                  : (actionLabels?.[event.action] ?? event.actionLabel ?? event.action)}
+                {event.sourceDocumentCode ? ` · ${event.sourceDocumentCode}` : null}
               </p>
               {event.actorName ? (
                 <p className="text-muted-foreground text-xs">{event.actorName}</p>

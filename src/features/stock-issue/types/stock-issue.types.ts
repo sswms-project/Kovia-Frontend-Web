@@ -35,6 +35,9 @@ export interface StockIssueRequestListQuery {
   dateFrom?: string
   dateTo?: string
   assignedToMe?: boolean
+  /** Dispatch date (DispatchedAt), unlike dateFrom/dateTo which filter the creation date. */
+  dispatchedFrom?: string
+  dispatchedTo?: string
 }
 
 /** Một vị trí và lô hệ thống đã giữ hàng cho dòng phiếu: nơi nhân viên phải đến lấy. */

@@ -1,14 +1,20 @@
-import { CornerDownLeft, MessageCircleQuestion } from 'lucide-react'
+import type { Route } from 'next'
+import Link from 'next/link'
+import { ArrowRight, ChevronDown, CornerDownLeft, MessageCircleQuestion } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { AI_CARD_TYPES, type AiCard } from '../../types/ai-assistant.types'
 import { AI_NAVIGATION_ICONS } from '../../utils/ai-assistant-icons'
 import { isAiAppPath } from '../../utils/ai-assistant-links'
+import { getAiNavigationView } from '../../utils/ai-navigation-card'
 import { AI_ACTION_TILE_CLASS, AiActionTileBody } from './AiActionTile'
 import { AiNavigationCard } from './AiNavigationCard'
 
-/** Quá ba lựa chọn thì người dùng phải đọc để chọn, mất ý nghĩa "bấm là xong". */
-const MAX_NEXT_STEPS = 3
+/** Hai thẻ chính giữ ý nghĩa "bấm là xong"; nhiều hơn thì người dùng phải đọc để chọn. */
+const MAX_PRIMARY_STEPS = 2
+/** Tổng số bước, kể cả phần ẩn sau "Thêm". */
+const MAX_NEXT_STEPS = 5
 /** Các thẻ hiện lần lượt, cách nhau một nhịp ngắn, để mắt đi theo thứ tự ưu tiên. */
 const STAGGER_MS = 50
 
@@ -37,7 +43,10 @@ function toNextSteps(cards: readonly AiCard[]): NextStep[] {
       }
     }
   })
-  return steps.slice(0, MAX_NEXT_STEPS)
+  // Thẻ mở đúng dữ liệu / màn hình là hành động chính; câu hỏi gợi ý xếp sau (giữ thứ tự trong từng nhóm).
+  const opens = steps.filter((step) => !step.message)
+  const sends = steps.filter((step) => step.message)
+  return [...opens, ...sends].slice(0, MAX_NEXT_STEPS)
 }
 
 interface AiNextStepsProps {
@@ -47,52 +56,113 @@ interface AiNextStepsProps {
   readonly onSend?: (message: string) => void
 }
 
+interface StepProps {
+  readonly step: NextStep
+  readonly onNavigate: () => void
+  readonly onSend?: (message: string) => void
+}
+
+function PrimaryStep({ step: { card, message }, onNavigate, onSend }: StepProps) {
+  if (message && onSend) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        // Thẻ cao nhiều dòng và căn trái, khác kích thước mặc định của Button.
+        className={cn(AI_ACTION_TILE_CLASS, 'h-auto justify-start font-normal whitespace-normal')}
+        onClick={() => onSend(message)}
+      >
+        <AiActionTileBody
+          icon={AI_NAVIGATION_ICONS[card.icon ?? ''] ?? MessageCircleQuestion}
+          title={card.title ?? ''}
+          description={card.description}
+          trailingIcon={CornerDownLeft}
+        />
+      </Button>
+    )
+  }
+  return <AiNavigationCard card={card} onNavigate={onNavigate} />
+}
+
+/** Lựa chọn phụ: một dòng chữ nhẹ, không viền, để hai thẻ chính vẫn nổi bật. */
+function SecondaryStep({ step: { card, message }, onNavigate, onSend }: StepProps) {
+  const className =
+    'h-auto w-full justify-start px-2 py-1.5 font-normal whitespace-normal text-left'
+  if (message && onSend) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={className}
+        onClick={() => onSend(message)}
+      >
+        <CornerDownLeft className="text-muted-foreground" aria-hidden="true" />
+        {card.title}
+      </Button>
+    )
+  }
+  if (!isAiAppPath(card.actionUrl)) return null
+  return (
+    <Button asChild variant="ghost" size="sm" className={className}>
+      <Link href={card.actionUrl as Route} onNavigate={onNavigate}>
+        <ArrowRight className="text-muted-foreground" aria-hidden="true" />
+        {getAiNavigationView(card).label}
+      </Link>
+    </Button>
+  )
+}
+
 /**
- * Nhóm tối đa ba thẻ "bước tiếp theo" dưới câu trả lời: mở đúng trang, hoặc gửi sẵn câu hỏi kế tiếp,
- * để người dùng bấm thay vì gõ.
+ * Các "bước tiếp theo" dưới câu trả lời: mở đúng trang, hoặc gửi sẵn câu hỏi kế tiếp, để người dùng
+ * bấm thay vì gõ. Chỉ hai bước đầu hiện thành thẻ; phần còn lại nằm sau nút "Thêm".
  */
 export function AiNextSteps({ cards, onNavigate, onSend }: AiNextStepsProps) {
   const steps = toNextSteps(cards).filter((step) => !step.message || onSend)
   if (steps.length === 0) return null
+  const primary = steps.slice(0, MAX_PRIMARY_STEPS)
+  const secondary = steps.slice(MAX_PRIMARY_STEPS)
 
   return (
     <section aria-label="Bước tiếp theo" className="flex flex-col gap-1.5">
-      {steps.length > 1 ? (
-        <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-          Bước tiếp theo
-        </p>
-      ) : null}
-      <ul className="flex flex-col gap-2">
-        {steps.map(({ key, card, message }, index) => (
+      <ul className="flex flex-col gap-1.5">
+        {primary.map((step, index) => (
           <li
-            key={key}
-            className="animate-in fade-in-0 slide-in-from-bottom-1 animation-duration-250 fill-mode-backwards motion-reduce:animate-none"
+            key={step.key}
+            data-ai-motion="card"
             style={{ animationDelay: `${index * STAGGER_MS}ms` }}
           >
-            {message && onSend ? (
-              <Button
-                type="button"
-                variant="outline"
-                // Thẻ cao nhiều dòng và căn trái, khác kích thước mặc định của Button.
-                className={cn(
-                  AI_ACTION_TILE_CLASS,
-                  'h-auto justify-start font-normal whitespace-normal'
-                )}
-                onClick={() => onSend(message)}
-              >
-                <AiActionTileBody
-                  icon={AI_NAVIGATION_ICONS[card.icon ?? ''] ?? MessageCircleQuestion}
-                  title={card.title ?? ''}
-                  description={card.description}
-                  trailingIcon={CornerDownLeft}
-                />
-              </Button>
-            ) : (
-              <AiNavigationCard card={card} onNavigate={onNavigate} />
-            )}
+            <PrimaryStep step={step} onNavigate={onNavigate} onSend={onSend} />
           </li>
         ))}
       </ul>
+      {secondary.length > 0 ? (
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="text-muted-foreground group w-fit px-1.5"
+            >
+              <ChevronDown
+                className="transition-transform duration-(--ai-motion-hover) group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+                aria-hidden="true"
+              />
+              Thêm {secondary.length} gợi ý
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent data-ai-motion="expand">
+            <ul className="flex flex-col">
+              {secondary.map((step) => (
+                <li key={step.key}>
+                  <SecondaryStep step={step} onNavigate={onNavigate} onSend={onSend} />
+                </li>
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
+      ) : null}
     </section>
   )
 }

@@ -1,52 +1,75 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowDown, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAiThreadScroll } from '../../hooks/use-ai-thread-scroll'
 import type { AiMessage } from '../../types/ai-assistant.types'
-import { AiAssistantMascot } from './AiAssistantMascot'
+import type { AiChatStream } from '../../utils/ai-chat-stream-state'
+import type { AiThinkingSummary } from '../../utils/ai-thinking'
 import { AiChatMessageBubble, type AiDraftCallbacks } from './AiChatMessageBubble'
-import { AiUserBubble } from './AiUserBubble'
+import { AiStreamingMessage } from './AiStreamingMessage'
 import { AiSuggestedPrompts } from './AiSuggestedPrompts'
 
 interface AiChatThreadProps extends AiDraftCallbacks {
+  readonly conversationId: string | null
   readonly messages: readonly AiMessage[]
-  readonly pendingMessage: string | null
+  /** Phase of the turn sent from this conversation (running, stopped or failed), if any. */
+  readonly streamPhase: AiChatStream['phase'] | null
+  /** Thinking rows of turns finished in this session, by assistant message id. */
+  readonly thinkingByMessageId: Readonly<Record<string, AiThinkingSummary>>
+  /** A turn is running somewhere (maybe another conversation): no new sends until it ends. */
+  readonly isSending: boolean
   readonly isLoading: boolean
   readonly isError: boolean
   readonly onRetry: () => void
-  readonly onSuggestion: (prompt: string) => void
+  /** Sends a message (suggestion, quick reply, retry). */
+  readonly onSend: (message: string) => void
+}
+
+function AiThreadSkeleton() {
+  return (
+    <div role="status" className="flex flex-1 flex-col gap-4 px-4 py-4">
+      <span className="sr-only">Đang tải cuộc trò chuyện…</span>
+      <Skeleton className="ml-auto h-8 w-2/3" />
+      <Skeleton className="h-20 w-5/6" />
+      <Skeleton className="ml-auto h-8 w-1/2" />
+    </div>
+  )
 }
 
 export function AiChatThread({
+  conversationId,
   messages,
-  pendingMessage,
+  streamPhase,
+  thinkingByMessageId,
+  isSending,
   isLoading,
   isError,
   onRetry,
-  onSuggestion,
+  onSend,
   ...draftCallbacks
 }: AiChatThreadProps) {
-  const endRef = useRef<HTMLDivElement>(null)
-  const hasScrolledOnce = useRef(false)
-
-  useEffect(() => {
-    // Lần đầu mở thì nhảy thẳng xuống cuối; từ đó về sau trượt tới tin mới để mắt theo kịp.
-    const glide =
-      hasScrolledOnce.current && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    endRef.current?.scrollIntoView?.({ block: 'end', behavior: glide ? 'smooth' : 'auto' })
-    hasScrolledOnce.current = messages.length > 0
-  }, [messages.length, pendingMessage])
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center" role="status">
-        <Spinner />
-        <span className="sr-only">Đang tải cuộc trò chuyện…</span>
-      </div>
-    )
+  const { scrollRef, contentRef, isAwayFromBottom, handleScroll, jumpToLatest } = useAiThreadScroll(
+    {
+      conversationId,
+      isSendingTurn: streamPhase === 'sending',
+    }
+  )
+  const isLatestTurnSettled = !streamPhase && !isSending
+  // Screen readers hear one line when an answer lands, not the answer re-read token by token.
+  const [wasStreaming, setWasStreaming] = useState(false)
+  const [announcement, setAnnouncement] = useState('')
+  const isStreaming = streamPhase === 'sending' || streamPhase === 'streaming'
+  if (isStreaming !== wasStreaming) {
+    setWasStreaming(isStreaming)
+    if (isStreaming) setAnnouncement('')
+    else if (streamPhase === null) setAnnouncement('Kovia đã trả lời xong.')
   }
+  const lastQuestion = messages.at(-2)?.role === 'User' ? messages.at(-2)?.content : undefined
+
+  if (isLoading) return <AiThreadSkeleton />
 
   if (isError) {
     return (
@@ -64,43 +87,54 @@ export function AiChatThread({
   }
 
   return (
-    <div
-      role="log"
-      aria-live="polite"
-      aria-label="Cuộc trò chuyện với trợ lý AI"
-      className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3"
-    >
-      {messages.length === 0 && !pendingMessage ? (
-        <AiSuggestedPrompts onSelect={onSuggestion} />
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        role="log"
+        // The log role is polite by default; streamed text must not be announced per token.
+        aria-live="off"
+        aria-label="Cuộc trò chuyện với trợ lý AI"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+      >
+        <div ref={contentRef} className="flex flex-col gap-5 px-4 pt-4 pb-6">
+          {messages.length === 0 && !streamPhase ? <AiSuggestedPrompts onSelect={onSend} /> : null}
+
+          {messages.map((message, index) => {
+            const isLatest = index === messages.length - 1 && isLatestTurnSettled
+            return (
+              <AiChatMessageBubble
+                key={message.id}
+                message={message}
+                thinking={thinkingByMessageId[message.id]}
+                onQuickReply={isLatest ? onSend : undefined}
+                onRetry={isLatest && lastQuestion ? () => onSend(lastQuestion) : undefined}
+                {...draftCallbacks}
+              />
+            )
+          })}
+
+          {streamPhase ? (
+            <AiStreamingMessage conversationId={conversationId} onRetry={onSend} />
+          ) : null}
+        </div>
+      </div>
+      <span role="status" className="sr-only">
+        {announcement}
+      </span>
+
+      {isAwayFromBottom ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="bg-background animate-in fade-in-0 animation-duration-150 absolute bottom-3 left-1/2 -translate-x-1/2 motion-reduce:animate-none"
+          onClick={jumpToLatest}
+        >
+          <ArrowDown aria-hidden="true" />
+          Tin mới nhất
+        </Button>
       ) : null}
-
-      {messages.map((message, index) => (
-        <AiChatMessageBubble
-          key={message.id}
-          message={message}
-          onQuickReply={index === messages.length - 1 && !pendingMessage ? onSuggestion : undefined}
-          animateEntrance={index === messages.length - 1}
-          {...draftCallbacks}
-        />
-      ))}
-
-      {pendingMessage ? (
-        <>
-          <AiUserBubble content={pendingMessage} animateEntrance />
-          {/* Nằm trong vùng role="log" aria-live nên không thêm role="status" lồng nhau. */}
-          <div className="text-muted-foreground animate-in fade-in-0 animation-duration-200 flex items-center gap-2 text-xs motion-reduce:animate-none">
-            <AiAssistantMascot size="sm" />
-            <span className="flex items-center gap-1" aria-hidden="true">
-              <span className="bg-primary/70 size-1.5 animate-bounce rounded-full [animation-delay:-0.3s] motion-reduce:animate-none" />
-              <span className="bg-primary/70 size-1.5 animate-bounce rounded-full [animation-delay:-0.15s] motion-reduce:animate-none" />
-              <span className="bg-primary/70 size-1.5 animate-bounce rounded-full motion-reduce:animate-none" />
-            </span>
-            Trợ lý đang xử lý…
-          </div>
-        </>
-      ) : null}
-
-      <div ref={endRef} />
     </div>
   )
 }

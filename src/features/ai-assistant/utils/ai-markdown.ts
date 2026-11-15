@@ -7,11 +7,13 @@ export type AiMarkdownBlock =
       readonly header: readonly string[]
       readonly rows: readonly (readonly string[])[]
     }
+  | { readonly kind: 'code'; readonly lines: readonly string[] }
 
-const BULLET_ITEM = /^\s*[-*•]\s+(.*)$/
-const ORDERED_ITEM = /^\s*\d+[.)]\s+(.*)$/
+export const BULLET_ITEM = /^\s*[-*•]\s+(.*)$/
+export const ORDERED_ITEM = /^\s*\d+[.)]\s+(.*)$/
 const HEADING = /^\s*#{1,6}\s+(.*)$/
-const TABLE_ROW = /^\s*\|.*\|\s*$/
+export const TABLE_ROW = /^\s*\|.*\|\s*$/
+export const CODE_FENCE = /^\s*```/
 const TABLE_SEPARATOR = /^\s*\|?(\s*:?-{2,}:?\s*\|)+\s*(:?-{2,}:?\s*)?\|?\s*$/
 
 /** Splits a line into plain text and the `**bold**` / `` `code` `` tokens (kept in the result). */
@@ -28,13 +30,17 @@ function splitTableRow(line: string): string[] {
 
 function isBlockStart(line: string): boolean {
   return (
-    TABLE_ROW.test(line) || BULLET_ITEM.test(line) || ORDERED_ITEM.test(line) || HEADING.test(line)
+    TABLE_ROW.test(line) ||
+    BULLET_ITEM.test(line) ||
+    ORDERED_ITEM.test(line) ||
+    HEADING.test(line) ||
+    CODE_FENCE.test(line)
   )
 }
 
 /**
  * Parses the small markdown subset the assistant is instructed to use (paragraphs, headings,
- * lists, tables, bold, inline code). Output is plain data rendered as React elements — model text
+ * lists, tables, fenced code, bold, inline code). Output is plain data rendered as React elements — model text
  * is never injected as HTML.
  */
 export function parseAiMarkdown(text: string): AiMarkdownBlock[] {
@@ -46,6 +52,18 @@ export function parseAiMarkdown(text: string): AiMarkdownBlock[] {
     const line = lines[index] ?? ''
     if (!line.trim()) {
       index += 1
+      continue
+    }
+
+    if (CODE_FENCE.test(line)) {
+      const code: string[] = []
+      index += 1
+      while (index < lines.length && !CODE_FENCE.test(lines[index] ?? '')) {
+        code.push(lines[index] ?? '')
+        index += 1
+      }
+      index += 1
+      blocks.push({ kind: 'code', lines: code })
       continue
     }
 
