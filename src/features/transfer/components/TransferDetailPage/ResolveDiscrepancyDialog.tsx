@@ -100,7 +100,7 @@ export function ResolveDiscrepancyDialog({
                   id="discrepancy-quantity"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   inputMode="decimal"
                   aria-invalid={Boolean(errors.quantity)}
                   {...form.register('quantity', { valueAsNumber: true })}

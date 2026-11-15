@@ -103,7 +103,7 @@ export function ReturnPickDialog({
                 id="return-quantity"
                 type="number"
                 min="0"
-                step="0.01"
+                step="any"
                 inputMode="decimal"
                 className="h-11"
                 aria-invalid={Boolean(errors.quantity)}

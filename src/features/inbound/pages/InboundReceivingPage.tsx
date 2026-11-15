@@ -59,6 +59,7 @@ import {
   useSubmitGoodsReceiptMutation,
 } from '../hooks/use-inbound'
 import {
+  emptyInboundDocumentHeader,
   inboundDocumentFileSchema,
   inboundDocumentReviewSchema,
   type InboundDocumentReviewFormValues,
@@ -150,7 +151,12 @@ export default function InboundReceivingPage() {
   })
   const importForm = useForm<InboundDocumentReviewFormValues>({
     resolver: zodResolver(inboundDocumentReviewSchema),
-    defaultValues: { inboundRequestId: '', acknowledgeWarehouseMismatch: false, lines: [] },
+    defaultValues: {
+      header: emptyInboundDocumentHeader,
+      inboundRequestId: '',
+      acknowledgeWarehouseMismatch: false,
+      lines: [],
+    },
   })
 
   useEffect(() => {
@@ -159,7 +165,17 @@ export default function InboundReceivingPage() {
       return
 
     initializedImportIdRef.current = importId
+    const { extraction } = review
     importForm.reset({
+      header: {
+        documentNumber: extraction.documentNumber?.value ?? '',
+        inboundRequestCode: extraction.inboundRequestCode?.value ?? '',
+        supplierName: extraction.supplierName?.value ?? '',
+        documentDate: extraction.documentDate?.value ?? '',
+        supplierDeliveryDate: extraction.supplierDeliveryDate?.value ?? '',
+        warehouseCode: extraction.warehouseCode?.value ?? '',
+        warehouseName: extraction.warehouseName?.value ?? '',
+      },
       inboundRequestId: review.inboundRequestId,
       acknowledgeWarehouseMismatch: review.warehouseMismatchAcknowledged,
       lines: review.lines.map((line) => ({
@@ -210,7 +226,12 @@ export default function InboundReceivingPage() {
     setImportId('')
     initializedImportIdRef.current = ''
     setDraftReceiptId(null)
-    importForm.reset({ inboundRequestId: '', acknowledgeWarehouseMismatch: false, lines: [] })
+    importForm.reset({
+      header: emptyInboundDocumentHeader,
+      inboundRequestId: '',
+      acknowledgeWarehouseMismatch: false,
+      lines: [],
+    })
     importForm.clearErrors()
   }
 
@@ -219,7 +240,12 @@ export default function InboundReceivingPage() {
     setImportId('')
     initializedImportIdRef.current = ''
     setDraftReceiptId(null)
-    importForm.reset({ inboundRequestId: '', acknowledgeWarehouseMismatch: false, lines: [] })
+    importForm.reset({
+      header: emptyInboundDocumentHeader,
+      inboundRequestId: '',
+      acknowledgeWarehouseMismatch: false,
+      lines: [],
+    })
     importForm.clearErrors()
   }
 
@@ -281,7 +307,17 @@ export default function InboundReceivingPage() {
     if (!importId) return
 
     try {
+      const header = {
+        documentNumber: values.header.documentNumber.trim(),
+        inboundRequestCode: values.header.inboundRequestCode.trim(),
+        supplierName: values.header.supplierName.trim(),
+        documentDate: values.header.documentDate,
+        supplierDeliveryDate: values.header.supplierDeliveryDate,
+        warehouseCode: values.header.warehouseCode.trim(),
+        warehouseName: values.header.warehouseName.trim(),
+      }
       const normalizedValues = {
+        header,
         inboundRequestId: values.inboundRequestId,
         acknowledgeWarehouseMismatch: values.acknowledgeWarehouseMismatch,
         lines: values.lines.map((line) => ({
@@ -300,6 +336,15 @@ export default function InboundReceivingPage() {
         id: importId,
         inboundRequestId: normalizedValues.inboundRequestId,
         acknowledgeWarehouseMismatch: normalizedValues.acknowledgeWarehouseMismatch,
+        header: {
+          documentNumber: header.documentNumber || null,
+          inboundRequestCode: header.inboundRequestCode || null,
+          supplierName: header.supplierName || null,
+          documentDate: header.documentDate || null,
+          supplierDeliveryDate: header.supplierDeliveryDate || null,
+          warehouseCode: header.warehouseCode || null,
+          warehouseName: header.warehouseName || null,
+        },
         lines: normalizedValues.lines.map((line) => ({
           sourceLineNumber: line.sourceLineNumber,
           inboundRequestItemId: line.inboundRequestItemId,

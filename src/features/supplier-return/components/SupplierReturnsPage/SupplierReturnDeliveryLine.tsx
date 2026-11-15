@@ -203,7 +203,7 @@ export function SupplierReturnDeliveryLine({
             inputMode="decimal"
             min={0}
             max={line.quantity}
-            step={10 ** -Math.min(line.quantityPrecision ?? 2, 2)}
+            step="any"
             disabled={disabled}
             aria-invalid={Boolean(errors?.deliveredQuantity)}
             onBlur={(event) => {

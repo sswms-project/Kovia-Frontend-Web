@@ -235,7 +235,7 @@ export function PutawayPlanSheet({
                                 id={quantityFieldId}
                                 type="number"
                                 min={0.01}
-                                step={0.01}
+                                step="any"
                                 disabled={isSaving}
                                 aria-invalid={Boolean(error)}
                                 value={Number.isFinite(line.quantity) ? line.quantity : ''}

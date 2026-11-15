@@ -46,7 +46,7 @@ export function LegacyReceiptStockDialog({ state }: LegacyReceiptStockDialogProp
                 id={`legacy-count-${item.id}`}
                 type="number"
                 min={0}
-                step="0.01"
+                step="any"
                 placeholder="Nhập số thực tế vừa kiểm đếm"
                 disabled={busy}
                 {...state.form.register(`lines.${index}.actualHoldQuantity`, {
