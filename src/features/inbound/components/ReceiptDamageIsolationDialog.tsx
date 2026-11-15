@@ -67,7 +67,7 @@ export function ReceiptDamageIsolationDialog({
             Số lượng thực tế đã cách biệt
             <Input
               type="number"
-              step="0.01"
+              step="any"
               min="0"
               disabled={busy}
               {...register('quantity', { valueAsNumber: true })}

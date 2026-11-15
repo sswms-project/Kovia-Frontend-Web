@@ -307,7 +307,7 @@ export function ReceiveEntryCard({
                   id={inputId}
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   inputMode="decimal"
                   className="h-11 text-base tabular-nums"
                   disabled={disabled}

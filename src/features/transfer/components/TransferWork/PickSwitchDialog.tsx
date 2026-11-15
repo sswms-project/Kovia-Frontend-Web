@@ -98,7 +98,7 @@ export function PickSwitchDialog({
                 id="switch-quantity"
                 type="number"
                 min="0"
-                step="0.01"
+                step="any"
                 inputMode="decimal"
                 className="h-11"
                 aria-invalid={Boolean(errors.quantity)}

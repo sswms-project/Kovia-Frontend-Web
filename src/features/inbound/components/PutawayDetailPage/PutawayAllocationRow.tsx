@@ -180,7 +180,7 @@ export function PutawayAllocationRow({
             type="number"
             className="tabular-nums"
             min={10 ** -(row.unit?.quantityPrecision ?? 0)}
-            step={10 ** -(row.unit?.quantityPrecision ?? 0)}
+            step="any"
             max={row.maxQuantity}
             disabled={locked}
             aria-invalid={Boolean(errors.enteredQuantity)}

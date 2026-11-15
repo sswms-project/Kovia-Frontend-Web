@@ -377,7 +377,7 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
               type="number"
               inputMode="decimal"
               min="0"
-              step="0.01"
+              step="any"
               value={quantity}
               disabled={isPending}
               aria-invalid={Boolean(quantityError)}
@@ -407,7 +407,7 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
               type="number"
               inputMode="decimal"
               min="0"
-              step="0.01"
+              step="any"
               placeholder="0"
               value={damaged}
               disabled={isPending || quantity === ''}

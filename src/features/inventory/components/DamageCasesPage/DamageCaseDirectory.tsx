@@ -470,7 +470,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                 id="damage-quantity"
                 type="number"
                 min="0.001"
-                step="0.001"
+                step="any"
                 max={selected?.remainingQuantity}
                 value={dispositionQuantity}
                 onChange={(event) => setDispositionQuantity(Number(event.target.value))}
@@ -549,7 +549,7 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
                 id="damage-confirmed-quantity"
                 type="number"
                 min="0.001"
-                step="0.001"
+                step="any"
                 max={evidenceItem.availableQuantity}
                 value={confirmedQuantity}
                 onChange={(event) => setConfirmedQuantity(Number(event.target.value))}
