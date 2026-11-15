@@ -174,6 +174,11 @@ export interface AssignWarehouseTaskRequest {
   reason: string | null
 }
 
+export interface CancelWarehouseTaskRequest {
+  reason: string
+  expectedVersion: string
+}
+
 export interface UpdateWarehouseTaskScheduleRequest {
   priority: MyWarehouseTask['priority']
   dueAt: string | null

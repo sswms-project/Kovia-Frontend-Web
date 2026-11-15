@@ -9,6 +9,7 @@ import type {
   MyWarehouseTaskQuery,
   WarehouseTaskScope,
   AssignWarehouseTaskRequest,
+  CancelWarehouseTaskRequest,
   CreateWarehouseTaskRequest,
   ExecuteWarehouseRelocationRequest,
   WarehousePlacementRecommendation,
@@ -94,6 +95,20 @@ export function useAssignWarehouseTaskMutation(taskId: string | null) {
   return useMutation({
     mutationFn: (request: AssignWarehouseTaskRequest) =>
       warehouseTaskService.assign(taskId ?? '', request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] })
+      queryClient.invalidateQueries({ queryKey: ['warehouse-tasks', 'managed', 'detail', taskId] })
+    },
+    onError: logApiError,
+  })
+}
+
+export function useCancelWarehouseTaskMutation(taskId: string | null) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    retry: false,
+    mutationFn: (request: CancelWarehouseTaskRequest) =>
+      warehouseTaskService.cancel(taskId ?? '', request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] })
       queryClient.invalidateQueries({ queryKey: ['warehouse-tasks', 'managed', 'detail', taskId] })
