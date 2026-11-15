@@ -8,6 +8,7 @@ import type {
   WarehouseTaskAction,
   WarehouseTaskScope,
   AssignWarehouseTaskRequest,
+  CancelWarehouseTaskRequest,
   CreateWarehouseTaskRequest,
   ExecuteWarehouseRelocationRequest,
   WarehousePlacementRecommendation,
@@ -50,6 +51,12 @@ export const warehouseTaskService = {
       .put<
         ApiResponse<unknown>
       >(API_ENDPOINTS.warehouseTasks.assignment(taskId), request, transferWriteConfig())
+      .then((response) => response.data),
+  cancel: (taskId: string, request: CancelWarehouseTaskRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<unknown>
+      >(API_ENDPOINTS.warehouseTasks.cancel(taskId), request, transferWriteConfig())
       .then((response) => response.data),
   updateSchedule: (taskType: string, taskId: string, request: UpdateWarehouseTaskScheduleRequest) =>
     axiosClient
