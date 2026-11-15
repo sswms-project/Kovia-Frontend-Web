@@ -48,7 +48,7 @@ export function SupplierResponsePanel({
 }: SupplierResponsePanelProps) {
   return (
     <main className="bg-muted/30 flex min-h-dvh items-start justify-center p-4 sm:items-center sm:p-8">
-      <section className="bg-background w-full max-w-2xl border">
+      <section className="bg-card text-card-foreground w-full max-w-2xl border">
         <header className="border-b px-5 py-4 sm:px-7">
           <Logo />
         </header>
