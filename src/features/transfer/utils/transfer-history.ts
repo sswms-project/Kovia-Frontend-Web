@@ -35,7 +35,7 @@ export function buildTransferHistory(detail: TransferDetail): LifecycleEvent[] {
     ...(detail.requestEvents?.length
       ? detail.requestEvents.map((entry) =>
           event(
-            REQUEST_EVENT_LABELS[entry.action] ?? entry.action,
+            REQUEST_EVENT_LABELS[entry.action] ?? 'Cập nhật yêu cầu điều chuyển',
             entry.createdAt,
             entry.actorName ?? '',
             entry.reason,
@@ -82,6 +82,15 @@ export function buildTransferHistory(detail: TransferDetail): LifecycleEvent[] {
         `Nhận đợt ${shipment.shipmentNumber}`,
         shipment.receivedAt,
         shipment.receivedByName ?? ''
+      ),
+      ...(shipment.putAwayEvents ?? []).map((entry) =>
+        event(
+          `Cất hàng đợt ${shipment.shipmentNumber}`,
+          entry.createdAt,
+          entry.actorName ?? '',
+          null,
+          entry.actorId
+        )
       )
     )
   }
