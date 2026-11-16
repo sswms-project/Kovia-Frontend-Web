@@ -1,6 +1,6 @@
 # Tổng quan kho Kovia
 
-Owner (`/dashboard/tenant`) và Manager (`/dashboard/manager`) cùng dùng `WarehouseOverviewPage`. RoleGuard điều hướng giao diện; BE kiểm tra `DashboardPermissions.View`, tenant và phạm vi kho cho mọi API. Không cấp quyền bằng tên vai trò. Dashboard Staff/Admin không đổi trong task thiết kế lại này.
+Owner (`/dashboard/tenant`) và Manager (`/dashboard/manager`) cùng dùng `WarehouseOverviewPage`. RoleGuard điều hướng giao diện; BE kiểm tra `DashboardPermissions.View`, tenant và phạm vi kho cho mọi API. Không cấp quyền bằng tên vai trò. Staff vào thẳng `/tasks` (Công việc hiện tại); `/dashboard/staff` chỉ còn redirect sang đó cho bookmark và returnUrl cũ. Dashboard Admin không đổi.
 
 ## Dữ liệu thật và luồng đọc
 
