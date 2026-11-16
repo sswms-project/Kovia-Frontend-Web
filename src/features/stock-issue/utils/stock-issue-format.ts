@@ -93,6 +93,25 @@ export function formatStockIssueUnitQuantity(value: number, unitName: string): s
   return `${formatStockIssueQuantity(value)} ${unitName}`.trim()
 }
 
+/** Bước nhập số lượng theo số chữ số thập phân đơn vị cho phép: 0 → 1, 2 → 0,01. */
+export function stockIssueQuantityStep(quantityPrecision: number | undefined): number {
+  return quantityPrecision !== undefined && quantityPrecision > 0 ? 10 ** -quantityPrecision : 1
+}
+
+/** Số lượng quy về đơn vị cơ sở; số chưa nhập hợp lệ tính là 0. */
+export function stockIssueBaseQuantity(quantity: number, conversionFactor: number): number {
+  return (Number.isFinite(quantity) ? quantity : 0) * conversionFactor
+}
+
+/** Số lượng có không quá `quantityPrecision` chữ số thập phân (chịu sai số dấu phẩy động). */
+export function isStockIssueQuantityWithinPrecision(
+  quantity: number,
+  quantityPrecision: number
+): boolean {
+  const scaled = quantity * 10 ** quantityPrecision
+  return Math.abs(scaled - Math.round(scaled)) < 1e-6
+}
+
 export interface StockIssueProgress {
   readonly done: number
   readonly total: number

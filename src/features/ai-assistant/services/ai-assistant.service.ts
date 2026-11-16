@@ -12,6 +12,12 @@ import type {
   CompleteAiActionRequest,
   SendAiChatMessageRequest,
 } from '../types/ai-assistant.types'
+import type { AiFormSubmitRequest, AiFormSubmitResponse } from '../types/ai-form.types'
+import type { AiDraftConfirmRequest, AiDraftUpdateRequest } from '../types/ai-draft-edit.types'
+import {
+  aiDraftEditorResponseSchema,
+  aiDraftUpdateResponseSchema,
+} from '../schemas/ai-draft-edit.schema'
 
 import { createAiSseParser, isFreshAiStreamSeq } from '../utils/ai-sse-parser'
 import { toAiStreamStep } from '../utils/ai-thinking'
@@ -97,45 +103,61 @@ async function readStream(
   const parse = createAiSseParser()
   const reader = body.pipeThrough(new TextDecoderStream()).getReader()
   let lastSeq = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    touch()
-    for (const { event, data } of parse(value)) {
-      const payload = JSON.parse(data) as Record<string, unknown>
-      if (!isFreshAiStreamSeq(lastSeq, payload.seq)) continue
-      if (typeof payload.seq === 'number') lastSeq = payload.seq
-      switch (event) {
-        case 'message_start':
-          onEvent({
-            type: 'message_start',
-            conversationId: (payload.conversationId as string | null) ?? null,
-            requestId: typeof payload.requestId === 'string' ? payload.requestId : null,
-          })
-          break
-        case 'step': {
-          const step = toAiStreamStep(payload)
-          if (step) onEvent({ type: 'step', step })
-          break
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      touch()
+      for (const { event, data } of parse(value)) {
+        const payload = parseFrame(data)
+        if (!isFreshAiStreamSeq(lastSeq, payload.seq)) continue
+        if (typeof payload.seq === 'number') lastSeq = payload.seq
+        switch (event) {
+          case 'message_start':
+            onEvent({
+              type: 'message_start',
+              conversationId: (payload.conversationId as string | null) ?? null,
+              requestId: typeof payload.requestId === 'string' ? payload.requestId : null,
+            })
+            break
+          case 'step': {
+            const step = toAiStreamStep(payload)
+            if (step) onEvent({ type: 'step', step })
+            break
+          }
+          case 'text_delta':
+            onEvent({ type: 'text_delta', text: String(payload.text ?? '') })
+            break
+          case 'reset':
+            // The answer was revised after some text was shown: drop that text, the final one follows.
+            onEvent({ type: 'reset' })
+            break
+          // `ping` only keeps the connection alive; `touch()` above already re-armed the watchdog.
+          case 'message_complete':
+            return payload as unknown as AiChatResponse
+          case 'error':
+            throw toStreamError(payload.code, payload.message)
         }
-        case 'text_delta':
-          onEvent({ type: 'text_delta', text: String(payload.text ?? '') })
-          break
-        case 'reset':
-          // The answer was revised after some text was shown: drop that text, the final one follows.
-          onEvent({ type: 'reset' })
-          break
-        // `ping` only keeps the connection alive; `touch()` above already re-armed the watchdog.
-        case 'message_complete':
-          void reader.cancel()
-          return payload as unknown as AiChatResponse
-        case 'error':
-          void reader.cancel()
-          throw toStreamError(payload.code, payload.message)
       }
     }
+    // Closed without `message_complete` or `error`: the BE may or may not have saved the turn.
+    throw streamFailure('interrupted')
+  } finally {
+    // Every exit (complete, error frame, corrupt frame, abort) releases the connection.
+    void reader.cancel().catch(() => undefined)
   }
-  // Closed without `message_complete` or `error`: the BE may or may not have saved the turn.
+}
+
+/** A frame that is not a JSON object cannot be trusted, so the stream counts as broken and recovery looks for the saved turn. */
+function parseFrame(data: string): Record<string, unknown> {
+  try {
+    const payload: unknown = JSON.parse(data)
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      return payload as Record<string, unknown>
+    }
+  } catch {
+    // Falls through to the same failure as a non-object frame.
+  }
   throw streamFailure('interrupted')
 }
 
@@ -149,10 +171,23 @@ export const aiAssistantService = {
     axiosClient
       .get<ApiResponse<AiConversationMessages>>(API_ENDPOINTS.aiAssistant.messages(conversationId))
       .then((response) => response.data.data),
-  confirmAction: (draftId: string) =>
+  // `expectedRevision` is sent only for a draft that has one (editable types); others confirm as before.
+  confirmAction: (draftId: string, expectedRevision?: string | null) => {
+    const body: AiDraftConfirmRequest | undefined = expectedRevision
+      ? { expectedRevision }
+      : undefined
+    return axiosClient
+      .post<ApiResponse<AiActionExecution>>(API_ENDPOINTS.aiAssistant.confirmAction(draftId), body)
+      .then((response) => response.data.data)
+  },
+  getActionEditor: (draftId: string, signal?: AbortSignal) =>
     axiosClient
-      .post<ApiResponse<AiActionExecution>>(API_ENDPOINTS.aiAssistant.confirmAction(draftId))
-      .then((response) => response.data.data),
+      .get<ApiResponse<unknown>>(API_ENDPOINTS.aiAssistant.actionEditor(draftId), { signal })
+      .then((response) => aiDraftEditorResponseSchema.parse(response.data.data)),
+  updateAction: (draftId: string, request: AiDraftUpdateRequest) =>
+    axiosClient
+      .put<ApiResponse<unknown>>(API_ENDPOINTS.aiAssistant.updateAction(draftId), request)
+      .then((response) => aiDraftUpdateResponseSchema.parse(response.data.data)),
   getAction: <TPayload>(draftId: string) =>
     axiosClient
       .get<ApiResponse<AiActionDraft<TPayload>>>(API_ENDPOINTS.aiAssistant.getAction(draftId))
@@ -166,5 +201,11 @@ export const aiAssistantService = {
   cancelAction: (draftId: string) =>
     axiosClient
       .post<ApiResponse<unknown>>(API_ENDPOINTS.aiAssistant.cancelAction(draftId))
+      .then((response) => response.data.data),
+  submitForm: (flowId: string, request: AiFormSubmitRequest) =>
+    axiosClient
+      .post<
+        ApiResponse<AiFormSubmitResponse>
+      >(API_ENDPOINTS.aiAssistant.submitForm(flowId), request)
       .then((response) => response.data.data),
 }

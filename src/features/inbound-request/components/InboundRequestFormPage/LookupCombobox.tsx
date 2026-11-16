@@ -35,6 +35,12 @@ interface LookupComboboxProps {
     readonly icon?: ReactNode
     readonly onClick: () => void
   }
+  /** Danh sách còn trang sau: hiện nút "Tải thêm" ở cuối danh sách thả xuống (không đóng danh sách). */
+  readonly hasMore?: boolean
+  readonly isLoadingMore?: boolean
+  readonly onLoadMore?: () => void
+  /** Class thêm cho khung danh sách thả xuống (ví dụ giới hạn bề rộng trên màn hình hẹp). */
+  readonly contentClassName?: string
 }
 
 export function LookupCombobox({
@@ -51,6 +57,10 @@ export function LookupCombobox({
   onChange,
   onSearchChange,
   footerAction,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
+  contentClassName,
 }: LookupComboboxProps) {
   const [isOpen, setIsOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -116,7 +126,12 @@ export function LookupCombobox({
         disabled={disabled}
         showClear={Boolean(value) && !disabled}
       />
-      <ComboboxContent sideOffset={4} align="start" container={popupContainer ?? undefined}>
+      <ComboboxContent
+        sideOffset={4}
+        align="start"
+        container={popupContainer ?? undefined}
+        className={contentClassName}
+      >
         <ComboboxList
           data-scrollbar="slim"
           className="supports-[selector(::-webkit-scrollbar)]:[scrollbar-width:auto] [&::-webkit-scrollbar]:block"
@@ -145,6 +160,21 @@ export function LookupCombobox({
             )}
           </ComboboxEmpty>
         </ComboboxList>
+        {hasMore && onLoadMore ? (
+          <div className="border-t p-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full pointer-coarse:h-11"
+              disabled={isLoadingMore}
+              onClick={onLoadMore}
+            >
+              {isLoadingMore ? <Spinner /> : null}
+              {isLoadingMore ? 'Đang tải' : 'Tải thêm'}
+            </Button>
+          </div>
+        ) : null}
         {footerAction ? (
           <div className="border-t p-1">
             <Button

@@ -593,5 +593,22 @@ export const API_ENDPOINTS = {
     cancelAction: (draftId: string) => `/ai/actions/${draftId}/cancel`,
     getAction: (draftId: string) => `/ai/actions/${draftId}`,
     completeAction: (draftId: string) => `/ai/actions/${draftId}/complete`,
+    actionEditor: (draftId: string) => `/ai/actions/${draftId}/editor`,
+    // PUT on the same path as `getAction`: replaces the editable fields of a pending draft.
+    updateAction: (draftId: string) => `/ai/actions/${draftId}`,
+    // The flow id is an opaque signed token, so it is encoded before it goes into the path.
+    submitForm: (flowId: string) => `/ai/forms/${encodeURIComponent(flowId)}/submit`,
+  },
+  aiAlerts: {
+    watchRules: '/ai/watch-rules',
+    watchRuleCatalog: '/ai/watch-rules/catalog',
+    watchRule: (ruleId: string) => `/ai/watch-rules/${ruleId}`,
+    evaluateWatchRule: (ruleId: string) => `/ai/watch-rules/${ruleId}/evaluate`,
+    alerts: '/ai/alerts',
+    metrics: '/ai/alerts/metrics',
+    alert: (alertId: string) => `/ai/alerts/${alertId}`,
+    acknowledge: (alertId: string) => `/ai/alerts/${alertId}/acknowledge`,
+    snooze: (alertId: string) => `/ai/alerts/${alertId}/snooze`,
+    feedback: (alertId: string) => `/ai/alerts/${alertId}/feedback`,
   },
 } as const

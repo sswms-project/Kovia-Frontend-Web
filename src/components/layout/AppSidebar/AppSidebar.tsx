@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -18,40 +18,62 @@ import { useAuthStore } from '@/stores/auth.store'
 import { getVisibleNavSections } from '../nav-config'
 import { SidebarNavigation, type SidebarAppearance } from './SidebarNavigation'
 
+// Brief pause so a pointer passing over the collapsed rail does not flash it open.
+const PEEK_DELAY_MS = 120
+
 export function AppSidebar() {
   const user = useAuthStore((state) => state.user)
   const meQuery = useMeQuery()
   const pathname = usePathname()
-  const { isMobile, setOpenMobile, open, setOpen } = useSidebar()
+  const { isMobile, setOpenMobile, open, setOpen, peek, setPeek } = useSidebar()
   const [, setStoredOpen] = useLocalStorage('sidebar_state', true)
   const reportEntryRef = useRef<string | null>(null)
   const isReportDetail = /^\/reports\/(?!forecast(?:\/|$))[^/]+$/.test(pathname)
-  const hoverOpenRef = useRef(false)
   const pointerInsideRef = useRef(false)
+  const peekTimerRef = useRef<number | null>(null)
   const [catalogOpenScope, setCatalogOpenScope] = useState<string | null>(null)
   const initializedRef = useRef(false)
   const skipInitialPersistRef = useRef(true)
-  const permissions = new Set(meQuery.data?.permissions ?? [])
+  const permissionList = meQuery.data?.permissions
   const hasPermissionData = meQuery.data !== undefined
-  const sections =
-    user?.role && hasPermissionData ? getVisibleNavSections(user.role, permissions) : []
-  const appearance: SidebarAppearance = user?.role === USER_ROLES.TenantOwner ? 'tenant' : 'default'
-  const catalogScope = JSON.stringify([
-    user?.id,
-    user?.tenantId,
-    user?.role,
-    pathname,
-    isMobile,
-    sections.find((section) => section.presentation === 'catalog')?.items.map((item) => item.href),
-  ])
+  const role = user?.role
+  const sections = useMemo(
+    () => (role && permissionList ? getVisibleNavSections(role, new Set(permissionList)) : []),
+    [role, permissionList]
+  )
+  const appearance: SidebarAppearance = role === USER_ROLES.TenantOwner ? 'tenant' : 'default'
+  const catalogScope = useMemo(
+    () =>
+      JSON.stringify([
+        user?.id,
+        user?.tenantId,
+        role,
+        pathname,
+        isMobile,
+        sections
+          .find((section) => section.presentation === 'catalog')
+          ?.items.map((item) => item.href),
+      ]),
+    [user?.id, user?.tenantId, role, pathname, isMobile, sections]
+  )
   const isCatalogOpen = catalogOpenScope === catalogScope
+
+  const clearPeekTimer = useCallback(() => {
+    if (peekTimerRef.current === null) return
+    window.clearTimeout(peekTimerRef.current)
+    peekTimerRef.current = null
+  }, [])
+
+  useEffect(() => clearPeekTimer, [clearPeekTimer])
 
   // A previous route/session must not reopen its overlay when revisited.
   if (catalogOpenScope !== null && catalogOpenScope !== catalogScope) {
     setCatalogOpenScope(null)
   }
 
-  useEffect(() => {
+  // Layout effect: apply the saved state before the first paint, so a user who collapsed the sidebar
+  // never sees it open and then animate shut. The tree mounts client-side only (ProtectedRoute).
+  useLayoutEffect(() => {
     if (initializedRef.current) return
     const storedOpen = localStorage.getItem('sidebar_state')
     if (storedOpen !== null) setOpen(storedOpen === 'true')
@@ -63,7 +85,7 @@ export function AppSidebar() {
       skipInitialPersistRef.current = false
       return
     }
-    if (!hoverOpenRef.current) setStoredOpen(open)
+    setStoredOpen(open)
   }, [open, setStoredOpen])
 
   useEffect(() => {
@@ -73,10 +95,10 @@ export function AppSidebar() {
     }
     if (reportEntryRef.current === pathname) return
     reportEntryRef.current = pathname
-    hoverOpenRef.current = false
+    clearPeekTimer()
     setOpen(false)
     setOpenMobile(false)
-  }, [isReportDetail, pathname, setOpen, setOpenMobile])
+  }, [isReportDetail, pathname, setOpen, setOpenMobile, clearPeekTimer])
 
   useEffect(() => {
     if (!meQuery.isError) return
@@ -85,40 +107,35 @@ export function AppSidebar() {
     toast.error('Không thể tải quyền điều hướng. Vui lòng thử lại.')
   }, [meQuery.error, meQuery.isError])
 
+  // Hovering a collapsed rail peeks it open over the page; the page itself never reflows.
   const handleMouseEnter = () => {
     pointerInsideRef.current = true
-    if (!open && !isMobile && !isReportDetail) {
-      hoverOpenRef.current = true
-      setOpen(true)
-    }
+    if (open || peek || isMobile || isReportDetail || peekTimerRef.current !== null) return
+    peekTimerRef.current = window.setTimeout(() => {
+      peekTimerRef.current = null
+      setPeek(true)
+    }, PEEK_DELAY_MS)
   }
 
   const handleMouseLeave = () => {
     pointerInsideRef.current = false
-    if (hoverOpenRef.current && !isCatalogOpen) {
-      hoverOpenRef.current = false
-      setOpen(false)
-    }
+    clearPeekTimer()
+    if (peek && !isCatalogOpen) setPeek(false)
   }
 
   const handleCatalogOpenChange = (nextOpen: boolean) => {
     setCatalogOpenScope(nextOpen ? catalogScope : null)
-    if (!nextOpen && hoverOpenRef.current && !pointerInsideRef.current) {
-      hoverOpenRef.current = false
-      setOpen(false)
-    }
+    if (!nextOpen && peek && !pointerInsideRef.current) setPeek(false)
   }
 
   return (
     <Sidebar
       collapsible="icon"
       className="border-sidebar-border min-w-0 overflow-hidden border-r-0"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      <SidebarContent
-        className="min-w-0 overscroll-contain py-3"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
+      <SidebarContent className="min-w-0 overscroll-contain py-3">
         <SidebarNavigation
           pathname={pathname}
           sections={sections}
@@ -135,13 +152,7 @@ export function AppSidebar() {
         />
       </SidebarContent>
       <SidebarFooter className="border-sidebar-border shrink-0 border-t p-2">
-        <SidebarTrigger
-          className="w-full"
-          onClick={() => {
-            hoverOpenRef.current = false
-            handleCatalogOpenChange(false)
-          }}
-        />
+        <SidebarTrigger className="w-full" onClick={() => handleCatalogOpenChange(false)} />
       </SidebarFooter>
     </Sidebar>
   )

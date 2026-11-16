@@ -12,6 +12,7 @@ export const ROUTE_CAPABILITIES = {
   [APP_ROUTES.categoryImport]: P.CATEGORIES_MANAGE,
   [APP_ROUTES.inboundRequests]: P.INBOUND_REQUESTS_VIEW,
   [APP_ROUTES.inboundRequestCreate]: P.INBOUND_REQUESTS_CREATE,
+  [APP_ROUTES.aiAlerts]: P.NOTIFICATIONS_VIEW,
 } as const
 
 interface RoutePermission {
@@ -26,6 +27,10 @@ const ROUTE_PERMISSIONS: readonly RoutePermission[] = [
   },
   {
     pathPrefix: APP_ROUTES.notifications,
+    allowedRoles: [USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff],
+  },
+  {
+    pathPrefix: APP_ROUTES.aiAlerts,
     allowedRoles: [USER_ROLES.TenantOwner, USER_ROLES.WarehouseManager, USER_ROLES.WarehouseStaff],
   },
   {
