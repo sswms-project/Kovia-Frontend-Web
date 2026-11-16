@@ -400,12 +400,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
   [USER_ROLES.WarehouseStaff]: [
     {
       id: 'workspace',
-      items: [
-        requiredNavItem(APP_ROUTES.dashboard, 'Dashboard', LayoutDashboard, P.DASHBOARD_VIEW, [
-          APP_ROUTES.dashboardByRole.staff,
-        ]),
-        requiredNavItem(APP_ROUTES.products, 'Vật tư hàng hóa', Package, P.PRODUCTS_VIEW),
-      ],
+      items: [requiredNavItem(APP_ROUTES.products, 'Vật tư hàng hóa', Package, P.PRODUCTS_VIEW)],
       separatorAfter: true,
     },
     {

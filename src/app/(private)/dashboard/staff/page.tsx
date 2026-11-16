@@ -1,5 +1,7 @@
-import { WarehouseStaffDashboardPage } from '@/features/dashboard/pages/WarehouseStaffDashboardPage'
+import { redirect } from 'next/navigation'
+import { APP_ROUTES } from '@/routes/app-routes'
 
-export default function Page() {
-  return <WarehouseStaffDashboardPage />
+// Staff land on My Tasks; this keeps old bookmarks and return URLs off the retired staff dashboard.
+export default function StaffDashboardRoutePage() {
+  redirect(APP_ROUTES.myTasks)
 }

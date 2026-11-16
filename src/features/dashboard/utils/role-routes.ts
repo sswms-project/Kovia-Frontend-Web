@@ -11,7 +11,7 @@ export function getDashboardRouteForRole(role: UserRole): Route {
     case USER_ROLES.WarehouseManager:
       return APP_ROUTES.dashboardByRole.manager as Route
     case USER_ROLES.WarehouseStaff:
-      return APP_ROUTES.dashboardByRole.staff as Route
+      return APP_ROUTES.myTasks
     default:
       return APP_ROUTES.dashboard as Route
   }
