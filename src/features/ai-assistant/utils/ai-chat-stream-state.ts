@@ -114,9 +114,11 @@ const OUTCOME_BY_PHASE = {
 
 /** The thinking state of a turn; `now` measures a running or just-completed turn. */
 export function toAiThinkingSummary(stream: AiChatStream, now: number): AiThinkingSummary {
+  // Once answer text is arriving the steps are over: the live row collapses into its summary.
+  const isResponding = stream.phase === 'streaming' && stream.text.length > 0
   return {
     steps: stream.steps,
-    outcome: OUTCOME_BY_PHASE[stream.phase],
+    outcome: isResponding ? 'responding' : OUTCOME_BY_PHASE[stream.phase],
     elapsedMs: (stream.endedAt ?? now) - stream.startedAt,
   }
 }

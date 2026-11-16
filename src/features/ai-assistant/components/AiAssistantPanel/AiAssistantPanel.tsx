@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useAiAssistantPanelStore } from '@/stores/ai-assistant-panel.store'
@@ -74,13 +74,27 @@ export function AiAssistantPanel({ onNavigate }: AiAssistantPanelProps) {
   }, [confirmingDraftId, cancellingDraftId])
   const { mutate: confirmAction } = confirmMutation
   const { mutate: cancelAction } = cancelMutation
+  // Set synchronously: `isPending` only turns true on the next render, so a second click in the
+  // same frame would otherwise confirm (or cancel) the draft twice.
+  const isDraftActionRunning = useRef(false)
+  const releaseDraftAction = useCallback(() => {
+    isDraftActionRunning.current = false
+  }, [])
   const handleConfirmAction = useCallback(
-    (draftId: string) => confirmAction({ draftId, conversationId }),
-    [confirmAction, conversationId]
+    (draftId: string) => {
+      if (isDraftActionRunning.current) return
+      isDraftActionRunning.current = true
+      confirmAction({ draftId, conversationId }, { onSettled: releaseDraftAction })
+    },
+    [confirmAction, conversationId, releaseDraftAction]
   )
   const handleCancelAction = useCallback(
-    (draftId: string) => cancelAction({ draftId, conversationId }),
-    [cancelAction, conversationId]
+    (draftId: string) => {
+      if (isDraftActionRunning.current) return
+      isDraftActionRunning.current = true
+      cancelAction({ draftId, conversationId }, { onSettled: releaseDraftAction })
+    },
+    [cancelAction, conversationId, releaseDraftAction]
   )
   const sendMessage = (message: string) => {
     // The store refuses a second turn while one runs, so double clicks never send twice.

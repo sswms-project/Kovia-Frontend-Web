@@ -28,6 +28,9 @@ export function getAiDraftFormLink(
       return withDraft(APP_ROUTES.stockIssueRequestCreate, draftId) as Route
     case AI_ACTIONS.createSupplierReturn:
       return withDraft(APP_ROUTES.supplierReturns, draftId, { create: '1' }) as Route
+    // The real report needs photo evidence, which only the Discrepancies screen can collect.
+    case AI_ACTIONS.createStockDiscrepancyReport:
+      return APP_ROUTES.inventoryDiscrepancies as Route
     default:
       return null
   }

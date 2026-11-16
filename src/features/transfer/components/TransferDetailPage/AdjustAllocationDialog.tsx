@@ -224,7 +224,7 @@ function AllocationEditor({
                       type="number"
                       min={minAllocation(option)}
                       max={maxAllocation(option)}
-                      step="0.01"
+                      step="any"
                       inputMode="decimal"
                       className="ml-auto h-9 w-28 text-right tabular-nums"
                       disabled={

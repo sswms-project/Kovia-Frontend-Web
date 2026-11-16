@@ -5,7 +5,11 @@ import { formatApiError, getApiErrorMessage, isApiErrorResponse } from '@/lib/ap
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
 import { useAiAssistantPanelStore } from '@/stores/ai-assistant-panel.store'
-import { aiStreamClock, useAiChatStreamStore } from '@/stores/ai-chat-stream.store'
+import {
+  aiStreamClock,
+  useAiChatStreamStore,
+  waitForAiRevealDrain,
+} from '@/stores/ai-chat-stream.store'
 import { aiAssistantService } from '../services/ai-assistant.service'
 import type { AiConversationMessages, SendAiChatMessageRequest } from '../types/ai-assistant.types'
 import { isAiChatStreamRunning, selectAiChatStreamFor } from '../utils/ai-chat-stream-state'
@@ -17,6 +21,8 @@ import {
 } from '../utils/ai-stream-recovery'
 
 const SEND_FAILED_MESSAGE = 'Trợ lý AI chưa trả lời được. Vui lòng thử lại.'
+/** Longest the hand-off to the saved message waits for the row to finish showing what it received. */
+const REVEAL_DRAIN_MAX_MS = 1500
 
 function reportSendError(error: unknown) {
   const message = isApiErrorResponse(error) ? getApiErrorMessage(error) : SEND_FAILED_MESSAGE
@@ -65,6 +71,9 @@ async function runAiChatTurn(
     )?.map((message) => message.id)
   )
 
+  // The conversation the BE opened for this turn (`message_start`), so a recovery looks exactly there.
+  let startedConversationId: string | null = null
+
   try {
     const response = await aiAssistantService.streamMessage(request, controller.signal, (event) => {
       if (event.type === 'text_delta') {
@@ -84,10 +93,23 @@ async function runAiChatTurn(
       flush()
       if (event.type === 'step') dispatch(controller, { type: 'step', step: event.step })
       if (event.type === 'message_start') {
+        startedConversationId = event.conversationId
         dispatch(controller, { type: 'message_start', requestId: event.requestId })
       }
     })
-    cancelAnimationFrame(frame)
+    // Show what already arrived before the saved message takes over: push the last frame's text and
+    // let the row finish its reveal (bounded). Nothing waits when no row is showing it (panel closed,
+    // another conversation open; a hidden tab is handled by the wait itself).
+    flush()
+    const openPanel = useAiAssistantPanelStore.getState()
+    if (openPanel.isOpen && openPanel.conversationId === request.conversationId) {
+      useAiChatStreamStore.getState().beginFinish(controller)
+      await waitForAiRevealDrain(controller, REVEAL_DRAIN_MAX_MS)
+    }
+    // A conversation fetch still in flight would land after the turn and bring the old drafts back.
+    await queryClient.cancelQueries({
+      queryKey: queryKeys.aiAssistant.messages(response.conversationId),
+    })
     // One notification batch: the saved message appears in the same render the streamed one
     // leaves, so the answer never blinks out for a frame.
     notifyManager.batch(() => {
@@ -115,11 +137,18 @@ async function runAiChatTurn(
     // The connection broke, but the BE may have saved the answer before it did: show that instead of an
     // error. Nothing is ever sent again on the user's behalf.
     if (kind !== 'server') {
-      const saved = await findSavedTurn(queryClient, request, knownMessageIds, sentAt).catch(
-        () => null
-      )
+      const saved = await findSavedTurn(
+        queryClient,
+        request,
+        knownMessageIds,
+        sentAt,
+        startedConversationId
+      ).catch(() => null)
       if (controller.signal.aborted) return
       if (saved) {
+        await queryClient.cancelQueries({
+          queryKey: queryKeys.aiAssistant.messages(saved.conversation.conversationId),
+        })
         notifyManager.batch(() => {
           queryClient.setQueryData(
             queryKeys.aiAssistant.messages(saved.conversation.conversationId),
@@ -151,10 +180,13 @@ async function findSavedTurn(
   queryClient: QueryClient,
   request: SendAiChatMessageRequest,
   knownMessageIds: ReadonlySet<string>,
-  sentAt: number
+  sentAt: number,
+  startedConversationId: string | null
 ): Promise<{ conversation: AiConversationMessages; answerId: string } | null> {
-  const candidates = request.conversationId
-    ? [request.conversationId]
+  // Guessing from the recent conversations is only for a stream that broke before `message_start`.
+  const knownConversationId = request.conversationId ?? startedConversationId
+  const candidates = knownConversationId
+    ? [knownConversationId]
     : recentAiConversationIds(await aiAssistantService.getConversations(), sentAt)
   for (const conversationId of candidates) {
     const conversation = await aiAssistantService.getMessages(conversationId)

@@ -119,15 +119,44 @@ function DocumentQuantityCell({
   )
 }
 
-function ExtractedValue({ field }: { readonly field: ExtractedField<string> | null }) {
-  if (!field?.value) return <dd className="text-muted-foreground">Không có</dd>
-  const isUnverified = field.verificationStatus === 'Unverified'
+type HeaderFieldName = keyof InboundDocumentReviewFormValues['header']
+
+function EditableExtractedValue({
+  form,
+  name,
+  label,
+  field,
+  type = 'text',
+}: {
+  readonly form: UseFormReturn<InboundDocumentReviewFormValues>
+  readonly name: HeaderFieldName
+  readonly label: string
+  readonly field: ExtractedField<string> | null
+  readonly type?: 'text' | 'date'
+}) {
+  const isDirty = Boolean(form.formState.dirtyFields.header?.[name])
+  const error = form.formState.errors.header?.[name]
   return (
-    <dd className="flex flex-wrap items-center gap-1.5">
-      <span className={isUnverified ? 'font-medium' : undefined}>{field.value}</span>
-      <Badge variant={isUnverified ? 'outline' : 'secondary'} className="text-[10px]">
-        {VERIFICATION_LABELS[field.verificationStatus]}
-      </Badge>
+    <dd className="flex min-w-0 flex-col gap-0.5">
+      <Input
+        type={type}
+        aria-label={label}
+        aria-invalid={Boolean(error)}
+        className="h-7 text-xs"
+        placeholder="Không có"
+        {...form.register(`header.${name}`)}
+      />
+      {error ? (
+        <span className="text-destructive text-[10px]">{error.message}</span>
+      ) : (
+        <span className="text-muted-foreground text-[10px]">
+          {isDirty
+            ? 'Đã sửa · lưu để kiểm tra lại'
+            : field
+              ? VERIFICATION_LABELS[field.verificationStatus]
+              : 'Không trích xuất được'}
+        </span>
+      )}
     </dd>
   )
 }
@@ -172,20 +201,57 @@ export function ReviewStep({
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
               <dt className="text-muted-foreground">Tệp</dt>
               <dd className="truncate">{importData.fileName}</dd>
-              <dt className="text-muted-foreground">Số chứng từ</dt>
-              <ExtractedValue field={review.extraction.documentNumber} />
-              <dt className="text-muted-foreground">Mã yêu cầu</dt>
-              <ExtractedValue field={review.extraction.inboundRequestCode} />
-              <dt className="text-muted-foreground">Ngày chứng từ</dt>
-              <ExtractedValue field={review.extraction.documentDate} />
-              <dt className="text-muted-foreground">Ngày giao</dt>
-              <ExtractedValue field={review.extraction.supplierDeliveryDate} />
-              <dt className="text-muted-foreground">Nhà cung cấp</dt>
-              <ExtractedValue field={review.extraction.supplierName} />
-              <dt className="text-muted-foreground">Mã kho</dt>
-              <ExtractedValue field={review.extraction.warehouseCode} />
-              <dt className="text-muted-foreground">Tên kho</dt>
-              <ExtractedValue field={review.extraction.warehouseName} />
+              <dt className="text-muted-foreground self-center">Số chứng từ</dt>
+              <EditableExtractedValue
+                form={form}
+                name="documentNumber"
+                label="Số chứng từ"
+                field={review.extraction.documentNumber}
+              />
+              <dt className="text-muted-foreground self-center">Mã yêu cầu</dt>
+              <EditableExtractedValue
+                form={form}
+                name="inboundRequestCode"
+                label="Mã yêu cầu"
+                field={review.extraction.inboundRequestCode}
+              />
+              <dt className="text-muted-foreground self-center">Ngày chứng từ</dt>
+              <EditableExtractedValue
+                form={form}
+                name="documentDate"
+                label="Ngày chứng từ"
+                field={review.extraction.documentDate}
+                type="date"
+              />
+              <dt className="text-muted-foreground self-center">Ngày giao</dt>
+              <EditableExtractedValue
+                form={form}
+                name="supplierDeliveryDate"
+                label="Ngày giao"
+                field={review.extraction.supplierDeliveryDate}
+                type="date"
+              />
+              <dt className="text-muted-foreground self-center">Nhà cung cấp</dt>
+              <EditableExtractedValue
+                form={form}
+                name="supplierName"
+                label="Nhà cung cấp"
+                field={review.extraction.supplierName}
+              />
+              <dt className="text-muted-foreground self-center">Mã kho</dt>
+              <EditableExtractedValue
+                form={form}
+                name="warehouseCode"
+                label="Mã kho"
+                field={review.extraction.warehouseCode}
+              />
+              <dt className="text-muted-foreground self-center">Tên kho</dt>
+              <EditableExtractedValue
+                form={form}
+                name="warehouseName"
+                label="Tên kho"
+                field={review.extraction.warehouseName}
+              />
               <dt className="text-muted-foreground">Nguồn</dt>
               <dd>{importData.extractionProvider ?? 'Không xác định'}</dd>
             </dl>
@@ -397,7 +463,7 @@ export function ReviewStep({
                         inputMode="decimal"
                         autoComplete="off"
                         min="0.01"
-                        step="0.01"
+                        step="any"
                         className="ml-auto w-28 text-right"
                         aria-invalid={Boolean(errors.lines?.[index]?.confirmedQuantity)}
                         {...form.register(`lines.${index}.confirmedQuantity`, {
@@ -418,7 +484,7 @@ export function ReviewStep({
                         inputMode="decimal"
                         autoComplete="off"
                         min="0"
-                        step="0.01"
+                        step="any"
                         className="ml-auto w-24 text-right"
                         aria-invalid={Boolean(errors.lines?.[index]?.damagedQuantity)}
                         {...form.register(`lines.${index}.damagedQuantity`, {

@@ -252,7 +252,7 @@ export function ReceiveGoodsDialog({
                         readOnly={!canEditReceivedQuantity}
                         type="number"
                         min={0}
-                        step={10 ** -unit.precision}
+                        step="any"
                         disabled={isPending}
                         aria-invalid={Boolean(receivedError)}
                         {...register(`lines.${index}.receivedQty`, { valueAsNumber: true })}
@@ -269,7 +269,7 @@ export function ReceiveGoodsDialog({
                         id={`damaged-${index}`}
                         type="number"
                         min="0"
-                        step={10 ** -unit.precision}
+                        step="any"
                         disabled={isPending}
                         aria-invalid={Boolean(classificationError)}
                         {...register(

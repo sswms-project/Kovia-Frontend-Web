@@ -557,7 +557,7 @@ export function StockDiscrepancyDirectory(props: Props) {
                 <Input
                   id="discrepancy-difference"
                   type="number"
-                  step="0.001"
+                  step="any"
                   value={difference}
                   onChange={(event) => setDifference(Number(event.target.value))}
                 />

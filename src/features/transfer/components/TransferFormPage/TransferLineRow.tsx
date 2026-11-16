@@ -197,7 +197,7 @@ export function TransferLineRow({
           id={`transfer-quantity-${index}`}
           type="number"
           min="0"
-          step={selectedUnit ? 10 ** -selectedUnit.quantityPrecision : 'any'}
+          step="any"
           inputMode="decimal"
           aria-invalid={Boolean(errors?.quantity)}
           {...form.register(`lines.${index}.quantity`, { valueAsNumber: true })}

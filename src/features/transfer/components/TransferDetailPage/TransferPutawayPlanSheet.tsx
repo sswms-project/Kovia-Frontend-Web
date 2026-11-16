@@ -357,7 +357,7 @@ export function TransferPutawayPlanSheet({
                                 type="number"
                                 inputMode="decimal"
                                 min={0}
-                                step={10 ** -Math.min(2, item.baseQuantityPrecision ?? 2)}
+                                step="any"
                                 value={
                                   Number.isFinite(line.plannedTotal)
                                     ? Number((line.plannedTotal - received).toPrecision(15))

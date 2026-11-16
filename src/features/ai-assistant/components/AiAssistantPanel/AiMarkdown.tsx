@@ -71,8 +71,17 @@ const STREAMING_CARET = (
   />
 )
 
+/**
+ * A block that starts while the answer streams fades in once, opacity only. Blocks keep their element
+ * as text grows into them (index keys), so only a new block animates and nothing is re-animated per
+ * delta; saved messages never get it, so the hand-off from the streamed row stays still.
+ */
+const BLOCK_ENTER = 'animate-in fade-in-0 animation-duration-150 motion-reduce:animate-none'
+
 interface MarkdownBlockViewProps {
   readonly block: AiMarkdownBlock
+  /** Entrance class of a block that is new while streaming. */
+  readonly enter?: string
   /** Rendered inline after the block's text (the streaming caret). */
   readonly trailing?: ReactNode
   readonly entities: readonly AiEntityLink[]
@@ -82,6 +91,7 @@ interface MarkdownBlockViewProps {
 
 function MarkdownBlockView({
   block,
+  enter,
   trailing,
   entities,
   linker,
@@ -93,14 +103,19 @@ function MarkdownBlockView({
   switch (block.kind) {
     case 'heading':
       return (
-        <p className="text-foreground mt-1 font-semibold first:mt-0">
+        <p className={cn('text-foreground mt-1 font-semibold first:mt-0', enter)}>
           {renderInline(block.text, links())}
           {trailing}
         </p>
       )
     case 'code':
       return (
-        <pre className="bg-muted overflow-x-auto rounded-md px-3 py-2 font-mono text-xs leading-relaxed">
+        <pre
+          className={cn(
+            'bg-muted overflow-x-auto rounded-md px-3 py-2 font-mono text-xs leading-relaxed',
+            enter
+          )}
+        >
           <code>{block.lines.join('\n')}</code>
         </pre>
       )
@@ -110,7 +125,8 @@ function MarkdownBlockView({
         <ListTag
           className={cn(
             'marker:text-muted-foreground space-y-1 pl-5',
-            block.ordered ? 'list-decimal' : 'list-disc'
+            block.ordered ? 'list-decimal' : 'list-disc',
+            enter
           )}
         >
           {block.items.map((item, index) => (
@@ -124,12 +140,16 @@ function MarkdownBlockView({
       const linkColumns = linker ? getAiTableLinkColumns(block.rows, entities) : null
       const renderCell = (text: string, column?: number) =>
         renderInline(text, column !== undefined && linkColumns?.has(column) ? links() : null)
-      return <AiMarkdownTable header={block.header} rows={block.rows} renderCell={renderCell} />
+      return (
+        <div className={enter}>
+          <AiMarkdownTable header={block.header} rows={block.rows} renderCell={renderCell} />
+        </div>
+      )
     }
     case 'paragraph': {
       const paragraphLinks = links()
       return (
-        <p>
+        <p className={enter}>
           {block.lines.map((line, index) => (
             <Fragment key={index}>
               {index > 0 ? <br /> : null}
@@ -174,6 +194,7 @@ export function AiMarkdown({
           // Index keys keep each block's element while text streams in, so nothing remounts.
           key={index}
           block={block}
+          enter={isStreaming ? BLOCK_ENTER : undefined}
           trailing={caretInline && index === blocks.length - 1 ? STREAMING_CARET : null}
           entities={entities}
           linker={linker}

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
-import { APP_ROUTES } from '@/routes/app-routes'
+import { loginUrlFor } from '@/features/auth/utils/auth-return-url'
 import { useAuthStore } from '@/stores/auth.store'
 import { AppRouteSkeleton } from './AppRouteSkeleton'
 
@@ -31,7 +31,7 @@ export function ProtectedRoute({ children }: { readonly children: React.ReactNod
   useEffect(() => {
     if (hasHydrated && !user) {
       clearAuth()
-      router.replace(APP_ROUTES.auth.login)
+      router.replace(loginUrlFor(window.location.pathname + window.location.search))
     }
   }, [clearAuth, hasHydrated, user, router])
 

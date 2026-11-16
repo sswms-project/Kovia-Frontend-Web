@@ -10,9 +10,14 @@ const KEYBOARD_STEP = 24
  * Luôn chừa đủ bề rộng cho trang nằm cạnh khung để người dùng còn thao tác được.
  * `rightOffset`: phần mép phải đã có khung khác chiếm (ví dụ trợ lý AI đang mở).
  */
-export function clampSidePanelWidth(width: number, minWidth: number, rightOffset = 0) {
-  const maximum = Math.max(minWidth, window.innerWidth - rightOffset - MIN_PAGE_WIDTH)
-  return Math.min(Math.max(width, minWidth), maximum)
+export function clampSidePanelWidth(
+  width: number,
+  minWidth: number,
+  rightOffset = 0,
+  maxWidth?: number
+) {
+  const maximum = maxWidth ?? Math.max(minWidth, window.innerWidth - rightOffset - MIN_PAGE_WIDTH)
+  return Math.min(Math.max(width, minWidth), Math.max(minWidth, maximum))
 }
 
 interface SidePanelResizeHandleProps {
@@ -21,6 +26,8 @@ interface SidePanelResizeHandleProps {
   readonly label: string
   /** Khoảng cách từ mép phải khung tới mép phải màn hình. */
   readonly rightOffset?: number
+  /** Giới hạn trên do nơi dùng tính từ chỗ thực sự còn lại; không truyền thì chừa MIN_PAGE_WIDTH cho trang. */
+  readonly maxWidth?: number
   readonly onResize: (width: number) => void
   readonly onResizeEnd: (width: number) => void
 }
@@ -36,6 +43,7 @@ export function SidePanelResizeHandle({
   minWidth,
   label,
   rightOffset = 0,
+  maxWidth,
   onResize,
   onResizeEnd,
 }: SidePanelResizeHandleProps) {
@@ -43,7 +51,12 @@ export function SidePanelResizeHandle({
 
   // Khung bám mép phải nên bề rộng chính là khoảng cách từ con trỏ tới mép phải của khung.
   const widthAt = (event: PointerEvent<HTMLDivElement>) =>
-    clampSidePanelWidth(window.innerWidth - rightOffset - event.clientX, minWidth, rightOffset)
+    clampSidePanelWidth(
+      window.innerWidth - rightOffset - event.clientX,
+      minWidth,
+      rightOffset,
+      maxWidth
+    )
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
@@ -51,7 +64,8 @@ export function SidePanelResizeHandle({
     const next = clampSidePanelWidth(
       width + (event.key === 'ArrowLeft' ? KEYBOARD_STEP : -KEYBOARD_STEP),
       minWidth,
-      rightOffset
+      rightOffset,
+      maxWidth
     )
     onResize(next)
     onResizeEnd(next)
@@ -63,6 +77,7 @@ export function SidePanelResizeHandle({
       aria-orientation="vertical"
       aria-label={label}
       aria-valuemin={minWidth}
+      aria-valuemax={maxWidth}
       aria-valuenow={Math.round(width)}
       tabIndex={0}
       className="group focus-visible:ring-ring absolute inset-y-0 left-0 z-10 hidden w-2 -translate-x-1/2 cursor-ew-resize touch-none outline-none focus-visible:ring-2 sm:block"

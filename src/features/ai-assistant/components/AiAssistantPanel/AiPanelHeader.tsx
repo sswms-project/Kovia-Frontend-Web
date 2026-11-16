@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { History, Maximize2, MessageSquarePlus, Minimize2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AI_FORM_TOUCH_ICON_BUTTON } from '../../utils/ai-form-touch-classes'
 import type { AiPanelMode } from '../../utils/ai-panel-layout'
 import { AiAssistantMascot } from './AiAssistantMascot'
 
@@ -21,6 +22,7 @@ function HeaderIconButton({ label, onClick, disabled, pressed, children }: Heade
           type="button"
           variant="ghost"
           size="icon-sm"
+          className={AI_FORM_TOUCH_ICON_BUTTON}
           aria-label={label}
           aria-pressed={pressed}
           disabled={disabled}

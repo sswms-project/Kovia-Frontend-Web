@@ -1055,7 +1055,7 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
                     id="opening-quantity"
                     type="number"
                     min={10 ** -(selectedUnit?.quantityPrecision ?? 2)}
-                    step={10 ** -(selectedUnit?.quantityPrecision ?? 2)}
+                    step="any"
                     aria-invalid={Boolean(errors.quantity)}
                     {...props.form.register('quantity', { valueAsNumber: true })}
                   />
@@ -1153,7 +1153,7 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
                         aria-label={`Số lượng dòng ${index + 1}`}
                         type="number"
                         min="0.01"
-                        step="0.01"
+                        step="any"
                         className="w-28 shrink-0"
                         value={line.quantity}
                         onChange={(event) =>

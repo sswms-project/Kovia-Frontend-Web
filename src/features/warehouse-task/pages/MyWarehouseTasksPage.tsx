@@ -46,6 +46,7 @@ import {
 import { MyWorkQueue } from '../components/MyWorkQueue'
 import {
   useAssignWarehouseTaskMutation,
+  useCancelWarehouseTaskMutation,
   useCreateWarehouseTaskMutation,
   useExecuteWarehouseRelocationMutation,
   useManageMyWarehouseTaskMutation,
@@ -134,6 +135,9 @@ export default function MyWarehouseTasksPage({
   } | null>(null)
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelError, setCancelError] = useState('')
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
   const assignedWarehouses = meQuery.data?.assignedWarehouses
@@ -178,6 +182,7 @@ export default function MyWarehouseTasksPage({
   const createMutation = useCreateWarehouseTaskMutation()
   const assignMutation = useAssignWarehouseTaskMutation(selectedTaskId)
   const executeMutation = useExecuteWarehouseRelocationMutation(selectedTaskId)
+  const cancelMutation = useCancelWarehouseTaskMutation(selectedTaskId)
   const scheduleMutation = useUpdateWarehouseTaskScheduleMutation(scheduleTask)
 
   const scheduleForm = useForm<WarehouseTaskScheduleFormValues>({
@@ -407,6 +412,36 @@ export default function MyWarehouseTasksPage({
       await detailQuery.refetch()
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Không thể phân công công việc.'))
+    }
+  }
+
+  function openCancel() {
+    setCancelReason('')
+    setCancelError('')
+    setCancelOpen(true)
+  }
+
+  async function confirmCancel() {
+    const detail = detailQuery.data
+    if (!detail) return
+    const normalized = cancelReason.trim()
+    if (!normalized) {
+      setCancelError('Vui lòng nhập lý do hủy.')
+      return
+    }
+    if (normalized.length > 500) {
+      setCancelError('Lý do không được vượt quá 500 ký tự.')
+      return
+    }
+    try {
+      await cancelMutation.mutateAsync({ reason: normalized, expectedVersion: detail.rowVersion })
+      toast.success('Đã hủy công việc.')
+      setCancelOpen(false)
+      setSelectedTaskId(null)
+      setAssignmentStaffId('')
+      setAssignmentReason('')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Không thể hủy công việc.'))
     }
   }
 
@@ -672,6 +707,9 @@ export default function MyWarehouseTasksPage({
         executeForm={executeForm}
         isAssigning={assignMutation.isPending}
         isExecuting={executeMutation.isPending}
+        canCancel={canAssignRelocation}
+        isCancelling={cancelMutation.isPending}
+        onCancel={openCancel}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedTaskId(null)
@@ -728,6 +766,53 @@ export default function MyWarehouseTasksPage({
             </Button>
             <Button type="button" disabled={action.isPending} onClick={() => void confirmReason()}>
               {action.isPending ? 'Đang lưu…' : 'Xác nhận'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={cancelOpen}
+        onOpenChange={(open) => !open && !cancelMutation.isPending && setCancelOpen(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hủy công việc điều chuyển</DialogTitle>
+            <DialogDescription>
+              Công việc sẽ chuyển sang trạng thái đã hủy và không thể thực hiện tiếp.{' '}
+              <span className="font-mono">{detailQuery.data?.taskCode}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <Field data-invalid={Boolean(cancelError)}>
+            <FieldLabel htmlFor="warehouse-task-cancel-reason">Lý do hủy</FieldLabel>
+            <Textarea
+              id="warehouse-task-cancel-reason"
+              rows={3}
+              maxLength={500}
+              value={cancelReason}
+              aria-invalid={Boolean(cancelError)}
+              onChange={(event) => {
+                setCancelReason(event.target.value)
+                setCancelError('')
+              }}
+            />
+            <FieldError>{cancelError}</FieldError>
+          </Field>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={cancelMutation.isPending}
+              onClick={() => setCancelOpen(false)}
+            >
+              Quay lại
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={cancelMutation.isPending}
+              onClick={() => void confirmCancel()}
+            >
+              {cancelMutation.isPending ? 'Đang hủy…' : 'Xác nhận hủy'}
             </Button>
           </DialogFooter>
         </DialogContent>
