@@ -2,9 +2,11 @@
 
 import { putAwayStockNote } from '../utils/transfer-putaway-stock'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, Sparkles } from 'lucide-react'
-import { PutawaySuggestionPanel } from '@/components/operations/putaway'
+import {
+  PutawayAiSuggestButton,
+  PutawayHintBanner,
+  PutawaySuggestionPanel,
+} from '@/components/operations/putaway'
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import {
   OperationalErrorState,
@@ -32,7 +34,6 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useWarehouseLayoutQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { getPutawaySlotOptions } from '@/features/inbound/utils/putaway-slot-options'
-import { APP_ROUTES } from '@/routes/app-routes'
 import { TransferPutawayPlanWorkspace } from '../components/TransferDetailPage'
 import {
   TransferChangedBanner,
@@ -287,34 +288,18 @@ export default function TransferPutAwayPage({
         tab === 'plan' && 'gap-5'
       )}
     >
-      {shipment && tab === 'execution' ? (
-        <TransferWorkHeader
-          heading="Chờ cất hàng điều chuyển"
-          transferId={transferId}
-          transferCode={transfer.transferCode}
-          shipmentNumber={shipment.shipmentNumber}
-          shipmentStatus={shipment.status}
-          route={'Cất tại ' + transfer.destinationWarehouseName}
-        />
-      ) : (
-        <header className="flex shrink-0 items-start gap-3 border-b pb-3">
-          <Button asChild variant="outline" size="icon">
-            <Link href={APP_ROUTES.transferDetail(transferId)} aria-label="Quay lại phiếu">
-              <ArrowLeft aria-hidden="true" />
-            </Link>
-          </Button>
-          <div>
-            <p className="text-primary text-xs font-medium">Cất hàng</p>
-            <h1 className="font-mono text-xl font-semibold break-words" translate="no">
-              {transfer.transferCode}
-            </h1>
-            <p className="text-muted-foreground mt-1 text-xs break-words sm:text-sm">
-              {transfer.sourceWarehouseName} → {transfer.destinationWarehouseName}
-              {shipment ? ` · Đợt ${shipment.shipmentNumber}` : ''}
-            </p>
-          </div>
-        </header>
-      )}
+      <TransferWorkHeader
+        heading={tab === 'execution' && shipment ? 'Chờ cất hàng điều chuyển' : 'Cất hàng'}
+        transferId={transferId}
+        transferCode={transfer.transferCode}
+        shipmentNumber={shipment?.shipmentNumber}
+        shipmentStatus={tab === 'execution' ? shipment?.status : undefined}
+        route={
+          tab === 'execution' && shipment
+            ? 'Cất tại ' + transfer.destinationWarehouseName
+            : `${transfer.sourceWarehouseName} → ${transfer.destinationWarehouseName}`
+        }
+      />
       {realtime.hasPendingChange ? (
         <TransferChangedBanner onReload={() => void reload()} onDismiss={realtime.dismiss} />
       ) : null}
@@ -348,7 +333,7 @@ export default function TransferPutAwayPage({
         <div
           data-slot="operational-list-body"
           data-scrollbar="slim"
-          className={cn('flex flex-col', tab === 'plan' ? 'gap-5 px-0' : 'gap-3')}
+          className={cn('flex flex-col gap-5', tab === 'plan' ? 'px-0' : null)}
         >
           {rules.data &&
           (rules.data.risks.length > 0 ||
@@ -405,21 +390,19 @@ export default function TransferPutAwayPage({
                 )}
               </TransferPutAwayStatus>
               {canPutAway && remaining > 0 ? (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p role="status" aria-live="polite" className="text-muted-foreground text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <PutawayHintBanner className="min-w-0 flex-1">
                     {rules.isFetching
                       ? 'Đang tìm vị trí và điền số lượng…'
                       : rules.error
                         ? 'Chưa lấy được gợi ý; bạn có thể chọn vị trí thủ công.'
                         : 'Vị trí và số lượng được điền sẵn; bạn có thể chỉnh lại.'}
-                  </p>
-                  <Button
-                    variant="outline"
+                  </PutawayHintBanner>
+                  <PutawayAiSuggestButton
+                    isSuggesting={suggestions.isFetching}
                     disabled={busy || putAway.blocked || suggestions.isFetching}
                     onClick={() => void suggest()}
-                  >
-                    {suggestions.isFetching ? <Spinner /> : <Sparkles />}Gợi ý AI
-                  </Button>
+                  />
                 </div>
               ) : null}
               {rules.error || suggestions.error ? (

@@ -9,8 +9,8 @@ interface TransferWorkHeaderProps {
   readonly heading: string
   readonly transferId: string
   readonly transferCode: string
-  readonly shipmentNumber: number
-  readonly shipmentStatus: TransferShipmentStatus
+  readonly shipmentNumber?: number
+  readonly shipmentStatus?: TransferShipmentStatus
   readonly route: string
 }
 
@@ -35,8 +35,8 @@ export function TransferWorkHeader({
           <span className="font-mono" translate="no">
             {transferCode}
           </span>
-          <span>· Đợt {shipmentNumber}</span>
-          <ShipmentStatusBadge status={shipmentStatus} />
+          {shipmentNumber !== undefined ? <span>· Đợt {shipmentNumber}</span> : null}
+          {shipmentStatus ? <ShipmentStatusBadge status={shipmentStatus} /> : null}
         </h1>
         <p className="text-muted-foreground text-xs">{route}</p>
       </div>

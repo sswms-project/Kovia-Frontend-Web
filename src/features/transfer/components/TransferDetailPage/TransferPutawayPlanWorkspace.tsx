@@ -1,9 +1,14 @@
 'use client'
 
 import { useId, useRef, useState } from 'react'
-import { Check, ChevronDown, Plus, Send, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, Plus, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { PutawayPlanNotice, PutawaySuggestionPanel } from '@/components/operations/putaway'
+import {
+  PutawayAiSuggestButton,
+  PutawayHintBanner,
+  PutawayPlanNotice,
+  PutawaySuggestionPanel,
+} from '@/components/operations/putaway'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -177,10 +182,10 @@ export function TransferPutawayPlanWorkspace({
       className="relative flex min-h-full w-full min-w-0 shrink-0 flex-col gap-5"
       aria-busy={editor.isPending || isSuggesting}
     >
-      <p className="bg-muted/40 border-l-primary border border-l-4 px-4 py-3 text-sm" role="status">
+      <PutawayHintBanner>
         Vị trí và số lượng được điền sẵn theo kế hoạch hoặc quy tắc kho. Bạn có thể chỉnh lại rồi
         bấm <strong>“Lưu vị trí cất hàng”</strong>.
-      </p>
+      </PutawayHintBanner>
       <PutawayPlanNotice
         items={savedPlan}
         disabled={disabled}
@@ -231,20 +236,14 @@ export function TransferPutawayPlanWorkspace({
             </Button>
           ) : null}
           {canManage ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="border-tertiary/40 text-tertiary hover:text-tertiary"
+            <PutawayAiSuggestButton
+              isSuggesting={isSuggesting}
               disabled={disabled}
               onClick={() => {
                 setHideSuggestions(false)
                 onSuggest()
               }}
-            >
-              {isSuggesting ? <Spinner aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
-              {isSuggesting ? 'Đang phân tích…' : 'Gợi ý vị trí bằng AI'}
-            </Button>
+            />
           ) : null}
         </div>
         {!hideSuggestions && suggestions ? (
