@@ -1,6 +1,10 @@
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AiAssistantDock, AppHeader, AppSidebar } from '@/components/layout'
+import {
+  APP_SIDEBAR_ICON_WIDTH_REM,
+  APP_SIDEBAR_WIDTH_REM,
+} from '@/components/layout/app-sidebar-metrics'
 import { PageTransition } from '@/components/PageTransition'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { SubscriptionReadOnlyBanner } from '@/features/subscription/components/SubscriptionReadOnlyBanner'
@@ -19,8 +23,8 @@ export default function PrivateLayout({ children }: { children: React.ReactNode 
               className="h-svh min-h-0 flex-col overflow-hidden print:h-auto print:overflow-visible"
               style={
                 {
-                  '--sidebar-width': '17.5rem',
-                  '--sidebar-width-icon': '3.5rem',
+                  '--sidebar-width': `${APP_SIDEBAR_WIDTH_REM}rem`,
+                  '--sidebar-width-icon': `${APP_SIDEBAR_ICON_WIDTH_REM}rem`,
                 } as React.CSSProperties
               }
             >

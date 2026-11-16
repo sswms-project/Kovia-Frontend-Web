@@ -126,11 +126,12 @@ export function useInboundProductAvailabilityQuery(
   })
 }
 
-export function useSupplierOptionsQuery(params: LookupQuery) {
+export function useSupplierOptionsQuery(params: LookupQuery, enabled = true) {
   return useQuery<LookupListResponse<SupplierOption>, ApiErrorResponse>({
     queryKey: queryKeys.suppliers.list(params),
     queryFn: () => inboundRequestService.getSuppliers(params).then((response) => response.data),
     placeholderData: (previousData) => previousData,
+    enabled,
   })
 }
 

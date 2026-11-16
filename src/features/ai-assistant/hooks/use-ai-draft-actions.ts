@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { getApiErrorMessage } from '@/lib/api-error'
+import { getApiErrorMessage, logApiError } from '@/lib/api-error'
 import { logger } from '@/lib/logger'
 import { queryKeys } from '@/lib/query-keys'
 import type { ApiErrorResponse } from '@/types/api'
@@ -12,7 +12,9 @@ import {
   type AiActionExecution,
   type AiConversationMessages,
 } from '../types/ai-assistant.types'
-import { updateAiDraftStatus } from '../utils/ai-conversation-cache'
+import { findAiDraftRevision, updateAiDraftStatus } from '../utils/ai-conversation-cache'
+import { getAiDraftConflictCode } from '../utils/ai-draft-edit-errors'
+import { useAiDraftConflictHandler } from './use-ai-draft-edit'
 
 export interface AiDraftActionVariables {
   readonly draftId: string
@@ -26,12 +28,27 @@ const ACTION_RESULT_QUERY_KEYS: Record<string, QueryKey> = {
   [AI_ACTIONS.createStockAdjustment]: queryKeys.stockAdjustments.all,
   [AI_ACTIONS.createStockIssueRequest]: queryKeys.stockIssueRequests.all,
   [AI_ACTIONS.createSupplierReturn]: queryKeys.supplierReturns.all,
+  [AI_ACTIONS.createWatchRule]: queryKeys.aiAlerts.all,
+  [AI_ACTIONS.changeWatchRule]: queryKeys.aiAlerts.all,
 }
 
 export function useConfirmAiActionMutation() {
   const queryClient = useQueryClient()
+  const handleConflict = useAiDraftConflictHandler()
   return useMutation<AiActionExecution, ApiErrorResponse, AiDraftActionVariables>({
-    mutationFn: ({ draftId }) => aiAssistantService.confirmAction(draftId),
+    // The revision the card shows is read from the cache here, so every caller confirms the same way.
+    mutationFn: ({ draftId, conversationId }) =>
+      aiAssistantService.confirmAction(
+        draftId,
+        findAiDraftRevision(
+          conversationId
+            ? queryClient.getQueryData<AiConversationMessages>(
+                queryKeys.aiAssistant.messages(conversationId)
+              )
+            : undefined,
+          draftId
+        )
+      ),
     onSuccess: (execution, { conversationId }) => {
       toast.success('Đã thực hiện thao tác.')
       if (conversationId) {
@@ -43,7 +60,14 @@ export function useConfirmAiActionMutation() {
       const resultQueryKey = ACTION_RESULT_QUERY_KEYS[execution.action]
       if (resultQueryKey) void queryClient.invalidateQueries({ queryKey: resultQueryKey })
     },
-    onError: (error, { conversationId }) => {
+    onError: (error, { draftId, conversationId }) => {
+      // A 409 of the editable drafts (changed elsewhere, handled, expired) shows on the card itself.
+      const conflictCode = getAiDraftConflictCode(error)
+      if (conflictCode) {
+        logApiError(error)
+        handleConflict(draftId, conflictCode)
+        return
+      }
       logger.error(error)
       toast.error(getApiErrorMessage(error))
       // The draft may have expired or been handled elsewhere: reload its real status.

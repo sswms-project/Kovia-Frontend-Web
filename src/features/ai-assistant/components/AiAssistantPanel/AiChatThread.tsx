@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowDown, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAiThreadScroll } from '../../hooks/use-ai-thread-scroll'
 import type { AiMessage } from '../../types/ai-assistant.types'
 import type { AiChatStream } from '../../utils/ai-chat-stream-state'
+import { getSupersededAiDraftCards } from '../../utils/ai-draft-card-versions'
 import type { AiThinkingSummary } from '../../utils/ai-thinking'
 import { AiChatMessageBubble, type AiDraftCallbacks } from './AiChatMessageBubble'
 import { AiStreamingMessage } from './AiStreamingMessage'
@@ -68,6 +69,8 @@ export function AiChatThread({
     else if (streamPhase === null) setAnnouncement('Kovia đã trả lời xong.')
   }
   const lastQuestion = messages.at(-2)?.role === 'User' ? messages.at(-2)?.content : undefined
+  // Only the last card of a draft is live; the set of a message keeps its identity until the list changes.
+  const supersededCards = useMemo(() => getSupersededAiDraftCards(messages), [messages])
 
   if (isLoading) return <AiThreadSkeleton />
 
@@ -107,6 +110,7 @@ export function AiChatThread({
                 key={message.id}
                 message={message}
                 thinking={thinkingByMessageId[message.id]}
+                supersededDraftIds={supersededCards.get(message.id)}
                 onQuickReply={isLatest ? onSend : undefined}
                 onRetry={isLatest && lastQuestion ? () => onSend(lastQuestion) : undefined}
                 {...draftCallbacks}

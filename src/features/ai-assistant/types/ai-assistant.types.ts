@@ -8,8 +8,18 @@ export const AI_CARD_TYPES = {
   quickReplies: 'quick_replies',
   suggestedAction: 'suggested_action',
   resultList: 'result_list',
+  /** Operational findings with severity, verified evidence, a recommendation and the record to open. */
+  insightList: 'insight_list',
   /** Not drawn: records named in the reply that may be opened (see utils/ai-entity-links). */
   entityLinks: 'entity_links',
+  /** Interactive in-chat form; `form` is validated by utils/ai-form-card before anything is drawn. */
+  collectInput: 'collect_input',
+  /** Read-only what-if result: every row says where its number comes from. */
+  simulation: 'simulation',
+  /** Option comparison; `recommendedOption` is set only when a backend rule chose one. */
+  decision: 'decision',
+  /** Response Design System V3: outcome first, findings, related documents, actions (types/ai-outcome-report.types). */
+  outcomeReport: 'outcome_report',
 } as const
 
 export const AI_ACTIONS = {
@@ -18,6 +28,9 @@ export const AI_ACTIONS = {
   createStockAdjustment: 'create_stock_adjustment',
   createStockIssueRequest: 'create_stock_issue_request',
   createSupplierReturn: 'create_supplier_return',
+  createStockDiscrepancyReport: 'create_stock_discrepancy_report',
+  createWatchRule: 'create_watch_rule',
+  changeWatchRule: 'change_watch_rule',
 } as const
 
 export type AiAction = (typeof AI_ACTIONS)[keyof typeof AI_ACTIONS]
@@ -51,6 +64,9 @@ export interface AiActionDraft<TPayload = unknown> {
   readonly status: AiDraftStatus
   readonly expiresAt: string
   readonly payload: TPayload
+  /** Base64 rowversion; only editable draft types carry it. Confirm echoes it as `expectedRevision`. */
+  readonly revision?: string | null
+  readonly editable?: boolean
 }
 
 /** Đánh dấu bản nháp đã thực hiện sau khi người dùng tự tạo phiếu bằng form. */
@@ -64,6 +80,56 @@ export interface AiResultListItem {
   readonly subtitle?: string | null
   readonly status?: string | null
   readonly meta?: string | null
+  readonly url?: string | null
+}
+
+export type AiInsightSeverity = 'critical' | 'warning' | 'info'
+
+/** One finding of an `insight_list` card, built by Kovia AI from backend data only; `entity` is BE-verified. */
+export interface AiInsightItem {
+  readonly title: string
+  readonly severity: AiInsightSeverity
+  readonly summary?: string | null
+  readonly evidence?: readonly string[] | null
+  readonly recommendation?: string | null
+  readonly entity?: AiEntityLink | null
+  readonly status?: string | null
+}
+
+/** Where a simulation number comes from: verified now, scheduled, user assumption, estimate or the result. */
+export type AiSimulationRowKind = 'verified' | 'scheduled' | 'assumption' | 'estimate' | 'result'
+
+export interface AiSimulationRow {
+  readonly label: string
+  readonly value: string
+  readonly kind: AiSimulationRowKind
+}
+
+export interface AiSimulationSection {
+  readonly title: string
+  readonly url?: string | null
+  readonly rows: readonly AiSimulationRow[]
+}
+
+export interface AiSimulationAffected {
+  readonly title: string
+  readonly url?: string | null
+  readonly detail?: string | null
+}
+
+export type AiDecisionFeasibility = 'yes' | 'partial' | 'no' | 'unknown'
+
+export interface AiDecisionOption {
+  readonly key: string
+  readonly title: string
+  readonly feasible: AiDecisionFeasibility
+  /** Aligned with the card's `criteria`. */
+  readonly values: readonly string[]
+  readonly url?: string | null
+}
+
+export interface AiDecisionEvidence {
+  readonly label: string
   readonly url?: string | null
 }
 
@@ -89,6 +155,9 @@ export interface AiCard {
   readonly summary?: string | null
   readonly details?: readonly AiActionDetail[] | null
   readonly expiresAt?: string | null
+  /** Confirmation card: base64 rowversion and whether the draft can be edited in place. */
+  readonly revision?: string | null
+  readonly editable?: boolean | null
   readonly options?: readonly string[] | null
   readonly message?: string | null
   // result_list: a long list kept out of the markdown; `total` may exceed `items.length`.
@@ -99,6 +168,30 @@ export interface AiCard {
   readonly moreLabel?: string | null
   readonly items?: readonly AiResultListItem[] | null
   readonly entities?: readonly AiEntityLink[] | null
+  // insight_list
+  readonly insights?: readonly AiInsightItem[] | null
+  /** "partial" when a source could not be read or the period is still running. */
+  readonly completeness?: 'complete' | 'partial' | null
+  // collect_input: untrusted until parsed by utils/ai-form-card.
+  readonly form?: unknown
+  // simulation + decision
+  readonly snapshotAt?: string | null
+  readonly assumptions?: readonly string[] | null
+  readonly unknowns?: readonly string[] | null
+  readonly badge?: string | null
+  readonly verdictSeverity?: 'critical' | 'warning' | 'info' | 'ok' | null
+  readonly verdict?: string | null
+  readonly sections?: readonly AiSimulationSection[] | null
+  readonly affected?: readonly AiSimulationAffected[] | null
+  readonly conclusion?: string | null
+  readonly recommendedOption?: string | null
+  readonly recommendationBasis?: string | null
+  readonly criteria?: readonly string[] | null
+  readonly decisionOptions?: readonly AiDecisionOption[] | null
+  readonly evidence?: readonly AiDecisionEvidence[] | null
+  readonly risks?: readonly string[] | null
+  // outcome_report: the BE nests the report here; untrusted until parsed by utils/ai-outcome-report.
+  readonly outcomeReport?: unknown
 }
 
 /** A record named in the answer: its label links to `url`, which the BE rebuilt from `type` and `id`. */
@@ -124,6 +217,9 @@ export interface AiDraftStatusInfo {
   readonly status: AiDraftStatus
   readonly resultEntityId: string | null
   readonly expiresAt: string
+  /** Absent on a BE that predates inline editing, or for a draft type that cannot be edited. */
+  readonly revision?: string | null
+  readonly editable?: boolean
 }
 
 export interface AiChatResponse {

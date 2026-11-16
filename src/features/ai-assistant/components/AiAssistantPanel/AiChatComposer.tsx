@@ -7,6 +7,7 @@ import {
   AI_CHAT_MESSAGE_MAX_LENGTH,
   type AiChatMessageForm,
 } from '../../schemas/ai-chat-message.schema'
+import { AI_FORM_TOUCH_ICON_BUTTON } from '../../utils/ai-form-touch-classes'
 
 interface AiChatComposerProps {
   readonly form: UseFormReturn<AiChatMessageForm>
@@ -50,6 +51,7 @@ export function AiChatComposer({ form, isSending, onSubmit, onStop }: AiChatComp
             type="button"
             size="icon"
             variant="outline"
+            className={AI_FORM_TOUCH_ICON_BUTTON}
             aria-label="Dừng trả lời"
             title="Dừng"
             onClick={onStop}
@@ -57,7 +59,12 @@ export function AiChatComposer({ form, isSending, onSubmit, onStop }: AiChatComp
             <Square className="fill-current" aria-hidden="true" />
           </Button>
         ) : (
-          <Button type="submit" size="icon" aria-label="Gửi câu hỏi">
+          <Button
+            type="submit"
+            size="icon"
+            className={AI_FORM_TOUCH_ICON_BUTTON}
+            aria-label="Gửi câu hỏi"
+          >
             <SendHorizontal aria-hidden="true" />
           </Button>
         )}

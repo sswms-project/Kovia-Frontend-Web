@@ -13,6 +13,7 @@ import {
   isCompactThinking,
   type AiThinkingSummary,
 } from '../../utils/ai-thinking'
+import { AI_TOUCH_MIN_HEIGHT } from '../../utils/ai-form-touch-classes'
 
 /** "0,0 giây" is noise: instant steps show no duration. */
 const MIN_SHOWN_DURATION_MS = 100
@@ -50,7 +51,9 @@ function StepRow({ step, isFinal }: StepRowProps) {
             role={undefined}
             aria-label={undefined}
             aria-hidden="true"
-            className="size-3.5 motion-reduce:animate-none"
+            // A loading indicator is essential status, not decoration: it keeps turning with reduced motion,
+            // only slower (same idea as the typing dots, which fade instead of bounce).
+            className="size-3.5 motion-reduce:animate-[spin_1.6s_linear_infinite]"
           />
         ) : (
           <Icon className="size-3.5" aria-hidden="true" />
@@ -150,6 +153,7 @@ function ThinkingSummaryRow({ summary }: { readonly summary: AiThinkingSummary }
           size="xs"
           className={cn(
             'group/thinking -ml-2 h-auto min-h-6 max-w-full justify-start py-0.5 text-left font-normal whitespace-normal',
+            AI_TOUCH_MIN_HEIGHT,
             tone
           )}
         >

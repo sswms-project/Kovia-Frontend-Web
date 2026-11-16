@@ -31,6 +31,9 @@ type SidebarContextProps = {
   state: 'expanded' | 'collapsed'
   open: boolean
   setOpen: (open: boolean) => void
+  /** Collapsed rail temporarily shown at full width over the page (hover); never shifts the page. */
+  peek: boolean
+  setPeek: (peek: boolean) => void
   openMobile: boolean
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
@@ -67,10 +70,13 @@ function SidebarProvider({
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen)
+  const [peekRequested, setPeek] = React.useState(false)
   const open = openProp ?? _open
+  const peek = peekRequested && !open && !isMobile
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === 'function' ? value(open) : value
+      setPeek(false)
       if (setOpenProp) {
         setOpenProp(openState)
       } else {
@@ -110,12 +116,14 @@ function SidebarProvider({
       state,
       open,
       setOpen,
+      peek,
+      setPeek,
       isMobile,
       openMobile,
       setOpenMobile,
       toggleSidebar,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [state, open, setOpen, peek, isMobile, openMobile, setOpenMobile, toggleSidebar]
   )
 
   return (
@@ -154,7 +162,7 @@ function Sidebar({
   variant?: 'sidebar' | 'floating' | 'inset'
   collapsible?: 'offcanvas' | 'icon' | 'none'
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const { isMobile, state, peek, openMobile, setOpenMobile } = useSidebar()
 
   if (collapsible === 'none') {
     return (
@@ -201,7 +209,11 @@ function Sidebar({
     <div
       className="group peer text-sidebar-foreground hidden h-full md:block"
       data-state={state}
-      data-collapsible={state === 'collapsed' ? collapsible : ''}
+      // While peeking, the content shows as expanded but the gap keeps the collapsed width (`data-gap`),
+      // so the page does not reflow on hover.
+      data-collapsible={state === 'collapsed' && !peek ? collapsible : ''}
+      data-gap={state === 'collapsed' ? collapsible : ''}
+      data-peek={peek}
       data-variant={variant}
       data-side={side}
       data-slot="sidebar"
@@ -210,19 +222,21 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          'relative h-full w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear',
-          'group-data-[collapsible=offcanvas]:w-0',
+          // No width transition: animating this spacer re-lays-out the whole page every frame (measured
+          // ~70ms long tasks on the owner dashboard). The page reflows once; the panel still slides.
+          'relative h-full w-(--sidebar-width) bg-transparent',
+          'group-data-[gap=offcanvas]:w-0',
           'group-data-[side=right]:rotate-180',
           variant === 'floating' || variant === 'inset'
-            ? 'group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
-            : 'group-data-[collapsible=icon]:w-(--sidebar-width-icon)'
+            ? 'group-data-[gap=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
+            : 'group-data-[gap=icon]:w-(--sidebar-width-icon)'
         )}
       />
       <div
         data-slot="sidebar-container"
         data-side={side}
         className={cn(
-          'fixed top-14 bottom-0 z-10 hidden w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
+          'fixed top-14 bottom-0 z-10 hidden w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear group-data-[peek=true]:shadow-lg data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] motion-reduce:duration-100 md:flex',
           // Adjust the padding for floating and inset variants.
           variant === 'floating' || variant === 'inset'
             ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
@@ -448,7 +462,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<'li'>) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  'peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-none p-2 text-left text-xs ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
+  'peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-none p-2 text-left text-xs ring-sidebar-ring outline-hidden group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
   {
     variants: {
       variant: {
@@ -483,7 +497,7 @@ function SidebarMenuButton({
   tooltip?: string | React.ComponentProps<typeof TooltipContent>
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot.Root : 'button'
-  const { isMobile, state } = useSidebar()
+  const { isMobile, state, peek } = useSidebar()
 
   const button = (
     <Comp
@@ -512,7 +526,7 @@ function SidebarMenuButton({
       <TooltipContent
         side="right"
         align="center"
-        hidden={state !== 'collapsed' || isMobile}
+        hidden={state !== 'collapsed' || peek || isMobile}
         {...tooltip}
       />
     </Tooltip>

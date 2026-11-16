@@ -1,7 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { API_ENDPOINTS } from '@/routes/api-endpoints'
-import { APP_ROUTES } from '@/routes/app-routes'
 import type { ApiErrorResponse, ApiResponse } from '@/types/api'
+import { loginUrlFor } from '@/features/auth/utils/auth-return-url'
 import { decodeJwtUser } from '@/features/auth/utils/decode-jwt-user'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -38,11 +38,18 @@ const normalizeApiError = (error: AxiosError): ApiErrorResponse => {
       : error.message || 'Something went wrong. Please try again.'
   const errors =
     isRecord(data) && isRecord(data.errors) ? (data.errors as Record<string, string[]>) : undefined
+  const code = isRecord(data) && typeof data.code === 'string' ? data.code : undefined
+  const fieldErrors =
+    isRecord(data) && Array.isArray(data.fieldErrors)
+      ? (data.fieldErrors as { key: string; message: string }[])
+      : undefined
 
   return {
     statusCode,
     message,
     ...(errors ? { errors } : {}),
+    ...(code ? { code } : {}),
+    ...(fieldErrors ? { fieldErrors } : {}),
   }
 }
 
@@ -80,7 +87,8 @@ const clearTokens = (): void => {
 
 const redirectToLogin = (): void => {
   clearTokens()
-  window.location.href = APP_ROUTES.auth.login
+  // Session expired mid-use: come back to the same screen after signing in again.
+  window.location.href = loginUrlFor(window.location.pathname + window.location.search)
 }
 
 // ── Pre-authentication endpoints — never trigger refresh-token retry ───
