@@ -236,7 +236,11 @@ function Sidebar({
         data-slot="sidebar-container"
         data-side={side}
         className={cn(
-          'fixed top-14 bottom-0 z-10 hidden w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear group-data-[peek=true]:shadow-lg data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] motion-reduce:duration-100 md:flex',
+          // A peeking panel overlaps the page, so it lifts above sticky page layers (table headers
+          // z-10, the sticky checkbox corner z-20) while staying below the AI scrim (z-30),
+          // full-screen workspaces (z-40) and dialogs (z-50). The z-index steps up at once when the
+          // peek opens but only drops after the collapse animation, so headers never cover it mid-way.
+          'fixed top-14 bottom-0 z-10 hidden w-(--sidebar-width) transition-[left,right,width,z-index] duration-200 ease-[linear,linear,linear,steps(1,end)] group-data-[peek=true]:z-25 group-data-[peek=true]:shadow-lg group-data-[peek=true]:ease-[linear,linear,linear,steps(1,start)] data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] motion-reduce:duration-100 md:flex',
           // Adjust the padding for floating and inset variants.
           variant === 'floating' || variant === 'inset'
             ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
