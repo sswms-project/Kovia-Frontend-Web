@@ -164,6 +164,14 @@ export interface CycleCountDamageEvidence {
 }
 
 export interface CycleCountDetail {
+  history?:
+    | readonly {
+        readonly action: string
+        readonly actorId: string
+        readonly actorName: string | null
+        readonly createdAt: string
+      }[]
+    | null
   version?: string | null
   id: string
   warehouseId: string

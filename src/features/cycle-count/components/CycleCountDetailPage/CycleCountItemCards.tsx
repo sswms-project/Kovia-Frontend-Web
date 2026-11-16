@@ -154,7 +154,7 @@ export function CycleCountItemCards({
                   type="number"
                   inputMode="decimal"
                   min="0"
-                  step="0.01"
+                  step="any"
                   value={row.quantity}
                   disabled={!row.recordable || isPending}
                   aria-invalid={row.quantityInvalid}
@@ -173,7 +173,7 @@ export function CycleCountItemCards({
                     type="number"
                     inputMode="decimal"
                     min="0"
-                    step="0.01"
+                    step="any"
                     placeholder="0"
                     value={row.damaged}
                     disabled={isPending || row.quantity === ''}

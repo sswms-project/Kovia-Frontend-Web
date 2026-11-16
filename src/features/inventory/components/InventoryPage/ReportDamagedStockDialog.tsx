@@ -90,7 +90,7 @@ export function ReportDamagedStockDialog({
                   type="number"
                   inputMode="decimal"
                   min="0.001"
-                  step="0.001"
+                  step="any"
                   max={item.availableQuantity}
                   aria-invalid={Boolean(quantityError)}
                   disabled={isPending}

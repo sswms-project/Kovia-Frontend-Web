@@ -1,4 +1,7 @@
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react'
+import type { Route } from 'next'
+import Link from 'next/link'
+import { APP_ROUTES } from '@/routes/app-routes'
 import { Badge } from '@/components/ui/badge'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import {
@@ -73,7 +76,32 @@ function MovementLocation({ item }: { readonly item: StockMovement }) {
   )
 }
 
-export function StockMovementMobileList({ items }: { readonly items: readonly StockMovement[] }) {
+interface MovementResultsProps {
+  readonly items: readonly StockMovement[]
+  readonly canViewReceipts: boolean
+}
+
+function MovementReference({
+  item,
+  canViewReceipts,
+}: {
+  readonly item: StockMovement
+  readonly canViewReceipts: boolean
+}) {
+  const code = item.referenceCode || formatReferenceId(item.referenceId)
+  return canViewReceipts && item.goodsReceiptId ? (
+    <Link
+      href={APP_ROUTES.goodsReceiptDetail(item.goodsReceiptId) as Route}
+      className="text-primary underline underline-offset-2 hover:no-underline"
+    >
+      {code}
+    </Link>
+  ) : (
+    code
+  )
+}
+
+export function StockMovementMobileList({ items, canViewReceipts }: MovementResultsProps) {
   return (
     <ItemGroup className="gap-0 md:hidden">
       {items.map((item) => (
@@ -98,7 +126,7 @@ export function StockMovementMobileList({ items }: { readonly items: readonly St
             <ItemDescription>
               {item.performedByName || 'Người dùng chưa xác định'} ·{' '}
               {formatStockMovementReference(item.referenceType)} ·{' '}
-              {item.referenceCode || formatReferenceId(item.referenceId)}
+              <MovementReference item={item} canViewReceipts={canViewReceipts} />
             </ItemDescription>
             <ItemDescription>
               Sau biến động: {formatStockMovementQuantity(item.balanceAfter).replace('+', '')}{' '}
@@ -111,7 +139,7 @@ export function StockMovementMobileList({ items }: { readonly items: readonly St
   )
 }
 
-export function StockMovementDesktopTable({ items }: { readonly items: readonly StockMovement[] }) {
+export function StockMovementDesktopTable({ items, canViewReceipts }: MovementResultsProps) {
   return (
     <div className="hidden min-h-0 flex-1 overflow-auto md:block">
       <Table className="min-w-[1080px] table-fixed">
@@ -167,7 +195,7 @@ export function StockMovementDesktopTable({ items }: { readonly items: readonly 
                   className="text-muted-foreground truncate font-mono text-xs"
                   title={item.referenceCode || item.referenceId}
                 >
-                  {item.referenceCode || formatReferenceId(item.referenceId)}
+                  <MovementReference item={item} canViewReceipts={canViewReceipts} />
                 </p>
               </TableCell>
               <TableCell

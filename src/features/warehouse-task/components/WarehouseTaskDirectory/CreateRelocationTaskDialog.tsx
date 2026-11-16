@@ -144,7 +144,7 @@ export function CreateRelocationTaskDialog(props: CreateRelocationTaskDialogProp
                       id={`relocation-quantity-${index}`}
                       type="number"
                       min="0.01"
-                      step="0.01"
+                      step="any"
                       {...props.form.register(`lines.${index}.quantity`, { valueAsNumber: true })}
                     />
                     <FieldError errors={[lineErrors?.quantity]} />

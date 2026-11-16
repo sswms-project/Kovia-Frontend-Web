@@ -20,12 +20,12 @@ export function FormActions({
     <div className="flex flex-col gap-2 sm:flex-row">
       <Button
         type="button"
-        variant={autoApprove ? 'default' : 'outline'}
+        variant={autoApprove || isApprovedEdit ? 'default' : 'outline'}
         disabled={isPending}
         onClick={onSaveDraft}
       >
         <Save aria-hidden="true" />
-        {isApprovedEdit ? 'Lưu thay đổi' : autoApprove ? 'Tạo' : 'Lưu nháp'}
+        {isApprovedEdit ? 'Lưu' : autoApprove ? 'Tạo' : 'Lưu nháp'}
       </Button>
       {!autoApprove && !isApprovedEdit ? (
         <Button

@@ -21,6 +21,7 @@ export const INBOUND_REQUEST_ACTION = {
   Withdraw: 'Withdraw',
   Delete: 'Delete',
   UpdateCode: 'UpdateCode',
+  UpdateAndSelfApprove: 'UpdateAndSelfApprove',
   Submit: 'Submit',
   Approve: 'Approve',
   ApproveAndSend: 'ApproveAndSend',
@@ -94,6 +95,8 @@ export interface LifecycleEvent {
   actorName: string
   reason: string | null
   createdAt: string
+  sourceDocumentCode?: string | null
+  actionLabel?: string | null
 }
 
 export interface InboundRequestLine {
@@ -241,6 +244,7 @@ export interface InboundRequestLineRequest {
 export interface SaveInboundRequestRequest {
   inboundRequestCode: string
   expectedVersion?: string
+  selfApprovalAcknowledged?: boolean
   warehouseId: string
   supplierId: string | null
   sourceType: InboundSourceType

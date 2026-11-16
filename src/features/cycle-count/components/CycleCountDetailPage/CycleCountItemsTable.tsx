@@ -624,7 +624,7 @@ export function CycleCountItemsTable({
                         className="ml-auto block h-9 w-full text-right font-mono"
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="any"
                         value={draft}
                         disabled={!recordable || isPending}
                         aria-invalid={draft !== '' && parseCountQuantity(draft) === null}
@@ -644,7 +644,7 @@ export function CycleCountItemsTable({
                             className="ml-auto block h-9 w-full min-w-0 text-right font-mono"
                             type="number"
                             min="0"
-                            step="0.01"
+                            step="any"
                             placeholder="0"
                             value={getDamagedDraft(item)}
                             disabled={isPending || draft === ''}

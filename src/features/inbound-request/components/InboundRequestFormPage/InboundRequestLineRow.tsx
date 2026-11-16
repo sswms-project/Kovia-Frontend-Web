@@ -48,7 +48,7 @@ export function InboundRequestLineRow({
   onRemove,
 }: InboundRequestLineRowProps) {
   const line = form.watch(`lines.${index}`)
-  const { alternatives, baseUnit, selectedUnit, factor } = resolveInboundLineUnits(
+  const { alternatives, baseUnit, factor } = resolveInboundLineUnits(
     product,
     line.unitId,
     units,
@@ -179,7 +179,7 @@ export function InboundRequestLineRow({
           id={`quantity-${index}`}
           type="number"
           min="0"
-          step={selectedUnit ? 10 ** -selectedUnit.quantityPrecision : 'any'}
+          step="any"
           aria-invalid={Boolean(errors?.quantity)}
           {...form.register(`lines.${index}.quantity`, { valueAsNumber: true })}
         />

@@ -55,8 +55,31 @@ export const inboundDocumentReviewLineSchema = z
     }
   })
 
+const headerText = (max: number) => z.string().trim().max(max, `Không được vượt quá ${max} ký tự.`)
+
+export const inboundDocumentHeaderSchema = z.object({
+  documentNumber: headerText(100),
+  inboundRequestCode: headerText(100),
+  supplierName: headerText(300),
+  documentDate: z.string(),
+  supplierDeliveryDate: z.string(),
+  warehouseCode: headerText(100),
+  warehouseName: headerText(300),
+})
+
+export const emptyInboundDocumentHeader: InboundDocumentHeaderFormValues = {
+  documentNumber: '',
+  inboundRequestCode: '',
+  supplierName: '',
+  documentDate: '',
+  supplierDeliveryDate: '',
+  warehouseCode: '',
+  warehouseName: '',
+}
+
 export const inboundDocumentReviewSchema = z
   .object({
+    header: inboundDocumentHeaderSchema,
     inboundRequestId: dotNetGuidSchema('Yêu cầu nhập kho không hợp lệ.'),
     acknowledgeWarehouseMismatch: z.boolean(),
     lines: z
@@ -87,4 +110,5 @@ export const inboundDocumentFileSchema = z
     'Chỉ hỗ trợ PDF, JPG, PNG, DOCX, XLSX hoặc CSV.'
   )
 
+export type InboundDocumentHeaderFormValues = z.infer<typeof inboundDocumentHeaderSchema>
 export type InboundDocumentReviewFormValues = z.infer<typeof inboundDocumentReviewSchema>

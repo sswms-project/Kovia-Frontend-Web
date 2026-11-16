@@ -105,6 +105,7 @@ export const API_ENDPOINTS = {
     history: '/warehouse-tasks/history',
     detail: (taskId: string) => `/warehouse-tasks/${taskId}`,
     assignment: (taskId: string) => `/warehouse-tasks/${taskId}/assignment`,
+    cancel: (taskId: string) => `/warehouse-tasks/${taskId}/cancel`,
     schedule: (taskType: string, taskId: string) =>
       `/warehouse-tasks/${taskType}/${taskId}/schedule`,
     recommendations: (taskId: string, lineId: string) =>

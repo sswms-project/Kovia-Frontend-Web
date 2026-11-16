@@ -148,6 +148,7 @@ export interface StockMovement {
   isSystemDefaultSlot?: boolean
   unitName?: string | null
   referenceCode?: string | null
+  goodsReceiptId?: string | null
 }
 
 export interface StockMovementListResponse {

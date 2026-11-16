@@ -38,6 +38,9 @@ interface RelocationTaskDialogProps {
   readonly executeForm: UseFormReturn<ExecuteWarehouseRelocationFormValues>
   readonly isAssigning: boolean
   readonly isExecuting: boolean
+  readonly canCancel?: boolean
+  readonly isCancelling?: boolean
+  readonly onCancel?: () => void
   readonly onOpenChange: (open: boolean) => void
   readonly onRetry: () => void
   readonly onAssignmentStaffChange: (staffId: string) => void
@@ -61,6 +64,10 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
     (item) => item.slotId === assignedDestinationId
   )
   const errors = props.executeForm.formState.errors
+  const showCancel =
+    Boolean(props.canCancel && props.onCancel) &&
+    props.scope === 'managed' &&
+    (detail?.executionStatus === 'Queued' || detail?.executionStatus === 'Paused')
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -249,7 +256,7 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
                     type="number"
                     min="0.01"
                     max={selectedLine.remainingQuantity}
-                    step="0.01"
+                    step="any"
                     {...props.executeForm.register('quantity', { valueAsNumber: true })}
                   />
                   <FieldError errors={[errors.quantity]} />
@@ -350,6 +357,17 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
           </div>
         )}
         <DialogFooter>
+          {showCancel ? (
+            <Button
+              type="button"
+              variant="destructive"
+              className="sm:mr-auto"
+              disabled={props.isCancelling}
+              onClick={props.onCancel}
+            >
+              {props.isCancelling ? 'Đang hủy…' : 'Hủy công việc'}
+            </Button>
+          ) : null}
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             Đóng
           </Button>

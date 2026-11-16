@@ -123,7 +123,7 @@ export function ReplenishmentReviewDialog({
                 <Input
                   id="replenishment-quantity"
                   type="number"
-                  step={10 ** -(explanation?.quantityPrecision ?? 0)}
+                  step="any"
                   min={10 ** -(explanation?.quantityPrecision ?? 0)}
                   disabled={pending}
                   {...workspace.reviewForm.register('adjustedQuantity', { valueAsNumber: true })}

@@ -119,6 +119,7 @@ export const INBOUND_STAGE_COLUMNS: Record<
     { key: 'remaining', label: 'Còn cần nhận' },
   ],
   receipt: [
+    { key: 'requested', label: 'SL yêu cầu' },
     { key: 'received', label: 'SL thực nhận' },
     { key: 'usable', label: 'Hàng đạt' },
     { key: 'damaged', label: 'Hàng hỏng' },
@@ -177,6 +178,7 @@ export function receiptStageGoodsRows(
     quantities:
       stage === 'receipt'
         ? {
+            requested: item.orderedQuantity,
             received: item.receivedQuantity,
             usable: item.usableQuantity,
             damaged: item.damagedQuantity,

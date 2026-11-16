@@ -15,6 +15,7 @@ import { CycleCountAdjustmentBanner } from './CycleCountAdjustmentBanner'
 import { CycleCountDetailHeader } from './CycleCountDetailHeader'
 import { CycleCountDamagePanel } from './CycleCountDamagePanel'
 import { CycleCountInfoSection } from './CycleCountInfoSection'
+import { LifecycleTimeline } from '@/components/operations/LifecycleTimeline'
 import { CycleCountItemsTable } from './CycleCountItemsTable'
 import { CycleCountResolutionSummary } from './CycleCountResolutionSummary'
 import { CycleCountUrgentBanner } from './CycleCountUrgentBanner'
@@ -42,6 +43,20 @@ interface CycleCountDetailViewProps {
   readonly pdfAction?: (disabled: boolean) => import('react').ReactNode
   readonly onCancel: (reason: string) => Promise<boolean>
   readonly onCreateVoucher: (itemIds: string[], reason: string) => Promise<boolean>
+}
+
+const CYCLE_COUNT_HISTORY_LABELS: Readonly<Record<string, string>> = {
+  Create: 'Lập phiếu và giao việc kiểm kê',
+  Update: 'Cập nhật phiếu kiểm kê',
+  Assign: 'Đổi người kiểm kê',
+  StartCycleCount: 'Bắt đầu kiểm kê',
+  RecordCycleCount: 'Ghi nhận kết quả kiểm đếm',
+  Submit: 'Gửi kết quả kiểm kê',
+  RequestRecount: 'Yêu cầu kiểm đếm lại',
+  ReopenForRecount: 'Mở lại phiếu để kiểm đếm',
+  ConfirmDamage: 'Xác nhận hàng hỏng',
+  Finalize: 'Chốt phiếu kiểm kê',
+  Cancel: 'Hủy phiếu kiểm kê',
 }
 
 export function CycleCountDetailView({
@@ -207,6 +222,25 @@ export function CycleCountDetailView({
         onCreateAdjustment={(itemId) => openAdjustment([itemId])}
       />
       {showResolution ? <CycleCountResolutionSummary items={detail.items} /> : null}
+      {detail.history?.length ? (
+        <details className="bg-card shrink-0 border">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+            Lịch sử xử lý
+          </summary>
+          <div className="max-h-80 overflow-y-auto border-t p-4">
+            <LifecycleTimeline
+              events={detail.history.map((entry) => ({
+                ...entry,
+                actorName: entry.actorName ?? '',
+                actionLabel: CYCLE_COUNT_HISTORY_LABELS[entry.action] ?? 'Cập nhật phiếu kiểm kê',
+                fromState: null,
+                toState: null,
+                reason: null,
+              }))}
+            />
+          </div>
+        </details>
+      ) : null}
       <CycleCountActionDialog
         dialog={dialog}
         recountForm={recountForm}

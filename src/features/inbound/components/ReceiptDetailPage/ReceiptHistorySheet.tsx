@@ -26,7 +26,7 @@ const RECEIPT_ACTION_LABELS: Readonly<Record<string, string>> = {
   Create: 'Tạo phiếu nhận hàng',
   PauseForPutAwayReconciliation: 'Tạm dừng để đối soát cất hàng',
   PauseWarehouseTask: 'Tạm dừng nhiệm vụ cất hàng',
-  PutAway: 'Cất hàng',
+  PutAway: 'Xác nhận cất hàng',
   ReassignPutAwayTask: 'Phân công lại nhiệm vụ cất hàng',
   Reject: 'Trả phiếu nhận hàng để chỉnh sửa',
   ReturnWarehouseTask: 'Trả nhiệm vụ cất hàng về hàng đợi',
