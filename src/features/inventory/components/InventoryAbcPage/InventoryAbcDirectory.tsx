@@ -18,6 +18,16 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/comp
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Input } from '@/components/ui/input'
 import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import {
   Table,
   TableBody,
   TableCell,
@@ -152,7 +162,7 @@ export function InventoryAbcDirectory({
         ))}
       </section>
       {analysisId ? (
-        <section className="bg-card grid gap-3 border p-3 text-xs sm:grid-cols-[1fr_auto_auto_auto]">
+        <section className="bg-card grid gap-3 border p-3 text-xs md:grid-cols-[1fr_auto_auto_auto]">
           <div>
             <p className="font-medium">Snapshot phân tích đã lưu</p>
             <p className="text-muted-foreground">
@@ -193,11 +203,16 @@ export function InventoryAbcDirectory({
               />
               <Button
                 type="button"
-                disabled={isApplying || !assignedTo || !scheduledDate}
+                disabled={isApplying || !assignedTo || !scheduledDate || counts.A === 0}
+                aria-describedby="abc-cycle-count-scope"
                 onClick={onApply}
               >
                 {isApplying ? 'Đang tạo…' : 'Tạo kiểm kê nhóm A'}
               </Button>
+              <p id="abc-cycle-count-scope" className="text-muted-foreground md:col-span-full">
+                Phiên phân tích có {counts.A ?? 0} mặt hàng nhóm A. Khi tạo phiếu, hệ thống xét toàn
+                bộ nhóm A và chỉ lấy mặt hàng còn tồn tại kho.
+              </p>
             </>
           ) : null}
         </section>
@@ -222,6 +237,105 @@ export function InventoryAbcDirectory({
           }
           actions={
             <>
+              {canRun && (
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button
+                      type="button"
+                      className="h-11 sm:h-8"
+                      disabled={!warehouseId || areWarehousesLoading || isRunning}
+                    >
+                      {isRunning ? 'Đang phân tích…' : 'Phân tích ABC'}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent className="w-full sm:max-w-sm">
+                    <SheetHeader>
+                      <SheetTitle>Phân tích ABC</SheetTitle>
+                      <SheetDescription>
+                        Chọn tiêu chí, thời gian và ngưỡng phân nhóm cho kho đang chọn.
+                      </SheetDescription>
+                    </SheetHeader>
+                    <div
+                      className="min-h-0 space-y-3 overflow-y-auto px-4 pb-2"
+                      data-scrollbar="slim"
+                    >
+                      <label className="grid gap-1.5 text-sm">
+                        Tiêu chí phân loại
+                        <NativeSelect
+                          value={metric}
+                          onChange={(event) =>
+                            onMetricChange(
+                              event.target.value === 'Activity' ? 'Activity' : 'Quantity'
+                            )
+                          }
+                        >
+                          <NativeSelectOption value="Quantity">Số lượng xuất</NativeSelectOption>
+                          <NativeSelectOption value="Activity">Tần suất xuất</NativeSelectOption>
+                        </NativeSelect>
+                      </label>
+                      <label className="grid gap-1.5 text-sm">
+                        Số ngày lấy lịch sử xuất kho
+                        <Input
+                          className="w-full"
+                          type="number"
+                          min={1}
+                          max={366}
+                          value={historicalPeriodDays}
+                          onChange={(event) =>
+                            onHistoricalPeriodDaysChange(Number(event.target.value))
+                          }
+                        />
+                      </label>
+                      <label className="grid gap-1.5 text-sm">
+                        Ngưỡng nhóm A (%)
+                        <Input
+                          className="w-full"
+                          type="number"
+                          min={1}
+                          max={98}
+                          step="any"
+                          value={aThreshold}
+                          onChange={(event) => onAThresholdChange(Number(event.target.value))}
+                        />
+                      </label>
+                      <label className="grid gap-1.5 text-sm">
+                        Ngưỡng nhóm B (%)
+                        <Input
+                          className="w-full"
+                          type="number"
+                          min={2}
+                          max={99}
+                          step="any"
+                          value={bThreshold}
+                          onChange={(event) => onBThresholdChange(Number(event.target.value))}
+                        />
+                      </label>
+                    </div>
+                    <SheetFooter>
+                      <SheetClose asChild>
+                        <Button
+                          type="button"
+                          disabled={
+                            !warehouseId ||
+                            isRunning ||
+                            !Number.isInteger(historicalPeriodDays) ||
+                            historicalPeriodDays < 1 ||
+                            historicalPeriodDays > 366 ||
+                            aThreshold < 1 ||
+                            aThreshold > 98 ||
+                            bThreshold < 2 ||
+                            bThreshold > 99 ||
+                            aThreshold >= bThreshold
+                          }
+                          onClick={onRun}
+                        >
+                          Chạy phân tích
+                        </Button>
+                      </SheetClose>
+                    </SheetFooter>
+                  </SheetContent>
+                </Sheet>
+              )}
               {exportAction}
               <Button
                 type="button"
@@ -258,61 +372,6 @@ export function InventoryAbcDirectory({
               ))}
             </NativeSelect>
           </label>
-          <details className="space-y-2">
-            <summary className="cursor-pointer text-sm font-medium">Tham số phân loại</summary>
-            <NativeSelect
-              aria-label="Chỉ số phân tích ABC"
-              value={metric}
-              onChange={(event) =>
-                onMetricChange(event.target.value === 'Activity' ? 'Activity' : 'Quantity')
-              }
-            >
-              <NativeSelectOption value="Quantity">Số lượng xuất</NativeSelectOption>
-              <NativeSelectOption value="Activity">Tần suất xuất</NativeSelectOption>
-            </NativeSelect>
-            <Input
-              aria-label="Số ngày lịch sử phân loại ABC"
-              className="w-28"
-              type="number"
-              min={1}
-              max={366}
-              value={historicalPeriodDays}
-              onChange={(event) => onHistoricalPeriodDaysChange(Number(event.target.value))}
-            />
-            <Input
-              aria-label="Ngưỡng nhóm A"
-              className="w-20"
-              type="number"
-              min={1}
-              max={98}
-              value={aThreshold}
-              onChange={(event) => onAThresholdChange(Number(event.target.value))}
-            />
-            <Input
-              aria-label="Ngưỡng nhóm B"
-              className="w-20"
-              type="number"
-              min={2}
-              max={99}
-              value={bThreshold}
-              onChange={(event) => onBThresholdChange(Number(event.target.value))}
-            />
-            {canRun && (
-              <Button
-                type="button"
-                disabled={
-                  !warehouseId ||
-                  isRunning ||
-                  historicalPeriodDays < 1 ||
-                  historicalPeriodDays > 366 ||
-                  aThreshold >= bThreshold
-                }
-                onClick={onRun}
-              >
-                {isRunning ? 'Đang phân tích…' : 'Phân tích'}
-              </Button>
-            )}
-          </details>
         </InventoryFilterToolbar>
         <h2 id="abc-title" className="sr-only">
           Kết quả phân loại

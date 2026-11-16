@@ -67,7 +67,9 @@ export default function InventoryAnomaliesPage() {
       })),
     [warehousesQuery.data?.items]
   )
-  const warehouseId = selectedWarehouseId
+  const warehouseId = warehouseOptions.some((option) => option.value === selectedWarehouseId)
+    ? selectedWarehouseId
+    : ''
   const summaryQuery = useInventoryAnomalySummaryQuery(warehouseId, canView && Boolean(warehouseId))
   const [search, setSearch] = useInventoryFilter<string>('InventoryAnomaliesPage.search', '')
   const searchTerm = useDebouncedValue(search.trim(), 350)
@@ -130,6 +132,7 @@ export default function InventoryAnomaliesPage() {
   }
 
   async function scanNow() {
+    if (!warehouseId) return
     try {
       await startScan.mutateAsync(warehouseId)
       toast.success('Đã bắt đầu quét. Cảnh báo mới sẽ hiện khi quét xong.')
@@ -168,8 +171,8 @@ export default function InventoryAnomaliesPage() {
       warehouseId={warehouseId}
       severity={severity}
       reviewStatus={reviewStatus}
-      items={anomaliesQuery.data?.items ?? []}
-      totalCount={anomaliesQuery.data?.totalCount ?? 0}
+      items={warehouseId ? (anomaliesQuery.data?.items ?? []) : []}
+      totalCount={warehouseId ? (anomaliesQuery.data?.totalCount ?? 0) : 0}
       page={page}
       pageSize={pageSize}
       isLoading={warehousesQuery.isLoading || anomaliesQuery.isLoading}
@@ -187,6 +190,7 @@ export default function InventoryAnomaliesPage() {
       onPageChange={setPage}
       onPageSizeChange={(value) => resetPage(setPageSize, value)}
       onRetry={() => {
+        if (!warehouseId) return
         void anomaliesQuery.refetch()
         void summaryQuery.refetch()
       }}
