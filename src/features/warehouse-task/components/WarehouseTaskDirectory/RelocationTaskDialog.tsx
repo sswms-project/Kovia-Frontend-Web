@@ -64,6 +64,8 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
     (item) => item.slotId === assignedDestinationId
   )
   const errors = props.executeForm.formState.errors
+  const isClosed =
+    detail?.executionStatus === 'Completed' || detail?.executionStatus === 'Cancelled'
   const showCancel =
     Boolean(props.canCancel && props.onCancel) &&
     props.scope === 'managed' &&
@@ -106,7 +108,22 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
               </div>
             </div>
 
-            {props.canAssign && props.scope === 'managed' ? (
+            {detail.executionStatus === 'Cancelled' ? (
+              <section className="space-y-2 border p-3" aria-label="Thông tin hủy công việc">
+                <h3 className="font-medium">Công việc đã hủy</h3>
+                <Summary
+                  label="Lý do hủy"
+                  value={detail.cancellationReason ?? 'Không có thông tin'}
+                />
+                <Summary label="Thời điểm hủy" value={formatDate(detail.cancelledAt)} />
+                <p className="text-muted-foreground text-sm">
+                  Chỉ phần chưa thực hiện bị hủy. Hàng đã chuyển giữ nguyên tại vị trí đích và lịch
+                  sử điều chuyển được giữ lại.
+                </p>
+              </section>
+            ) : null}
+
+            {props.canAssign && props.scope === 'managed' && !isClosed ? (
               <section className="space-y-3 border p-3">
                 <div>
                   <h3 className="font-medium">Phân công công việc</h3>
@@ -231,7 +248,7 @@ export function RelocationTaskDialog(props: RelocationTaskDialogProps) {
               </section>
             ) : null}
 
-            {props.canExecute && selectedLine?.remainingQuantity ? (
+            {props.canExecute && !isClosed && selectedLine?.remainingQuantity ? (
               <form
                 className="space-y-4 border p-3"
                 onSubmit={props.executeForm.handleSubmit(props.onExecute)}

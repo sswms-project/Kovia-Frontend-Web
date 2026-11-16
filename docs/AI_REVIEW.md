@@ -3090,3 +3090,21 @@ State: READY_FOR_CODEX_REVIEW. Codex implementation and self-verification.
 
 - A saved draft with content and a summary can open the publication confirmation directly. Preview remains available. The direct path uses the same current-version check and passes the same revision and predecessor to the publication API.
 - Three editor tests and changed-file ESLint passed. On local Chrome at 320 × 430, the direct confirmation opened with visible actions. Cancel sent no publication request.
+
+## 2026-11-16 — UC100 cancellation follow-up (Codex implementation)
+
+State: READY_FOR_CODEX_REVIEW. Scoped self-review completed; no independent review claimed.
+Branch: fix/uc100-cancel-stock-relocation, freshly fetched origin/dev.
+Changes: cancellation reason/time displayed with preserved relocation history; terminal tasks cannot show assignment/execution forms; cancellation 404/409 refreshes task cache. Additive FE/BE cancellation metadata contract.
+Checks: FE focused tests 10/10, final dialog rerun 7/7; final typecheck exit 0; pnpm lint --ignore-pattern '.gitnexus/\*\*' exit 0. Backend build + 21 focused relocation tests passed. Default lint's 3 errors were only in the generated GitNexus runner. No production build/full suite/live API/browser/DB write performed.
+Current dev already has cancellation API/permission/reason/audit/notification/claim release. Latest checklist UC tab absent from configured spreadsheet metadata; latest BR/MSG mapping and live workflow remain unverified.
+Evidence and exact source fingerprints: D:/LEARN/capstone/Kovia/outputs/workflow/modules/uc100-cancel-stock-relocation/.
+No commit/push/PR/Jira mutation authorized/performed.
+
+### 2026-11-16 — UC100 live verification addendum (Codex)
+
+READY_FOR_CODEX_REVIEW remains. User requested live testing: 30 assertions passed using actual FE/API/SQL/Redis, no mocks. Verified partial 2/5 -> pause -> cancellation of remaining 3; stale-version 409 triggers real detail refresh and explicit retry succeeds. Manager and Staff history show reason/time and retained execution; terminal forms hidden. Verified source claim reuse and Queued cancellation; Staff notification visible. Dedicated local fixture required explicit role grants and occupancy correction; failed attempt and successful rerun retained. No product source changes this turn, no shared DB writes, migration-chain or full-suite claim. Evidence/screenshots and tested fingerprints: D:/LEARN/capstone/Kovia/outputs/workflow/modules/uc100-cancel-stock-relocation/. No commit/push/PR/Jira authorized/performed.
+
+### 2026-11-16 — UC100 delivery authorization
+
+User authorized splitting the task into multiple commits and pushing the UC100 branch. The user will create the pull requests targeting dev. Scoped automated/live verification above remains applicable; no additional source changes or Jira/merge actions authorized.
