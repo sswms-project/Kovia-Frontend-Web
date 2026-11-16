@@ -1,10 +1,13 @@
 'use client'
 
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
 import { P } from '@/config/permissionCodes'
 
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useMemo, useState } from 'react'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
@@ -16,16 +19,22 @@ export default function StockAdjustmentsPage() {
   const me = useMeQuery()
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const [warehouseId, setWarehouseId] = useState('')
-  const [status, setStatus] = useState<'' | StockAdjustmentStatus>('')
+  const [warehouseId, setWarehouseId] = useInventoryFilter<string>('warehouse', '')
+  const [status, setStatus] = useInventoryFilter<'' | StockAdjustmentStatus>(
+    'StockAdjustmentsPage.status',
+    ''
+  )
+  const [search, setSearch] = useInventoryFilter<string>('StockAdjustmentsPage.search', '')
+  const searchTerm = useDebouncedValue(search.trim(), 350)
   const params = useMemo(
     () => ({
       pageNumber: page,
+      ...(searchTerm ? { searchTerm } : {}),
       pageSize,
       ...(warehouseId ? { warehouseId } : {}),
       ...(status ? { status } : {}),
     }),
-    [page, pageSize, warehouseId, status]
+    [page, pageSize, warehouseId, status, searchTerm]
   )
   const query = useStockAdjustmentVouchersQuery(params)
   const warehouses = useWarehousesQuery({ top: 100, skip: 0, needTotalCount: true, isActive: true })
@@ -45,6 +54,7 @@ export default function StockAdjustmentsPage() {
     totalCount: query.data?.totalCount ?? 0,
     isFetching: query.isFetching,
     isError: query.isError,
+    blocked: search.trim() !== searchTerm,
   })
   return (
     <StockAdjustmentDirectory
@@ -59,6 +69,11 @@ export default function StockAdjustmentsPage() {
       warehouseId={warehouseId}
       status={status}
       warehouses={options}
+      search={search}
+      onSearchChange={(value) => {
+        setSearch(value)
+        setPage(1)
+      }}
       isLoading={query.isLoading}
       isFetching={query.isFetching}
       isError={query.isError}

@@ -1,6 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
+import { useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -36,11 +38,25 @@ export default function InventoryPage({
   initialWarehouseId,
   initialProductId,
 }: { readonly initialWarehouseId?: string; readonly initialProductId?: string } = {}) {
-  const [searchText, setSearchText] = useState('')
-  const [warehouseId, setWarehouseId] = useState(initialWarehouseId ?? '')
-  const [productId, setProductId] = useState(initialProductId ?? '')
-  const [slotId, setSlotId] = useState('')
-  const [showDepleted, setShowDepleted] = useState(false)
+  const [searchText, setSearchText] = useInventoryFilter<string>('InventoryPage.searchText', '')
+  const [warehouseId, setWarehouseId] = useInventoryFilter('warehouse', initialWarehouseId ?? '')
+  const [productId, setProductId] = useInventoryFilter(
+    'InventoryPage.productId',
+    initialProductId ?? ''
+  )
+  const [slotId, setSlotId] = useInventoryFilter<string>('InventoryPage.slotId', '')
+  useEffect(() => {
+    if (initialWarehouseId) setWarehouseId(initialWarehouseId)
+    if (initialProductId) setProductId(initialProductId)
+    if (initialWarehouseId || initialProductId) {
+      setSearchText('')
+      setSlotId('')
+    }
+  }, [initialProductId, initialWarehouseId, setProductId, setSearchText, setSlotId, setWarehouseId])
+  const [showDepleted, setShowDepleted] = useInventoryFilter<boolean>(
+    'InventoryPage.showDepleted',
+    false
+  )
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [damagedStock, setDamagedStock] = useState<InventoryStock | null>(null)
@@ -263,7 +279,7 @@ export default function InventoryPage({
           setPage(1)
         }}
         onResetFilters={() => {
-          setWarehouseId('')
+          setSearchText('')
           setProductId('')
           setSlotId('')
           setShowDepleted(false)

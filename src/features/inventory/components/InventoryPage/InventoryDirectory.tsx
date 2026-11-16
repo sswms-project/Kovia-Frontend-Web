@@ -1,7 +1,13 @@
 'use client'
 
+import {
+  InventoryFilterToolbar,
+  InventorySearch,
+  InventoryWarehouseFilter,
+} from '@/features/inventory/components/InventoryFilterToolbar'
+
 import type { ReactNode } from 'react'
-import { FilterX, RefreshCw, Search, TriangleAlert, X } from 'lucide-react'
+import { RefreshCw, TriangleAlert } from 'lucide-react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -12,8 +18,7 @@ import { OperationalListPanel } from '@/components/operations/OperationalListPan
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -24,7 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { InventoryFilterOption, InventoryStock } from '../../types/inventory.types'
 import {
   formatEligibilityStatus,
@@ -116,145 +120,25 @@ export function InventoryDirectory({
       <InventoryWorkspaceNavigation currentView="availability" permissions={permissions} />
 
       <OperationalListPanel className="@container" aria-label="Tồn kho khả dụng">
-        <div className="flex shrink-0 items-start gap-2 border-b p-3">
-          <FieldGroup
-            role="search"
-            aria-label="Bộ lọc tồn kho"
-            className="[container-type:normal] flex min-w-0 flex-1 flex-row flex-wrap items-center gap-2"
-          >
-            <InputGroup className="h-11 w-full min-w-0 sm:h-8 sm:w-72">
-              <InputGroupAddon>
-                <Search aria-hidden="true" />
-              </InputGroupAddon>
-              <InputGroupInput
-                aria-label="Tìm sản phẩm tồn kho"
-                placeholder="Tìm SKU hoặc tên sản phẩm"
-                value={searchText}
-                onChange={(event) => onSearchChange(event.target.value)}
-              />
-              {searchText ? (
-                <InputGroupAddon align="inline-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Xóa nội dung tìm kiếm"
-                    onClick={() => onSearchChange('')}
-                  >
-                    <X aria-hidden="true" />
-                  </Button>
-                </InputGroupAddon>
-              ) : null}
-            </InputGroup>
-            {areFiltersError ? (
-              <div
-                className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 border p-3"
-                role="alert"
-              >
-                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium">Không thể tải đầy đủ bộ lọc</p>
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto p-0 text-xs"
-                    onClick={onRetryFilters}
-                  >
-                    Thử tải lại
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-            <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="inventory-warehouse" className="shrink-0 max-sm:min-w-18">
-                Kho
-              </FieldLabel>
-              <NativeSelect
-                id="inventory-warehouse"
-                className="w-full sm:w-44"
-                value={warehouseId}
-                disabled={areFiltersLoading}
-                onChange={(event) => onWarehouseChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {warehouseOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="inventory-slot" className="shrink-0 max-sm:min-w-18">
-                Vị trí
-              </FieldLabel>
-              <NativeSelect
-                id="inventory-slot"
-                className="w-full sm:w-32"
-                value={slotId}
-                disabled={areFiltersLoading || areSlotsLoading || !warehouseId}
-                onChange={(event) => onSlotChange(event.target.value)}
-              >
-                <NativeSelectOption value="">
-                  {warehouseId ? 'Tất cả vị trí' : 'Chọn kho trước'}
-                </NativeSelectOption>
-                {slotOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="inventory-product" className="shrink-0 max-sm:min-w-18">
-                Sản phẩm
-              </FieldLabel>
-              <NativeSelect
-                id="inventory-product"
-                className="w-full sm:w-36"
-                value={productId}
-                disabled={areFiltersLoading}
-                onChange={(event) => onProductChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-                {productOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field orientation="horizontal" className="w-full sm:w-auto">
-              <Checkbox
-                id="inventory-show-depleted"
-                name="show-depleted"
-                checked={showDepleted}
-                onCheckedChange={(checked) => onShowDepletedChange(checked === true)}
-              />
-              <FieldLabel htmlFor="inventory-show-depleted">Hiện hàng đã hết tồn</FieldLabel>
-            </Field>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="size-11 sm:size-8"
-                    aria-label="Xóa bộ lọc"
-                    disabled={activeFilterCount === 0}
-                    onClick={onResetFilters}
-                  >
-                    <FilterX aria-hidden="true" />
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={4}>Xóa bộ lọc</TooltipContent>
-            </Tooltip>
-          </FieldGroup>
-          {exportAction}
-          <Tooltip>
-            <TooltipTrigger asChild>
+        <InventoryFilterToolbar
+          search={
+            <InventorySearch
+              placeholder="Tìm SKU hoặc tên mặt hàng"
+              value={searchText}
+              onChange={onSearchChange}
+            />
+          }
+          warehouse={
+            <InventoryWarehouseFilter
+              disabled={areFiltersLoading}
+              value={warehouseId}
+              onChange={onWarehouseChange}
+              options={warehouseOptions}
+            />
+          }
+          actions={
+            <>
+              {exportAction}
               <Button
                 type="button"
                 variant="outline"
@@ -269,10 +153,97 @@ export function InventoryDirectory({
                   aria-hidden="true"
                 />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent sideOffset={4}>Làm mới tồn kho</TooltipContent>
-          </Tooltip>
-        </div>
+            </>
+          }
+          appliedFilters={[
+            Boolean(slotId) && {
+              label:
+                'Vị trí ' +
+                (slotOptions.find((option) => option.value === slotId)?.label ?? 'đã chọn'),
+              clear: () => onSlotChange(''),
+            },
+            showDepleted && {
+              label: 'Hiện hàng đã hết tồn',
+              clear: () => onShowDepletedChange(false),
+            },
+            Boolean(productId) && {
+              label:
+                productOptions.find((option) => option.value === productId)?.label ??
+                'Mặt hàng đã chọn',
+              clear: () => onProductChange(''),
+            },
+          ]}
+          onReset={onResetFilters}
+        >
+          <Field orientation="horizontal" className="w-full sm:w-auto">
+            <FieldLabel htmlFor="inventory-slot" className="shrink-0 max-sm:min-w-18">
+              Vị trí
+            </FieldLabel>
+            <NativeSelect
+              id="inventory-slot"
+              className="w-full sm:w-32"
+              value={slotId}
+              disabled={areFiltersLoading || areSlotsLoading || !warehouseId}
+              onChange={(event) => onSlotChange(event.target.value)}
+            >
+              <NativeSelectOption value="">
+                {warehouseId ? 'Tất cả vị trí' : 'Chọn kho trước'}
+              </NativeSelectOption>
+              {slotOptions.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field orientation="horizontal" className="w-full sm:w-auto">
+            <FieldLabel htmlFor="inventory-product" className="shrink-0 max-sm:min-w-18">
+              Sản phẩm
+            </FieldLabel>
+            <NativeSelect
+              id="inventory-product"
+              className="w-full sm:w-36"
+              value={productId}
+              disabled={areFiltersLoading}
+              onChange={(event) => onProductChange(event.target.value)}
+            >
+              <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
+              {productOptions.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field orientation="horizontal" className="w-full sm:w-auto">
+            <Checkbox
+              id="inventory-show-depleted"
+              name="show-depleted"
+              checked={showDepleted}
+              onCheckedChange={(checked) => onShowDepletedChange(checked === true)}
+            />
+            <FieldLabel htmlFor="inventory-show-depleted">Hiện hàng đã hết tồn</FieldLabel>
+          </Field>
+        </InventoryFilterToolbar>
+        {areFiltersError && (
+          <div
+            className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 border p-3"
+            role="alert"
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium">Không thể tải đầy đủ bộ lọc</p>
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={onRetryFilters}
+              >
+                Thử tải lại
+              </Button>
+            </div>
+          </div>
+        )}
         <p className="sr-only" aria-live="polite">
           {isFetching ? 'Đang cập nhật tồn kho' : 'Tồn kho đã cập nhật'}
         </p>

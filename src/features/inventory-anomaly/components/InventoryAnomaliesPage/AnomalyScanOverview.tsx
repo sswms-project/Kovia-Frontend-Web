@@ -68,6 +68,7 @@ export function AnomalyScanOverview({
   onRetry,
 }: AnomalyScanOverviewProps) {
   if (isLoading) return <Skeleton className="h-24 w-full shrink-0" aria-label="Đang tải tóm tắt" />
+  if (!hasWarehouse && !isError) return null
   if (isError || !summary)
     return (
       <Alert variant="destructive" className="shrink-0">
@@ -95,11 +96,7 @@ export function AnomalyScanOverview({
       <div className="bg-card flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center">
         <Sparkles className="text-tertiary hidden size-4 shrink-0 sm:block" aria-hidden="true" />
         <p className="text-muted-foreground min-w-0 flex-1 text-sm" aria-live="polite">
-          {hasWarehouse ? (
-            <LatestScanText summary={summary} />
-          ) : (
-            'Chọn một kho để xem lượt quét gần nhất.'
-          )}
+          <LatestScanText summary={summary} />
         </p>
         {canScan && hasWarehouse ? (
           <Button

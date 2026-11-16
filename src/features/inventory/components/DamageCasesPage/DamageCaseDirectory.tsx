@@ -1,5 +1,12 @@
 'use client'
 
+import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
+import type { InventoryProductLookup } from '../../hooks/use-inventory-product-lookup'
+import {
+  InventoryFilterToolbar,
+  InventoryWarehouseFilter,
+} from '@/features/inventory/components/InventoryFilterToolbar'
+
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -74,7 +81,6 @@ interface DamageCaseDirectoryProps {
   readonly dateFrom: string
   readonly dateTo: string
   readonly warehouseOptions: readonly InventoryFilterOption[]
-  readonly productOptions: readonly InventoryFilterOption[]
   readonly isLoading: boolean
   readonly isFetching: boolean
   readonly isError: boolean
@@ -86,6 +92,7 @@ interface DamageCaseDirectoryProps {
   readonly onRetry: () => void
   readonly onPageChange: (page: number) => void
   readonly onWarehouseChange: (value: string) => void
+  readonly productLookup: InventoryProductLookup
   readonly onProductChange: (value: string) => void
   readonly onStatusChange: (value: DamageCaseStatus | '') => void
   readonly onDateFromChange: (value: string) => void
@@ -166,77 +173,88 @@ export function DamageCaseDirectory(props: DamageCaseDirectoryProps) {
       <h1 className="sr-only">Hồ sơ hàng hỏng</h1>
       <InventoryWorkspaceNavigation currentView="damage-cases" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách sự cố hư hỏng">
-        <div className="flex shrink-0 items-start gap-3 border-b p-3">
-          <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <NativeSelect
-              className="w-full"
-              aria-label="Lọc theo kho"
-              value={props.warehouseId}
-              onChange={(event) => props.onWarehouseChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-              {props.warehouseOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <NativeSelect
-              className="w-full"
-              aria-label="Lọc theo sản phẩm"
+        <InventoryFilterToolbar
+          search={
+            <LookupCombobox
+              {...props.productLookup}
               value={props.productId}
-              onChange={(event) => props.onProductChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-              {props.productOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <NativeSelect
-              className="w-full"
-              aria-label="Lọc theo trạng thái"
-              value={props.statusFilter}
-              onChange={(event) =>
-                props.onStatusChange(event.target.value as DamageCaseStatus | '')
-              }
-            >
-              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-              <NativeSelectOption value="Open">Đang giữ</NativeSelectOption>
-              <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
-            </NativeSelect>
-            <Input
-              aria-label="Từ ngày"
-              type="date"
-              value={props.dateFrom}
-              onChange={(event) => props.onDateFromChange(event.target.value)}
+              onChange={(id, option) => {
+                props.productLookup.rememberOption(option)
+                props.onProductChange(id)
+              }}
             />
-            <Input
-              aria-label="Đến ngày"
-              type="date"
-              value={props.dateTo}
-              onChange={(event) => props.onDateToChange(event.target.value)}
+          }
+          warehouse={
+            <InventoryWarehouseFilter
+              value={props.warehouseId}
+              onChange={props.onWarehouseChange}
+              options={props.warehouseOptions}
             />
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {props.exportAction}
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="shrink-0"
-              aria-label="Làm mới hàng hỏng"
-              disabled={props.isFetching}
-              onClick={props.onRetry}
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-              />
-            </Button>
-          </div>
-        </div>
+          }
+          actions={
+            <>
+              {props.exportAction}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                aria-label="Làm mới hàng hỏng"
+                disabled={props.isFetching}
+                onClick={props.onRetry}
+              >
+                <RefreshCw
+                  aria-hidden="true"
+                  className={
+                    props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined
+                  }
+                />
+              </Button>
+            </>
+          }
+          appliedFilters={[
+            Boolean(props.statusFilter) && {
+              label: props.statusFilter === 'Open' ? 'Đang giữ' : 'Đã xử lý',
+              clear: () => props.onStatusChange(''),
+            },
+            Boolean(props.dateFrom || props.dateTo) && {
+              label: (props.dateFrom || 'Mọi ngày') + ' – ' + (props.dateTo || 'Hiện tại'),
+              clear: () => {
+                props.onDateFromChange('')
+                props.onDateToChange('')
+              },
+            },
+          ]}
+          onReset={() => {
+            props.onProductChange('')
+            props.onStatusChange('')
+            props.onDateFromChange('')
+            props.onDateToChange('')
+          }}
+        >
+          <NativeSelect
+            className="w-full"
+            aria-label="Lọc theo trạng thái"
+            value={props.statusFilter}
+            onChange={(event) => props.onStatusChange(event.target.value as DamageCaseStatus | '')}
+          >
+            <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+            <NativeSelectOption value="Open">Đang giữ</NativeSelectOption>
+            <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
+          </NativeSelect>
+          <Input
+            aria-label="Từ ngày"
+            type="date"
+            value={props.dateFrom}
+            onChange={(event) => props.onDateFromChange(event.target.value)}
+          />
+          <Input
+            aria-label="Đến ngày"
+            type="date"
+            value={props.dateTo}
+            onChange={(event) => props.onDateToChange(event.target.value)}
+          />
+        </InventoryFilterToolbar>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />
         ) : props.isError ? (

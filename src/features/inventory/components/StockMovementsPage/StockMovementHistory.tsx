@@ -1,8 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { ListFilter, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
+import { RefreshCw } from 'lucide-react'
 import {
   OperationalEmptyState,
   OperationalErrorState,
@@ -64,7 +63,6 @@ interface StockMovementHistoryProps {
 }
 
 export function StockMovementHistory(props: StockMovementHistoryProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
   const {
     items,
     totalCount,
@@ -84,44 +82,36 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
       <h1 className="sr-only">Lịch sử biến động</h1>
       <InventoryWorkspaceNavigation currentView="movements" permissions={props.permissions} />
       <OperationalListPanel aria-labelledby="movement-history-title">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b p-3">
-          <div>
-            <h2 id="movement-history-title" className="text-sm font-semibold">
-              Nhật ký tồn kho
-            </h2>
-          </div>
-          <div className="ml-auto flex shrink-0 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 sm:h-8"
-              onClick={() => setIsFilterOpen(true)}
-            >
-              <ListFilter aria-hidden="true" />
-              Bộ lọc{activeFilterCount ? ` (${activeFilterCount})` : ''}
-            </Button>
-            {props.exportAction}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-11 sm:size-8"
-                  disabled={isFetching || !isDateRangeValid}
-                  aria-label="Làm mới lịch sử biến động"
-                  onClick={onRetry}
-                >
-                  <RefreshCw
-                    className={isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-                    aria-hidden="true"
-                  />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={4}>Làm mới lịch sử</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
+        <h2 id="movement-history-title" className="sr-only">
+          Nhật ký tồn kho
+        </h2>
+        <StockMovementFilters
+          {...props}
+          actions={
+            <>
+              {props.exportAction}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="size-11 sm:size-8"
+                    disabled={isFetching || !isDateRangeValid}
+                    aria-label="Làm mới lịch sử biến động"
+                    onClick={onRetry}
+                  >
+                    <RefreshCw
+                      className={isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+                      aria-hidden="true"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={4}>Làm mới lịch sử</TooltipContent>
+              </Tooltip>
+            </>
+          }
+        />
         <p className="sr-only" aria-live="polite">
           {isFetching ? 'Đang cập nhật lịch sử biến động' : 'Lịch sử biến động đã cập nhật'}
         </p>
@@ -146,7 +136,7 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
           <OperationalEmptyState
             title="Không có biến động phù hợp"
             description={
-              activeFilterCount
+              activeFilterCount || props.searchText.trim() || props.warehouseId
                 ? 'Thử thay đổi hoặc đặt lại bộ lọc.'
                 : 'Chưa có biến động tồn kho để hiển thị.'
             }
@@ -172,7 +162,6 @@ export function StockMovementHistory(props: StockMovementHistoryProps) {
           </>
         )}
       </OperationalListPanel>
-      <StockMovementFilters {...props} open={isFilterOpen} onOpenChange={setIsFilterOpen} />
     </div>
   )
 }

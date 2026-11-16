@@ -1,5 +1,8 @@
 'use client'
 
+import { useInventoryProductLookup } from '../hooks/use-inventory-product-lookup'
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
 import { P } from '@/config/permissionCodes'
 
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
@@ -7,7 +10,6 @@ import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
 import { useMemo, useState } from 'react'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
-import { useProductOptionsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { InventoryReservationDirectory } from '../components/InventoryReservationsPage'
 import { useInventoryReservationsQuery } from '../hooks/use-inventory'
@@ -16,9 +18,19 @@ import { buildInventoryReservationQuery } from '../utils/inventory-reservation-q
 
 export default function InventoryReservationsPage() {
   const [page, setPage] = useState(1)
-  const [warehouseId, setWarehouseId] = useState('')
-  const [productId, setProductId] = useState('')
-  const [status, setStatus] = useState<InventoryReservationStatus>('Active')
+  const [warehouseId, setWarehouseId] = useInventoryFilter<string>('warehouse', '')
+  const [productId, setProductId] = useInventoryFilter<string>(
+    'InventoryReservationsPage.productId',
+    ''
+  )
+  const productLookup = useInventoryProductLookup(
+    'InventoryReservationsPage.productLabel',
+    productId
+  )
+  const [status, setStatus] = useInventoryFilter<InventoryReservationStatus>(
+    'InventoryReservationsPage.status',
+    'Active'
+  )
   const [pageSize, setPageSize] = useState(20)
   const meQuery = useMeQuery()
   const params = useMemo(
@@ -32,7 +44,6 @@ export default function InventoryReservationsPage() {
     needTotalCount: true,
     isActive: true,
   })
-  const productsQuery = useProductOptionsQuery({ pageNumber: 1, pageSize: 100, status: 'Active' })
   const warehouseOptions = useMemo(
     () =>
       (warehousesQuery.data?.items ?? []).map((warehouse) => ({
@@ -40,14 +51,6 @@ export default function InventoryReservationsPage() {
         label: `${warehouse.warehouseCode} · ${warehouse.warehouseName}`,
       })),
     [warehousesQuery.data?.items]
-  )
-  const productOptions = useMemo(
-    () =>
-      (productsQuery.data?.items ?? []).map((product) => ({
-        value: product.id,
-        label: `${product.sku} · ${product.productName}`,
-      })),
-    [productsQuery.data?.items]
   )
 
   const listExport = useListExport({
@@ -73,12 +76,12 @@ export default function InventoryReservationsPage() {
       productId={productId}
       status={status}
       warehouseOptions={warehouseOptions}
-      productOptions={productOptions}
+      productLookup={productLookup}
       isLoading={reservationsQuery.isLoading}
       isFetching={reservationsQuery.isFetching}
       isError={reservationsQuery.isError}
-      areFiltersLoading={warehousesQuery.isLoading || productsQuery.isLoading}
-      areFiltersError={warehousesQuery.isError || productsQuery.isError}
+      areFiltersLoading={warehousesQuery.isLoading}
+      areFiltersError={warehousesQuery.isError}
       activeFilterCount={
         Number(Boolean(warehouseId)) + Number(Boolean(productId)) + Number(status !== 'Active')
       }
@@ -100,12 +103,11 @@ export default function InventoryReservationsPage() {
         setPage(1)
       }}
       onResetFilters={() => {
-        setWarehouseId('')
         setProductId('')
         setStatus('Active')
         setPage(1)
       }}
-      onRetryFilters={() => void Promise.all([warehousesQuery.refetch(), productsQuery.refetch()])}
+      onRetryFilters={() => void warehousesQuery.refetch()}
       onRetry={() => void reservationsQuery.refetch()}
     />
   )

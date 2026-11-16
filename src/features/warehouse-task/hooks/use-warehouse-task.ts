@@ -113,7 +113,11 @@ export function useCancelWarehouseTaskMutation(taskId: string | null) {
       queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] })
       queryClient.invalidateQueries({ queryKey: ['warehouse-tasks', 'managed', 'detail', taskId] })
     },
-    onError: logApiError,
+    onError: (error) => {
+      logApiError(error)
+      if (isApiErrorResponse(error) && (error.statusCode === 409 || error.statusCode === 404))
+        void queryClient.invalidateQueries({ queryKey: ['warehouse-tasks'] })
+    },
   })
 }
 

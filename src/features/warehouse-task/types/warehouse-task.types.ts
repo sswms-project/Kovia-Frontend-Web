@@ -118,6 +118,9 @@ export interface WarehouseTaskDetail {
   assignedToName: string | null
   assignedAt: string | null
   rowVersion: string
+  cancelledAt: string | null
+  cancelledBy: string | null
+  cancellationReason: string | null
   lines: WarehouseTaskLine[]
   executions: WarehouseTaskExecution[]
 }
