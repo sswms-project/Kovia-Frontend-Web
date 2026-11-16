@@ -47,6 +47,7 @@ export interface InventoryAnomalyListResponse {
 }
 
 export interface InventoryAnomalyListQuery {
+  searchTerm?: string
   warehouseId?: string
   severity?: AnomalySeverity
   reviewStatus?: AnomalyReviewStatus

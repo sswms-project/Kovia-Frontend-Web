@@ -1,5 +1,7 @@
 'use client'
 
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
 import { P } from '@/config/permissionCodes'
 
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
@@ -23,13 +25,19 @@ import {
 
 export default function StockMovementsPage() {
   const meQuery = useMeQuery()
-  const [searchText, setSearchText] = useState('')
-  const [warehouseId, setWarehouseId] = useState('')
-  const [slotId, setSlotId] = useState('')
-  const [productId, setProductId] = useState('')
-  const [movementType, setMovementType] = useState<StockMovementType | ''>('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [searchText, setSearchText] = useInventoryFilter<string>(
+    'StockMovementsPage.searchText',
+    ''
+  )
+  const [warehouseId, setWarehouseId] = useInventoryFilter<string>('warehouse', '')
+  const [slotId, setSlotId] = useInventoryFilter<string>('StockMovementsPage.slotId', '')
+  const [productId, setProductId] = useInventoryFilter<string>('StockMovementsPage.productId', '')
+  const [movementType, setMovementType] = useInventoryFilter<StockMovementType | ''>(
+    'StockMovementsPage.movementType',
+    ''
+  )
+  const [dateFrom, setDateFrom] = useInventoryFilter<string>('StockMovementsPage.dateFrom', '')
+  const [dateTo, setDateTo] = useInventoryFilter<string>('StockMovementsPage.dateTo', '')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const debouncedSearchText = useDebouncedValue(searchText.trim(), 350)
@@ -141,8 +149,6 @@ export default function StockMovementsPage() {
       areLocationsLoading={warehousesQuery.isLoading || slotsQuery.isLoading}
       areLocationsError={warehousesQuery.isError || slotsQuery.isError}
       activeFilterCount={
-        Number(Boolean(searchText)) +
-        Number(Boolean(warehouseId)) +
         Number(Boolean(slotId)) +
         Number(Boolean(productId)) +
         Number(Boolean(movementType)) +
@@ -161,7 +167,6 @@ export default function StockMovementsPage() {
       onDateToChange={(value) => updateFilter(setDateTo, value)}
       onResetFilters={() => {
         setSearchText('')
-        setWarehouseId('')
         setSlotId('')
         setProductId('')
         setMovementType('')

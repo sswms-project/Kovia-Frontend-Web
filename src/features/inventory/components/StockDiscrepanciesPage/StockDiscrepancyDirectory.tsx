@@ -1,5 +1,12 @@
 'use client'
 
+import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
+import type { InventoryProductLookup } from '../../hooks/use-inventory-product-lookup'
+import {
+  InventoryFilterToolbar,
+  InventoryWarehouseFilter,
+} from '@/features/inventory/components/InventoryFilterToolbar'
+
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -83,6 +90,7 @@ interface Props {
   readonly onRelatedTaskChange: (value: string) => void
   readonly onPageChange: (page: number) => void
   readonly onFilterWarehouseChange: (value: string) => void
+  readonly productLookup: InventoryProductLookup
   readonly onFilterProductChange: (value: string) => void
   readonly onStatusFilterChange: (value: StockDiscrepancyStatus | '') => void
   readonly onDateFromChange: (value: string) => void
@@ -140,104 +148,105 @@ export function StockDiscrepancyDirectory(props: Props) {
         }
       />
       <OperationalListPanel aria-label="Danh sách chênh lệch tồn kho">
-        <div className="flex shrink-0 items-end gap-3 border-b p-3">
-          <FieldGroup
-            aria-label="Bộ lọc báo cáo chênh lệch"
-            className="[container-type:normal] flex min-w-0 flex-1 shrink-0 flex-row flex-wrap items-end gap-2"
-          >
-            <Field className="w-full sm:w-40">
-              <FieldLabel htmlFor="discrepancy-filter-warehouse">Kho</FieldLabel>
-              <NativeSelect
-                id="discrepancy-filter-warehouse"
-                className="w-full"
-                aria-label="Lọc theo kho"
-                value={props.filterWarehouseId}
-                onChange={(event) => props.onFilterWarehouseChange(event.target.value)}
+        <InventoryFilterToolbar
+          search={
+            <LookupCombobox
+              {...props.productLookup}
+              value={props.filterProductId}
+              onChange={(id, option) => {
+                props.productLookup.rememberOption(option)
+                props.onFilterProductChange(id)
+              }}
+            />
+          }
+          warehouse={
+            <InventoryWarehouseFilter
+              value={props.filterWarehouseId}
+              onChange={props.onFilterWarehouseChange}
+              options={props.warehouseOptions}
+            />
+          }
+          actions={
+            <>
+              {props.exportAction}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                aria-label="Làm mới chênh lệch"
+                disabled={props.isFetching}
+                onClick={props.onRetry}
               >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {props.warehouseOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field className="w-full sm:w-48">
-              <FieldLabel htmlFor="discrepancy-filter-product">Sản phẩm</FieldLabel>
-              <NativeSelect
-                id="discrepancy-filter-product"
-                className="w-full"
-                aria-label="Lọc theo sản phẩm"
-                value={props.filterProductId}
-                onChange={(event) => props.onFilterProductChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-                {props.productOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field className="w-full sm:w-44">
-              <FieldLabel htmlFor="discrepancy-filter-status">Trạng thái</FieldLabel>
-              <NativeSelect
-                id="discrepancy-filter-status"
-                className="w-full"
-                aria-label="Lọc theo trạng thái"
-                value={props.statusFilter}
-                onChange={(event) =>
-                  props.onStatusFilterChange(event.target.value as StockDiscrepancyStatus | '')
-                }
-              >
-                <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-                <NativeSelectOption value="PendingReview">Chờ xem xét</NativeSelectOption>
-                <NativeSelectOption value="EvidenceRequested">Chờ bằng chứng</NativeSelectOption>
-                <NativeSelectOption value="FollowUpPending">Đang xử lý tiếp</NativeSelectOption>
-                <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
-                <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
-                <NativeSelectOption value="Duplicate">Trùng lặp</NativeSelectOption>
-              </NativeSelect>
-            </Field>
-            <Field className="w-full sm:w-40">
-              <FieldLabel htmlFor="discrepancy-filter-from">Từ ngày</FieldLabel>
-              <Input
-                id="discrepancy-filter-from"
-                aria-label="Từ ngày"
-                type="date"
-                value={props.dateFrom}
-                onChange={(event) => props.onDateFromChange(event.target.value)}
-              />
-            </Field>
-            <Field className="w-full sm:w-40">
-              <FieldLabel htmlFor="discrepancy-filter-to">Đến ngày</FieldLabel>
-              <Input
-                id="discrepancy-filter-to"
-                aria-label="Đến ngày"
-                type="date"
-                value={props.dateTo}
-                onChange={(event) => props.onDateToChange(event.target.value)}
-              />
-            </Field>
-          </FieldGroup>
-          <div className="flex shrink-0 items-center gap-2">
-            {props.exportAction}
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="shrink-0"
-              aria-label="Làm mới chênh lệch"
-              disabled={props.isFetching}
-              onClick={props.onRetry}
+                <RefreshCw
+                  aria-hidden="true"
+                  className={
+                    props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined
+                  }
+                />
+              </Button>
+            </>
+          }
+          appliedFilters={[
+            Boolean(props.statusFilter) && {
+              label: 'Trạng thái xử lý',
+              clear: () => props.onStatusFilterChange(''),
+            },
+            Boolean(props.dateFrom || props.dateTo) && {
+              label: (props.dateFrom || 'Mọi ngày') + ' – ' + (props.dateTo || 'Hiện tại'),
+              clear: () => {
+                props.onDateFromChange('')
+                props.onDateToChange('')
+              },
+            },
+          ]}
+          onReset={() => {
+            props.onStatusFilterChange('')
+            props.onDateFromChange('')
+            props.onDateToChange('')
+          }}
+        >
+          <Field className="w-full sm:w-44">
+            <FieldLabel htmlFor="discrepancy-filter-status">Trạng thái</FieldLabel>
+            <NativeSelect
+              id="discrepancy-filter-status"
+              className="w-full"
+              aria-label="Lọc theo trạng thái"
+              value={props.statusFilter}
+              onChange={(event) =>
+                props.onStatusFilterChange(event.target.value as StockDiscrepancyStatus | '')
+              }
             >
-              <RefreshCw
-                aria-hidden="true"
-                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-              />
-            </Button>
-          </div>
-        </div>
+              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+              <NativeSelectOption value="PendingReview">Chờ xem xét</NativeSelectOption>
+              <NativeSelectOption value="EvidenceRequested">Chờ bằng chứng</NativeSelectOption>
+              <NativeSelectOption value="FollowUpPending">Đang xử lý tiếp</NativeSelectOption>
+              <NativeSelectOption value="Resolved">Đã xử lý</NativeSelectOption>
+              <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
+              <NativeSelectOption value="Duplicate">Trùng lặp</NativeSelectOption>
+            </NativeSelect>
+          </Field>
+          <Field className="w-full sm:w-40">
+            <FieldLabel htmlFor="discrepancy-filter-from">Từ ngày</FieldLabel>
+            <Input
+              id="discrepancy-filter-from"
+              aria-label="Từ ngày"
+              type="date"
+              value={props.dateFrom}
+              onChange={(event) => props.onDateFromChange(event.target.value)}
+            />
+          </Field>
+          <Field className="w-full sm:w-40">
+            <FieldLabel htmlFor="discrepancy-filter-to">Đến ngày</FieldLabel>
+            <Input
+              id="discrepancy-filter-to"
+              aria-label="Đến ngày"
+              type="date"
+              value={props.dateTo}
+              onChange={(event) => props.onDateToChange(event.target.value)}
+            />
+          </Field>
+        </InventoryFilterToolbar>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />
         ) : props.isError ? (

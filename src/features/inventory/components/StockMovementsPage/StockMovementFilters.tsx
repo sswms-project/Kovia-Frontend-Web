@@ -3,19 +3,17 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import type { ReactNode } from 'react'
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  InventoryFilterToolbar,
+  InventorySearch,
+  InventoryWarehouseFilter,
+} from '../InventoryFilterToolbar'
 import type { InventoryFilterOption, StockMovementType } from '../../types/inventory.types'
 import { STOCK_MOVEMENT_TYPES } from '../../types/inventory.types'
 
 interface StockMovementFiltersProps {
-  readonly open: boolean
+  readonly actions?: ReactNode
   readonly searchText: string
   readonly warehouseId: string
   readonly slotId: string
@@ -31,8 +29,6 @@ interface StockMovementFiltersProps {
   readonly areProductsError: boolean
   readonly areLocationsLoading: boolean
   readonly areLocationsError: boolean
-  readonly activeFilterCount: number
-  readonly onOpenChange: (open: boolean) => void
   readonly onProductChange: (value: string) => void
   readonly onSearchChange: (value: string) => void
   readonly onWarehouseChange: (value: string) => void
@@ -62,7 +58,7 @@ const movementOptions = [
 ] as const
 
 export function StockMovementFilters({
-  open,
+  actions,
   searchText,
   warehouseId,
   slotId,
@@ -78,8 +74,6 @@ export function StockMovementFilters({
   areProductsError,
   areLocationsLoading,
   areLocationsError,
-  activeFilterCount,
-  onOpenChange,
   onProductChange,
   onSearchChange,
   onWarehouseChange,
@@ -96,177 +90,174 @@ export function StockMovementFilters({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-sm">
-        <SheetHeader>
-          <SheetTitle>Lọc lịch sử biến động</SheetTitle>
-          <SheetDescription>
-            Thu hẹp dữ liệu theo sản phẩm, nghiệp vụ hoặc thời gian.
-          </SheetDescription>
-        </SheetHeader>
-        <FieldGroup className="flex-1 p-4">
-          {areLocationsError ? (
-            <div
-              className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 border p-3"
-              role="alert"
-            >
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <div>
-                <p className="text-xs font-medium">Không thể tải danh sách kho hoặc vị trí</p>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0 text-xs"
-                  onClick={onRetryLocations}
-                >
-                  Thử tải lại
-                </Button>
-              </div>
+    <InventoryFilterToolbar
+      search={
+        <InventorySearch
+          placeholder="Tìm SKU, tên mặt hàng hoặc mã phiếu nhận"
+          value={searchText}
+          onChange={onSearchChange}
+        />
+      }
+      warehouse={
+        <InventoryWarehouseFilter
+          disabled={areLocationsLoading}
+          value={warehouseId}
+          onChange={onWarehouseChange}
+          options={warehouseOptions}
+        />
+      }
+      actions={actions}
+      appliedFilters={[
+        Boolean(slotId) && {
+          label:
+            'Vị trí ' + (slotOptions.find((option) => option.value === slotId)?.label ?? 'đã chọn'),
+          clear: () => onSlotChange(''),
+        },
+        Boolean(productId) && {
+          label:
+            productOptions.find((option) => option.value === productId)?.label ??
+            'Mặt hàng đã chọn',
+          clear: () => onProductChange(''),
+        },
+        Boolean(movementType) && {
+          label:
+            movementOptions.find((option) => option.value === movementType)?.label ??
+            'Loại biến động',
+          clear: () => onMovementTypeChange(''),
+        },
+        Boolean(dateFrom || dateTo) && {
+          label: (dateFrom || 'Mọi ngày') + ' – ' + (dateTo || 'Hiện tại'),
+          clear: () => {
+            onDateFromChange('')
+            onDateToChange('')
+          },
+        },
+      ]}
+      onReset={onResetFilters}
+    >
+      <FieldGroup>
+        {areLocationsError ? (
+          <div
+            className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 border p-3"
+            role="alert"
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-medium">Không thể tải danh sách kho hoặc vị trí</p>
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={onRetryLocations}
+              >
+                Thử tải lại
+              </Button>
             </div>
-          ) : null}
-          {areProductsError ? (
-            <div
-              className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 border p-3"
-              role="alert"
-            >
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              <div>
-                <p className="text-xs font-medium">Không thể tải danh sách sản phẩm</p>
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0 text-xs"
-                  onClick={onRetryProducts}
-                >
-                  Thử tải lại
-                </Button>
-              </div>
+          </div>
+        ) : null}
+        {areProductsError ? (
+          <div
+            className="border-destructive/30 bg-destructive/5 text-destructive flex items-start gap-2 border p-3"
+            role="alert"
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-medium">Không thể tải danh sách sản phẩm</p>
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={onRetryProducts}
+              >
+                Thử tải lại
+              </Button>
             </div>
-          ) : null}
+          </div>
+        ) : null}
+        <Field>
+          <FieldLabel htmlFor="movement-slot">Vị trí</FieldLabel>
+          <NativeSelect
+            id="movement-slot"
+            className="h-11 sm:h-8"
+            value={slotId}
+            disabled={!warehouseId || areLocationsLoading}
+            onChange={(event) => onSlotChange(event.target.value)}
+          >
+            <NativeSelectOption value="">
+              {warehouseId ? 'Tất cả vị trí' : 'Chọn kho trước'}
+            </NativeSelectOption>
+            {slotOptions.map((option) => (
+              <NativeSelectOption key={option.value} value={option.value}>
+                {option.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="movement-product">Sản phẩm</FieldLabel>
+          <NativeSelect
+            id="movement-product"
+            className="h-11 sm:h-8"
+            value={productId}
+            disabled={areProductsLoading}
+            onChange={(event) => onProductChange(event.target.value)}
+          >
+            <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
+            {productOptions.map((option) => (
+              <NativeSelectOption key={option.value} value={option.value}>
+                {option.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="movement-type">Loại biến động</FieldLabel>
+          <NativeSelect
+            id="movement-type"
+            className="h-11 sm:h-8"
+            value={movementType}
+            onChange={(event) => handleMovementTypeChange(event.target.value)}
+          >
+            <NativeSelectOption value="">Tất cả loại</NativeSelectOption>
+            {movementOptions.map((option) => (
+              <NativeSelectOption key={option.value} value={option.value}>
+                {option.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
           <Field>
-            <FieldLabel htmlFor="movement-search">SKU hoặc tên sản phẩm</FieldLabel>
+            <FieldLabel htmlFor="movement-date-from">Từ ngày</FieldLabel>
             <Input
-              id="movement-search"
-              value={searchText}
-              placeholder="Nhập SKU hoặc tên sản phẩm"
-              onChange={(event) => onSearchChange(event.target.value)}
+              id="movement-date-from"
+              type="date"
+              className="h-11 sm:h-8"
+              value={dateFrom}
+              max={dateTo || undefined}
+              aria-invalid={!isDateRangeValid}
+              onChange={(event) => onDateFromChange(event.target.value)}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="movement-warehouse">Kho</FieldLabel>
-            <NativeSelect
-              id="movement-warehouse"
+            <FieldLabel htmlFor="movement-date-to">Đến ngày</FieldLabel>
+            <Input
+              id="movement-date-to"
+              type="date"
               className="h-11 sm:h-8"
-              value={warehouseId}
-              disabled={areLocationsLoading}
-              onChange={(event) => onWarehouseChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-              {warehouseOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              value={dateTo}
+              min={dateFrom || undefined}
+              aria-invalid={!isDateRangeValid}
+              onChange={(event) => onDateToChange(event.target.value)}
+            />
           </Field>
-          <Field>
-            <FieldLabel htmlFor="movement-slot">Vị trí</FieldLabel>
-            <NativeSelect
-              id="movement-slot"
-              className="h-11 sm:h-8"
-              value={slotId}
-              disabled={!warehouseId || areLocationsLoading}
-              onChange={(event) => onSlotChange(event.target.value)}
-            >
-              <NativeSelectOption value="">
-                {warehouseId ? 'Tất cả vị trí' : 'Chọn kho trước'}
-              </NativeSelectOption>
-              {slotOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="movement-product">Sản phẩm</FieldLabel>
-            <NativeSelect
-              id="movement-product"
-              className="h-11 sm:h-8"
-              value={productId}
-              disabled={areProductsLoading}
-              onChange={(event) => onProductChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-              {productOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="movement-type">Loại biến động</FieldLabel>
-            <NativeSelect
-              id="movement-type"
-              className="h-11 sm:h-8"
-              value={movementType}
-              onChange={(event) => handleMovementTypeChange(event.target.value)}
-            >
-              <NativeSelectOption value="">Tất cả loại</NativeSelectOption>
-              {movementOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field>
-              <FieldLabel htmlFor="movement-date-from">Từ ngày</FieldLabel>
-              <Input
-                id="movement-date-from"
-                type="date"
-                className="h-11 sm:h-8"
-                value={dateFrom}
-                max={dateTo || undefined}
-                aria-invalid={!isDateRangeValid}
-                onChange={(event) => onDateFromChange(event.target.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="movement-date-to">Đến ngày</FieldLabel>
-              <Input
-                id="movement-date-to"
-                type="date"
-                className="h-11 sm:h-8"
-                value={dateTo}
-                min={dateFrom || undefined}
-                aria-invalid={!isDateRangeValid}
-                onChange={(event) => onDateToChange(event.target.value)}
-              />
-            </Field>
-          </div>
-          {!isDateRangeValid ? (
-            <p className="text-destructive text-xs" role="alert">
-              Ngày bắt đầu không được sau ngày kết thúc.
-            </p>
-          ) : null}
-        </FieldGroup>
-        <SheetFooter>
-          <Button type="button" disabled={!isDateRangeValid} onClick={() => onOpenChange(false)}>
-            Xem kết quả
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={activeFilterCount === 0}
-            onClick={onResetFilters}
-          >
-            Đặt lại
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </div>
+        {!isDateRangeValid ? (
+          <p className="text-destructive text-xs" role="alert">
+            Ngày bắt đầu không được sau ngày kết thúc.
+          </p>
+        ) : null}
+      </FieldGroup>
+    </InventoryFilterToolbar>
   )
 }

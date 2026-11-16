@@ -1,5 +1,8 @@
 'use client'
 
+import { useInventoryProductLookup } from '../hooks/use-inventory-product-lookup'
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 import {
@@ -12,7 +15,6 @@ import { toast } from 'sonner'
 import { P } from '@/config/permissionCodes'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useSuppliersQuery } from '@/features/supplier/hooks/use-suppliers'
-import { useProductOptionsQuery } from '@/features/inbound-request/hooks/use-inbound-requests'
 import { useWarehousesQuery } from '@/features/warehouse/hooks/use-warehouse'
 import { DamageCaseDirectory } from '../components/DamageCasesPage'
 import {
@@ -26,11 +28,15 @@ import type { DamageCase, DamageCaseStatus, DamageDisposition } from '../types/i
 export default function DamageCasesPage() {
   const meQuery = useMeQuery()
   const [page, setPage] = useState(1)
-  const [warehouseId, setWarehouseId] = useState('')
-  const [productId, setProductId] = useState('')
-  const [status, setStatus] = useState<DamageCaseStatus | ''>('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [warehouseId, setWarehouseId] = useInventoryFilter<string>('warehouse', '')
+  const [productId, setProductId] = useInventoryFilter<string>('DamageCasesPage.productId', '')
+  const productLookup = useInventoryProductLookup('DamageCasesPage.productLabel', productId)
+  const [status, setStatus] = useInventoryFilter<DamageCaseStatus | ''>(
+    'DamageCasesPage.status',
+    ''
+  )
+  const [dateFrom, setDateFrom] = useInventoryFilter<string>('DamageCasesPage.dateFrom', '')
+  const [dateTo, setDateTo] = useInventoryFilter<string>('DamageCasesPage.dateTo', '')
   const exportFilters = {
     pageNumber: page,
     pageSize: 20,
@@ -51,7 +57,6 @@ export default function DamageCasesPage() {
     needTotalCount: true,
     isActive: true,
   })
-  const productsQuery = useProductOptionsQuery({ pageNumber: 1, pageSize: 100, status: 'Active' })
   const warehouseOptions = useMemo(
     () =>
       (warehousesQuery.data?.items ?? []).map((item) => ({
@@ -59,14 +64,6 @@ export default function DamageCasesPage() {
         label: `${item.warehouseCode} · ${item.warehouseName}`,
       })),
     [warehousesQuery.data?.items]
-  )
-  const productOptions = useMemo(
-    () =>
-      (productsQuery.data?.items ?? []).map((item) => ({
-        value: item.id,
-        label: `${item.sku} · ${item.productName}`,
-      })),
-    [productsQuery.data?.items]
   )
   async function decide(
     item: DamageCase,
@@ -142,7 +139,7 @@ export default function DamageCasesPage() {
       productId={productId}
       statusFilter={status}
       warehouseOptions={warehouseOptions}
-      productOptions={productOptions}
+      productLookup={productLookup}
       dateFrom={dateFrom}
       dateTo={dateTo}
       onDateFromChange={(value) => {

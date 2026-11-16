@@ -346,6 +346,7 @@ export interface ApproveStockAdjustmentVoucherRequest {
 }
 
 export interface StockAdjustmentVoucherListQuery {
+  searchTerm?: string
   pageNumber: number
   pageSize: number
   warehouseId?: string

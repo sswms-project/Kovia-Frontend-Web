@@ -1,5 +1,7 @@
 'use client'
 
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
@@ -34,11 +36,14 @@ export default function OpeningStocksPage({ recordId }: { readonly recordId?: st
   const approvalCommands = useRef(new Map<string, string>())
   const meQuery = useMeQuery()
   const [page, setPage] = useState(1)
-  const [filterWarehouseId, setFilterWarehouseId] = useState('')
-  const [status, setStatus] = useState<OpeningStockStatus | ''>('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [search, setSearch] = useState('')
+  const [filterWarehouseId, setFilterWarehouseId] = useInventoryFilter<string>('warehouse', '')
+  const [status, setStatus] = useInventoryFilter<OpeningStockStatus | ''>(
+    'OpeningStocksPage.status',
+    ''
+  )
+  const [dateFrom, setDateFrom] = useInventoryFilter<string>('OpeningStocksPage.dateFrom', '')
+  const [dateTo, setDateTo] = useInventoryFilter<string>('OpeningStocksPage.dateTo', '')
+  const [search, setSearch] = useInventoryFilter<string>('OpeningStocksPage.search', '')
   const debouncedSearch = useDebouncedValue(search, 250)
   const exportFilters = {
     pageNumber: page,

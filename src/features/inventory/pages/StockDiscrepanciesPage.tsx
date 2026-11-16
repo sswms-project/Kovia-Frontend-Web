@@ -1,5 +1,8 @@
 'use client'
 
+import { useInventoryProductLookup } from '../hooks/use-inventory-product-lookup'
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 import {
@@ -38,11 +41,21 @@ import type {
 export default function StockDiscrepanciesPage() {
   const meQuery = useMeQuery()
   const [page, setPage] = useState(1)
-  const [filterWarehouseId, setFilterWarehouseId] = useState('')
-  const [filterProductId, setFilterProductId] = useState('')
-  const [status, setStatus] = useState<StockDiscrepancyStatus | ''>('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [filterWarehouseId, setFilterWarehouseId] = useInventoryFilter<string>('warehouse', '')
+  const [filterProductId, setFilterProductId] = useInventoryFilter<string>(
+    'StockDiscrepanciesPage.filterProductId',
+    ''
+  )
+  const productLookup = useInventoryProductLookup(
+    'StockDiscrepanciesPage.productLabel',
+    filterProductId
+  )
+  const [status, setStatus] = useInventoryFilter<StockDiscrepancyStatus | ''>(
+    'StockDiscrepanciesPage.status',
+    ''
+  )
+  const [dateFrom, setDateFrom] = useInventoryFilter<string>('StockDiscrepanciesPage.dateFrom', '')
+  const [dateTo, setDateTo] = useInventoryFilter<string>('StockDiscrepanciesPage.dateTo', '')
   const exportFilters = {
     pageNumber: page,
     pageSize: 20,
@@ -255,6 +268,7 @@ export default function StockDiscrepanciesPage() {
         setPage(1)
       }}
       warehouseOptions={warehouseOptions}
+      productLookup={productLookup}
       productOptions={productOptions}
       slotOptions={slotOptions}
       lotOptions={lotOptions}

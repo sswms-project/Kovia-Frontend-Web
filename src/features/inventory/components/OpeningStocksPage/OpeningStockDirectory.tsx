@@ -1,5 +1,11 @@
 'use client'
 
+import {
+  InventoryFilterToolbar,
+  InventorySearch,
+  InventoryWarehouseFilter,
+} from '@/features/inventory/components/InventoryFilterToolbar'
+
 import type { ReactNode } from 'react'
 import { useId, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -574,107 +580,105 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
         )
       ) : (
         <OperationalListPanel aria-label="Danh sách chứng từ tồn đầu kỳ">
-          <div className="flex shrink-0 items-end gap-3 border-b p-3">
-            <FieldGroup
-              role="search"
-              aria-label="Tìm kiếm và lọc chứng từ tồn đầu"
-              className="grid min-w-0 flex-1 shrink-0 grid-cols-2 items-end gap-3 xl:grid-cols-[minmax(10rem,1fr)_minmax(8rem,16rem)_9rem_10rem_10rem]"
-            >
-              <Field className="col-span-2 min-w-0 gap-1.5 xl:col-span-1">
-                <FieldLabel htmlFor={`${filterId}-search`}>Tìm kiếm</FieldLabel>
-                <Input
-                  id={`${filterId}-search`}
-                  name="openingStockSearch"
-                  aria-label="Tìm mã chứng từ"
-                  autoComplete="off"
-                  spellCheck={false}
-                  maxLength={100}
-                  placeholder="Tìm mã chứng từ…"
-                  value={props.search}
-                  onChange={(event) => props.onSearchChange(event.target.value)}
-                />
-              </Field>
-              <Field className="min-w-0 gap-1.5">
-                <FieldLabel htmlFor={`${filterId}-warehouse`}>Kho</FieldLabel>
-                <NativeSelect
-                  id={`${filterId}-warehouse`}
-                  name="openingStockWarehouse"
-                  className="w-full min-w-0"
-                  aria-label="Lọc theo kho"
-                  value={props.filterWarehouseId}
-                  onChange={(event) => props.onFilterWarehouseChange(event.target.value)}
+          <InventoryFilterToolbar
+            search={
+              <InventorySearch
+                placeholder="Tìm mã phiếu tồn đầu"
+                value={props.search}
+                onChange={props.onSearchChange}
+              />
+            }
+            warehouse={
+              <InventoryWarehouseFilter
+                value={props.filterWarehouseId}
+                onChange={props.onFilterWarehouseChange}
+                options={props.warehouseOptions}
+              />
+            }
+            actions={
+              <>
+                {props.exportAction}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  aria-label="Làm mới tồn đầu kỳ"
+                  disabled={props.isFetching}
+                  onClick={props.onRetry}
                 >
-                  <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                  {props.warehouseOptions.map((option) => (
-                    <NativeSelectOption key={option.value} value={option.value}>
-                      {option.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <Field className="min-w-0 gap-1.5">
-                <FieldLabel htmlFor={`${filterId}-status`}>Trạng thái</FieldLabel>
-                <NativeSelect
-                  id={`${filterId}-status`}
-                  name="openingStockStatus"
-                  className="w-full min-w-0"
-                  aria-label="Lọc theo trạng thái"
-                  value={props.statusFilter}
-                  onChange={(event) =>
-                    props.onStatusFilterChange(event.target.value as OpeningStockStatus | '')
-                  }
-                >
-                  <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-                  <NativeSelectOption value="Draft">Nháp</NativeSelectOption>
-                  <NativeSelectOption value="PendingApproval">Chờ duyệt</NativeSelectOption>
-                  <NativeSelectOption value="Returned">Trả lại</NativeSelectOption>
-                  <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
-                  <NativeSelectOption value="Posted">Đã ghi sổ</NativeSelectOption>
-                  <NativeSelectOption value="Cancelled">Đã hủy</NativeSelectOption>
-                </NativeSelect>
-              </Field>
-              <Field className="min-w-0 gap-1.5">
-                <FieldLabel htmlFor={`${filterId}-from`}>Ngày ghi nhận từ</FieldLabel>
-                <Input
-                  id={`${filterId}-from`}
-                  name="openingStockDateFrom"
-                  type="date"
-                  value={props.dateFrom}
-                  onChange={(event) => props.onDateFromChange(event.target.value)}
-                />
-              </Field>
-              <Field className="min-w-0 gap-1.5">
-                <FieldLabel htmlFor={`${filterId}-to`}>Ngày ghi nhận đến</FieldLabel>
-                <Input
-                  id={`${filterId}-to`}
-                  name="openingStockDateTo"
-                  type="date"
-                  value={props.dateTo}
-                  min={props.dateFrom || undefined}
-                  onChange={(event) => props.onDateToChange(event.target.value)}
-                />
-              </Field>
-            </FieldGroup>
-            <div className="flex shrink-0 items-center gap-2">
-              {props.exportAction}
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                aria-label="Làm mới tồn đầu kỳ"
-                disabled={props.isFetching}
-                onClick={props.onRetry}
+                  <RefreshCw
+                    aria-hidden="true"
+                    className={
+                      props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined
+                    }
+                  />
+                </Button>
+              </>
+            }
+            appliedFilters={[
+              Boolean(props.statusFilter) && {
+                label: 'Trạng thái phiếu',
+                clear: () => props.onStatusFilterChange(''),
+              },
+              Boolean(props.dateFrom || props.dateTo) && {
+                label: (props.dateFrom || 'Mọi ngày') + ' – ' + (props.dateTo || 'Hiện tại'),
+                clear: () => {
+                  props.onDateFromChange('')
+                  props.onDateToChange('')
+                },
+              },
+            ]}
+            onReset={() => {
+              props.onSearchChange('')
+              props.onStatusFilterChange('')
+              props.onDateFromChange('')
+              props.onDateToChange('')
+            }}
+          >
+            <Field className="min-w-0 gap-1.5">
+              <FieldLabel htmlFor={`${filterId}-status`}>Trạng thái</FieldLabel>
+              <NativeSelect
+                id={`${filterId}-status`}
+                name="openingStockStatus"
+                className="w-full min-w-0"
+                aria-label="Lọc theo trạng thái"
+                value={props.statusFilter}
+                onChange={(event) =>
+                  props.onStatusFilterChange(event.target.value as OpeningStockStatus | '')
+                }
               >
-                <RefreshCw
-                  aria-hidden="true"
-                  className={
-                    props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined
-                  }
-                />
-              </Button>
-            </div>
-          </div>
+                <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+                <NativeSelectOption value="Draft">Nháp</NativeSelectOption>
+                <NativeSelectOption value="PendingApproval">Chờ duyệt</NativeSelectOption>
+                <NativeSelectOption value="Returned">Trả lại</NativeSelectOption>
+                <NativeSelectOption value="Rejected">Từ chối</NativeSelectOption>
+                <NativeSelectOption value="Posted">Đã ghi sổ</NativeSelectOption>
+                <NativeSelectOption value="Cancelled">Đã hủy</NativeSelectOption>
+              </NativeSelect>
+            </Field>
+            <Field className="min-w-0 gap-1.5">
+              <FieldLabel htmlFor={`${filterId}-from`}>Ngày ghi nhận từ</FieldLabel>
+              <Input
+                id={`${filterId}-from`}
+                name="openingStockDateFrom"
+                type="date"
+                value={props.dateFrom}
+                onChange={(event) => props.onDateFromChange(event.target.value)}
+              />
+            </Field>
+            <Field className="min-w-0 gap-1.5">
+              <FieldLabel htmlFor={`${filterId}-to`}>Ngày ghi nhận đến</FieldLabel>
+              <Input
+                id={`${filterId}-to`}
+                name="openingStockDateTo"
+                type="date"
+                value={props.dateTo}
+                min={props.dateFrom || undefined}
+                onChange={(event) => props.onDateToChange(event.target.value)}
+              />
+            </Field>
+          </InventoryFilterToolbar>
           {props.isLoading ? (
             <OperationalLoadingState rows={8} />
           ) : props.isError ? (

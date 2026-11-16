@@ -1,5 +1,11 @@
 'use client'
 
+import {
+  InventoryFilterToolbar,
+  InventorySearch,
+  InventoryWarehouseFilter,
+} from '@/features/inventory/components/InventoryFilterToolbar'
+
 import { useEffect, useState, type ComponentProps, type CSSProperties } from 'react'
 import { RefreshCw } from 'lucide-react'
 import {
@@ -43,6 +49,8 @@ interface InventoryAnomalyWorkspaceProps {
   readonly isLoading: boolean
   readonly isFetching: boolean
   readonly isError: boolean
+  readonly search: string
+  readonly onSearchChange: (value: string) => void
   readonly onWarehouseChange: (value: string) => void
   readonly onSeverityChange: (value: AnomalySeverity | '') => void
   readonly onReviewStatusChange: (value: AnomalyReviewStatus | '') => void
@@ -66,7 +74,7 @@ function getStoredPanelWidth() {
 
 export function InventoryAnomalyWorkspace(props: InventoryAnomalyWorkspaceProps) {
   const { items, isLoading, isFetching, isError, reviewStatus, severity } = props
-  const isFiltered = Boolean(severity) || reviewStatus !== 'Open'
+  const isFiltered = Boolean(props.search || severity) || reviewStatus !== 'Open'
   const isPanelOpen = Boolean(props.detail.anomaly)
   const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH)
   const [isResizing, setIsResizing] = useState(false)
@@ -96,22 +104,58 @@ export function InventoryAnomalyWorkspace(props: InventoryAnomalyWorkspaceProps)
       <InventoryWorkspaceNavigation currentView="anomalies" permissions={props.permissions} />
       <AnomalyScanOverview {...props.overview} />
       <OperationalListPanel aria-labelledby="anomaly-list-title">
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b p-3">
-          <h2 id="anomaly-list-title" className="mr-auto text-sm font-semibold">
-            Cảnh báo bất thường
-          </h2>
-          <NativeSelect
-            aria-label="Kho"
-            className="h-11 sm:h-8"
-            value={props.warehouseId}
-            onChange={(event) => props.onWarehouseChange(event.target.value)}
-          >
-            {props.warehouseOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+        <InventoryFilterToolbar
+          search={
+            <InventorySearch
+              value={props.search}
+              onChange={props.onSearchChange}
+              placeholder="Tìm SKU hoặc tên mặt hàng"
+            />
+          }
+          warehouse={
+            <InventoryWarehouseFilter
+              requireWarehouse
+              value={props.warehouseId}
+              onChange={props.onWarehouseChange}
+              options={props.warehouseOptions}
+            />
+          }
+          actions={
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-11 sm:size-8"
+                disabled={isFetching || !props.warehouseId}
+                aria-label="Làm mới cảnh báo"
+                onClick={props.onRetry}
+              >
+                <RefreshCw
+                  className={isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+                  aria-hidden="true"
+                />
+              </Button>
+            </>
+          }
+          appliedFilters={[
+            Boolean(severity) && {
+              label: severity ? ANOMALY_SEVERITY_LABELS[severity] : '',
+              clear: () => props.onSeverityChange(''),
+            },
+            reviewStatus !== 'Open' && {
+              label: reviewStatus
+                ? ANOMALY_REVIEW_STATUS_LABELS[reviewStatus]
+                : 'Mọi trạng thái rà soát',
+              clear: () => props.onReviewStatusChange('Open'),
+            },
+          ]}
+          onReset={() => {
+            props.onSearchChange('')
+            props.onSeverityChange('')
+            props.onReviewStatusChange('Open')
+          }}
+        >
           <NativeSelect
             aria-label="Mức độ"
             className="h-11 sm:h-8"
@@ -137,21 +181,10 @@ export function InventoryAnomalyWorkspace(props: InventoryAnomalyWorkspaceProps)
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="size-11 sm:size-8"
-            disabled={isFetching}
-            aria-label="Làm mới cảnh báo"
-            onClick={props.onRetry}
-          >
-            <RefreshCw
-              className={isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-              aria-hidden="true"
-            />
-          </Button>
-        </div>
+        </InventoryFilterToolbar>
+        <h2 id="anomaly-list-title" className="sr-only">
+          Cảnh báo bất thường
+        </h2>
         <p className="sr-only" aria-live="polite">
           {isFetching ? 'Đang cập nhật cảnh báo' : 'Cảnh báo đã cập nhật'}
         </p>
@@ -164,11 +197,19 @@ export function InventoryAnomalyWorkspace(props: InventoryAnomalyWorkspaceProps)
           />
         ) : items.length === 0 ? (
           <OperationalEmptyState
-            title={isFiltered ? 'Không có cảnh báo phù hợp' : 'Không có cảnh báo cần xem xét'}
+            title={
+              !props.warehouseId
+                ? 'Chọn kho để xem cảnh báo'
+                : isFiltered
+                  ? 'Không có cảnh báo phù hợp'
+                  : 'Không có cảnh báo cần xem xét'
+            }
             description={
-              isFiltered
-                ? 'Thử đổi mức độ hoặc trạng thái xem xét.'
-                : 'Mô hình chưa thấy biến động nào bất thường ở kho này.'
+              !props.warehouseId
+                ? 'Chọn một kho để xem cảnh báo và quét bất thường.'
+                : isFiltered
+                  ? 'Thử đổi từ khóa, mức độ hoặc trạng thái rà soát.'
+                  : 'Mô hình chưa thấy biến động nào bất thường ở kho này.'
             }
           />
         ) : (
