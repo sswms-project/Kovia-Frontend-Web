@@ -21,6 +21,7 @@ export const NOTIFICATION_TYPES = [
   'InboundArrivalUpcoming',
   'SupplierReturnUpdate',
   'DailyOperationsDigest',
+  'WatchRuleTriggered',
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]

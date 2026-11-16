@@ -8,14 +8,23 @@ import {
 import { memo, useMemo } from 'react'
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { AiActionConfirmationCard } from './AiActionConfirmationCard'
 import { AiAssistantMascot } from './AiAssistantMascot'
 import { AiCopyButton } from './AiCopyButton'
+import { AiFormCard } from './AiFormCard'
 import { AiMarkdown } from './AiMarkdown'
 import { AiNextSteps } from './AiNextSteps'
+import { AiDecisionCard } from './AiDecisionCard'
+import { AiInsightListCard } from './AiInsightListCard'
+import { OutcomeReportCard } from './AiOutcomeReport'
+import { AiSimulationCard } from './AiSimulationCard'
+import { AiSupersededDraftCard } from './AiSupersededDraftCard'
 import { AiResultListCard } from './AiResultListCard'
 import { AiThinkingSteps } from './AiThinkingSteps'
 import { getAiEntityLinks } from '../../utils/ai-entity-links'
+import { AI_FORM_TOUCH_ICON_BUTTON } from '../../utils/ai-form-touch-classes'
+import { useAiFormCards } from '../../hooks/use-ai-form-cards'
 import type { AiThinkingSummary } from '../../utils/ai-thinking'
 import { AiUserBubble } from './AiUserBubble'
 
@@ -35,6 +44,8 @@ interface AiChatMessageBubbleProps extends AiDraftCallbacks {
   readonly onRetry?: () => void
   /** Steps of this answer, kept for the session (none after a reload). */
   readonly thinking?: AiThinkingSummary
+  /** Drafts whose confirmation card in this message is an older copy (see getSupersededAiDraftCards). */
+  readonly supersededDraftIds?: ReadonlySet<string>
 }
 
 /** Memoized: a saved message does not change while the next answer streams in below it. */
@@ -48,8 +59,10 @@ export const AiChatMessageBubble = memo(function AiChatMessageBubble({
   onQuickReply,
   onRetry,
   thinking,
+  supersededDraftIds,
 }: AiChatMessageBubbleProps) {
   const entities = useMemo(() => getAiEntityLinks(message.cards), [message.cards])
+  const formCards = useAiFormCards(message.id, message.cards)
   if (message.role === 'User') return <AiUserBubble content={message.content} />
 
   // No entrance animation: the latest answer replaces its own streamed text in place.
@@ -63,7 +76,35 @@ export const AiChatMessageBubble = memo(function AiChatMessageBubble({
           if (card.type === AI_CARD_TYPES.resultList) {
             return <AiResultListCard key={`list-${index}`} card={card} onNavigate={onNavigate} />
           }
+          if (card.type === AI_CARD_TYPES.insightList) {
+            return (
+              <AiInsightListCard key={`insight-${index}`} card={card} onNavigate={onNavigate} />
+            )
+          }
+          if (card.type === AI_CARD_TYPES.simulation) {
+            return (
+              <AiSimulationCard key={`simulation-${index}`} card={card} onNavigate={onNavigate} />
+            )
+          }
+          if (card.type === AI_CARD_TYPES.decision) {
+            return <AiDecisionCard key={`decision-${index}`} card={card} onNavigate={onNavigate} />
+          }
+          if (card.type === AI_CARD_TYPES.outcomeReport) {
+            return (
+              <OutcomeReportCard
+                key={`outcome-${index}`}
+                card={card}
+                onNavigate={onNavigate}
+                onSend={onQuickReply}
+                onRetry={onRetry}
+              />
+            )
+          }
           if (card.type === AI_CARD_TYPES.actionConfirmation && card.draftId) {
+            // An older copy of a draft that a later card shows: no second live version.
+            if (supersededDraftIds?.has(card.draftId)) {
+              return <AiSupersededDraftCard key={card.draftId} summary={card.summary} />
+            }
             const draft = drafts.get(card.draftId)
             return (
               <AiActionConfirmationCard
@@ -71,6 +112,8 @@ export const AiChatMessageBubble = memo(function AiChatMessageBubble({
                 card={card}
                 status={draft?.status ?? AI_DRAFT_STATUSES.pending}
                 resultEntityId={draft?.resultEntityId ?? null}
+                editable={draft?.editable ?? false}
+                revision={draft?.revision ?? null}
                 processingAction={processing?.draftId === card.draftId ? processing.action : null}
                 isLocked={processing !== null}
                 onConfirm={onConfirmAction}
@@ -78,6 +121,13 @@ export const AiChatMessageBubble = memo(function AiChatMessageBubble({
                 onNavigate={onNavigate}
               />
             )
+          }
+          if (card.type === AI_CARD_TYPES.collectInput) {
+            // A card that fails validation is not drawn at all (see readAiFormCard).
+            const form = formCards[index]
+            return form ? (
+              <AiFormCard key={form.flowId} form={form} onRestart={onQuickReply} />
+            ) : null
           }
           return null
         })}
@@ -92,7 +142,7 @@ export const AiChatMessageBubble = memo(function AiChatMessageBubble({
               size="icon-xs"
               aria-label="Hỏi lại câu này"
               title="Hỏi lại"
-              className="text-muted-foreground"
+              className={cn('text-muted-foreground', AI_FORM_TOUCH_ICON_BUTTON)}
               onClick={onRetry}
             >
               <RotateCcw aria-hidden="true" />

@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { ChevronDown, RefreshCw } from 'lucide-react'
@@ -206,17 +206,23 @@ function CollapsibleNavigationSection({
   onNavigate,
   appearance,
 }: SidebarNavigationSectionProps) {
+  const isActive = isNavSectionActive(pathname, section)
+  const [isOpen, setIsOpen] = useState(isActive)
+  const [wasActive, setWasActive] = useState(isActive)
+
+  // Follow the route: the section holding the current page opens, the one left behind closes. Done
+  // by adjusting state (not by a changing `key`) so nothing remounts and the close can animate.
+  if (isActive !== wasActive) {
+    setWasActive(isActive)
+    setIsOpen(isActive)
+  }
+
   if (!section.label || !section.icon) return null
 
   const Icon = section.icon
-  const isActive = isNavSectionActive(pathname, section)
 
   return (
-    <Collapsible
-      key={`${section.id}-${isActive ? 'active' : 'inactive'}`}
-      defaultOpen={isActive}
-      className="group/collapsible"
-    >
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="group/collapsible">
       <SidebarGroup className="px-2 py-1">
         <SidebarGroupContent>
           <SidebarMenu>

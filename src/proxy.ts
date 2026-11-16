@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { USER_ROLES, type UserRole } from '@/config/roles'
 import { getAllowedRolesForPath } from '@/config/route-permissions'
+import { loginUrlFor } from '@/features/auth/utils/auth-return-url'
 import { decodeJwtPayload } from '@/lib/jwt'
 import { APP_ROUTES } from '@/routes/app-routes'
 
@@ -36,12 +37,15 @@ export function proxy(request: NextRequest) {
   const isPublic = pathname === APP_ROUTES.home || PUBLIC_PATHS.some((p) => pathname.startsWith(p))
   const isAuthPath = AUTH_PATHS.some((p) => pathname.startsWith(p))
 
+  // A deep link (e.g. /ai-alerts?alert=<id>) survives the sign-in: login sends the user back after checking it.
+  const loginUrl = new URL(loginUrlFor(pathname + request.nextUrl.search), request.url)
+
   if (!isPublic && !token) {
-    return NextResponse.redirect(new URL(APP_ROUTES.auth.login, request.url))
+    return NextResponse.redirect(loginUrl)
   }
 
   if (!isPublic && token && !role) {
-    const response = NextResponse.redirect(new URL(APP_ROUTES.auth.login, request.url))
+    const response = NextResponse.redirect(loginUrl)
     response.cookies.delete('access_token')
     return response
   }

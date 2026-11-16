@@ -5,6 +5,8 @@ import { Check, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { logger } from '@/lib/logger'
+import { cn } from '@/lib/utils'
+import { AI_FORM_TOUCH_ICON_BUTTON } from '../../utils/ai-form-touch-classes'
 
 const COPIED_FEEDBACK_MS = 1500
 
@@ -36,7 +38,7 @@ export function AiCopyButton({ text }: { readonly text: string }) {
       variant="ghost"
       size="icon-xs"
       aria-label={isCopied ? 'Đã sao chép' : 'Sao chép câu trả lời'}
-      className="text-muted-foreground"
+      className={cn('text-muted-foreground', AI_FORM_TOUCH_ICON_BUTTON)}
       onClick={() => void handleCopy()}
     >
       {isCopied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}

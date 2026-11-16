@@ -1,7 +1,10 @@
 import type { AiStreamStep, AiStreamStepKind, AiStreamStepState } from '../types/ai-assistant.types'
 
-/** How a turn's processing ended (or that it is still running). */
-export type AiThinkingOutcome = 'running' | 'done' | 'failed' | 'stopped'
+/**
+ * How a turn's processing ended (or that it is still running). `responding`: the steps are over and
+ * the answer text is arriving, so the live thinking row collapses into its summary.
+ */
+export type AiThinkingOutcome = 'running' | 'responding' | 'done' | 'failed' | 'stopped'
 
 /** The real steps of one turn plus the client-measured time from send to its end. */
 export interface AiThinkingSummary {
@@ -92,9 +95,13 @@ export function describeAiThinking({ steps, outcome, elapsedMs }: AiThinkingSumm
 
   const checked = countCheckedSources(steps)
   const failed = countFailedSources(steps)
+  const isResponding = outcome === 'responding'
   if (checked === 0 && failed > 0) return `Không lấy được ${failed} nguồn dữ liệu · ${time}`
-  const parts = [checked > 0 ? `Đã kiểm tra ${checked} nguồn dữ liệu` : 'Đã trả lời']
+  const parts = [
+    checked > 0 ? `Đã kiểm tra ${checked} nguồn dữ liệu` : isResponding ? 'Kovia' : 'Đã trả lời',
+  ]
   if (failed > 0) parts.push(`không lấy được ${failed} nguồn`)
-  parts.push(time)
+  // A turn still in progress shows no time: the clock is the thinking row's, not a promise.
+  parts.push(isResponding ? 'đang trả lời…' : time)
   return parts.join(' · ')
 }

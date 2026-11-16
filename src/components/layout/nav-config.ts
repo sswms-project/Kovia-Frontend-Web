@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   Bell,
+  BellRing,
   Building2,
   ChartNoAxesCombined,
   ClipboardCheck,
@@ -185,6 +186,7 @@ const tenantMemberSystemSection: NavSection = {
   collapsible: true,
   items: [
     requiredNavItem(APP_ROUTES.notifications, 'Thông báo', Bell, P.NOTIFICATIONS_VIEW),
+    requiredNavItem(APP_ROUTES.aiAlerts, 'Cảnh báo theo dõi', BellRing, P.NOTIFICATIONS_VIEW),
     requiredNavItem(APP_ROUTES.auditLogs, 'Nhật ký hoạt động', ScrollText, P.AUDIT_LOGS_VIEW),
   ],
 }
@@ -343,6 +345,7 @@ export const NAV_CONFIG: Record<UserRole, readonly NavSection[]> = {
       separatorBefore: true,
       items: [
         requiredNavItem(APP_ROUTES.notifications, 'Thông báo', Bell, P.NOTIFICATIONS_VIEW),
+        requiredNavItem(APP_ROUTES.aiAlerts, 'Cảnh báo theo dõi', BellRing, P.NOTIFICATIONS_VIEW),
         requiredNavItem(APP_ROUTES.auditLogs, 'Nhật ký hoạt động', ScrollText, P.AUDIT_LOGS_VIEW),
         {
           href: APP_ROUTES.subscription,

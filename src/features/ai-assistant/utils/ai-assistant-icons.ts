@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   ArrowUpRight,
+  Boxes,
   Building2,
   ChartColumn,
   ClipboardCheck,
@@ -8,7 +9,9 @@ import {
   CreditCard,
   History,
   LayoutDashboard,
+  ListChecks,
   Lock,
+  MapPin,
   Package,
   PackageCheck,
   PackageMinus,
@@ -32,6 +35,7 @@ export const DefaultAiNavigationIcon: LucideIcon = ArrowUpRight
 // Icon names come from WMS-Model's static route map (app/assistant/route_map.py).
 export const AI_NAVIGATION_ICONS: Readonly<Record<string, LucideIcon>> = {
   'arrow-left-right': ArrowLeftRight,
+  boxes: Boxes,
   'building-2': Building2,
   'chart-column': ChartColumn,
   'clipboard-check': ClipboardCheck,
@@ -39,7 +43,9 @@ export const AI_NAVIGATION_ICONS: Readonly<Record<string, LucideIcon>> = {
   'credit-card': CreditCard,
   history: History,
   'layout-dashboard': LayoutDashboard,
+  'list-checks': ListChecks,
   lock: Lock,
+  'map-pin': MapPin,
   package: Package,
   'package-check': PackageCheck,
   'package-minus': PackageMinus,

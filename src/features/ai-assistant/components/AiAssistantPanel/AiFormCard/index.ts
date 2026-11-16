@@ -1,0 +1,1 @@
+export { AiFormCard } from './AiFormCard'

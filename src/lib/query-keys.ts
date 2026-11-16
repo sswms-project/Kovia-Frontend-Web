@@ -1,4 +1,9 @@
+import type { AlertQuery } from '@/features/ai-alerts/types/ai-alerts.types'
 import type { QueryInfo } from '@/types/api'
+import type {
+  AiEntityKind,
+  AiEntityScope,
+} from '@/features/ai-assistant/types/ai-entity-selector.types'
 import type { PaymentHistoryQuery } from '@/features/subscription/types/subscription.types'
 import type { StaffDirectoryKind, StaffQuery } from '@/features/staff/types/staff.types'
 import type { InvitationQuery } from '@/features/staff/types/invitation.types'
@@ -64,6 +69,11 @@ import type { TenantUserPermissionSubjectQuery } from '@/features/access-control
 
 export const queryKeys = {
   legalDocuments: ['legal-documents'] as const,
+  aiEntitySearch: {
+    all: ['ai-entity-search'] as const,
+    list: (kind: AiEntityKind, scope: AiEntityScope, searchTerm: string) =>
+      ['ai-entity-search', kind, scope, searchTerm] as const,
+  },
   platformAdmin: {
     all: ['platform-admin'] as const,
     dashboard: ['platform-admin', 'dashboard'] as const,
@@ -327,5 +337,16 @@ export const queryKeys = {
     messagesAll: ['ai-assistant', 'messages'] as const,
     messages: (conversationId: string) => ['ai-assistant', 'messages', conversationId] as const,
     actionDraft: (draftId: string) => ['ai-assistant', 'action-draft', draftId] as const,
+    actionEditor: (draftId: string) => ['ai-assistant', 'action-editor', draftId] as const,
+    // Key of the update mutation, so any component can tell that a draft is being saved.
+    updateAction: (draftId: string) => ['ai-assistant', 'update-action', draftId] as const,
+  },
+  aiAlerts: {
+    all: ['ai-alerts'] as const,
+    list: (params: AlertQuery) => ['ai-alerts', 'list', params] as const,
+    detail: (alertId: string) => ['ai-alerts', 'detail', alertId] as const,
+    metrics: ['ai-alerts', 'metrics'] as const,
+    rules: ['ai-alerts', 'rules'] as const,
+    catalog: ['ai-alerts', 'catalog'] as const,
   },
 }

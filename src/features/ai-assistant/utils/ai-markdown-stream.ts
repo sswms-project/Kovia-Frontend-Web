@@ -36,31 +36,52 @@ export function holdIncompleteMarkdown(text: string): string {
 }
 
 /**
- * Moves a reveal position that falls inside a table, list or code block to that block's end:
- * structured blocks appear whole and are never typed out.
+ * Moves a reveal position that falls inside a structured block to the end of its smallest safe
+ * unit, so structure is never shown half-typed and never changes kind:
+ * - a list item or table row appears as a whole line, one at a time (a list or table grows item
+ *   by item instead of popping in whole);
+ * - a table's header, separator and first row appear together, because a header alone is only text;
+ * - a code block appears whole (no highlighting work on a half-written block).
  */
-export function snapRevealToBlock(text: string, position: number): number {
+export function snapRevealToUnit(text: string, position: number): number {
   if (position >= text.length) return text.length
   let offset = 0
-  let isInFence = false
-  let blockEnd: number | null = null
-  for (const line of text.split('\n')) {
-    const lineEnd = offset + line.length
-    const isFence = CODE_FENCE.test(line)
-    const isAtomic = isInFence || isFence || isAtomicLine(line)
-    if (isFence) isInFence = !isInFence
-
-    if (blockEnd !== null) {
-      if (!isAtomic) return blockEnd
-      blockEnd = lineEnd
-    } else if (position <= offset) {
-      return position
-    } else if (position <= lineEnd && isAtomic) {
-      blockEnd = lineEnd
-    }
-    offset = lineEnd + 1
+  const rows = text.split('\n').map((line) => {
+    const row = { line, start: offset, end: offset + line.length }
+    offset = row.end + 1
+    return row
+  })
+  const endOf = (index: number) => rows[index]?.end ?? text.length
+  const isTableAt = (index: number) => {
+    const row = rows[index]
+    return row !== undefined && TABLE_ROW.test(row.line)
   }
-  return blockEnd ?? position
+
+  let isInFence = false
+  for (const [index, { line, start, end }] of rows.entries()) {
+    const isFence = CODE_FENCE.test(line)
+    const isCode = isInFence || isFence
+    if (isFence) isInFence = !isInFence
+    if (position <= start) return position
+    if (position > end) continue
+
+    if (isCode) {
+      // Whole block: up to and including the closing fence (or the end of the text).
+      if (isFence && !isInFence) return end
+      const close = rows.findIndex((row, at) => at > index && CODE_FENCE.test(row.line))
+      return close < 0 ? text.length : endOf(close)
+    }
+    if (TABLE_ROW.test(line)) {
+      let first = index
+      while (first > 0 && isTableAt(first - 1)) first -= 1
+      let last = index
+      while (isTableAt(last + 1)) last += 1
+      return endOf(Math.max(index, Math.min(last, first + 2)))
+    }
+    if (BULLET_ITEM.test(line) || ORDERED_ITEM.test(line)) return end
+    return position
+  }
+  return position
 }
 
 /**
