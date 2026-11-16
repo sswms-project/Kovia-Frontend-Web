@@ -1,3 +1,8 @@
+import {
+  InventoryFilterToolbar,
+  InventorySearch,
+  InventoryWarehouseFilter,
+} from '@/features/inventory/components/InventoryFilterToolbar'
 import type { ReactNode } from 'react'
 import { RefreshCw, TriangleAlert } from 'lucide-react'
 import {
@@ -20,13 +25,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { InventoryAbcItem, InventoryFilterOption } from '../../types/inventory.types'
 import { formatInventoryQuantity } from '../../utils/inventory-format'
 import { InventoryWorkspaceNavigation } from '../InventoryWorkspaceNavigation'
 
 interface InventoryAbcDirectoryProps {
   readonly permissions: readonly string[]
+  readonly search: string
+  readonly group: string
+  readonly onSearchChange: (value: string) => void
+  readonly onGroupChange: (value: string) => void
+  readonly matchingItems: readonly InventoryAbcItem[]
   readonly items: readonly InventoryAbcItem[]
   readonly page: number
   readonly pageSize: number
@@ -76,6 +85,11 @@ const classStyles: Record<string, string> = {
 export function InventoryAbcDirectory({
   permissions,
   items,
+  matchingItems,
+  search,
+  group,
+  onSearchChange,
+  onGroupChange,
   page,
   pageSize,
   warehouseId,
@@ -119,7 +133,7 @@ export function InventoryAbcDirectory({
     B: items.filter((item) => item.class === 'B').length,
     C: items.filter((item) => item.class === 'C').length,
   }
-  const pageItems = items.slice((page - 1) * pageSize, page * pageSize)
+  const pageItems = matchingItems.slice((page - 1) * pageSize, page * pageSize)
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
       <h1 className="sr-only">Phân loại ABC theo lịch sử xuất kho</h1>
@@ -189,85 +203,26 @@ export function InventoryAbcDirectory({
         </section>
       ) : null}
       <OperationalListPanel aria-labelledby="abc-title">
-        <div className="flex shrink-0 items-start gap-3 border-b p-3">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 id="abc-title" className="text-sm font-semibold">
-                Kết quả phân loại
-              </h2>
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <NativeSelect
-                aria-label="Lọc phân loại theo kho"
-                className="h-11 min-w-52 sm:h-8"
-                value={warehouseId}
-                disabled={areWarehousesLoading}
-                onChange={(event) => onWarehouseChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Chọn kho</NativeSelectOption>
-                {warehouseOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <NativeSelect
-                aria-label="Chỉ số phân tích ABC"
-                value={metric}
-                onChange={(event) =>
-                  onMetricChange(event.target.value === 'Activity' ? 'Activity' : 'Quantity')
-                }
-              >
-                <NativeSelectOption value="Quantity">Số lượng xuất</NativeSelectOption>
-                <NativeSelectOption value="Activity">Tần suất xuất</NativeSelectOption>
-              </NativeSelect>
-              <Input
-                aria-label="Số ngày lịch sử phân loại ABC"
-                className="w-28"
-                type="number"
-                min={1}
-                max={366}
-                value={historicalPeriodDays}
-                onChange={(event) => onHistoricalPeriodDaysChange(Number(event.target.value))}
-              />
-              <Input
-                aria-label="Ngưỡng nhóm A"
-                className="w-20"
-                type="number"
-                min={1}
-                max={98}
-                value={aThreshold}
-                onChange={(event) => onAThresholdChange(Number(event.target.value))}
-              />
-              <Input
-                aria-label="Ngưỡng nhóm B"
-                className="w-20"
-                type="number"
-                min={2}
-                max={99}
-                value={bThreshold}
-                onChange={(event) => onBThresholdChange(Number(event.target.value))}
-              />
-              {canRun ? (
-                <Button
-                  type="button"
-                  disabled={
-                    !warehouseId ||
-                    isRunning ||
-                    historicalPeriodDays < 1 ||
-                    historicalPeriodDays > 366 ||
-                    aThreshold >= bThreshold
-                  }
-                  onClick={onRun}
-                >
-                  {isRunning ? 'Đang phân tích…' : 'Phân tích'}
-                </Button>
-              ) : null}
-            </div>
-          </div>
-          {exportAction}
-          <Tooltip>
-            <TooltipTrigger asChild>
+        <InventoryFilterToolbar
+          search={
+            <InventorySearch
+              value={search}
+              onChange={onSearchChange}
+              placeholder="Tìm SKU hoặc tên mặt hàng"
+            />
+          }
+          warehouse={
+            <InventoryWarehouseFilter
+              requireWarehouse
+              disabled={areWarehousesLoading}
+              value={warehouseId}
+              onChange={onWarehouseChange}
+              options={warehouseOptions}
+            />
+          }
+          actions={
+            <>
+              {exportAction}
               <Button
                 type="button"
                 variant="outline"
@@ -282,10 +237,86 @@ export function InventoryAbcDirectory({
                   aria-hidden="true"
                 />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent sideOffset={4}>Làm mới phân loại</TooltipContent>
-          </Tooltip>
-        </div>
+            </>
+          }
+          appliedFilters={[
+            Boolean(group) && { label: 'Nhóm ' + group, clear: () => onGroupChange('') },
+          ]}
+          onReset={() => {
+            onSearchChange('')
+            onGroupChange('')
+          }}
+        >
+          <label className="block text-sm">
+            Nhóm ABC
+            <NativeSelect value={group} onChange={(event) => onGroupChange(event.target.value)}>
+              <NativeSelectOption value="">Tất cả nhóm</NativeSelectOption>
+              {['A', 'B', 'C'].map((value) => (
+                <NativeSelectOption key={value} value={value}>
+                  {value}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </label>
+          <details className="space-y-2">
+            <summary className="cursor-pointer text-sm font-medium">Tham số phân loại</summary>
+            <NativeSelect
+              aria-label="Chỉ số phân tích ABC"
+              value={metric}
+              onChange={(event) =>
+                onMetricChange(event.target.value === 'Activity' ? 'Activity' : 'Quantity')
+              }
+            >
+              <NativeSelectOption value="Quantity">Số lượng xuất</NativeSelectOption>
+              <NativeSelectOption value="Activity">Tần suất xuất</NativeSelectOption>
+            </NativeSelect>
+            <Input
+              aria-label="Số ngày lịch sử phân loại ABC"
+              className="w-28"
+              type="number"
+              min={1}
+              max={366}
+              value={historicalPeriodDays}
+              onChange={(event) => onHistoricalPeriodDaysChange(Number(event.target.value))}
+            />
+            <Input
+              aria-label="Ngưỡng nhóm A"
+              className="w-20"
+              type="number"
+              min={1}
+              max={98}
+              value={aThreshold}
+              onChange={(event) => onAThresholdChange(Number(event.target.value))}
+            />
+            <Input
+              aria-label="Ngưỡng nhóm B"
+              className="w-20"
+              type="number"
+              min={2}
+              max={99}
+              value={bThreshold}
+              onChange={(event) => onBThresholdChange(Number(event.target.value))}
+            />
+            {canRun && (
+              <Button
+                type="button"
+                disabled={
+                  !warehouseId ||
+                  isRunning ||
+                  historicalPeriodDays < 1 ||
+                  historicalPeriodDays > 366 ||
+                  aThreshold >= bThreshold
+                }
+                onClick={onRun}
+              >
+                {isRunning ? 'Đang phân tích…' : 'Phân tích'}
+              </Button>
+            )}
+          </details>
+        </InventoryFilterToolbar>
+        <h2 id="abc-title" className="sr-only">
+          Kết quả phân loại
+        </h2>
         {areWarehousesError ? (
           <div className="border-b px-3 py-2 text-xs" role="alert">
             <span className="text-destructive inline-flex items-center gap-2">
@@ -309,6 +340,11 @@ export function InventoryAbcDirectory({
           <OperationalLoadingState rows={8} />
         ) : isError ? (
           <OperationalErrorState title="Không thể tải phân loại ABC" onRetry={onRetry} />
+        ) : items.length > 0 && matchingItems.length === 0 ? (
+          <OperationalEmptyState
+            title="Không tìm thấy mặt hàng phù hợp"
+            description="Thử thay đổi từ khóa hoặc nhóm ABC."
+          />
         ) : items.length === 0 ? (
           <OperationalEmptyState
             title="Chưa có dữ liệu phân loại"
@@ -324,7 +360,7 @@ export function InventoryAbcDirectory({
         <OperationalPagination
           page={page}
           pageSize={pageSize}
-          totalCount={items.length}
+          totalCount={matchingItems.length}
           isPending={isFetching}
           onPageChange={onPageChange}
           onPageSizeChange={onPageSizeChange}

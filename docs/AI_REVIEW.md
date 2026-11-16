@@ -1,5 +1,13 @@
 # AI Review Handoff
 
+## INVENTORY-FILTERS
+
+State: READY_FOR_CODEX_REVIEW. Implementation and focused verification.
+
+- Nine inventory workspace tabs use the shared toolbar, an inventory-layout filter state and the existing sheet primitives. Changing the warehouse clears dependent location filters. Search and advanced filters stay scoped to each tab. See [implementation plan](INVENTORY_FILTER_PLAN.md).
+- The rendered workspace fixture covers tab switches, shared warehouse, retained search and stale slot removal. Chrome against a local API fixture opened all nine routes, verified that switches preserve warehouse, and verified that changing warehouse clears the old slot while retaining the previous tab's search. At 390 px the search uses its own row and the filter sheet can reset and close within the viewport.
+- Browser QA exposed a false summary error on the anomaly tab with no warehouse. The summary now stays hidden until a warehouse is chosen, with the warehouse-list error path preserved. Live data and Excel downloads remain unverified in the browser.
+
 ## FORECAST-PLAIN-LANGUAGE-20261105
 
 State: READY_FOR_CODEX_REVIEW. Codex implementation/self-review, not independent approval.

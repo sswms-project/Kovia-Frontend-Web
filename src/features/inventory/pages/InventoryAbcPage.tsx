@@ -1,5 +1,7 @@
 'use client'
 
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
 import { ExcelExportButton } from '@/components/operations/ExcelExportButton'
 import { useListExport } from '@/features/list-export/hooks/use-list-export'
 
@@ -23,15 +25,23 @@ import { APP_ROUTES } from '@/routes/app-routes'
 export default function InventoryAbcPage() {
   const meQuery = useMeQuery()
   const router = useRouter()
-  const [warehouseId, setWarehouseId] = useState('')
+  const [warehouseId, setWarehouseId] = useInventoryFilter<string>('warehouse', '')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const [historicalPeriodDays, setHistoricalPeriodDays] = useState(90)
-  const [metric, setMetric] = useState<'Quantity' | 'Activity'>('Quantity')
-  const [aThreshold, setAThreshold] = useState(80)
-  const [bThreshold, setBThreshold] = useState(95)
+  const [historicalPeriodDays, setHistoricalPeriodDays] = useInventoryFilter<number>(
+    'InventoryAbcPage.historicalPeriodDays',
+    90
+  )
+  const [metric, setMetric] = useInventoryFilter<'Quantity' | 'Activity'>(
+    'InventoryAbcPage.metric',
+    'Quantity'
+  )
+  const [aThreshold, setAThreshold] = useInventoryFilter<number>('InventoryAbcPage.aThreshold', 80)
+  const [bThreshold, setBThreshold] = useInventoryFilter<number>('InventoryAbcPage.bThreshold', 95)
   const [assignedTo, setAssignedTo] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
+  const [search, setSearch] = useInventoryFilter<string>('InventoryAbcPage.search', '')
+  const [group, setGroup] = useInventoryFilter<string>('InventoryAbcPage.group', '')
   const params = useMemo(() => ({ warehouseId }), [warehouseId])
   const abcQuery = useInventoryAbcQuery(params, Boolean(warehouseId))
   const runMutation = useRunInventoryAbcMutation()
@@ -64,20 +74,31 @@ export default function InventoryAbcPage() {
         .map((staff) => ({ value: staff.id, label: `${staff.fullName} · ${staff.email}` })),
     [staffQuery.data?.items, warehouseId]
   )
-  const analysisId = abcQuery.data?.[0]?.analysisId ?? null
-  const analysisVersion = abcQuery.data?.[0]?.version ?? null
+  const items = (abcQuery.data ?? []).filter((item) => item.warehouseId === warehouseId)
+  const searchTerm = search.trim().toLowerCase()
+  const matchingItems = items.filter(
+    (item) =>
+      (!group || item.class === group) &&
+      (!searchTerm ||
+        item.sku.toLowerCase().includes(searchTerm) ||
+        item.productName.toLowerCase().includes(searchTerm))
+  )
+  const analysisId = items[0]?.analysisId ?? null
+  const analysisVersion = items[0]?.version ?? null
 
   const listExport = useListExport({
     dataset: 'abc',
     filters: {
       warehouseId,
       analysisId,
-      datasetFingerprint: abcQuery.data?.[0]?.datasetFingerprint,
+      datasetFingerprint: items[0]?.datasetFingerprint,
       version: analysisVersion,
+      searchTerm: searchTerm || undefined,
+      group: group || undefined,
     },
     permissions: meQuery.data?.permissions ?? [],
     viewPermission: P.INVENTORY_VIEW,
-    totalCount: abcQuery.data?.length ?? 0,
+    totalCount: matchingItems.length,
     isFetching: abcQuery.isFetching,
     isError: abcQuery.isError,
     blocked: !analysisId || !analysisVersion || runMutation.isPending || applyMutation.isPending,
@@ -88,7 +109,18 @@ export default function InventoryAbcPage() {
         listExport.canExport ? <ExcelExportButton {...listExport.buttonProps} /> : undefined
       }
       permissions={meQuery.data?.permissions ?? []}
-      items={abcQuery.data ?? []}
+      items={items}
+      matchingItems={matchingItems}
+      search={search}
+      group={group}
+      onSearchChange={(value) => {
+        setSearch(value)
+        setPage(1)
+      }}
+      onGroupChange={(value) => {
+        setGroup(value)
+        setPage(1)
+      }}
       page={page}
       pageSize={pageSize}
       warehouseId={warehouseId}
@@ -117,8 +149,8 @@ export default function InventoryAbcPage() {
       canRun={meQuery.data?.permissions.includes(P.PRODUCTS_CONFIGURE_POLICY) ?? false}
       canCreateCycleCount={meQuery.data?.permissions.includes(P.CYCLE_COUNTS_CREATE) ?? false}
       analysisId={analysisId}
-      datasetFingerprint={abcQuery.data?.[0]?.datasetFingerprint ?? null}
-      appliedCycleCountId={abcQuery.data?.[0]?.appliedCycleCountId ?? null}
+      datasetFingerprint={items[0]?.datasetFingerprint ?? null}
+      appliedCycleCountId={items[0]?.appliedCycleCountId ?? null}
       staffOptions={staffOptions}
       assignedTo={assignedTo}
       scheduledDate={scheduledDate}

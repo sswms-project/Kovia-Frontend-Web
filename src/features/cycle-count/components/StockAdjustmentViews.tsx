@@ -1,5 +1,11 @@
 'use client'
 
+import {
+  InventoryFilterToolbar,
+  InventorySearch,
+  InventoryWarehouseFilter,
+} from '@/features/inventory/components/InventoryFilterToolbar'
+
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -73,6 +79,8 @@ interface DirectoryProps {
   readonly isLoading: boolean
   readonly isFetching: boolean
   readonly isError: boolean
+  readonly search: string
+  readonly onSearchChange: (value: string) => void
   readonly onWarehouseChange: (value: string) => void
   readonly onStatusChange: (value: '' | StockAdjustmentStatus) => void
   readonly onPageChange: (page: number) => void
@@ -138,57 +146,64 @@ export function StockAdjustmentDirectory(props: DirectoryProps) {
       <h1 className="sr-only">Điều chỉnh tồn kho</h1>
       <InventoryWorkspaceNavigation currentView="adjustments" permissions={props.permissions} />
       <OperationalListPanel aria-label="Danh sách điều chỉnh tồn kho">
-        <div className="flex shrink-0 items-start gap-3 border-b p-3">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-xs font-medium">
-              Kho
-              <NativeSelect
-                className="min-w-52"
-                value={props.warehouseId}
-                onChange={(e) => props.onWarehouseChange(e.target.value)}
+        <InventoryFilterToolbar
+          search={
+            <InventorySearch
+              value={props.search}
+              onChange={props.onSearchChange}
+              placeholder="Tìm mã phiếu điều chỉnh"
+            />
+          }
+          warehouse={
+            <InventoryWarehouseFilter
+              value={props.warehouseId}
+              onChange={props.onWarehouseChange}
+              options={props.warehouses}
+            />
+          }
+          actions={
+            <>
+              {props.exportAction}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={props.onRetry}
+                disabled={props.isFetching}
+                aria-label="Làm mới"
               >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {props.warehouses.map((o) => (
-                  <NativeSelectOption key={o.value} value={o.value}>
-                    {o.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </label>
-            <label className="flex items-center gap-2 text-xs font-medium">
-              Trạng thái
-              <NativeSelect
-                className="min-w-44"
-                value={props.status}
-                onChange={(e) => props.onStatusChange(parseAdjustmentStatus(e.target.value))}
-              >
-                <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
-                {Object.values(STOCK_ADJUSTMENT_STATUSES).map((value) => (
-                  <NativeSelectOption key={value} value={value}>
-                    {STOCK_ADJUSTMENT_STATUS_LABELS[value]}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </label>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {props.exportAction}
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="shrink-0"
-              onClick={props.onRetry}
-              disabled={props.isFetching}
-              aria-label="Làm mới"
+                <RefreshCw
+                  aria-hidden="true"
+                  className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
+                />
+              </Button>
+            </>
+          }
+          appliedFilters={[
+            Boolean(props.status) && {
+              label: props.status ? STOCK_ADJUSTMENT_STATUS_LABELS[props.status] : '',
+              clear: () => props.onStatusChange(''),
+            },
+          ]}
+          onReset={() => props.onStatusChange('')}
+        >
+          <label className="flex items-center gap-2 text-xs font-medium">
+            Trạng thái
+            <NativeSelect
+              className="min-w-44"
+              value={props.status}
+              onChange={(e) => props.onStatusChange(parseAdjustmentStatus(e.target.value))}
             >
-              <RefreshCw
-                aria-hidden="true"
-                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}
-              />
-            </Button>
-          </div>
-        </div>
+              <NativeSelectOption value="">Tất cả trạng thái</NativeSelectOption>
+              {Object.values(STOCK_ADJUSTMENT_STATUSES).map((value) => (
+                <NativeSelectOption key={value} value={value}>
+                  {STOCK_ADJUSTMENT_STATUS_LABELS[value]}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </label>
+        </InventoryFilterToolbar>
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />
         ) : props.isError ? (

@@ -1,10 +1,17 @@
 'use client'
 
+import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
+import type { InventoryProductLookup } from '../../hooks/use-inventory-product-lookup'
+import {
+  InventoryFilterToolbar,
+  InventoryWarehouseFilter,
+} from '@/features/inventory/components/InventoryFilterToolbar'
+
 import type { ReactNode } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
@@ -45,7 +52,6 @@ interface InventoryReservationDirectoryProps {
   readonly productId: string
   readonly status: InventoryReservationStatus
   readonly warehouseOptions: readonly InventoryFilterOption[]
-  readonly productOptions: readonly InventoryFilterOption[]
   readonly isLoading: boolean
   readonly isFetching: boolean
   readonly isError: boolean
@@ -53,6 +59,7 @@ interface InventoryReservationDirectoryProps {
   readonly areFiltersError: boolean
   readonly activeFilterCount: number
   readonly onWarehouseChange: (value: string) => void
+  readonly productLookup: InventoryProductLookup
   readonly onProductChange: (value: string) => void
   readonly onStatusChange: (value: InventoryReservationStatus) => void
   readonly onPageChange: (page: number) => void
@@ -98,96 +105,75 @@ export function InventoryReservationDirectory(props: InventoryReservationDirecto
       <InventoryWorkspaceNavigation currentView="reservations" permissions={props.permissions} />
 
       <OperationalListPanel aria-label="Hàng giữ cho phiếu">
-        <div className="grid w-full shrink-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b p-3">
-          <FieldGroup
-            aria-label="Bộ lọc giữ hàng"
-            className="[container-type:normal] flex min-w-0 flex-1 flex-row flex-wrap items-center gap-3"
-          >
-            <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="reservation-status" className="shrink-0 max-sm:min-w-18">
-                Trạng thái
-              </FieldLabel>
-              <NativeSelect
-                className="w-full sm:w-44"
-                id="reservation-status"
-                value={props.status}
-                onChange={(event) => props.onStatusChange(parseStatus(event.target.value))}
+        <InventoryFilterToolbar
+          search={
+            <LookupCombobox
+              {...props.productLookup}
+              value={props.productId}
+              onChange={(id, option) => {
+                props.productLookup.rememberOption(option)
+                props.onProductChange(id)
+              }}
+            />
+          }
+          warehouse={
+            <InventoryWarehouseFilter
+              disabled={props.areFiltersLoading}
+              value={props.warehouseId}
+              onChange={props.onWarehouseChange}
+              options={props.warehouseOptions}
+            />
+          }
+          actions={
+            <>
+              {props.exportAction}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0 justify-self-end"
+                disabled={props.isFetching}
+                aria-label="Làm mới lịch sử giữ hàng"
+                onClick={props.onRetry}
               >
-                <NativeSelectOption value="Active">Đang giữ cho phiếu</NativeSelectOption>
-                <NativeSelectOption value="Released">Đã giải phóng</NativeSelectOption>
-                <NativeSelectOption value="Consumed">Đã sử dụng</NativeSelectOption>
-              </NativeSelect>
-            </Field>
-            <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="reservation-warehouse" className="shrink-0 max-sm:min-w-18">
-                Kho
-              </FieldLabel>
-              <NativeSelect
-                className="w-full sm:w-44"
-                id="reservation-warehouse"
-                value={props.warehouseId}
-                disabled={props.areFiltersLoading}
-                onChange={(event) => props.onWarehouseChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả kho</NativeSelectOption>
-                {props.warehouseOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <Field orientation="horizontal" className="w-full sm:w-auto">
-              <FieldLabel htmlFor="reservation-product" className="shrink-0 max-sm:min-w-18">
-                Sản phẩm
-              </FieldLabel>
-              <NativeSelect
-                className="w-full sm:w-44"
-                id="reservation-product"
-                value={props.productId}
-                disabled={props.areFiltersLoading}
-                onChange={(event) => props.onProductChange(event.target.value)}
-              >
-                <NativeSelectOption value="">Tất cả sản phẩm</NativeSelectOption>
-                {props.productOptions.map((option) => (
-                  <NativeSelectOption key={option.value} value={option.value}>
-                    {option.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            {props.areFiltersError ? (
-              <Button type="button" variant="outline" onClick={props.onRetryFilters}>
-                Tải lại bộ lọc
+                <RefreshCw
+                  aria-hidden="true"
+                  className={
+                    props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined
+                  }
+                />
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={props.activeFilterCount === 0}
-              onClick={props.onResetFilters}
+            </>
+          }
+          appliedFilters={[
+            props.status !== 'Active' && {
+              label: props.status === 'Released' ? 'Đã giải phóng' : 'Đã sử dụng',
+              clear: () => props.onStatusChange('Active'),
+            },
+          ]}
+          onReset={props.onResetFilters}
+        >
+          <Field orientation="horizontal" className="w-full sm:w-auto">
+            <FieldLabel htmlFor="reservation-status" className="shrink-0 max-sm:min-w-18">
+              Trạng thái
+            </FieldLabel>
+            <NativeSelect
+              className="w-full sm:w-44"
+              id="reservation-status"
+              value={props.status}
+              onChange={(event) => props.onStatusChange(parseStatus(event.target.value))}
             >
-              Đặt lại
-            </Button>
-          </FieldGroup>
-          <div className="flex shrink-0 items-center gap-2">
-            {props.exportAction}
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="shrink-0 justify-self-end"
-              disabled={props.isFetching}
-              aria-label="Làm mới lịch sử giữ hàng"
-              onClick={props.onRetry}
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={props.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-              />
-            </Button>
-          </div>
-        </div>
+              <NativeSelectOption value="Active">Đang giữ cho phiếu</NativeSelectOption>
+              <NativeSelectOption value="Released">Đã giải phóng</NativeSelectOption>
+              <NativeSelectOption value="Consumed">Đã sử dụng</NativeSelectOption>
+            </NativeSelect>
+          </Field>
+        </InventoryFilterToolbar>
+        {props.areFiltersError && (
+          <Button type="button" variant="outline" onClick={props.onRetryFilters}>
+            Tải lại bộ lọc
+          </Button>
+        )}
 
         {props.isLoading ? (
           <OperationalLoadingState rows={8} />

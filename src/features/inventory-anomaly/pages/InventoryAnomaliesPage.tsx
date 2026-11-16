@@ -1,5 +1,8 @@
 'use client'
 
+import { useInventoryFilter } from '@/features/inventory/hooks/use-inventory-filter'
+
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -35,9 +38,15 @@ export default function InventoryAnomaliesPage() {
   const meQuery = useMeQuery()
   const permissions = meQuery.data?.permissions ?? []
   const canView = permissions.includes(ROUTE_CAPABILITIES[APP_ROUTES.inventoryAnomalies])
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState('')
-  const [severity, setSeverity] = useState<AnomalySeverity | ''>('')
-  const [reviewStatus, setReviewStatus] = useState<AnomalyReviewStatus | ''>('Open')
+  const [selectedWarehouseId, setSelectedWarehouseId] = useInventoryFilter<string>('warehouse', '')
+  const [severity, setSeverity] = useInventoryFilter<AnomalySeverity | ''>(
+    'InventoryAnomaliesPage.severity',
+    ''
+  )
+  const [reviewStatus, setReviewStatus] = useInventoryFilter<AnomalyReviewStatus | ''>(
+    'InventoryAnomaliesPage.reviewStatus',
+    'Open'
+  )
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [selected, setSelected] = useState<InventoryAnomaly | null>(null)
@@ -58,18 +67,20 @@ export default function InventoryAnomaliesPage() {
       })),
     [warehousesQuery.data?.items]
   )
-  // Scans and alerts are per warehouse; until the user picks one, show the first.
-  const warehouseId = selectedWarehouseId || warehouseOptions[0]?.value || ''
+  const warehouseId = selectedWarehouseId
   const summaryQuery = useInventoryAnomalySummaryQuery(warehouseId, canView && Boolean(warehouseId))
+  const [search, setSearch] = useInventoryFilter<string>('InventoryAnomaliesPage.search', '')
+  const searchTerm = useDebouncedValue(search.trim(), 350)
   const listParams = useMemo(
     () => ({
       warehouseId,
+      searchTerm: searchTerm || undefined,
       severity: severity || undefined,
       reviewStatus: reviewStatus || undefined,
       pageNumber: page,
       pageSize,
     }),
-    [page, pageSize, reviewStatus, severity, warehouseId]
+    [page, pageSize, reviewStatus, severity, warehouseId, searchTerm]
   )
   const anomaliesQuery = useInventoryAnomaliesQuery(listParams, canView && Boolean(warehouseId))
   const startScan = useStartAnomalyScanMutation()
@@ -140,7 +151,7 @@ export default function InventoryAnomaliesPage() {
         onScan: () => void scanNow(),
         onRetry: () => {
           void warehousesQuery.refetch()
-          void summaryQuery.refetch()
+          if (warehouseId) void summaryQuery.refetch()
         },
       }}
       detail={{
@@ -164,7 +175,12 @@ export default function InventoryAnomaliesPage() {
       isLoading={warehousesQuery.isLoading || anomaliesQuery.isLoading}
       isFetching={anomaliesQuery.isFetching}
       isError={anomaliesQuery.isError}
-      onWarehouseChange={(value) => resetPage(setSelectedWarehouseId, value)}
+      search={search}
+      onSearchChange={(value) => resetPage(setSearch, value)}
+      onWarehouseChange={(value) => {
+        openAnomaly(null)
+        resetPage(setSelectedWarehouseId, value)
+      }}
       onSeverityChange={(value) => resetPage(setSeverity, value)}
       onReviewStatusChange={(value) => resetPage(setReviewStatus, value)}
       onSelect={openAnomaly}
