@@ -19,7 +19,7 @@ import {
 } from '../../types/ai-assistant.types'
 import { AI_DRAFT_VIEW_STATES } from '../../types/ai-draft-edit.types'
 import { clearAiDraftEditValues } from '../../utils/ai-draft-edit-storage'
-import { getAiDraftFormLink } from '../../utils/ai-draft-links'
+import { getAiDraftConfirmLabel, getAiDraftFormLink } from '../../utils/ai-draft-links'
 import {
   AI_DRAFT_VIEW_STATE_CAN_CONFIRM,
   AI_DRAFT_VIEW_STATE_CAN_EDIT,
@@ -156,6 +156,7 @@ export function AiActionConfirmationCard({
         <AiDraftCardActions
           expiresAt={card.expiresAt}
           openFormLink={getAiDraftFormLink(card.action, draftId)}
+          confirmLabel={getAiDraftConfirmLabel(card.action)}
           editState={editState}
           canConfirm={AI_DRAFT_VIEW_STATE_CAN_CONFIRM[viewState]}
           processingAction={processingAction}
