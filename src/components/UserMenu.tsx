@@ -42,7 +42,7 @@ export function UserMenu() {
   function finishLogout() {
     const token = getStoredAccessToken()
     if (token && !tokenMatchesUser(token, user)) return
-    clearAuth()
+    clearAuth({ signedOut: true })
     queryClient.clear()
     router.replace(APP_ROUTES.auth.login)
   }
