@@ -54,10 +54,6 @@ export function getAiActionResultLink(
         href: APP_ROUTES.supplierReturnDetail(resultEntityId) as Route,
         label: 'Xem phiếu trả NCC',
       }
-    // No link while the BE returns no result id (the guard above), so this only needs the rule id.
-    case AI_ACTIONS.createWatchRule:
-    case AI_ACTIONS.changeWatchRule:
-      return { href: APP_ROUTES.aiWatchRule(resultEntityId), label: 'Xem quy tắc cảnh báo' }
     default:
       return null
   }
