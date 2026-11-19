@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
+import { useAiDraftViewStore } from '@/stores/ai-draft-view.store'
 import type { AiDraftEditorResponse } from '../schemas/ai-draft-edit.schema'
 import { AI_DRAFT_STATUSES } from '../types/ai-assistant.types'
 import {
@@ -83,6 +84,13 @@ export function useAiDraftEditor(
     if (isDirty) saveAiDraftEditValues(draftId, { revision, lineSequence, values })
     else clearAiDraftEditValues(draftId)
   }, [draftId, revision, lineSequence, values, isDirty])
+
+  // Tells the composer an edit is in progress, so a chat message cannot silently replace it.
+  const setDirty = useAiDraftViewStore((store) => store.setDirty)
+  useEffect(() => {
+    setDirty(draftId, isDirty)
+    return () => setDirty(draftId, false)
+  }, [draftId, isDirty, setDirty])
 
   /** Gives up the unsaved changes for good and leaves the editor. */
   const discard = () => {
