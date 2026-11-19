@@ -43,10 +43,21 @@ describe('getPutawayAllocationState capacity', () => {
       'Vượt sức chứa còn lại của vị trí (còn 20 Cái).'
     )
     expect(state.canSubmit).toBe(false)
+    expect(state.canSavePlan).toBe(false)
   })
 
   it('allows quantities within capacity', () => {
     expect(getPutawayAllocationState([line(20)], [item], [slot(20)]).canSubmit).toBe(true)
+  })
+
+  it('allows a partial plan while keeping unassigned rows invalid for execution', () => {
+    const state = getPutawayAllocationState(
+      [line(20), { ...line(80), slotId: '' }],
+      [item],
+      [slot(20)]
+    )
+    expect(state.canSavePlan).toBe(true)
+    expect(state.canSubmit).toBe(false)
   })
 
   it('skips the client check when capacity is tracked in another unit', () => {
@@ -55,14 +66,14 @@ describe('getPutawayAllocationState capacity', () => {
 })
 
 describe('validatePlanDrafts capacity', () => {
-  it('warns without blocking when the plan exceeds remaining capacity', () => {
+  it('blocks saving when the plan exceeds remaining capacity', () => {
     const result = validatePlanDrafts(
       [item],
       { [ITEM]: [{ key: 'k', slotId: SLOT, quantity: 30 }] },
       [slot(20)]
     )
-    expect(result.lineWarnings.get(`${ITEM}:k`)).toContain('còn 20 Cái')
-    expect(result.canSave).toBe(true)
+    expect(result.lineErrors.get(`${ITEM}:k`)).toContain('còn 20 Cái')
+    expect(result.canSave).toBe(false)
   })
 })
 

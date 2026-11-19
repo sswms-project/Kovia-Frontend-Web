@@ -74,7 +74,7 @@ export function validatePlanDrafts(
       if (!line.slotId || !slot) lineErrors.set(key, 'Vui lòng chọn vị trí lưu trữ.')
       else if (seen.has(line.slotId))
         lineErrors.set(key, 'Vị trí này đã được cấu hình cho sản phẩm. Hãy sửa dòng đã có.')
-      else if (slot.unavailableReason) lineWarnings.set(key, slot.unavailableReason)
+      else if (slot.unavailableReason) lineErrors.set(key, slot.unavailableReason)
       seen.add(line.slotId)
 
       if (!Number.isFinite(line.quantity) || line.quantity <= 0)
@@ -87,7 +87,7 @@ export function validatePlanDrafts(
         const used = (plannedBySlot.get(line.slotId) ?? 0) + toCents(line.quantity)
         plannedBySlot.set(line.slotId, used)
         if (slotRemaining !== null && used > toCents(slotRemaining) && !lineErrors.has(key))
-          lineWarnings.set(
+          lineErrors.set(
             key,
             `Vượt sức chứa còn lại của vị trí (còn ${formatQuantity(slotRemaining)} ${item.baseUnitName}).`
           )
