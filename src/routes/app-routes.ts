@@ -143,10 +143,6 @@ export const APP_ROUTES = {
   productCreate: '/products/create',
   profile: '/profile',
   notifications: '/notifications',
-  aiAlerts: '/ai-alerts',
-  aiAlertDetail: (alertId: string) => `/ai-alerts?alert=${encodeURIComponent(alertId)}` as Route,
-  aiWatchRule: (ruleId: string) =>
-    `/ai-alerts?tab=rules&rule=${encodeURIComponent(ruleId)}` as Route,
   auditLogs: '/audit-logs',
   archivedDocument: (documentType: string, id: string) =>
     `/audit-logs/documents/${encodeURIComponent(documentType)}/${encodeURIComponent(id)}` as Route,

@@ -35,3 +35,8 @@ export function getAiDraftFormLink(
       return null
   }
 }
+
+/** Wording of the confirm button; a new watch rule starts watching on confirm, which the assistant calls "Bật theo dõi". */
+export function getAiDraftConfirmLabel(action: string | null | undefined): string {
+  return action === AI_ACTIONS.createWatchRule ? 'Bật theo dõi' : 'Xác nhận'
+}

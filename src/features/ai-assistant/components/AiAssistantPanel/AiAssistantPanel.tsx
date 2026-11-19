@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
 import { useAiAssistantPanelStore } from '@/stores/ai-assistant-panel.store'
+import { useAiDraftViewStore } from '@/stores/ai-draft-view.store'
 import {
   useAiConversationMessagesQuery,
   useAiConversationsQuery,
@@ -97,6 +99,13 @@ export function AiAssistantPanel({ onNavigate }: AiAssistantPanelProps) {
     [cancelAction, conversationId, releaseDraftAction]
   )
   const sendMessage = (message: string) => {
+    // A chat edit would patch the draft and close the open editor, throwing its unsaved changes away.
+    if (Object.keys(useAiDraftViewStore.getState().dirtyDraftIds).length > 0) {
+      toast.warning(
+        'Bạn đang sửa bản nháp. Bấm "Xem trước" để lưu hoặc "Bỏ thay đổi" trước khi gửi tin nhắn mới.'
+      )
+      return
+    }
     // The store refuses a second turn while one runs, so double clicks never send twice.
     if (chatStream.send(message)) form.reset({ message: '' })
   }

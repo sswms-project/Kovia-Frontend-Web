@@ -16,6 +16,7 @@ interface AiDraftCardActionsProps {
   readonly expiresAt?: string | null
   /** Where the draft opens in the normal create form; null for an action that has none. */
   readonly openFormLink: Route | null
+  readonly confirmLabel: string
   readonly editState: AiDraftEditState
   readonly canConfirm: boolean
   readonly processingAction: AiDraftProcessingAction | null
@@ -31,6 +32,7 @@ interface AiDraftCardActionsProps {
 export function AiDraftCardActions({
   expiresAt,
   openFormLink,
+  confirmLabel,
   editState,
   canConfirm,
   processingAction,
@@ -103,7 +105,7 @@ export function AiDraftCardActions({
             onClick={onConfirm}
           >
             {processingAction === 'confirm' ? <Spinner /> : <Check aria-hidden="true" />}
-            Xác nhận
+            {confirmLabel}
           </Button>
         </div>
       </div>
