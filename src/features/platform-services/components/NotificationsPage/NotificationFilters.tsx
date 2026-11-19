@@ -121,11 +121,14 @@ export function NotificationFilters({
         }
       >
         <NativeSelectOption value="all">Tất cả loại</NativeSelectOption>
-        {Object.entries(TYPE_LABELS).map(([value, label]) => (
-          <NativeSelectOption key={value} value={value}>
-            {label}
-          </NativeSelectOption>
-        ))}
+        {/* Watch-rule alerts are a hidden feature: old ones keep their badge but are not a filter. */}
+        {Object.entries(TYPE_LABELS)
+          .filter(([value]) => value !== 'WatchRuleTriggered')
+          .map(([value, label]) => (
+            <NativeSelectOption key={value} value={value}>
+              {label}
+            </NativeSelectOption>
+          ))}
       </NativeSelect>
 
       <NativeSelect
