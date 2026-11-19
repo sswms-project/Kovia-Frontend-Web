@@ -37,7 +37,7 @@ export function proxy(request: NextRequest) {
   const isPublic = pathname === APP_ROUTES.home || PUBLIC_PATHS.some((p) => pathname.startsWith(p))
   const isAuthPath = AUTH_PATHS.some((p) => pathname.startsWith(p))
 
-  // A deep link (e.g. /ai-alerts?alert=<id>) survives the sign-in: login sends the user back after checking it.
+  // A deep link (e.g. /inbound-requests/<id>) survives the sign-in: login sends the user back after checking it.
   const loginUrl = new URL(loginUrlFor(pathname + request.nextUrl.search), request.url)
 
   if (!isPublic && !token) {

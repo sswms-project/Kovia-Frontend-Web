@@ -599,16 +599,4 @@ export const API_ENDPOINTS = {
     // The flow id is an opaque signed token, so it is encoded before it goes into the path.
     submitForm: (flowId: string) => `/ai/forms/${encodeURIComponent(flowId)}/submit`,
   },
-  aiAlerts: {
-    watchRules: '/ai/watch-rules',
-    watchRuleCatalog: '/ai/watch-rules/catalog',
-    watchRule: (ruleId: string) => `/ai/watch-rules/${ruleId}`,
-    evaluateWatchRule: (ruleId: string) => `/ai/watch-rules/${ruleId}/evaluate`,
-    alerts: '/ai/alerts',
-    metrics: '/ai/alerts/metrics',
-    alert: (alertId: string) => `/ai/alerts/${alertId}`,
-    acknowledge: (alertId: string) => `/ai/alerts/${alertId}/acknowledge`,
-    snooze: (alertId: string) => `/ai/alerts/${alertId}/snooze`,
-    feedback: (alertId: string) => `/ai/alerts/${alertId}/feedback`,
-  },
 } as const
