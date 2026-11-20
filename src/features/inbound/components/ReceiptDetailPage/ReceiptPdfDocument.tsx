@@ -119,10 +119,14 @@ export function ReceiptPdfDocument({ receipt }: { receipt: GoodsReceiptDetail })
 
         <View style={styles.info}>
           <Text>- Họ và tên người giao: {DOTS}</Text>
-          <Text>
-            - Theo phiếu yêu cầu nhập số {receipt.inboundRequestCode} ngày …… tháng …… năm …… của{' '}
-            {supplier || DOTS}
-          </Text>
+          {receipt.inboundRequestId ? (
+            <Text>
+              - Theo phiếu yêu cầu nhập số {receipt.inboundRequestCode ?? 'Không đọc được mã'} ngày{' '}
+              …… tháng …… năm …… của {supplier || DOTS}
+            </Text>
+          ) : (
+            <Text>- Hình thức nhập: Nhận hàng trực tiếp, không có phiếu yêu cầu nhập kho.</Text>
+          )}
           <Text>
             - Nhập tại kho: {receipt.warehouseName} địa điểm: {DOTS}
           </Text>
@@ -213,7 +217,12 @@ export function ReceiptPdfDocument({ receipt }: { receipt: GoodsReceiptDetail })
 
         <View style={{ marginTop: 8, lineHeight: 1.6 }}>
           <Text>- Tổng số tiền (viết bằng chữ): {DOTS}</Text>
-          <Text>- Số chứng từ gốc kèm theo: {receipt.inboundRequestCode}</Text>
+          <Text>
+            - Phiếu yêu cầu nhập kho:{' '}
+            {receipt.inboundRequestId
+              ? (receipt.inboundRequestCode ?? 'Không đọc được mã yêu cầu')
+              : 'Không có (nhận hàng trực tiếp)'}
+          </Text>
         </View>
 
         <Text style={[styles.right, styles.signHint, { marginTop: 14 }]}>

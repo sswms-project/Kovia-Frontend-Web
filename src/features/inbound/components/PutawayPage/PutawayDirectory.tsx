@@ -261,7 +261,11 @@ export function PutawayDirectory({
                     </Link>
                   </ItemTitle>
                   <ItemDescription>
-                    {item.inboundRequestCode} · {item.warehouseName}
+                    {item.inboundRequestCode ??
+                      (item.inboundRequestId
+                        ? 'Không đọc được mã yêu cầu nhập'
+                        : 'Nhận hàng trực tiếp')}{' '}
+                    · {item.warehouseName}
                   </ItemDescription>
                   <ItemDescription>
                     {item.lineCount} mặt hàng · Tạo lúc {formatOperationalDateTime(item.createdAt)}
@@ -329,7 +333,15 @@ export function PutawayDirectory({
                     </TableCell>
                     <TableCell className="min-w-0">
                       <OperationalCellStack
-                        primary={<span className="font-mono">{item.inboundRequestCode}</span>}
+                        primary={
+                          item.inboundRequestId ? (
+                            <span className="font-mono">
+                              {item.inboundRequestCode ?? 'Không đọc được mã yêu cầu nhập'}
+                            </span>
+                          ) : (
+                            'Nhận hàng trực tiếp'
+                          )
+                        }
                         secondary={item.warehouseName}
                       />
                     </TableCell>

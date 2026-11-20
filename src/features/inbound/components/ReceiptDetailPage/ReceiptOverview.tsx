@@ -11,7 +11,7 @@ export function ReceiptOverview({ receipt }: ReceiptOverviewProps) {
     <OperationalDocumentInfo
       documentId={receipt.id}
       headingId="receipt-overview-heading"
-      summary={`${receipt.inboundRequestCode} · ${receipt.warehouseName}`}
+      summary={`${receipt.inboundRequestCode ?? (receipt.inboundRequestId ? 'Không đọc được mã yêu cầu nhập' : 'Nhận hàng trực tiếp')} · ${receipt.warehouseName}`}
       summaryContent={
         receipt.rejectionReason ? (
           <div className="mt-3 border-t pt-3">
@@ -28,7 +28,14 @@ export function ReceiptOverview({ receipt }: ReceiptOverviewProps) {
             value="Giữ tại vị trí nhận · khả dụng theo FEFO, chưa phải đã cất kệ"
           />
         )}
-        <Metadata label="Yêu cầu nhập kho" value={receipt.inboundRequestCode} />
+        {receipt.inboundRequestId ? (
+          <Metadata
+            label="Yêu cầu nhập kho"
+            value={receipt.inboundRequestCode ?? 'Không đọc được mã yêu cầu'}
+          />
+        ) : (
+          <Metadata label="Hình thức nhận" value="Nhận hàng trực tiếp" />
+        )}
         {receipt.inboundRequestCreatedByName ? (
           <Metadata label="Người tạo yêu cầu nhập" value={receipt.inboundRequestCreatedByName} />
         ) : null}
