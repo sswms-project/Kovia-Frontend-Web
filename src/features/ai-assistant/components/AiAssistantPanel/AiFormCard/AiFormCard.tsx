@@ -10,6 +10,11 @@ import { AiFormContextRow } from './AiFormContextRow'
 import { AiFormPartiesStep } from './AiFormPartiesStep'
 import { AiFormProductsStep } from './AiFormProductsStep'
 import { AiFormSummary } from './AiFormSummary'
+import { AiDraftEditorLines } from '../AiDraftEditorLines'
+import { AiDraftEditorParties } from '../AiDraftEditorParties'
+
+// Server line errors are folded into the lines message for a form; rows show their own checks.
+const NO_LINE_ERRORS = {}
 
 interface AiFormCardProps {
   readonly form: AiFormCardData
@@ -23,7 +28,7 @@ interface AiFormCardProps {
  */
 export function AiFormCard({ form, onRestart }: AiFormCardProps) {
   const idPrefix = useId()
-  const { state, dispatch, limits, goNext, submit, isSubmitting } = useAiFormFlow(form)
+  const { state, dispatch, limits, goNext, submit, isSubmitting, descriptor } = useAiFormFlow(form)
   const { values, step, status, errors, compactKeys } = state
   const flow = AI_FORM_FLOWS[form.flowType]
 
@@ -46,12 +51,52 @@ export function AiFormCard({ form, onRestart }: AiFormCardProps) {
         status={status}
         focusOnMount={wasOpenOnMount}
         onRestart={onRestart ? () => onRestart(flow.startMessage) : undefined}
+        descriptor={descriptor}
+        documentName={flow.document}
       />
     )
   }
 
   const labelOf = (key: AiFormFieldKey) =>
     form.fields.find((field) => field.key === key)?.label ?? ''
+  const partnerKey = descriptor?.partner.key ?? 'recipient'
+  const firstStep = descriptor ? (
+    <AiDraftEditorParties
+      idPrefix={idPrefix}
+      descriptor={descriptor}
+      values={values}
+      errors={errors}
+      dispatch={dispatch}
+    />
+  ) : (
+    <AiFormPartiesStep
+      idPrefix={idPrefix}
+      values={values}
+      errors={errors}
+      compactKeys={compactKeys}
+      labelOf={labelOf}
+      dispatch={dispatch}
+    />
+  )
+  const secondStep = descriptor ? (
+    <AiDraftEditorLines
+      idPrefix={idPrefix}
+      descriptor={descriptor}
+      values={values}
+      errors={errors}
+      lineErrors={NO_LINE_ERRORS}
+      dispatch={dispatch}
+    />
+  ) : (
+    <AiFormProductsStep
+      idPrefix={idPrefix}
+      values={values}
+      errors={errors}
+      limits={limits}
+      labelOf={labelOf}
+      dispatch={dispatch}
+    />
+  )
 
   return (
     <section
@@ -71,7 +116,14 @@ export function AiFormCard({ form, onRestart }: AiFormCardProps) {
       {step === 2 ? (
         <AiFormContextRow
           warehouse={values.warehouse}
-          recipient={values.recipient}
+          partner={values[partnerKey] ?? null}
+          {...(descriptor
+            ? {
+                partnerPrefix:
+                  descriptor.partner.key === 'supplier' ? 'NCC' : descriptor.partner.label,
+                editLabel: `Đổi ${descriptor.warehouseLabel.toLowerCase()} và ${descriptor.partner.label.toLowerCase()}`,
+              }
+            : {})}
           onEdit={() => dispatch({ type: 'goToStep', step: 1 })}
         />
       ) : null}
@@ -83,25 +135,7 @@ export function AiFormCard({ form, onRestart }: AiFormCardProps) {
         data-ai-motion="step"
         className="flex min-w-0 flex-col gap-3"
       >
-        {step === 1 ? (
-          <AiFormPartiesStep
-            idPrefix={idPrefix}
-            values={values}
-            errors={errors}
-            compactKeys={compactKeys}
-            labelOf={labelOf}
-            dispatch={dispatch}
-          />
-        ) : (
-          <AiFormProductsStep
-            idPrefix={idPrefix}
-            values={values}
-            errors={errors}
-            limits={limits}
-            labelOf={labelOf}
-            dispatch={dispatch}
-          />
-        )}
+        {step === 1 ? firstStep : secondStep}
       </fieldset>
 
       <AiFormActions

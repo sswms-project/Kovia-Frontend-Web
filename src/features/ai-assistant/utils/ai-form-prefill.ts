@@ -1,7 +1,7 @@
 import { aiDraftLineSchema } from '../schemas/ai-draft-line.schema'
 import type { AiFormCardData, AiFormLine, AiFormValues } from '../schemas/ai-form-card.schema'
-import { AI_FORM_FIELD_KEYS, type AiFormFieldKey, type AiFormStep } from '../types/ai-form.types'
-import { AI_FORM_FLOWS } from './ai-form-flows'
+import type { AiFormFieldKey, AiFormStep } from '../types/ai-form.types'
+import { AI_FORM_FLOWS, aiFormFlowFields } from './ai-form-flows'
 import { createAiFormLine, toAiFormLine } from './ai-form-lines'
 
 export interface AiFormPrefill {
@@ -37,13 +37,15 @@ function readPrefilledLines(raw: readonly unknown[] | null | undefined): AiFormL
  * values alone decide and every picker stays a picker.
  */
 export function readAiFormPrefill(form: AiFormCardData): AiFormPrefill {
-  const { warehouse, recipient, purpose } = form.values
+  const { warehouse, recipient, purpose, supplier, expectedDate } = form.values
   const lines = readPrefilledLines(form.values.lines)
   const values: AiFormValues = {
     warehouse: warehouse ?? null,
     recipient: recipient ?? null,
     lines: lines.length > 0 ? lines : [createAiFormLine(1)],
     purpose: purpose ?? '',
+    supplier: supplier ?? null,
+    expectedDate: expectedDate ?? '',
   }
 
   const isFilled: Record<AiFormFieldKey, boolean> = {
@@ -51,9 +53,14 @@ export function readAiFormPrefill(form: AiFormCardData): AiFormPrefill {
     recipient: Boolean(values.recipient),
     lines: lines.length > 0,
     purpose: values.purpose.trim() !== '',
+    supplier: Boolean(values.supplier),
+    // Optional: the BE fills a default, and the user may still leave it empty.
+    expectedDate: true,
   }
   const missing = new Set(form.missing)
-  const unresolved = new Set(AI_FORM_FIELD_KEYS.filter((key) => missing.has(key) || !isFilled[key]))
+  const unresolved = new Set(
+    aiFormFlowFields(form.flowType).filter((key) => missing.has(key) || !isFilled[key])
+  )
 
   const { steps } = AI_FORM_FLOWS[form.flowType]
   const index = steps.findIndex(({ fields }) => fields.some((key) => unresolved.has(key)))
@@ -64,6 +71,8 @@ export function readAiFormPrefill(form: AiFormCardData): AiFormPrefill {
     lineSequence: Math.max(lines.length, 1),
     step,
     compactKeys:
-      step === 1 && form.missing ? AI_FORM_FIELD_KEYS.filter((key) => !unresolved.has(key)) : [],
+      step === 1 && form.missing
+        ? aiFormFlowFields(form.flowType).filter((key) => !unresolved.has(key))
+        : [],
   }
 }
