@@ -3108,3 +3108,11 @@ READY_FOR_CODEX_REVIEW remains. User requested live testing: 30 assertions passe
 ### 2026-11-16 — UC100 delivery authorization
 
 User authorized splitting the task into multiple commits and pushing the UC100 branch. The user will create the pull requests targeting dev. Scoped automated/live verification above remains applicable; no additional source changes or Jira/merge actions authorized.
+
+### 2026-11-19 — Inbound QA Fail fixes (Codex implementer)
+
+State: READY_FOR_CODEX_REVIEW. User authorized fixing INB-001/002/003 after live testing. Self-review only; no independent approval claimed.
+BE: validate complete proposed put-away plan under existing capacity lock using shared context/rules before staging writes/notifications; count stock, other plans, preserved item plans, mixed-product restrictions and conversions. Added Vietnamese inspection/release action labels and scoped TenantName in receipt DTO for PDF filenames. No migration or shared DB writes during this fix.
+Verification: 503 inbound tests passed; focused capacity/receipt/audit subset 96 passed. FE inbound 44 tests passed, touched-file ESLint passed. Full FE typecheck fails outside changed inbound files (outputs/tmp and legal/auth/subscription route typing); see outputs/inbound-test-run-20261119/runtime/fix-typecheck.log in workspace. No post-fix browser E2E or real SQL race rerun. Original live Fail evidence preserved; not relabeled as live Pass. No commit/push requested.
+Details: workspace outputs/inbound-test-run-20261119/khac-phuc-fail-20261119.md. Existing FE AGENTS.md/CLAUDE.md modifications were present before this task and preserved.
+Final verification addendum: after validating unchanged plans against current capacity, the final combined Inbound + StorageCapacityPolicyTests run passed 542/542 (0 skipped). FE inbound remains 44/44. Details/log: workspace outputs/inbound-test-run-20261119/runtime/fix-be-final-tests.log. No post-fix live DB/browser verification claimed.

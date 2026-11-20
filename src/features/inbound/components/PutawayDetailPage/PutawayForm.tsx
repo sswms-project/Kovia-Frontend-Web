@@ -611,7 +611,7 @@ export function PutawayForm({
           {planning?.canSavePlan ? (
             <Button
               type="button"
-              disabled={allocationLocked || !planning.hasChanges}
+              disabled={allocationLocked || !planning.hasChanges || !allocation.canSavePlan}
               aria-busy={planning.isSaving}
               onClick={planning.onSavePlan}
             >

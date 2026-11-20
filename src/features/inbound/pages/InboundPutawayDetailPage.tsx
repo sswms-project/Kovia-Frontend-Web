@@ -388,6 +388,10 @@ export default function InboundPutawayDetailPage({ receiptId }: { readonly recei
     if (savingPlan.current || savePlanMutation.isPending || !hasPlanChanges) return
     const lines = form.getValues('lines')
     const allocation = getPutawayAllocationState(lines, receipt.items, slots)
+    if (!allocation.canSavePlan) {
+      toast.error('Vui lòng sửa các dòng phân bổ chưa hợp lệ trước khi lưu vị trí.')
+      return
+    }
     const overPlanned = receipt.items.find(
       (item) =>
         (allocation.requestedByItem.get(item.id) ?? 0) >

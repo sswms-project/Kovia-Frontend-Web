@@ -268,6 +268,7 @@ export interface GoodsReceiptDetail extends Omit<
   | 'putAwayExecutionStatus'
 > {
   keptAtReceiving?: boolean
+  tenantName?: string
   supplierCode?: string | null
   supplierName?: string | null
   sourceName?: string | null

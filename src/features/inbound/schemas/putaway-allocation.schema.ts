@@ -125,6 +125,10 @@ export function getPutawayAllocationState(
     assignedByItem,
     requestedByItem,
     totalAssigned: totalAssigned / 100,
+    // Dòng chưa chọn đích là phần chưa lập kế hoạch, không phải một lệnh cất hợp lệ.
+    canSavePlan:
+      lines.some((line) => Boolean(line.slotId)) &&
+      rows.every((row, index) => !lines[index]?.slotId || Object.keys(row.errors).length === 0),
     canSubmit: rows.length > 0 && rows.every((row) => Object.keys(row.errors).length === 0),
   }
 }
