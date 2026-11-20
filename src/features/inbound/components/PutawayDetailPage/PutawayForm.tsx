@@ -253,7 +253,11 @@ export function PutawayForm({
                   {receipt.receiptCode}
                 </h1>
                 <p className="text-muted-foreground mt-1 text-xs break-words sm:text-sm">
-                  {receipt.inboundRequestCode} · {receipt.warehouseName}
+                  {receipt.inboundRequestCode ??
+                    (receipt.inboundRequestId
+                      ? 'Không đọc được mã yêu cầu nhập'
+                      : 'Nhận hàng trực tiếp')}{' '}
+                  · {receipt.warehouseName}
                 </p>
               </div>
             </div>

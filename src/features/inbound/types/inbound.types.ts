@@ -123,8 +123,8 @@ export interface ReceivingTaskStats {
 export interface GoodsReceiptSummary {
   id: string
   receiptCode: string
-  inboundRequestId: string
-  inboundRequestCode: string
+  inboundRequestId: string | null
+  inboundRequestCode: string | null
   warehouseId: string
   warehouseName: string
   status: GoodsReceiptStatus
