@@ -32,4 +32,26 @@ describe('ReceiptOverview requester (BUG-028)', () => {
 
     expect(screen.queryByText('Người tạo yêu cầu nhập')).not.toBeInTheDocument()
   })
+
+  it('identifies a direct receipt without inventing a request code', () => {
+    render(
+      <ReceiptOverview
+        receipt={makeReceipt({ inboundRequestId: null, inboundRequestCode: null })}
+      />
+    )
+
+    expect(screen.getAllByText(/Nhận hàng trực tiếp/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Yêu cầu nhập kho')).not.toBeInTheDocument()
+  })
+
+  it('does not label a linked receipt as direct when its request code is unavailable', () => {
+    render(
+      <ReceiptOverview
+        receipt={makeReceipt({ inboundRequestId: 'request-1', inboundRequestCode: null })}
+      />
+    )
+
+    expect(screen.getByText('Không đọc được mã yêu cầu')).toBeInTheDocument()
+    expect(screen.queryByText('Nhận hàng trực tiếp')).not.toBeInTheDocument()
+  })
 })

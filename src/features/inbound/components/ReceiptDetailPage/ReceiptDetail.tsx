@@ -139,7 +139,10 @@ export function ReceiptDetail({
                 <InboundStatusBadge status={receipt.status} />
               </div>
               <p className="text-muted-foreground mt-0.5 text-xs break-words sm:text-sm">
-                Yêu cầu nhập kho {receipt.inboundRequestCode} · {receipt.warehouseName}
+                {receipt.inboundRequestId
+                  ? `Yêu cầu nhập kho ${receipt.inboundRequestCode ?? '(không đọc được mã)'}`
+                  : 'Nhận hàng trực tiếp'}{' '}
+                · {receipt.warehouseName}
               </p>
             </div>
           </div>

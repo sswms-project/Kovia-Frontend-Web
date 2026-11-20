@@ -98,7 +98,7 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
     if (!receipt) return
     setEditVersion(receipt.version)
     form.reset({
-      inboundRequestId: receipt.inboundRequestId,
+      inboundRequestId: receipt.inboundRequestId ?? '',
       receiptCode: receipt.receiptCode,
       lines: receipt.items.flatMap((item) =>
         item.inboundRequestItemId
@@ -310,8 +310,8 @@ export default function GoodsReceiptDetailPage({ receiptId }: { readonly receipt
   const receipt = detailQuery.data
   const editTask: ReceivingTask = {
     version: receipt.version,
-    inboundRequestId: receipt.inboundRequestId,
-    inboundRequestCode: receipt.inboundRequestCode,
+    inboundRequestId: receipt.inboundRequestId ?? '',
+    inboundRequestCode: receipt.inboundRequestCode ?? '',
     warehouseId: receipt.warehouseId,
     warehouseName: receipt.warehouseName,
     supplierId: '',
