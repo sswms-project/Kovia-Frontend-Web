@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useReducer } from 'react'
 import type { AiFormCardData } from '../schemas/ai-form-card.schema'
-import type { AiFormSubmitRequest } from '../types/ai-form.types'
+import {
+  AI_FORM_FLOW_TYPES,
+  type AiFormFieldErrors,
+  type AiFormSubmitRequest,
+} from '../types/ai-form.types'
+import { getAiDraftEditDescriptor } from '../utils/ai-draft-edit-descriptors'
+import { AI_FORM_FLOWS } from '../utils/ai-form-flows'
 import { toAiFormSubmitLines } from '../utils/ai-form-lines'
 import { aiFormReducer, createInitialAiFormState } from '../utils/ai-form-state'
 import { loadAiFormDraft, saveAiFormDraft } from '../utils/ai-form-storage'
@@ -44,9 +50,23 @@ export function useAiFormFlow(form: AiFormCardData) {
     return () => window.clearTimeout(timerId)
   }, [form.expiresAt, status, isSubmitting])
 
-  /** Moves to the products step once warehouse and recipient are chosen. */
+  // Every flow but the stock issue one checks and builds its values like the draft editor of its type.
+  const descriptor =
+    form.flowType === AI_FORM_FLOW_TYPES.stockIssueCreate
+      ? undefined
+      : getAiDraftEditDescriptor(AI_FORM_FLOWS[form.flowType].action)
+
+  const validateAll = (): AiFormFieldErrors =>
+    descriptor
+      ? descriptor.validate(values, limits)
+      : { ...validateAiFormStep(1, values, limits), ...validateAiFormStep(2, values, limits) }
+
+  /** Moves to the products step once the first step's fields are chosen. */
   const goNext = () => {
-    const errors = validateAiFormStep(1, values, limits)
+    const firstStep: readonly string[] = AI_FORM_FLOWS[form.flowType].steps[0]?.fields ?? []
+    const errors: AiFormFieldErrors = descriptor
+      ? Object.fromEntries(Object.entries(validateAll()).filter(([key]) => firstStep.includes(key)))
+      : validateAiFormStep(1, values, limits)
     if (Object.keys(errors).length > 0) {
       dispatch({ type: 'setErrors', errors })
       return
@@ -57,14 +77,21 @@ export function useAiFormFlow(form: AiFormCardData) {
   /** Validates every step, then sends the form; what is still wrong is shown instead of sending. */
   const submit = () => {
     if (isSubmitting) return
-    const errors = {
-      ...validateAiFormStep(1, values, limits),
-      ...validateAiFormStep(2, values, limits),
-    }
-    if (!values.warehouse || !values.recipient || Object.keys(errors).length > 0) {
+    const errors = validateAll()
+    if (!values.warehouse || Object.keys(errors).length > 0) {
       dispatch({ type: 'setErrors', errors })
       return
     }
+    if (descriptor) {
+      const built = descriptor.toRequest('', values)
+      if (!built) return
+      // The form body uses the draft editor's field names; the BE submit reads the ones of its flow.
+      const { revision, ...fields } = built
+      void revision // the form has no revision: its flow token and state version stand for it
+      submitMutation.mutate({ ...fields, stateVersion: form.stateVersion })
+      return
+    }
+    if (!values.recipient) return
     const request: AiFormSubmitRequest = {
       stateVersion: form.stateVersion,
       warehouseId: values.warehouse.id,
@@ -75,5 +102,5 @@ export function useAiFormFlow(form: AiFormCardData) {
     submitMutation.mutate(request)
   }
 
-  return { state, dispatch, limits, goNext, submit, isSubmitting }
+  return { state, dispatch, limits, goNext, submit, isSubmitting, descriptor }
 }

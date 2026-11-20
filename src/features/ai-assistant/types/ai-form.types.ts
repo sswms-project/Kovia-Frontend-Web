@@ -1,14 +1,19 @@
 import type { AiCard } from './ai-assistant.types'
+import type { AiDraftUpdateRequest } from './ai-draft-edit.types'
 
 // Mirrors the `collect_input` card and `POST ai/forms/{flowId}/submit` of Kovia_BE (contract v1).
 
-export const AI_FORM_FLOW_TYPES = { stockIssueCreate: 'stock_issue_create' } as const
+export const AI_FORM_FLOW_TYPES = {
+  stockIssueCreate: 'stock_issue_create',
+  inboundRequestCreate: 'inbound_request_create',
+} as const
 export type AiFormFlowType = (typeof AI_FORM_FLOW_TYPES)[keyof typeof AI_FORM_FLOW_TYPES]
 
 export const AI_FORM_COMPONENTS = {
   entitySelect: 'entity_select',
   lineItems: 'line_items',
   text: 'text',
+  date: 'date',
 } as const
 
 /** Allowlisted lookup keys. The BE sends a key, never a URL; each key maps to one existing query hook. */
@@ -16,8 +21,10 @@ export const AI_FORM_LOOKUPS = {
   warehouses: 'warehouses.stock_issue_create',
   recipients: 'stock_recipients',
   products: 'products.stock_issue',
-  /** Only the inline draft editor of an inbound request asks for a supplier; no card carries this key. */
   suppliers: 'suppliers',
+  /** Keys of the inbound request card. The pickers reuse the queries above (any active warehouse, the whole catalog). */
+  inboundWarehouses: 'warehouses.inbound_request_create',
+  inboundProducts: 'products.inbound',
 } as const
 
 export type AiFormEntityLookupKey =
@@ -25,7 +32,14 @@ export type AiFormEntityLookupKey =
   | typeof AI_FORM_LOOKUPS.recipients
   | typeof AI_FORM_LOOKUPS.suppliers
 
-export const AI_FORM_FIELD_KEYS = ['warehouse', 'recipient', 'lines', 'purpose'] as const
+export const AI_FORM_FIELD_KEYS = [
+  'warehouse',
+  'recipient',
+  'lines',
+  'purpose',
+  'supplier',
+  'expectedDate',
+] as const
 export type AiFormFieldKey = (typeof AI_FORM_FIELD_KEYS)[number]
 
 /** Fields of the draft editors beyond the stock-issue ones. The `collect_input` contract does not know them. */
@@ -60,13 +74,15 @@ export interface AiFormSubmitLine {
   readonly unitId: string
 }
 
-export interface AiFormSubmitRequest {
+type WithoutRevision<T> = T extends unknown ? Omit<T, 'revision'> : never
+
+/**
+ * The fields of the draft type the form prepares, named like the inline draft editor's update (stock issue:
+ * recipient and purpose; inbound request: supplier and expected date), plus the form's state version.
+ */
+export type AiFormSubmitRequest = {
   readonly stateVersion: number
-  readonly warehouseId: string
-  readonly recipientId: string
-  readonly purpose: string
-  readonly lines: readonly AiFormSubmitLine[]
-}
+} & WithoutRevision<AiDraftUpdateRequest>
 
 /**
  * The `action_confirmation` card plus ids. The BE saves the user and assistant messages and names the
