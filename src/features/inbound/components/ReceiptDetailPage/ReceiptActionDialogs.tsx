@@ -22,6 +22,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Textarea } from '@/components/ui/textarea'
 
 interface ReceiptActionDialogsProps {
+  readonly isRefusalOnly?: boolean
   readonly confirmationAction: 'Submit' | 'Approve' | 'ApproveKeep' | null
   readonly isRejectOpen: boolean
   readonly isPending: boolean
@@ -33,6 +34,7 @@ interface ReceiptActionDialogsProps {
 }
 
 export function ReceiptActionDialogs({
+  isRefusalOnly = false,
   confirmationAction,
   isRejectOpen,
   isPending,
@@ -83,9 +85,11 @@ export function ReceiptActionDialogs({
               {confirmationAction === 'ApproveKeep'
                 ? `Hàng đạt trở nên khả dụng tại vị trí nhận, không tăng tồn lần nữa. Có thể lấy theo FEFO mà không cần cất kệ. Công việc cất tùy chọn được hủy có lý do; không ghi giả đã cất.${selfApprovalRequired ? ' Bạn xác nhận tự duyệt phiên bản do mình lập/gửi; hệ thống sẽ lưu audit.' : ''}`
                 : confirmationAction === 'Approve'
-                  ? selfApprovalRequired
-                    ? 'Bạn là người ghi nhận phiếu này. Khi xác nhận, hệ thống sẽ lưu hành động tự phê duyệt trước khi cất hàng.'
-                    : 'Phê duyệt cập nhật phân loại hàng và mở nhiệm vụ cất hàng. Tổng tồn đã nhận không tăng thêm.'
+                  ? isRefusalOnly
+                    ? `Duyệt biên bản từ chối toàn bộ, không ghi tồn hoặc tạo việc cất hàng. Phần chưa nhận tiếp tục được theo dõi trên yêu cầu nhập.${selfApprovalRequired ? ' Bạn xác nhận tự duyệt phiên bản do mình lập/gửi; hệ thống sẽ lưu lịch sử.' : ''}`
+                    : selfApprovalRequired
+                      ? 'Bạn là người ghi nhận phiếu này. Khi xác nhận, hệ thống sẽ lưu hành động tự phê duyệt trước khi cất hàng.'
+                      : 'Phê duyệt cập nhật phân loại hàng và mở nhiệm vụ cất hàng. Tổng tồn đã nhận không tăng thêm.'
                   : 'Lần xác nhận thực nhận đầu tiên ghi hàng vào tồn chờ kiểm tại vị trí đã chọn. Gửi lại kết quả kiểm hàng chỉ cập nhật phiên bản, không nhận hàng thêm.'}
             </AlertDialogDescription>
           </AlertDialogHeader>

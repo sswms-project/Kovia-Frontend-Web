@@ -84,7 +84,10 @@ export function ReceiptDetail({
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `Phieu-nhap-kho-${receipt.receiptCode}.pdf`
+      link.download =
+        `Phiếu nhập kho - ${(receipt.tenantName?.trim() || 'Kovia').slice(0, 80)} - ${receipt.receiptCode}`
+          .replace(/[<>:"/\\|?*]/g, '-')
+          .replace(/\p{Cc}/gu, '-') + '.pdf'
       link.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -312,6 +315,9 @@ export function ReceiptDetail({
       </div>
 
       <ReceiptActionDialogs
+        isRefusalOnly={
+          receipt.items.length > 0 && receipt.items.every((item) => item.receivedQuantity === 0)
+        }
         confirmationAction={confirmationAction}
         isRejectOpen={isRejectOpen}
         isPending={isPending}
