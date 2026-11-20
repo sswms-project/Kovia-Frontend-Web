@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { quantitySchema, refineQuantity } from '@/lib/quantity-rules'
+import type { TransferLineUnits } from '../types/transfer.types'
 import { transferDateIssues, type TransferStoredDates } from '../utils/transfer-dates'
 
 export const MAX_TRANSFER_LINES = 200
@@ -18,7 +20,7 @@ export const transferLineSchema = z.object({
   destinationSlotId: optionalGuid('Vị trí đến không hợp lệ.'),
   /** Vị trí lấy hàng ưu tiên ở kho xuất; chuỗi rỗng là để hệ thống tự phân bổ. */
   sourceSlotId: optionalGuid('Vị trí đi không hợp lệ.'),
-  quantity: z.number('Số lượng phải là số.').positive('Số lượng phải lớn hơn 0.'),
+  quantity: quantitySchema(),
 })
 
 function buildTransferRequestSchema(originalDates?: TransferStoredDates) {
@@ -79,10 +81,20 @@ export interface TransferLineLock {
 
 export function transferRequestSchemaWithLocks(
   locks: ReadonlyMap<string, TransferLineLock>,
-  originalDates?: TransferStoredDates
+  originalDates?: TransferStoredDates,
+  unitsByProductId: Readonly<Record<string, TransferLineUnits>> = {}
 ) {
   return buildTransferRequestSchema(originalDates).superRefine((values, context) => {
     values.lines.forEach((line, index) => {
+      const info = unitsByProductId[line.productId]
+      const unit = info?.units.find((option) => option.unitId === (line.unitId || info.baseUnitId))
+      if (unit)
+        refineQuantity(
+          context,
+          line.quantity,
+          { precision: unit.quantityPrecision, unitName: unit.unitName },
+          ['lines', index, 'quantity']
+        )
       const lock = line.itemId ? locks.get(line.itemId) : undefined
       if (lock && line.quantity < lock.minimum - 1e-9) {
         context.addIssue({

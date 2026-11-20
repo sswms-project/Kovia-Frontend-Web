@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { revalidateEnteredQuantity } from '@/lib/quantity-rules'
 import { LookupCombobox } from '@/features/inbound-request/components/InboundRequestFormPage/LookupCombobox'
 import type { LookupOption } from '@/features/inbound-request/types/inbound-request.types'
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
@@ -152,6 +153,7 @@ export function TransferLineRow({
             form.setValue(`lines.${index}.unitId`, '', { shouldDirty: true })
             form.setValue(`lines.${index}.sourceSlotId`, '', { shouldDirty: true })
             form.setValue(`lines.${index}.destinationSlotId`, '', { shouldDirty: true })
+            revalidateEnteredQuantity(form, `lines.${index}.quantity`)
           }}
         />
         <FieldError>{errors?.productId?.message}</FieldError>
@@ -165,12 +167,13 @@ export function TransferLineRow({
           className="w-full"
           disabled={!unitInfo || isIdentityLocked}
           value={selectedUnitId}
-          onChange={(event) =>
+          onChange={(event) => {
             form.setValue(`lines.${index}.unitId`, event.target.value, {
               shouldDirty: true,
               shouldValidate: true,
             })
-          }
+            revalidateEnteredQuantity(form, `lines.${index}.quantity`)
+          }}
         >
           {units.length === 0 ? (
             <NativeSelectOption value="">{unitPlaceholder}</NativeSelectOption>

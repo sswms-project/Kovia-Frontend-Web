@@ -157,8 +157,8 @@ export function CycleCountItemCards({
                   step="any"
                   value={row.quantity}
                   disabled={!row.recordable || isPending}
-                  aria-invalid={row.quantityInvalid}
-                  aria-describedby={row.quantityInvalid ? `quantity-error-${item.id}` : undefined}
+                  aria-invalid={row.quantityError !== null}
+                  aria-describedby={row.quantityError ? `quantity-error-${item.id}` : undefined}
                   onChange={(event) => onQuantityChange(item.id, event.target.value)}
                 />
               </div>
@@ -198,9 +198,9 @@ export function CycleCountItemCards({
               </div>
             </div>
 
-            {row.recordable && row.quantityInvalid ? (
+            {row.recordable && row.quantityError ? (
               <p id={`quantity-error-${item.id}`} role="alert" className="text-destructive text-xs">
-                Số đếm phải từ 0 và có tối đa 2 chữ số thập phân.
+                {row.quantityError}
               </p>
             ) : null}
             {row.recordable && row.damagedInvalid ? (

@@ -28,10 +28,12 @@ function ResultRowBody({ item }: { readonly item: AiResultListItem }) {
         ) : null}
       </span>
       {item.status || item.meta ? (
-        <span className="flex shrink-0 flex-col items-end gap-0.5">
+        <span className="flex max-w-[45%] shrink-0 flex-col items-end gap-0.5">
           {item.status ? <Badge variant="outline">{item.status}</Badge> : null}
           {item.meta ? (
-            <span className="text-muted-foreground text-xs whitespace-nowrap">{item.meta}</span>
+            <span className="text-muted-foreground text-right text-xs [overflow-wrap:anywhere]">
+              {item.meta}
+            </span>
           ) : null}
         </span>
       ) : null}

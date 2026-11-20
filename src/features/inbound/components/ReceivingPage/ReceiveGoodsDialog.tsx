@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   getOverReceiveMessage,
+  getReceiptQuantityMessage,
   getReceiptUnit,
   getRemainingReceiptQuantity,
 } from '../../utils/receipt-units'
@@ -75,15 +76,21 @@ export function ReceiveGoodsDialog({
     task?.lines.filter((line) =>
       selectedLines.some((value) => value.inboundRequestItemId === line.inboundRequestItemId)
     ) ?? []
-  const hasOverReceive =
-    mode === 'create' &&
-    visibleLines.some((line, index) =>
-      getOverReceiveMessage(
-        line,
-        selectedLines[index]?.enteredUnitId,
-        selectedLines[index]?.receivedQty
+  const hasBlockingQuantity =
+    (mode === 'create' &&
+      visibleLines.some((line, index) =>
+        getOverReceiveMessage(
+          line,
+          selectedLines[index]?.enteredUnitId,
+          selectedLines[index]?.receivedQty
+        )
+      )) ||
+    visibleLines.some((line, index) => {
+      const value = selectedLines[index]
+      return [value?.receivedQty, value?.damagedQty, value?.rejectedQty].some((quantity) =>
+        getReceiptQuantityMessage(line, value?.enteredUnitId, quantity)
       )
-    )
+    })
   return (
     <Dialog open={Boolean(task)} onOpenChange={onOpenChange}>
       <DialogContent
@@ -164,11 +171,15 @@ export function ReceiveGoodsDialog({
               const overReceiveMessage =
                 mode === 'create' ? getOverReceiveMessage(line, unitId, received) : null
               const receivedError =
-                errors.lines?.[index]?.receivedQty?.message ?? overReceiveMessage
+                errors.lines?.[index]?.receivedQty?.message ??
+                getReceiptQuantityMessage(line, unitId, received) ??
+                overReceiveMessage
               const editsRefusal = acceptanceFirst && canEditReceivedQuantity
-              const classificationError = editsRefusal
-                ? errors.lines?.[index]?.rejectedQty
-                : errors.lines?.[index]?.damagedQty
+              const classificationError =
+                (editsRefusal
+                  ? errors.lines?.[index]?.rejectedQty?.message
+                  : errors.lines?.[index]?.damagedQty?.message) ??
+                getReceiptQuantityMessage(line, unitId, editsRefusal ? refused : damaged)
               return (
                 <section key={line.inboundRequestItemId} className="border p-3">
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
@@ -282,7 +293,7 @@ export function ReceiveGoodsDialog({
                           }
                         )}
                       />
-                      <FieldError>{classificationError?.message}</FieldError>
+                      <FieldError>{classificationError}</FieldError>
                     </Field>
                   </div>
                   <p className="text-muted-foreground mt-2 text-xs" aria-live="polite">
@@ -426,13 +437,17 @@ export function ReceiveGoodsDialog({
           <Button
             type="button"
             variant="outline"
-            disabled={isPending || hasOverReceive}
+            disabled={isPending || hasBlockingQuantity}
             onClick={onSaveDraft}
           >
             <Save aria-hidden="true" />
             {saveDraftLabel}
           </Button>
-          <Button type="button" disabled={isPending || hasOverReceive} onClick={onSaveAndSubmit}>
+          <Button
+            type="button"
+            disabled={isPending || hasBlockingQuantity}
+            onClick={onSaveAndSubmit}
+          >
             <Send aria-hidden="true" />
             Lưu và gửi duyệt
           </Button>

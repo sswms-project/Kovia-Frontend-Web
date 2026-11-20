@@ -24,7 +24,7 @@ import {
   useDamageEvidenceUpload,
   type DamageEvidenceFile,
 } from '../../hooks/use-damage-evidence-upload'
-import { parseCountQuantity } from '../../schemas/cycle-count.schema'
+import { countQuantityIssue, parseCountQuantity } from '../../schemas/cycle-count.schema'
 import type { CycleCountItem } from '../../types/cycle-count.types'
 import { isDamageDetailComplete } from '../../utils/cycle-count-damage'
 import { formatCount } from '../../utils/cycle-count-format'
@@ -149,12 +149,10 @@ function ScanSession({ items, isPending, evidenceActions, onSave }: ScanSessionP
   const selectableItems =
     candidateIds.length > 0 ? slotItems.filter((item) => candidateIds.includes(item.id)) : slotItems
   const quantityError =
-    quantity !== '' && parseCountQuantity(quantity) === null
-      ? 'Số lượng từ 0, tối đa 2 chữ số thập phân.'
-      : null
+    quantity === '' ? null : countQuantityIssue(quantity, activeItem ?? undefined)
   const damagedError =
     damaged !== '' &&
-    (parseCountQuantity(damaged) === null ||
+    (parseCountQuantity(damaged, activeItem ?? undefined) === null ||
       (quantityError === null && quantity !== '' && Number(damaged) > Number(quantity)))
       ? 'Số hỏng phải từ 0 và không vượt số đếm.'
       : null

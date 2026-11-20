@@ -13,6 +13,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
+import { quantityStep } from '@/lib/quantity-rules'
 import type { ReportDamagedStockFormValues } from '../../schemas/report-damaged-stock.schema'
 import type { InventoryStock } from '../../types/inventory.types'
 import { formatInventoryQuantity } from '../../utils/inventory-format'
@@ -89,7 +90,7 @@ export function ReportDamagedStockDialog({
                   id="damaged-quantity"
                   type="number"
                   inputMode="decimal"
-                  min="0.001"
+                  min={quantityStep(item.quantityPrecision)}
                   step="any"
                   max={item.availableQuantity}
                   aria-invalid={Boolean(quantityError)}

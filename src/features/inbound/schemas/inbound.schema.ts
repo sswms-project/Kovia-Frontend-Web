@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { refineQuantity } from '@/lib/quantity-rules'
 
 export const receiptLineSchema = z
   .object({
@@ -15,6 +16,11 @@ export const receiptLineSchema = z
     expiryDate: z.string(),
   })
   .superRefine((line, context) => {
+    // Trần chung 2 chữ số/decimal(18,2); độ chính xác theo ĐVT báo tại ô (getReceiptQuantityMessage).
+    for (const field of ['receivedQty', 'rejectedQty', 'damagedQty'] as const) {
+      if (line[field] !== undefined)
+        refineQuantity(context, line[field], { allowZero: true }, [field])
+    }
     if (line.receivedQty === 0 && (line.rejectedQty ?? 0) === 0) {
       context.addIssue({
         code: 'custom',

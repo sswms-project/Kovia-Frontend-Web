@@ -1,5 +1,8 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { parseQuantity, quantityIssue } from '@/lib/quantity-rules'
+
+import type { CycleCountItem } from '../types/cycle-count.types'
 
 // Khớp giới hạn của CreateCycleCountCommandValidator ở BE.
 export const MAX_CYCLE_COUNT_ITEMS = 500
@@ -60,19 +63,20 @@ export const createCycleCountSchema = z
     })
   })
 
-// BE yêu cầu số đếm >= 0 và cột DB có độ chính xác 2 chữ số thập phân.
-const COUNT_QUANTITY_PATTERN = /^\d+(\.\d{1,2})?$/
+type CountQuantityUnit = Partial<Pick<CycleCountItem, 'unitName' | 'quantityPrecision'>>
 
-export const recordCycleCountItemSchema = z
-  .string()
-  .trim()
-  .min(1, 'Vui lòng nhập số lượng đếm.')
-  .regex(COUNT_QUANTITY_PATTERN, 'Số lượng đếm phải từ 0 và tối đa 2 chữ số thập phân.')
+// BE: số đếm >= 0, số chữ số thập phân <= min(độ chính xác đơn vị, 2), vừa decimal(18,2).
+function countRule(unit: CountQuantityUnit) {
+  return { precision: unit.quantityPrecision, unitName: unit.unitName, allowZero: true }
+}
 
-// Cùng luật với schema nhưng không tạo đối tượng lỗi: bảng tính lại mọi dòng mỗi lần gõ phím.
-export function parseCountQuantity(value: string): number | null {
-  const trimmed = value.trim()
-  return COUNT_QUANTITY_PATTERN.test(trimmed) ? Number(trimmed) : null
+export function countQuantityIssue(value: string, unit: CountQuantityUnit = {}): string | null {
+  return quantityIssue(value, countRule(unit))
+}
+
+// Cùng luật nhưng không tạo đối tượng lỗi: bảng tính lại mọi dòng mỗi lần gõ phím.
+export function parseCountQuantity(value: string, unit: CountQuantityUnit = {}): number | null {
+  return parseQuantity(value, countRule(unit))
 }
 
 export const CYCLE_COUNT_NOTE_MAX_LENGTH = 500

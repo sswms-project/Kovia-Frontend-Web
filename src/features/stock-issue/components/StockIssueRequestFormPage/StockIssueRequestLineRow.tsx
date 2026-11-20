@@ -9,6 +9,7 @@ import {
   type LookupOption,
 } from '@/features/inbound-request/components/InboundRequestFormPage'
 import { formatDisplayDate, isoDateStringToDate } from '@/lib/date-format'
+import { revalidateEnteredQuantity } from '@/lib/quantity-rules'
 import { cn } from '@/lib/utils'
 import type { CreateStockIssueRequestFormValues } from '../../schemas/stock-issue.schema'
 import type { StockIssueProductOption } from '../../types/stock-issue.types'
@@ -106,6 +107,7 @@ export function StockIssueRequestLineRow({
             // Đổi sản phẩm thì đơn vị cũ không còn hợp lệ; bỏ trống để dùng đơn vị cơ sở của sản phẩm mới.
             form.setValue(`lines.${index}.unitId`, '', { shouldDirty: true })
             onProductSelect(option)
+            revalidateEnteredQuantity(form, `lines.${index}.quantity`)
           }}
         />
         <FieldError>{errors?.productId?.message}</FieldError>
@@ -119,12 +121,13 @@ export function StockIssueRequestLineRow({
           className="w-full"
           disabled={!product || isPending}
           value={selectedUnitId}
-          onChange={(event) =>
+          onChange={(event) => {
             form.setValue(`lines.${index}.unitId`, event.target.value, {
               shouldDirty: true,
               shouldValidate: true,
             })
-          }
+            revalidateEnteredQuantity(form, `lines.${index}.quantity`)
+          }}
         >
           {product ? (
             product.units.map((unit) => (

@@ -177,7 +177,7 @@ export function useVerify2FAMutation() {
   })
 }
 
-const CURRENT_PASSWORD_INCORRECT_MESSAGE = 'Current password is incorrect.'
+const CURRENT_PASSWORD_INCORRECT_MESSAGE = 'Mật khẩu hiện tại không đúng.'
 
 export function isCurrentPasswordIncorrectError(error: ApiErrorResponse): boolean {
   return error.statusCode === 400 && error.message === CURRENT_PASSWORD_INCORRECT_MESSAGE

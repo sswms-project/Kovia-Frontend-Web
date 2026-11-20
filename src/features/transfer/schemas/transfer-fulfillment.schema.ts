@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { QUANTITY_LIMIT, quantitySchema } from '@/lib/quantity-rules'
 import {
   TRANSFER_DISCREPANCY_ACTIONS,
   TRANSFER_ESCALATION_ACTIONS,
@@ -15,7 +16,7 @@ const note500 = z.string().trim().max(500, 'Ghi chú không được vượt qu�
 export const transferPickSwitchSchema = z
   .object({
     toInventoryStockId: dotNetGuidSchema('Hãy chọn vị trí hoặc lô thay thế.'),
-    quantity: z.number('Số lượng phải là số.').positive('Số lượng chuyển phải lớn hơn 0.'),
+    quantity: quantitySchema(),
     reasonCode: z.enum(TRANSFER_PICK_REASONS, 'Hãy chọn lý do đổi vị trí.'),
     note: note500,
   })
@@ -25,13 +26,6 @@ export const transferPickSwitchSchema = z
         code: 'custom',
         path: ['note'],
         message: 'Hãy ghi chú rõ lý do khi chọn lý do khác.',
-      })
-    }
-    if (!hasAtMostTwoDecimals(values.quantity)) {
-      context.addIssue({
-        code: 'custom',
-        path: ['quantity'],
-        message: 'Số lượng chỉ có tối đa 2 chữ số thập phân.',
       })
     }
   })
@@ -49,7 +43,7 @@ export const transferEscalationResolutionSchema = z
   .object({
     action: z.enum(TRANSFER_ESCALATION_ACTIONS, 'Hãy chọn cách xử lý.'),
     toInventoryStockId: z.string(),
-    quantity: z.number('Số lượng phải là số.').positive('Số lượng phải lớn hơn 0.'),
+    quantity: quantitySchema(),
     note: note500,
   })
   .superRefine((values, context) => {
@@ -67,7 +61,7 @@ export const transferEscalationResolutionSchema = z
 
 export const transferPickReturnSchema = z.object({
   pickDetailId: dotNetGuidSchema('Lần lấy hàng cần trả không hợp lệ.'),
-  quantity: z.number('Số lượng phải là số.').positive('Số lượng trả phải lớn hơn 0.'),
+  quantity: quantitySchema(),
   scannedSlotCode: z.string().trim().min(1, 'Hãy quét mã vị trí để trả hàng.').max(100),
 })
 
@@ -80,9 +74,18 @@ export const transferReceiptEntrySchema = z.object({
   destinationSlotId: z.string(),
   scannedSlotCode: z.string().trim().max(100, 'Mã vị trí không được vượt quá 100 ký tự.'),
   scannedProductCode: z.string().trim().max(100, 'Mã hàng không được vượt quá 100 ký tự.'),
-  goodQuantity: z.number('Số lượng phải là số.').min(0, 'Số lượng nhận tốt không được âm.'),
-  damagedQuantity: z.number('Số lượng phải là số.').min(0, 'Số lượng hỏng không được âm.'),
-  missingQuantity: z.number('Số lượng phải là số.').min(0, 'Số lượng thiếu không được âm.'),
+  goodQuantity: z
+    .number('Số lượng phải là số.')
+    .min(0, 'Số lượng nhận tốt không được âm.')
+    .lt(QUANTITY_LIMIT, 'Số lượng quá lớn.'),
+  damagedQuantity: z
+    .number('Số lượng phải là số.')
+    .min(0, 'Số lượng hỏng không được âm.')
+    .lt(QUANTITY_LIMIT, 'Số lượng quá lớn.'),
+  missingQuantity: z
+    .number('Số lượng phải là số.')
+    .min(0, 'Số lượng thiếu không được âm.')
+    .lt(QUANTITY_LIMIT, 'Số lượng quá lớn.'),
   reasonCode: z.string().max(50, 'Nguyên nhân không được vượt quá 50 ký tự.'),
   deviationReasonCode: z.string().max(40).optional(),
   slotCodeUnreadable: z.boolean().optional(),
@@ -204,7 +207,7 @@ export function createTransferReceiptSchema(
 export const transferDiscrepancySchema = z
   .object({
     action: z.enum(TRANSFER_DISCREPANCY_ACTIONS, 'Hãy chọn cách xử lý.'),
-    quantity: z.number('Số lượng phải là số.').positive('Số lượng xử lý phải lớn hơn 0.'),
+    quantity: quantitySchema(),
     lotId: z.string(),
     destinationSlotId: z.string(),
     scannedSlotCode: z.string().trim().max(100),
@@ -225,13 +228,6 @@ export const transferDiscrepancySchema = z
         code: 'custom',
         path: ['note'],
         message: 'Hãy ghi rõ lý do và bằng chứng xử lý.',
-      })
-    }
-    if (!hasAtMostTwoDecimals(values.quantity)) {
-      context.addIssue({
-        code: 'custom',
-        path: ['quantity'],
-        message: 'Số lượng chỉ có tối đa 2 chữ số thập phân.',
       })
     }
   })

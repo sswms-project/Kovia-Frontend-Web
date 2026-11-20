@@ -30,6 +30,7 @@ import {
   reportDamagedStockSchema,
   type ReportDamagedStockFormValues,
 } from '../schemas/report-damaged-stock.schema'
+import { quantityIssue } from '@/lib/quantity-rules'
 import type { InventoryStock } from '../types/inventory.types'
 import { buildInventoryQuery } from '../utils/inventory-query'
 import { formatInventoryLocation } from '../utils/inventory-format'
@@ -147,6 +148,17 @@ export default function InventoryPage({
     if (!damagedStock) return
     if (values.reportMode === 'Confirmed' && !damagedStock.version) {
       toast.error('Dữ liệu tồn kho chưa có phiên bản. Vui lòng tải lại trang.')
+      return
+    }
+    const unitQuantityIssue =
+      values.reportMode === 'Confirmed'
+        ? quantityIssue(values.quantity, {
+            precision: damagedStock.quantityPrecision,
+            unitName: damagedStock.unitName,
+          })
+        : null
+    if (unitQuantityIssue) {
+      damagedForm.setError('quantity', { message: unitQuantityIssue })
       return
     }
     if (
