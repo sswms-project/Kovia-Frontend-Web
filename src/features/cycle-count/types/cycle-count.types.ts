@@ -135,6 +135,8 @@ export interface CycleCountItem {
   lotNumber: string | null
   qualityStatus: 'Good' | 'Damaged' | 'Quarantine'
   unitName: string | null
+  /** Độ chính xác của ĐVT; BE chưa trả thì FE dùng trần 2 chữ số. */
+  quantityPrecision?: number | null
   rackCode: string | null
   isSystemDefaultSlot: boolean
   expiryDate: string | null

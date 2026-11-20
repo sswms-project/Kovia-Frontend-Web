@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { quantitySchema } from '@/lib/quantity-rules'
+import { productUnitConversionSchema } from './master-data.schema'
 
 const trackingFields = {
   isLotTracked: z.boolean(),
@@ -34,7 +36,7 @@ export const createProductSchema = z
     unitConversions: z.array(
       z.object({
         unitId: z.string().min(1, 'Vui lòng chọn đơn vị quy đổi'),
-        conversionFactor: z.number().positive('Tỷ lệ quy đổi phải lớn hơn 0'),
+        conversionFactor: productUnitConversionSchema.shape.conversionFactor,
       })
     ),
     ...trackingFields,
@@ -80,10 +82,11 @@ export const stockPolicySchema = z
     scope: z.enum(['single', 'all']),
     warehouseId: z.string(),
     preferredSlotId: z.string().nullable(),
-    minStockThreshold: z.number().min(0, 'Ngưỡng tồn kho tối thiểu phải >= 0'),
-    maxStockThreshold: z.number().min(0, 'Ngưỡng tồn kho tối đa phải >= 0').nullable(),
-    reorderPoint: z.number().min(0, 'Điểm đặt hàng lại phải >= 0').nullable(),
-    safetyStock: z.number().min(0, 'Tồn kho an toàn phải >= 0'),
+    // BE: >= 0, tối đa 2 chữ số thập phân, vừa decimal(18,2).
+    minStockThreshold: quantitySchema({ allowZero: true }),
+    maxStockThreshold: quantitySchema({ allowZero: true }).nullable(),
+    reorderPoint: quantitySchema({ allowZero: true }).nullable(),
+    safetyStock: quantitySchema({ allowZero: true }),
     leadTimeDays: z.number().int().positive('Thời gian cung ứng phải lớn hơn 0').nullable(),
   })
   .superRefine((values, context) => {

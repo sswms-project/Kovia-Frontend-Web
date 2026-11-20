@@ -59,7 +59,8 @@ export function CreateShipmentDialog({
   const errors = form.formState.errors
   const selected = lines.filter((line) => line.selected)
   const hasInvalidQuantity = selected.some(
-    (line) => validateShipmentQuantity(line.quantity, line.maximum, line.precision) !== null
+    (line) =>
+      validateShipmentQuantity(line.quantity, line.maximum, line.precision, line.unitName) !== null
   )
   const canSubmit = selected.length > 0 && !hasInvalidQuantity
   return (
@@ -161,7 +162,12 @@ export function CreateShipmentDialog({
                 const quantityError =
                   errors.lines?.[index]?.quantity?.message ||
                   (line.selected
-                    ? validateShipmentQuantity(line.quantity, line.maximum, line.precision)
+                    ? validateShipmentQuantity(
+                        line.quantity,
+                        line.maximum,
+                        line.precision,
+                        line.unitName
+                      )
                     : null)
                 return (
                   <li key={field.id} className="grid items-start gap-2 p-3 sm:grid-cols-[1fr_9rem]">

@@ -51,7 +51,7 @@ import {
   useUpdateStockIssueRequestMutation,
 } from '../hooks/use-stock-issue-requests'
 import {
-  createStockIssueRequestSchema,
+  createStockIssueRequestSchemaWithUnits,
   type CreateStockIssueRequestFormValues,
 } from '../schemas/stock-issue.schema'
 import { stockIssueService } from '../services/stock-issue.service'
@@ -107,8 +107,15 @@ export default function StockIssueRequestFormPage({
   const debouncedRecipientSearch = useDebouncedValue(recipientSearchText.trim(), 300)
   const debouncedProductSearch = useDebouncedValue(productSearch?.value.trim() ?? '', 300)
 
+  // Resolver đọc ĐVT hiện tại của từng dòng tại thời điểm kiểm tra (danh sách sản phẩm tải sau form).
+  const unitLookupRef = useRef<Record<string, StockIssueProductOption>>({})
   const form = useForm<CreateStockIssueRequestFormValues>({
-    resolver: zodResolver(createStockIssueRequestSchema),
+    resolver: (values, context, options) =>
+      zodResolver(createStockIssueRequestSchemaWithUnits(unitLookupRef.current))(
+        values,
+        context,
+        options
+      ),
     defaultValues: {
       stockIssueRequestCode: '',
       stockRecipientId: '',
@@ -182,6 +189,9 @@ export default function StockIssueRequestFormPage({
   Object.assign(productsById, pickedProducts)
   const aiDraft = useStockIssueAiDraft({ draftId: isEditing ? null : (aiDraftId ?? null), form })
   Object.assign(productsById, aiDraft.productsById)
+  useEffect(() => {
+    unitLookupRef.current = productsById
+  })
   const nextRecipientCode = useNextStockRecipientCodeQuery(isQuickRecipientOpen, codeSessionKey)
   const nextRequestCode = useNextStockIssueRequestCodeQuery(!isEditing, requestCodeSessionKey)
   const createMutation = useCreateStockIssueRequestMutation()

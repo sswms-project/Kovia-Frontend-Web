@@ -1,5 +1,6 @@
 import type { UseFormReturn } from 'react-hook-form'
 import { Field, FieldError } from '@/components/ui/field'
+import { revalidateEnteredQuantity } from '@/lib/quantity-rules'
 import type { InboundRequestFormValues } from '../../schemas/inbound-request.schema'
 import type { LookupOption } from '../../types/inbound-request.types'
 import { LookupCombobox } from './LookupCombobox'
@@ -45,6 +46,7 @@ export function ProductSelect({
             shouldValidate: true,
           })
           form.setValue(`lines.${index}.unitId`, '', { shouldDirty: true, shouldValidate: true })
+          revalidateEnteredQuantity(form, `lines.${index}.quantity`)
         }}
       />
       <FieldError>{error?.message}</FieldError>

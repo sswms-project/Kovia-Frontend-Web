@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 import { TRANSFER_FEEDBACK_REASONS } from '../types/transfer.types'
-import { hasTransferQuantityPrecision } from './transfer-receipt.schema'
+import { quantityIssue } from '@/lib/quantity-rules'
 
 export const transferReasonSchema = z.object({
   reason: z
@@ -43,15 +43,12 @@ export const shipmentLineDraftSchema = z.object({
 export function validateShipmentQuantity(
   quantity: number,
   maximum: number,
-  precision = 2
+  precision = 2,
+  unitName?: string
 ): string | null {
-  if (!Number.isFinite(quantity) || quantity <= 0) return 'Số lượng phải lớn hơn 0.'
-  if (quantity > maximum) return `Không vượt quá phần chưa vào đợt (${maximum}).`
-  if (!hasTransferQuantityPrecision(quantity, precision))
-    return precision === 0
-      ? 'Đơn vị này chỉ nhận số nguyên, không được nhập số lẻ.'
-      : `Số lượng chỉ có tối đa ${precision} chữ số thập phân.`
-  return null
+  if (Number.isFinite(quantity) && quantity > 0 && quantity > maximum)
+    return `Không vượt quá phần chưa vào đợt (${maximum}).`
+  return quantityIssue(quantity, { precision, unitName })
 }
 
 export const createShipmentSchema = z
@@ -70,7 +67,12 @@ export const createShipmentSchema = z
     }
     values.lines.forEach((line, index) => {
       if (!line.selected) return
-      const message = validateShipmentQuantity(line.quantity, line.maximum, line.precision)
+      const message = validateShipmentQuantity(
+        line.quantity,
+        line.maximum,
+        line.precision,
+        line.unitName
+      )
       if (message) {
         context.addIssue({
           code: 'custom',

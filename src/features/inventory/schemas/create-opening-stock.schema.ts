@@ -1,16 +1,7 @@
 import { z } from 'zod'
 import { operationalToday } from '@/lib/operational-date-time'
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema'
-
-export function openingStockQuantitySchema(precision: number) {
-  return z
-    .number()
-    .positive('Số lượng phải lớn hơn 0.')
-    .multipleOf(
-      10 ** -precision,
-      `Số lượng chỉ được có tối đa ${precision} chữ số thập phân theo đơn vị đã chọn.`
-    )
-}
+import { quantitySchema } from '@/lib/quantity-rules'
 
 export const createOpeningStockSchema = z
   .object({
@@ -37,7 +28,7 @@ export const createOpeningStockSchema = z
     productId: nonEmptyDotNetGuidSchema('Mã sản phẩm không hợp lệ.'),
     slotId: nonEmptyDotNetGuidSchema('Mã vị trí không hợp lệ.'),
     lotId: z.union([z.literal(''), nonEmptyDotNetGuidSchema('Mã lô không hợp lệ.')]),
-    quantity: openingStockQuantitySchema(2),
+    quantity: quantitySchema(),
     qualityStatus: z.enum(['Good', 'Damaged']),
     eligibilityStatus: z.enum(['Available', 'InspectionHold', 'DamageHold', 'Quarantine']),
   })

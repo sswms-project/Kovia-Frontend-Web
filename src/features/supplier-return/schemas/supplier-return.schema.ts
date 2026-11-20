@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { nonEmptyDotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { quantityIssue } from '@/lib/quantity-rules'
 
 export const createSupplierReturnSchema = z
   .object({
@@ -51,17 +52,15 @@ export const createSupplierReturnSchema = z
         })
       }
       seen.add(line.inventoryStockId)
-      if (Number(line.quantity.toFixed(Math.min(line.quantityPrecision ?? 2, 2))) !== line.quantity)
+      const quantityMessage = quantityIssue(line.quantity, {
+        precision: line.quantityPrecision,
+        unitName: line.unit,
+      })
+      if (quantityMessage) {
         context.addIssue({
           code: 'custom',
           path: ['lines', index, 'quantity'],
-          message: 'Số lượng không phù hợp độ chính xác đơn vị và giới hạn 2 chữ số thập phân.',
-        })
-      if (!(line.quantity > 0)) {
-        context.addIssue({
-          code: 'custom',
-          path: ['lines', index, 'quantity'],
-          message: 'Số lượng trả phải lớn hơn 0.',
+          message: quantityMessage,
         })
       } else if (line.quantity > line.maxQuantity) {
         context.addIssue({
@@ -106,21 +105,23 @@ export const confirmSupplierReturnDeliverySchema = z
         }
       }
       const precision = Math.min(item.quantityPrecision ?? 2, 2)
-      if (
-        Number(item.deliveredQuantity.toFixed(precision)) !== item.deliveredQuantity ||
-        Number(item.approvedQuantity.toFixed(precision)) !== item.approvedQuantity
-      )
+      // Số giao sai ĐVT được báo bên dưới; ở đây chỉ chặn phiếu cũ có số duyệt sai ĐVT.
+      if (Number(item.approvedQuantity.toFixed(precision)) !== item.approvedQuantity)
         context.addIssue({
           code: 'custom',
           path: ['items', index, 'deliveredQuantity'],
           message:
             'Số lượng không phù hợp đơn vị. Phiếu cũ sai số lượng cần được đối soát trước khi giao.',
         })
-      if (!(item.deliveredQuantity >= 0)) {
+      const deliveredMessage = quantityIssue(item.deliveredQuantity, {
+        precision: item.quantityPrecision,
+        allowZero: true,
+      })
+      if (deliveredMessage) {
         context.addIssue({
           code: 'custom',
           path: ['items', index, 'deliveredQuantity'],
-          message: 'Số lượng giao không được âm.',
+          message: deliveredMessage,
         })
       } else if (item.deliveredQuantity > item.approvedQuantity) {
         context.addIssue({

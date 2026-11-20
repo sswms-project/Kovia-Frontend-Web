@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { quantitySchema, refineQuantity } from '@/lib/quantity-rules'
 import type {
   ProductResponse,
   ProductUnitConversion,
@@ -19,7 +20,7 @@ export const inboundSourceLabels: Record<(typeof inboundSourceTypes)[number], st
 
 export const inboundRequestLineSchema = z.object({
   productId: dotNetGuidSchema('Vui lòng chọn sản phẩm.'),
-  quantity: z.number().positive('Số lượng phải lớn hơn 0.'),
+  quantity: quantitySchema(),
   unitId: z
     .string()
     .refine(
@@ -135,16 +136,12 @@ export function inboundRequestSchemaWithUnits(
         })
         return
       }
-      if (
-        Math.abs(line.quantity - Number(line.quantity.toFixed(selectedUnit.quantityPrecision))) >
-        1e-9
-      ) {
-        context.addIssue({
-          code: 'custom',
-          path: ['lines', index, 'quantity'],
-          message: `Đơn vị ${selectedUnit.unitName} chỉ cho phép ${selectedUnit.quantityPrecision} chữ số thập phân.`,
-        })
-      }
+      refineQuantity(
+        context,
+        line.quantity,
+        { precision: selectedUnit.quantityPrecision, unitName: selectedUnit.unitName },
+        ['lines', index, 'quantity']
+      )
       const baseQuantity = line.quantity * factor
       if (
         Math.abs(baseQuantity - Number(baseQuantity.toFixed(baseUnit.quantityPrecision))) > 1e-9

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { QUANTITY_LIMIT } from '@/lib/quantity-rules'
 import { PUTAWAY_DEVIATION_REASONS, UNREADABLE_SLOT_REASONS } from '@/types/putaway.types'
 import type { TransferPutAwaySheet } from '../types/transfer-receipt.types'
 import { hasTransferQuantityPrecision } from './transfer-receipt.schema'
@@ -16,7 +17,7 @@ export const transferPutAwayEntrySchema = z.object({
   quantity: z
     .number('Số lượng phải là số.')
     .min(0, 'Số lượng không được âm.')
-    .lt(1e18, 'Số lượng vượt giới hạn cho phép.'),
+    .lt(QUANTITY_LIMIT, 'Số lượng quá lớn.'),
   scannedSlotCode: z.string().trim().max(100, 'Mã vị trí tối đa 100 ký tự.'),
   scannedProductCode: z.string().trim().max(100, 'Mã hàng tối đa 100 ký tự.'),
   deviationReasonCode: z.string().max(40, 'Lý do không hợp lệ.'),

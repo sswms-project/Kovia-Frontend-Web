@@ -1,11 +1,15 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
 import { isOperationalDateTimeInput } from '@/lib/operational-date-time'
-import { GOODS_RETURN_REQUEST_ITEM_CONDITIONS } from '../types/stock-issue.types'
+import { quantitySchema, refineQuantity } from '@/lib/quantity-rules'
+import {
+  GOODS_RETURN_REQUEST_ITEM_CONDITIONS,
+  type StockIssueProductOption,
+} from '../types/stock-issue.types'
 
 export const stockIssueRequestLineSchema = z.object({
   productId: dotNetGuidSchema('Vui lòng chọn sản phẩm.'),
-  quantity: z.number().positive('Số lượng phải lớn hơn 0.'),
+  quantity: quantitySchema(),
   unitId: z.string(),
   note: z.string().trim().max(500, 'Ghi chú dòng không được vượt quá 500 ký tự.'),
 })
@@ -41,6 +45,27 @@ export const createStockIssueRequestSchema = z
       productIds.add(line.productId)
     })
   })
+
+/** Thêm luật số lượng theo ĐVT đang chọn của từng dòng (sản phẩm chưa tải thì chỉ áp trần chung). */
+export function createStockIssueRequestSchemaWithUnits(
+  productsById: Readonly<Record<string, StockIssueProductOption>>
+) {
+  return createStockIssueRequestSchema.superRefine((values, context) => {
+    values.lines.forEach((line, index) => {
+      const product = productsById[line.productId]
+      const unit = product?.units.find(
+        (option) => option.unitId === (line.unitId || product.unitId)
+      )
+      if (!unit) return
+      refineQuantity(
+        context,
+        line.quantity,
+        { precision: unit.quantityPrecision, unitName: unit.unitName },
+        ['lines', index, 'quantity']
+      )
+    })
+  })
+}
 
 export const recordStockPickingLineSchema = z.object({
   destinationStagingSlotId: z.string().optional(),
@@ -123,6 +148,13 @@ export const recordStockPickingSchema = z
           path: ['lines', index, 'pickedQuantity'],
           message: `Chỉ lấy nguyên ${line.unitName}.`,
         })
+      } else if (line.pickedQuantity > 0) {
+        // Dòng chưa mang độ chính xác ĐVT: áp trần 2 chữ số và giới hạn decimal(18,2).
+        refineQuantity(context, line.pickedQuantity, { unitName: line.unitName }, [
+          'lines',
+          index,
+          'pickedQuantity',
+        ])
       }
 
       if (line.pickedQuantity > line.remainingQuantity) {

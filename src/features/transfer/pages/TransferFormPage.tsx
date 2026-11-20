@@ -90,6 +90,8 @@ export default function TransferFormPage({
   const detailQuery = useTransferQuery(transferId ?? null)
   const detail = detailQuery.data
   const locksRef = useRef<ReadonlyMap<string, TransferLineLock>>(new Map())
+  // ĐVT từng dòng cho resolver (độ chính xác số lượng); cập nhật sau mỗi lần render.
+  const unitsRef = useRef<Record<string, TransferLineUnits>>({})
   const [productSearch, setProductSearch] = useState<ProductSearchState | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
   const debouncedProductSearch = useDebouncedValue(productSearch?.value.trim() ?? '', 300)
@@ -103,7 +105,11 @@ export default function TransferFormPage({
   const form = useForm<TransferRequestFormValues>({
     resolver: (values, context, options) =>
       zodResolver(
-        transferRequestSchemaWithLocks(locksRef.current, mode === 'edit' ? detail : undefined)
+        transferRequestSchemaWithLocks(
+          locksRef.current,
+          mode === 'edit' ? detail : undefined,
+          unitsRef.current
+        )
       )(values, context, options),
     defaultValues: emptyTransferForm(),
   })
@@ -300,6 +306,9 @@ export default function TransferFormPage({
       unitsQuery.data ?? [],
       availabilityByProductId[id]
     )
+  })
+  useEffect(() => {
+    unitsRef.current = unitsByProductId
   })
   const isUnitLoading =
     unitsQuery.isPending ||

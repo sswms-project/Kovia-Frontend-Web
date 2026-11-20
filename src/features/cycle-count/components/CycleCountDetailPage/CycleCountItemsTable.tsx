@@ -48,7 +48,11 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import { APP_ROUTES } from '@/routes/app-routes'
-import { CYCLE_COUNT_NOTE_MAX_LENGTH, parseCountQuantity } from '../../schemas/cycle-count.schema'
+import {
+  CYCLE_COUNT_NOTE_MAX_LENGTH,
+  countQuantityIssue,
+  parseCountQuantity,
+} from '../../schemas/cycle-count.schema'
 import type { CycleCountDetail, CycleCountItem } from '../../types/cycle-count.types'
 import {
   CYCLE_COUNT_QUALITY_LABELS,
@@ -197,7 +201,7 @@ export function CycleCountItemsTable({
   // Tính chênh lệch ngay trên FE theo số đang nhập; server chỉ chốt khi lưu.
   function getLiveCounted(item: CycleCountItem): number | null {
     const draft = getDraft(item)
-    return parseCountQuantity(draft)
+    return parseCountQuantity(draft, item)
   }
 
   function getLiveDifference(item: CycleCountItem): number | null {
@@ -220,7 +224,7 @@ export function CycleCountItemsTable({
   function getLiveDamaged(item: CycleCountItem): number | null {
     const draft = getDamagedDraft(item)
     if (draft === '') return null
-    return parseCountQuantity(draft)
+    return parseCountQuantity(draft, item)
   }
 
   function isDamagedInvalid(item: CycleCountItem): boolean {
@@ -257,7 +261,7 @@ export function CycleCountItemsTable({
   // Chỉ lưu các dòng có số đếm hợp lệ và khác giá trị đã lưu trên server.
   const dirtyEntries: CycleCountRecordEntry[] = items.flatMap((item) => {
     const draft = getDraft(item)
-    if (!isRecordable(item) || parseCountQuantity(draft) === null) return []
+    if (!isRecordable(item) || parseCountQuantity(draft, item) === null) return []
     if (isDamagedInvalid(item) || isDamageIncomplete(item)) return []
     const note = getNoteDraft(item).trim() || null
     const damagedQuantity = getLiveDamaged(item)
@@ -350,7 +354,7 @@ export function CycleCountItemsTable({
       recordable: isRecordable(item),
       selected: selectedItemIds.includes(item.id),
       quantity: draft,
-      quantityInvalid: draft !== '' && parseCountQuantity(draft) === null,
+      quantityError: draft === '' ? null : countQuantityIssue(draft, item),
       damaged: getDamagedDraft(item),
       damagedInvalid: isDamagedInvalid(item),
       hasDamage: (getLiveDamaged(item) ?? 0) > 0,
@@ -543,6 +547,7 @@ export function CycleCountItemsTable({
               rows.map((item, rowIndex) => {
                 const recordable = isRecordable(item)
                 const draft = getDraft(item)
+                const quantityError = draft === '' ? null : countQuantityIssue(draft, item)
                 const hasVariance = item.difference !== null && item.difference !== 0
                 const liveDifference = getLiveDifference(item)
                 const state = getItemState(item, detail)
@@ -627,7 +632,8 @@ export function CycleCountItemsTable({
                         step="any"
                         value={draft}
                         disabled={!recordable || isPending}
-                        aria-invalid={draft !== '' && parseCountQuantity(draft) === null}
+                        aria-invalid={quantityError !== null}
+                        title={quantityError ?? undefined}
                         onChange={(event) =>
                           setDrafts((current) => ({ ...current, [item.id]: event.target.value }))
                         }
@@ -635,6 +641,11 @@ export function CycleCountItemsTable({
                           if (event.key === 'Enter') focusNext(rowIndex)
                         }}
                       />
+                      {recordable && quantityError ? (
+                        <p role="alert" className="text-destructive mt-1 text-right text-xs">
+                          {quantityError}
+                        </p>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       {recordable ? (
