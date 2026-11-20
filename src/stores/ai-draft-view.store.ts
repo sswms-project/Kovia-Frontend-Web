@@ -8,6 +8,12 @@ interface AiDraftViewState {
   savedRevisions: Readonly<Record<string, string>>
   /** Advisory warnings of the last saved edit (shortage, reset date); they never block anything. */
   warnings: Readonly<Record<string, readonly AiDraftWarning[]>>
+  /**
+   * Drafts with an open inline editor holding unsaved changes. A chat message sent meanwhile could
+   * patch the draft and close the editor, so the composer waits until these are saved or discarded.
+   */
+  dirtyDraftIds: Readonly<Record<string, true>>
+  setDirty: (draftId: string, isDirty: boolean) => void
   markConflict: (draftId: string) => void
   clearConflict: (draftId: string) => void
   markSaved: (draftId: string, revision: string, warnings: readonly AiDraftWarning[]) => void
@@ -19,6 +25,15 @@ export const useAiDraftViewStore = create<AiDraftViewState>()((set) => ({
   conflictDraftIds: {},
   savedRevisions: {},
   warnings: {},
+  dirtyDraftIds: {},
+  setDirty: (draftId, isDirty) =>
+    set((state) => {
+      if (Boolean(state.dirtyDraftIds[draftId]) === isDirty) return state
+      const rest = { ...state.dirtyDraftIds }
+      if (isDirty) rest[draftId] = true
+      else delete rest[draftId]
+      return { dirtyDraftIds: rest }
+    }),
   markConflict: (draftId) =>
     set((state) => ({ conflictDraftIds: { ...state.conflictDraftIds, [draftId]: true } })),
   clearConflict: (draftId) =>

@@ -1,4 +1,3 @@
-import type { AlertQuery } from '@/features/ai-alerts/types/ai-alerts.types'
 import type { QueryInfo } from '@/types/api'
 import type {
   AiEntityKind,
@@ -340,13 +339,5 @@ export const queryKeys = {
     actionEditor: (draftId: string) => ['ai-assistant', 'action-editor', draftId] as const,
     // Key of the update mutation, so any component can tell that a draft is being saved.
     updateAction: (draftId: string) => ['ai-assistant', 'update-action', draftId] as const,
-  },
-  aiAlerts: {
-    all: ['ai-alerts'] as const,
-    list: (params: AlertQuery) => ['ai-alerts', 'list', params] as const,
-    detail: (alertId: string) => ['ai-alerts', 'detail', alertId] as const,
-    metrics: ['ai-alerts', 'metrics'] as const,
-    rules: ['ai-alerts', 'rules'] as const,
-    catalog: ['ai-alerts', 'catalog'] as const,
   },
 }

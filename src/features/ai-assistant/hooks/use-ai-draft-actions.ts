@@ -28,8 +28,6 @@ const ACTION_RESULT_QUERY_KEYS: Record<string, QueryKey> = {
   [AI_ACTIONS.createStockAdjustment]: queryKeys.stockAdjustments.all,
   [AI_ACTIONS.createStockIssueRequest]: queryKeys.stockIssueRequests.all,
   [AI_ACTIONS.createSupplierReturn]: queryKeys.supplierReturns.all,
-  [AI_ACTIONS.createWatchRule]: queryKeys.aiAlerts.all,
-  [AI_ACTIONS.changeWatchRule]: queryKeys.aiAlerts.all,
 }
 
 export function useConfirmAiActionMutation() {

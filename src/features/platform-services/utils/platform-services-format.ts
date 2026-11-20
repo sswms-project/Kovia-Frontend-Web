@@ -159,9 +159,6 @@ const notificationTypeQueryRoots: Partial<
   StaffInvitationUpdate: [queryKeys.staff.all],
   SubscriptionPlanUpdate: [queryKeys.subscription.all],
   SubscriptionPaymentUpdate: [queryKeys.subscription.all, queryKeys.payments.all],
-  WatchRuleTriggered: [queryKeys.aiAlerts.all],
-  // Watch-rule digests are alerts too (BE AiWatchRuleAlertNotifier).
-  DailyOperationsDigest: [queryKeys.aiAlerts.all],
 }
 
 // Tham chiếu đến 1 phiếu cụ thể → key chi tiết (prefix phủ luôn allowed-actions).
@@ -224,8 +221,6 @@ const notificationReferenceRoutes: Record<string, (id: string) => string> = {
   TenantSubscription: () => APP_ROUTES.subscription,
   SubscriptionPlan: () => APP_ROUTES.subscription,
   Payment: () => APP_ROUTES.subscriptionPayments,
-  OperationalAlert: APP_ROUTES.aiAlertDetail,
-  AiWatchRule: APP_ROUTES.aiWatchRule,
 }
 
 interface NotificationActionRoute {
