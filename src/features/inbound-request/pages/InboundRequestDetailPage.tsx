@@ -24,6 +24,7 @@ import {
   useSendInboundRequestToSupplierMutation,
   useSubmitInboundRequestMutation,
   useDeleteInboundRequestMutation,
+  useUpdateInboundRequestMutation,
 } from '../hooks/use-inbound-requests'
 import {
   INBOUND_REQUEST_ACTION,
@@ -56,6 +57,7 @@ export default function InboundRequestDetailPage({
   const assignment = useAssignWarehouseTask()
   const actionsQuery = useInboundRequestAllowedActionsQuery(inboundRequestId)
   const submitMutation = useSubmitInboundRequestMutation()
+  const updateMutation = useUpdateInboundRequestMutation()
   const approveMutation = useApproveInboundRequestMutation()
   const approveAndSendMutation = useApproveAndSendInboundRequestMutation()
   const sendToSupplierMutation = useSendInboundRequestToSupplierMutation()
@@ -121,6 +123,38 @@ export default function InboundRequestDetailPage({
           expectedVersion: expectedVersion ?? '',
         })
         toast.success('Đã chấp nhận ngày giao và báo cho nhà cung cấp.')
+        return true
+      }
+      if (action === INBOUND_REQUEST_ACTION.UpdateAndSelfApprove) {
+        const draft = detailQuery.data
+        if (
+          !draft?.warehouseId ||
+          draft.status !== 'Draft' ||
+          !actionsQuery.data?.allowedActions.includes(INBOUND_REQUEST_ACTION.UpdateAndSelfApprove)
+        ) {
+          toast.error('Yêu cầu hiện không được phép tạo. Vui lòng tải lại.')
+          return false
+        }
+        await updateMutation.mutateAsync({
+          inboundRequestId,
+          request: {
+            inboundRequestCode: draft.inboundRequestCode,
+            warehouseId: draft.warehouseId,
+            supplierId: draft.supplierId,
+            sourceType: draft.sourceType,
+            sourceName: draft.sourceName,
+            sourceReference: draft.sourceReference,
+            expectedDate: draft.expectedDate,
+            expectedVersion: expectedVersion ?? '',
+            selfApprovalAcknowledged: true,
+            lines: draft.lines.map((line) => ({
+              productId: line.productId,
+              quantity: line.enteredQuantity,
+              unitId: line.enteredUnitId,
+            })),
+          },
+        })
+        toast.success('Đã tạo và tự phê duyệt yêu cầu nhập kho.')
         return true
       }
       if (action === INBOUND_REQUEST_ACTION.Submit)
@@ -193,6 +227,7 @@ export default function InboundRequestDetailPage({
           assignment.isPending ||
           deleteMutation.isPending ||
           submitMutation.isPending ||
+          updateMutation.isPending ||
           approveMutation.isPending ||
           approveAndSendMutation.isPending ||
           sendToSupplierMutation.isPending ||
@@ -201,6 +236,9 @@ export default function InboundRequestDetailPage({
           reconcileMutation.isPending
         }
         onSubmit={() => runAction(INBOUND_REQUEST_ACTION.Submit)}
+        onCreate={(version) =>
+          runAction(INBOUND_REQUEST_ACTION.UpdateAndSelfApprove, undefined, true, version)
+        }
         onApprove={(acknowledged) =>
           runAction(INBOUND_REQUEST_ACTION.Approve, undefined, acknowledged)
         }
