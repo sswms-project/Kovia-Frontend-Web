@@ -20,21 +20,21 @@ export function FormActions({
     <div className="flex flex-col gap-2 sm:flex-row">
       <Button
         type="button"
-        variant={autoApprove || isApprovedEdit ? 'default' : 'outline'}
+        variant={isApprovedEdit ? 'default' : 'outline'}
         disabled={isPending}
         onClick={onSaveDraft}
       >
         <Save aria-hidden="true" />
-        {isApprovedEdit ? 'Lưu' : autoApprove ? 'Tạo' : 'Lưu nháp'}
+        {isApprovedEdit ? 'Lưu' : 'Lưu nháp'}
       </Button>
-      {!autoApprove && !isApprovedEdit ? (
+      {!isApprovedEdit ? (
         <Button
           type={onSaveAndSubmit ? 'button' : 'submit'}
           disabled={isPending}
           onClick={onSaveAndSubmit}
         >
           <Send aria-hidden="true" />
-          Lưu và gửi duyệt
+          {autoApprove ? 'Tạo' : 'Lưu và gửi duyệt'}
         </Button>
       ) : null}
     </div>

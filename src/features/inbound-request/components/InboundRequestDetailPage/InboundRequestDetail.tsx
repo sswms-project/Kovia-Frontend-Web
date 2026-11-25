@@ -69,6 +69,7 @@ interface InboundRequestDetailProps {
   readonly isPending: boolean
   readonly onAssignReceiving?: () => void
   readonly onSubmit: () => Promise<boolean>
+  readonly onCreate: (expectedVersion: string) => Promise<boolean>
   readonly onApprove: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onApproveAndSend: (selfApprovalAcknowledged: boolean) => Promise<boolean>
   readonly onSendToSupplier: () => Promise<boolean>
@@ -128,6 +129,7 @@ export function InboundRequestDetail({
   selfApprovalRequired,
   isPending,
   onSubmit,
+  onCreate,
   onApprove,
   onApproveAndSend,
   onSendToSupplier,
@@ -137,6 +139,8 @@ export function InboundRequestDetail({
   onAssignReceiving,
 }: InboundRequestDetailProps) {
   const [confirmationAction, setConfirmationAction] = useState<InboundRequestAction | null>(null)
+  const [creationVersion, setCreationVersion] = useState('')
+  const canCreateDraft = allowedActions.includes(INBOUND_REQUEST_ACTION.UpdateAndSelfApprove)
   const [isRejectOpen, setIsRejectOpen] = useState(false)
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState('')
@@ -161,6 +165,7 @@ export function InboundRequestDetail({
     if (!confirmationAction) return
     const handlers: Partial<Record<InboundRequestAction, () => Promise<boolean>>> = {
       [INBOUND_REQUEST_ACTION.Submit]: onSubmit,
+      [INBOUND_REQUEST_ACTION.UpdateAndSelfApprove]: () => onCreate(creationVersion),
       [INBOUND_REQUEST_ACTION.Approve]: () => onApprove(selfApprovalAcknowledged),
       [INBOUND_REQUEST_ACTION.ApproveAndSend]: () => onApproveAndSend(selfApprovalAcknowledged),
       [INBOUND_REQUEST_ACTION.SendToSupplier]: onSendToSupplier,
@@ -183,6 +188,7 @@ export function InboundRequestDetail({
   )
   const skipsSelfApproval =
     confirmationAction === INBOUND_REQUEST_ACTION.Submit ||
+    confirmationAction === INBOUND_REQUEST_ACTION.UpdateAndSelfApprove ||
     confirmationAction === INBOUND_REQUEST_ACTION.SendToSupplier ||
     confirmationAction === INBOUND_REQUEST_ACTION.AcceptSupplierProposedDate
   const showMissingEmailHint =
@@ -277,13 +283,21 @@ export function InboundRequestDetail({
               </Link>
             </Button>
           ) : null}
-          {allowedActions.includes(INBOUND_REQUEST_ACTION.Submit) ? (
+          {canCreateDraft || allowedActions.includes(INBOUND_REQUEST_ACTION.Submit) ? (
             <Button
               type="button"
-              onClick={() => setConfirmationAction(INBOUND_REQUEST_ACTION.Submit)}
+              disabled={isPending}
+              onClick={() => {
+                setCreationVersion(inboundRequest.version)
+                setConfirmationAction(
+                  canCreateDraft
+                    ? INBOUND_REQUEST_ACTION.UpdateAndSelfApprove
+                    : INBOUND_REQUEST_ACTION.Submit
+                )
+              }}
             >
               <Send aria-hidden="true" />
-              Gửi duyệt
+              {canCreateDraft ? 'Tạo' : 'Gửi duyệt'}
             </Button>
           ) : null}
           {allowedActions.includes(INBOUND_REQUEST_ACTION.Reject) ? (
@@ -480,7 +494,9 @@ export function InboundRequestDetail({
                 void confirmAction()
               }}
             >
-              Xác nhận
+              {confirmationAction === INBOUND_REQUEST_ACTION.UpdateAndSelfApprove
+                ? 'Tạo'
+                : 'Xác nhận'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -612,6 +628,11 @@ function getConfirmationCopy(
 ) {
   const mailNote = `Email kèm file PDF và nút xác nhận đơn sẽ được gửi tới ${supplierEmail ?? 'nhà cung cấp'}, đồng thời CC người tạo và người duyệt. Liên kết trong email gửi trước (nếu có) sẽ hết hiệu lực.`
   switch (action) {
+    case INBOUND_REQUEST_ACTION.UpdateAndSelfApprove:
+      return {
+        title: 'Tạo yêu cầu nhập kho?',
+        description: 'Bản nháp sẽ được hoàn tất và tự phê duyệt để tổ chức nhận hàng.',
+      }
     case INBOUND_REQUEST_ACTION.Approve:
       return {
         title: 'Phê duyệt yêu cầu nhập kho?',
