@@ -6,6 +6,7 @@ import {
   AI_FORM_LOOKUPS,
   AI_FORM_STATUSES,
 } from '../types/ai-form.types'
+import { aiFormFlowFields } from '../utils/ai-form-flows'
 
 // Every object is strict: a card that carries anything outside the contract (a `url`, `html`, `href`...)
 // is ignored as a whole instead of being partly drawn.
@@ -24,7 +25,24 @@ const warehouseFieldSchema = z
     ...fieldBase,
     key: z.literal('warehouse'),
     component: z.literal(AI_FORM_COMPONENTS.entitySelect),
-    lookup: z.literal(AI_FORM_LOOKUPS.warehouses),
+    lookup: z.enum([AI_FORM_LOOKUPS.warehouses, AI_FORM_LOOKUPS.inboundWarehouses]),
+  })
+  .strict()
+
+const supplierFieldSchema = z
+  .object({
+    ...fieldBase,
+    key: z.literal('supplier'),
+    component: z.literal(AI_FORM_COMPONENTS.entitySelect),
+    lookup: z.literal(AI_FORM_LOOKUPS.suppliers),
+  })
+  .strict()
+
+const expectedDateFieldSchema = z
+  .object({
+    ...fieldBase,
+    key: z.literal('expectedDate'),
+    component: z.literal(AI_FORM_COMPONENTS.date),
   })
   .strict()
 
@@ -42,7 +60,7 @@ const linesFieldSchema = z
     ...fieldBase,
     key: z.literal('lines'),
     component: z.literal(AI_FORM_COMPONENTS.lineItems),
-    lookup: z.literal(AI_FORM_LOOKUPS.products),
+    lookup: z.enum([AI_FORM_LOOKUPS.products, AI_FORM_LOOKUPS.inboundProducts]),
     dependsOn: z.array(z.literal('warehouse')).max(1).optional(),
     constraints: z
       .object({
@@ -82,6 +100,8 @@ export const aiFormCardSchema = z
       // Read line by line (readAiFormPrefill), so one bad line never discards the whole card.
       lines: z.array(z.unknown()).max(100).nullish(),
       purpose: z.string().max(500).nullish(),
+      supplier: aiFormEntityValueSchema.nullish(),
+      expectedDate: z.iso.date().nullish(),
     }),
     // Required fields the BE could not resolve; absent on a BE that does not send it.
     missing: z.array(fieldKeySchema).max(AI_FORM_FIELD_KEYS.length).optional(),
@@ -92,14 +112,20 @@ export const aiFormCardSchema = z
           recipientFieldSchema,
           linesFieldSchema,
           purposeFieldSchema,
+          supplierFieldSchema,
+          expectedDateFieldSchema,
         ])
       )
-      .refine((fields) => AI_FORM_FIELD_KEYS.every((key) => fields.some((f) => f.key === key)), {
-        message: 'Missing field definition',
-      }),
+      .max(AI_FORM_FIELD_KEYS.length),
     actions: z.array(z.enum(['submit', 'cancel'])).max(2),
   })
   .strict()
+  // Every field the flow's steps ask for must be defined, so no step renders a field without a label.
+  .refine(
+    (form) =>
+      aiFormFlowFields(form.flowType).every((key) => form.fields.some((f) => f.key === key)),
+    { message: 'Missing field definition' }
+  )
 
 export type AiFormCardData = z.infer<typeof aiFormCardSchema>
 export type AiFormEntityValue = z.infer<typeof aiFormEntityValueSchema>

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const optionalPhoneSchema = (label: string) =>
+export const optionalPhoneSchema = (label: string) =>
   z
     .string()
     .trim()

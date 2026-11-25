@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { expect, it, vi } from 'vitest'
 import { SupplierReturnDeliveryLine } from './SupplierReturnDeliveryLine'
 import {
@@ -48,42 +49,64 @@ const line = {
   productScanCodes: ['SUA', 'BARCODE-MILK'],
 } as SupplierReturnItem
 
-function Harness({ disabled = false }: { disabled?: boolean }) {
+function Harness({
+  disabled = false,
+  precision = 0,
+  onDelivered = () => {},
+}: {
+  disabled?: boolean
+  precision?: number
+  onDelivered?: (values: ConfirmSupplierReturnDeliveryFormValues) => void
+}) {
   const form = useForm<ConfirmSupplierReturnDeliveryFormValues>({
+    resolver: zodResolver(confirmSupplierReturnDeliverySchema),
     defaultValues: {
       items: [
         {
           itemId: 'line',
           approvedQuantity: 3,
           deliveredQuantity: 3,
+          quantityPrecision: precision,
           scannedSlotCode: '',
           scannedProductCode: '',
         },
       ],
     },
   })
-  return <SupplierReturnDeliveryLine line={line} index={0} form={form} disabled={disabled} />
+  return (
+    <>
+      <SupplierReturnDeliveryLine
+        line={{ ...line, quantityPrecision: precision }}
+        index={0}
+        form={form}
+        disabled={disabled}
+      />
+      <button type="button" onClick={form.handleSubmit(onDelivered)}>
+        Xác nhận giao
+      </button>
+    </>
+  )
 }
 
-it('validates source before product without jumping focus, focuses quantity after the product and permits rescan', () => {
+it('validates source before product without jumping focus, focuses quantity after the product and permits rescan', async () => {
   render(<Harness />)
   expect(screen.getByText(`Lấy tại: ${line.sourceLocation}`)).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Camera hàng' }))
   expect(screen.getByRole('alert').textContent).toContain('vị trí chưa khớp')
   const input = screen.getByLabelText('Hoặc nhập mã vị trí')
-  input.focus()
+  act(() => input.focus())
   fireEvent.change(input, { target: { value: ' a04 ' } })
   fireEvent.keyDown(input, { key: 'Enter' })
   expect(screen.getByLabelText('Hoặc nhập mã hàng')).toBe(document.activeElement)
   fireEvent.click(screen.getByRole('button', { name: 'Camera hàng' }))
   expect(screen.getByText('Đã kiểm tra vị trí và hàng hóa')).toBeTruthy()
   expect(screen.getByLabelText('Số lượng giao')).toBe(document.activeElement)
-  expect(screen.getByLabelText('Số lượng giao').getAttribute('step')).toBe('1')
+  expect(screen.getByLabelText('Số lượng giao')).toHaveAttribute('step', 'any')
   fireEvent.click(screen.getByRole('button', { name: 'Quét lại' }))
   expect(screen.getByLabelText('Hoặc nhập mã vị trí')).toBeTruthy()
   fireEvent.change(screen.getByLabelText('Số lượng giao'), { target: { value: '0' } })
   expect(screen.getByText('Không giao dòng này; lượng giữ sẽ được giải phóng.')).toBeTruthy()
-  expect(screen.getByText('Chưa giao: 3 Thùng')).toBeTruthy()
+  await waitFor(() => expect(screen.getByText('Chưa giao: 3 Thùng')).toBeTruthy())
 })
 
 it('locks camera, manual entry and quantity while a command is pending or uncertain', () => {
@@ -128,3 +151,45 @@ it('requires both scan codes only for positive quantities and preserves quantity
     }).success
   ).toBe(false)
 })
+
+it.each([
+  { precision: 0, value: '0.5', error: 'Số lượng phải là số nguyên.' },
+  { precision: 2, value: '0.123', error: 'Tối đa 2 chữ số thập phân.' },
+  { precision: 2, value: '4', error: 'Số lượng giao không được vượt quá số lượng đã duyệt.' },
+  { precision: 2, value: '-1', error: 'Số lượng không được âm.' },
+])(
+  'blocks invalid delivery on submit: precision=$precision, quantity=$value',
+  async ({ precision, value, error }) => {
+    const delivered = vi.fn()
+    render(<Harness precision={precision} onDelivered={delivered} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Camera vị trí' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Camera hàng' }))
+    fireEvent.change(screen.getByLabelText('Số lượng giao'), { target: { value } })
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận giao' }))
+    await waitFor(() => expect(screen.getByText(error)).toBeInTheDocument())
+    expect(delivered).not.toHaveBeenCalled()
+  }
+)
+
+it.each([
+  { precision: 0, value: '3', expected: 3 },
+  { precision: 2, value: '0.5', expected: 0.5 },
+  { precision: 2, value: '0.01', expected: 0.01 },
+])(
+  'submits a valid delivery: precision=$precision, quantity=$value',
+  async ({ precision, value, expected }) => {
+    const delivered = vi.fn()
+    render(<Harness precision={precision} onDelivered={delivered} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Camera vị trí' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Camera hàng' }))
+    fireEvent.change(screen.getByLabelText('Số lượng giao'), { target: { value } })
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận giao' }))
+    await waitFor(() => expect(delivered).toHaveBeenCalledOnce())
+    expect(delivered.mock.calls[0]?.[0].items[0]).toMatchObject({
+      deliveredQuantity: expected,
+      quantityPrecision: precision,
+      scannedSlotCode: 'KOVIA:LOC:RACK:rack',
+      scannedProductCode: 'BARCODE-MILK',
+    })
+  }
+)

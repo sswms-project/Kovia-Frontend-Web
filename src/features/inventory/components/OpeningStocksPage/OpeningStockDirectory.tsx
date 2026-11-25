@@ -52,10 +52,8 @@ import { OperationalPagination } from '@/components/operations/OperationalPagina
 import { OperationalListPanel } from '@/components/operations/OperationalListPanel'
 import { useImportNavigation } from '@/components/operations/use-import-navigation'
 import { UnsavedChangesDialog } from '@/components/operations/UnsavedChangesDialog'
-import {
-  openingStockQuantitySchema,
-  type CreateOpeningStockFormValues,
-} from '../../schemas/create-opening-stock.schema'
+import { quantityIssue, quantityStep } from '@/lib/quantity-rules'
+import type { CreateOpeningStockFormValues } from '../../schemas/create-opening-stock.schema'
 import type {
   InventoryFilterOption,
   OpeningStockRecord,
@@ -215,18 +213,22 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
       : props.lotOptions
   const selectedSlotDescription = slotOptions.find((option) => option.value === slotId)?.description
   const selectedProduct = productOptions.find((option) => option.value === productId)
-  const unitOptions =
-    selectedProduct?.units ??
-    (selectedProduct
-      ? [
-          {
-            unitId: selectedProduct.unitId,
-            unitName: selectedProduct.unitName,
-            conversionFactor: 1,
-            quantityPrecision: selectedProduct.quantityPrecision ?? 2,
-          },
-        ]
-      : [])
+  function getUnitOptions(product: typeof selectedProduct) {
+    return (
+      product?.units ??
+      (product
+        ? [
+            {
+              unitId: product.unitId,
+              unitName: product.unitName,
+              conversionFactor: 1,
+              quantityPrecision: product.quantityPrecision ?? 2,
+            },
+          ]
+        : [])
+    )
+  }
+  const unitOptions = getUnitOptions(selectedProduct)
   const enteredUnitId = props.form.watch('enteredUnitId')
   const selectedUnit = enteredUnitId
     ? unitOptions.find((unit) => unit.unitId === enteredUnitId)
@@ -241,18 +243,20 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
       )
       return false
     }
-    const quantity = openingStockQuantitySchema(selectedUnit.quantityPrecision).safeParse(
-      props.form.getValues('quantity')
-    )
-    if (!quantity.success) {
-      props.form.setError(
-        'quantity',
-        { message: quantity.error.issues[0]?.message },
-        { shouldFocus: true }
-      )
-      return false
-    }
-    return true
+    return checkQuantityForUnit(selectedUnit, true)
+  }
+  // Kiểm tra lại số đã nhập khi đổi sản phẩm/đơn vị; không làm tròn giá trị.
+  function checkQuantityForUnit(
+    unit: (typeof unitOptions)[number] | undefined,
+    shouldFocus = false
+  ) {
+    const message = quantityIssue(props.form.getValues('quantity'), {
+      precision: unit?.quantityPrecision,
+      unitName: unit?.unitName,
+    })
+    if (message) props.form.setError('quantity', { message }, { shouldFocus })
+    else props.form.clearErrors('quantity')
+    return message === null
   }
   function toDraftLine(values: CreateOpeningStockFormValues): OpeningStockDraftLine {
     const selectedProduct = productOptions.find((option) => option.value === values.productId)
@@ -956,14 +960,16 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
                         }
                         onSearchChange={(value) => props.onLookupSearch('product', value)}
                         onChange={(value) => {
-                          setChosenProduct(
+                          const product =
                             productOptions.find((option) => option.value === value) ?? null
-                          )
+                          setChosenProduct(product)
                           props.form.setValue('productId', value, {
                             shouldDirty: true,
                             shouldValidate: true,
                           })
                           props.form.setValue('enteredUnitId', '')
+                          if (Number.isFinite(props.form.getValues('quantity')))
+                            checkQuantityForUnit(getUnitOptions(product ?? undefined)[0])
                           setChosenLot(null)
                           props.form.setValue('lotId', '')
                           props.form.setValue('newLotNumber', '')
@@ -1054,7 +1060,7 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
                   <Input
                     id="opening-quantity"
                     type="number"
-                    min={10 ** -(selectedUnit?.quantityPrecision ?? 2)}
+                    min={quantityStep(selectedUnit?.quantityPrecision)}
                     step="any"
                     aria-invalid={Boolean(errors.quantity)}
                     {...props.form.register('quantity', { valueAsNumber: true })}
@@ -1068,12 +1074,15 @@ export function OpeningStockDirectory(props: OpeningStockDirectoryProps) {
                     {...props.form.register('enteredUnitId')}
                     disabled={!selectedProduct}
                     value={selectedUnit?.unitId ?? ''}
-                    onChange={(event) =>
+                    onChange={(event) => {
                       props.form.setValue('enteredUnitId', event.target.value, {
                         shouldDirty: true,
                         shouldValidate: true,
                       })
-                    }
+                      checkQuantityForUnit(
+                        unitOptions.find((unit) => unit.unitId === event.target.value)
+                      )
+                    }}
                   >
                     {!selectedProduct ? (
                       <NativeSelectOption value="">Chọn sản phẩm trước</NativeSelectOption>

@@ -245,6 +245,9 @@ export interface SaveInboundRequestRequest {
   inboundRequestCode: string
   expectedVersion?: string
   selfApprovalAcknowledged?: boolean
+  /** Update only: false/omitted preserves the existing planned assignment. */
+  updateReceivingAssignment?: boolean
+  receivingAssignedTo?: string | null
   warehouseId: string
   supplierId: string | null
   sourceType: InboundSourceType
@@ -256,6 +259,7 @@ export interface SaveInboundRequestRequest {
 
 export interface CreateInboundRequestRequest extends SaveInboundRequestRequest {
   receivingAssignedTo?: string | null
+  saveAsDraft?: boolean
 }
 
 export interface ProductOption {

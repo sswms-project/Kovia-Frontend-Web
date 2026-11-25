@@ -49,10 +49,10 @@ const SERVER_FIELD_MAP = {
   DisplayOrder: 'displayOrder',
 } as const
 
-const DUPLICATE_PLAN_NAME_PREFIX = "SubscriptionPlan with value '"
-const DUPLICATE_PLAN_NAME_SUFFIX = "' already exists"
+// BE: ExceptionMessages.AlreadyExists → "<tên đối tượng> '<giá trị>' đã tồn tại." (English before 19/11/2026).
+const DUPLICATE_PLAN_NAME_PATTERN = /' (đã tồn tại\.|already exists)$/
 const PENDING_PLAN_REFERENCE_MESSAGE =
-  'Cannot deactivate a plan referenced by pending subscription changes'
+  'Không thể ngừng gói đang được tham chiếu bởi thay đổi đăng ký chờ xử lý.'
 
 type ServerField = keyof typeof SERVER_FIELD_MAP
 type MappedField = (typeof SERVER_FIELD_MAP)[ServerField]
@@ -75,11 +75,7 @@ function isServerField(field: string): field is ServerField {
 }
 
 function isDuplicatePlanNameError(error: ApiErrorResponse): boolean {
-  return (
-    error.statusCode === 409 &&
-    error.message.startsWith(DUPLICATE_PLAN_NAME_PREFIX) &&
-    error.message.endsWith(DUPLICATE_PLAN_NAME_SUFFIX)
-  )
+  return error.statusCode === 409 && DUPLICATE_PLAN_NAME_PATTERN.test(error.message)
 }
 
 function isPendingPlanReferenceError(error: ApiErrorResponse): boolean {

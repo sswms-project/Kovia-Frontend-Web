@@ -8,12 +8,23 @@ import { AI_FORM_CHIP_CLASS } from './AiFormResolvedField'
 
 interface AiFormContextRowProps {
   readonly warehouse: AiFormEntityValue | null
-  readonly recipient: AiFormEntityValue | null
+  /** The second party: recipient of a stock issue, supplier of an inbound request. */
+  readonly partner: AiFormEntityValue | null
+  /** Short prefix of the second chip ("Nhận", "NCC"). */
+  readonly partnerPrefix?: string
+  /** Accessible name of the "Đổi" button, naming what it changes. */
+  readonly editLabel?: string
   readonly onEdit: () => void
 }
 
 /** The first step's answers on one line, with a way back to change them. */
-export function AiFormContextRow({ warehouse, recipient, onEdit }: AiFormContextRowProps) {
+export function AiFormContextRow({
+  warehouse,
+  partner,
+  partnerPrefix = 'Nhận',
+  editLabel = 'Đổi kho xuất và người nhận',
+  onEdit,
+}: AiFormContextRowProps) {
   return (
     <div className="flex min-w-0 items-start gap-1.5">
       <Badge variant="outline" className={AI_FORM_CHIP_CLASS}>
@@ -23,7 +34,7 @@ export function AiFormContextRow({ warehouse, recipient, onEdit }: AiFormContext
       </Badge>
       <Badge variant="outline" className={AI_FORM_CHIP_CLASS}>
         <span className="break-words">
-          Nhận: <AiCodeText>{recipient?.label ?? ''}</AiCodeText>
+          {partnerPrefix}: <AiCodeText>{partner?.label ?? ''}</AiCodeText>
         </span>
       </Badge>
       <Button
@@ -31,7 +42,7 @@ export function AiFormContextRow({ warehouse, recipient, onEdit }: AiFormContext
         variant="link"
         size="sm"
         className={cn('shrink-0 px-1', AI_FORM_TOUCH_BUTTON, AI_TOUCH_MIN_WIDTH)}
-        aria-label="Đổi kho xuất và người nhận"
+        aria-label={editLabel}
         onClick={onEdit}
       >
         Đổi

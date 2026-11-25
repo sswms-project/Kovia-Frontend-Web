@@ -5,6 +5,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { revalidateEnteredQuantity } from '@/lib/quantity-rules'
 import type {
   ProductResponse,
   ProductUnitConversion,
@@ -146,12 +147,13 @@ export function InboundRequestLineRow({
           disabled={!product || isUnitLoading}
           aria-invalid={Boolean(errors?.unitId)}
           value={line.unitId}
-          onChange={(event) =>
+          onChange={(event) => {
             form.setValue(`lines.${index}.unitId`, event.target.value, {
               shouldDirty: true,
               shouldValidate: true,
             })
-          }
+            revalidateEnteredQuantity(form, `lines.${index}.quantity`)
+          }}
         >
           <NativeSelectOption value={product?.unitId ?? ''}>
             {baseUnit?.unitName ?? 'Đơn vị cơ sở'}

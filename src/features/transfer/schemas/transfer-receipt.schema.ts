@@ -1,12 +1,13 @@
 import { z } from 'zod'
 import { dotNetGuidSchema } from '@/lib/dotnet-guid.schema'
+import { QUANTITY_LIMIT } from '@/lib/quantity-rules'
 import type { TransferReceiptSheet } from '../types/transfer-receipt.types'
 import { receiptEntryKey } from './transfer-fulfillment.schema'
 
 const count = z
   .number('Số lượng phải là số.')
   .min(0, 'Số lượng không được âm.')
-  .lt(1e18, 'Số lượng vượt giới hạn cho phép.')
+  .lt(QUANTITY_LIMIT, 'Số lượng quá lớn.')
 export const transferCountEntrySchema = z.object({
   lineId: dotNetGuidSchema('Dòng hàng không hợp lệ.'),
   lotId: dotNetGuidSchema('Lô hàng không hợp lệ.').nullable(),

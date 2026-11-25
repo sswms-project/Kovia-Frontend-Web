@@ -36,7 +36,7 @@ export interface CycleCountItemRowModel {
   readonly recordable: boolean
   readonly selected: boolean
   readonly quantity: string
-  readonly quantityInvalid: boolean
+  readonly quantityError: string | null
   readonly damaged: string
   readonly damagedInvalid: boolean
   readonly hasDamage: boolean

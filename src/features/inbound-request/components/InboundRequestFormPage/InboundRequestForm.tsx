@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/card'
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -73,7 +72,6 @@ interface InboundRequestFormProps {
   readonly onAddLine: () => void
   readonly onRemoveLine: (index: number) => void
   readonly onCancel: () => void
-  readonly onEditCode?: () => void
   readonly codeSuggestionStatus?: BusinessCodeFieldProps['suggestionStatus']
   readonly onCodeChange?: () => void
   readonly codeDescription?: string
@@ -113,7 +111,6 @@ export function InboundRequestForm({
   onAddLine,
   onRemoveLine,
   onCancel,
-  onEditCode,
   codeSuggestionStatus,
   onCodeChange,
   codeDescription,
@@ -149,23 +146,6 @@ export function InboundRequestForm({
           <span className="text-muted-foreground text-xs">›</span>
           <h1 className="truncate text-sm font-semibold">{title}</h1>
         </div>
-        {onEditCode ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            disabled={isPending || form.formState.isDirty}
-            onClick={onEditCode}
-            title={
-              form.formState.isDirty
-                ? 'Lưu hoặc hủy thay đổi trước khi chuyển sang đổi mã.'
-                : 'Đổi mã mà không lưu lại nội dung yêu cầu.'
-            }
-          >
-            Chỉ đổi mã
-          </Button>
-        ) : null}
       </header>
       {notice}
 
@@ -215,9 +195,6 @@ export function InboundRequestForm({
                       setValue('warehouseId', value, { shouldDirty: true, shouldValidate: true })
                     }}
                   />
-                  <FieldDescription>
-                    Vị trí cất cụ thể sẽ được chọn ở bước Cất hàng.
-                  </FieldDescription>
                   <FieldError>{errors.warehouseId?.message}</FieldError>
                 </Field>
                 <Field data-invalid={Boolean(errors.sourceType)}>

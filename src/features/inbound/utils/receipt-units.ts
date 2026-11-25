@@ -1,4 +1,5 @@
 import { formatQuantity } from '@/features/inbound-request/utils/inbound-request-format'
+import { quantityIssue } from '@/lib/quantity-rules'
 import type { ReceivingTaskLine } from '../types/inbound.types'
 
 export function getReceiptUnit(line: ReceivingTaskLine, unitId?: string) {
@@ -12,6 +13,17 @@ export function getReceiptUnit(line: ReceivingTaskLine, unitId?: string) {
       ? (line.enteredUnitQuantityPrecision ?? 2)
       : (line.baseUnitQuantityPrecision ?? 2),
   }
+}
+
+/** Luật số lượng theo ĐVT đang chọn của dòng nhận (cho phép 0); `null` khi hợp lệ hoặc ô trống. */
+export function getReceiptQuantityMessage(
+  line: ReceivingTaskLine,
+  unitId: string | undefined,
+  value: number | undefined
+): string | null {
+  if (value === undefined || Number.isNaN(value)) return null
+  const unit = getReceiptUnit(line, unitId)
+  return quantityIssue(value, { precision: unit.precision, unitName: unit.name, allowZero: true })
 }
 
 export function getDefaultReceiptUnit(line: ReceivingTaskLine) {

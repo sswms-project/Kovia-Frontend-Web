@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { optionalPhoneSchema } from '@/features/supplier/schemas/supplier.schema'
 import type { CreateStockRecipientRequest } from '../types/stock-recipient.types'
 
 export const stockRecipientSchema = z.object({
@@ -14,7 +15,7 @@ export const stockRecipientSchema = z.object({
     .max(255, 'Tên khách hàng tối đa 255 ký tự.'),
   recipientType: z.enum(['Organization', 'Individual']),
   taxCode: z.string().trim().max(50, 'Mã số thuế tối đa 50 ký tự.'),
-  phone: z.string().trim().max(30, 'Số điện thoại tối đa 30 ký tự.'),
+  phone: optionalPhoneSchema('Số điện thoại'),
   email: z
     .string()
     .trim()
@@ -24,7 +25,7 @@ export const stockRecipientSchema = z.object({
   shippingAddress: z.string().trim().max(500, 'Địa chỉ giao hàng tối đa 500 ký tự.'),
   contactSalutation: z.string().trim().max(30, 'Xưng hô tối đa 30 ký tự.'),
   contactName: z.string().trim().max(255, 'Họ tên người liên hệ tối đa 255 ký tự.'),
-  contactMobile: z.string().trim().max(30, 'Số điện thoại di động tối đa 30 ký tự.'),
+  contactMobile: optionalPhoneSchema('Số điện thoại di động'),
   contactChannel: z.string().trim().max(50, 'Kênh liên hệ tối đa 50 ký tự.'),
   contactChannelName: z.string().trim().max(255, 'Tên kênh tối đa 255 ký tự.'),
 })

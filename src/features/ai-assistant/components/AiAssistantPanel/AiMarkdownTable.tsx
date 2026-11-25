@@ -92,7 +92,7 @@ export function AiMarkdownTable({ header, rows, renderCell }: AiMarkdownTablePro
               <p className="text-sm font-medium [overflow-wrap:anywhere]">
                 {renderCell(cellAt(row, 0), 0)}
               </p>
-              <dl className="mt-1 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-0.5">
+              <dl className="mt-1 grid grid-cols-[fit-content(45%)_minmax(0,1fr)] gap-x-3 gap-y-0.5">
                 {header.slice(1).map((label, index) => (
                   <Fragment key={index}>
                     <dt className="text-muted-foreground [overflow-wrap:anywhere]">

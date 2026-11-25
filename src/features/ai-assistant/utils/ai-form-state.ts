@@ -184,7 +184,10 @@ export function aiFormReducer(state: AiFormState, action: AiFormAction): AiFormS
       return {
         ...state,
         errors: action.errors,
-        step: action.errors.warehouse || action.errors.recipient ? 1 : state.step,
+        step:
+          action.errors.warehouse || action.errors.recipient || action.errors.supplier
+            ? 1
+            : state.step,
       }
     case 'finish':
       return { ...state, status: action.status, errors: {} }

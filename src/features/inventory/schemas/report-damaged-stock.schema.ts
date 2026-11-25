@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { refineQuantity } from '@/lib/quantity-rules'
 
 export const reportDamagedStockSchema = z
   .object({
@@ -9,13 +10,9 @@ export const reportDamagedStockSchema = z
     evidenceFile: z.custom<File>((value) => value instanceof File, 'Tệp bằng chứng là bắt buộc.'),
   })
   .superRefine((values, context) => {
-    if (values.reportMode === 'Confirmed' && (!values.quantity || values.quantity <= 0)) {
-      context.addIssue({
-        code: 'custom',
-        path: ['quantity'],
-        message: 'Số lượng hàng hỏng phải lớn hơn 0.',
-      })
-    }
+    // Độ chính xác theo ĐVT của dòng tồn được kiểm thêm khi gửi (InventoryPage).
+    if (values.reportMode === 'Confirmed')
+      refineQuantity(context, values.quantity, {}, ['quantity'])
   })
 
 export type ReportDamagedStockFormValues = z.infer<typeof reportDamagedStockSchema>

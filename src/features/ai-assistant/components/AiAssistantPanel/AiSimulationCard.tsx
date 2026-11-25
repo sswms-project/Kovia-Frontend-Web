@@ -48,7 +48,7 @@ function Section({
           <div
             key={row.label}
             className={cn(
-              'grid grid-cols-[1fr_auto] items-baseline gap-x-3 py-1',
+              'grid grid-cols-[minmax(0,1fr)_fit-content(55%)] items-baseline gap-x-3 py-1',
               row.kind === 'result' && 'font-semibold'
             )}
           >

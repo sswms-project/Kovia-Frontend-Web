@@ -102,8 +102,7 @@ export default function InboundRequestFormPage({
         : ROUTE_CAPABILITIES[APP_ROUTES.inboundRequestCreate]
     ) ?? false
   )
-  const canAssign =
-    !inboundRequestId && Boolean(meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_CREATE))
+  const canAssign = Boolean(meQuery.data?.permissions.includes(P.GOODS_RECEIPTS_CREATE))
   const hydratedInboundRequestId = useRef<string | null>(null)
   const editingVersion = useRef('')
   const createdInboundRequestId = useRef<string | null>(null)
@@ -111,7 +110,6 @@ export default function InboundRequestFormPage({
   const [supplierSearchText, setSupplierSearchText] = useState('')
   const [productSearch, setProductSearch] = useState<ProductSearchState | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
-  const [editCodeOnly, setEditCodeOnly] = useState(false)
   const [confirmSelfApproval, setConfirmSelfApproval] = useState(false)
   const [leavingAfterSave, setLeavingAfterSave] = useState(false)
   const debouncedWarehouseSearch = useDebouncedValue(warehouseSearchText.trim(), 300)
@@ -249,6 +247,7 @@ export default function InboundRequestFormPage({
     form.reset({
       inboundRequestCode: detail.inboundRequestCode,
       warehouseId: detail.warehouseId ?? '',
+      receivingAssignedTo: detail.receivingAssignedTo ?? '',
       sourceType: detail.sourceType,
       supplierId: detail.supplierId ?? '',
       sourceName: detail.sourceName ?? '',
@@ -288,7 +287,7 @@ export default function InboundRequestFormPage({
       return
     }
     let savedId = inboundRequestId ?? createdInboundRequestId.current
-    const autoApproved = savedId ? canSaveAndSelfApprove : isOwner
+    const autoApproved = shouldSubmit && (savedId ? canSaveAndSelfApprove : isOwner)
     try {
       const request = toInboundRequestSaveRequest(values, detailQuery.data?.expectedDate)
       if (savedId) {
@@ -297,12 +296,19 @@ export default function InboundRequestFormPage({
           request: {
             ...request,
             expectedVersion: editingVersion.current,
-            ...(canSaveAndSelfApprove ? { selfApprovalAcknowledged: true } : {}),
+            ...(canAssign
+              ? {
+                  updateReceivingAssignment: true,
+                  receivingAssignedTo: values.receivingAssignedTo || null,
+                }
+              : {}),
+            ...(autoApproved ? { selfApprovalAcknowledged: true } : {}),
           },
         })
       } else {
         const response = await createMutation.mutateAsync({
           ...request,
+          saveAsDraft: !shouldSubmit,
           ...(values.receivingAssignedTo
             ? { receivingAssignedTo: values.receivingAssignedTo }
             : {}),
@@ -397,8 +403,7 @@ export default function InboundRequestFormPage({
     if (inboundRequestId) void actionsQuery.refetch()
   }
 
-  const canEditContents =
-    !editCodeOnly && (!isEditing || actionsQuery.data?.allowedActions.includes('Update'))
+  const canEditContents = !isEditing || actionsQuery.data?.allowedActions.includes('Update')
   const isLoading =
     (canEditContents &&
       (warehousesQuery.isLoading ||
@@ -498,7 +503,7 @@ export default function InboundRequestFormPage({
     )
   }
 
-  if (isEditing && (editCodeOnly || !actionsQuery.data?.allowedActions.includes('Update'))) {
+  if (isEditing && !actionsQuery.data?.allowedActions.includes('Update')) {
     if (!actionsQuery.data?.allowedActions.includes('UpdateCode'))
       return (
         <OperationalErrorState
@@ -556,12 +561,7 @@ export default function InboundRequestFormPage({
             : undefined
         }
         onCodeChange={codeSuggestion.markEdited}
-        onEditCode={
-          isEditing && actionsQuery.data?.allowedActions.includes('UpdateCode')
-            ? () => setEditCodeOnly(true)
-            : undefined
-        }
-        isApprovedEdit={isEditing && (detail?.status !== 'Draft' || canSaveAndSelfApprove)}
+        isApprovedEdit={isEditing && detail?.status !== 'Draft'}
         title={
           isEditing
             ? `Chỉnh sửa ${detailQuery.data?.inboundRequestCode ?? 'yêu cầu nhập kho'}`
@@ -572,15 +572,25 @@ export default function InboundRequestFormPage({
             <AiDraftPrefillNotice isLoading={aiDraft.isLoading} error={aiDraft.error} />
           ) : null
         }
-        autoApprove={isOwner && !isEditing}
+        autoApprove={isOwner && (!isEditing || canSaveAndSelfApprove)}
         form={form}
         fields={fieldArray.fields}
         warehouseOptions={warehouseOptions}
         canAssign={canAssign}
-        staffOptions={(staffQuery.data ?? []).map((staff) => ({
-          value: staff.id,
-          label: `${staff.fullName} · ${staff.email}`,
-        }))}
+        staffOptions={mergeLookupOptions(
+          (staffQuery.data ?? []).map((staff) => ({
+            value: staff.id,
+            label: `${staff.fullName} · ${staff.email}`,
+          })),
+          detail?.receivingAssignedTo && selectedWarehouseId === detail.warehouseId
+            ? [
+                {
+                  value: detail.receivingAssignedTo,
+                  label: detail.receivingAssignedToName ?? 'Nhân viên hiện tại',
+                },
+              ]
+            : []
+        )}
         isStaffLoading={staffQuery.isFetching}
         isStaffError={staffQuery.isError}
         onRetryStaff={() => void staffQuery.refetch()}
@@ -600,11 +610,7 @@ export default function InboundRequestFormPage({
         onAddLine={() => fieldArray.append(EMPTY_LINE)}
         onRemoveLine={fieldArray.remove}
         onCancel={handleCancel}
-        onSaveDraft={() =>
-          void form.handleSubmit((values) =>
-            canSaveAndSelfApprove ? setConfirmSelfApproval(true) : save(values, false)
-          )()
-        }
+        onSaveDraft={() => void form.handleSubmit((values) => save(values, false))()}
         onSaveAndSubmit={() =>
           void form.handleSubmit((values) =>
             canSaveAndSelfApprove ? setConfirmSelfApproval(true) : save(values, true)
@@ -622,18 +628,18 @@ export default function InboundRequestFormPage({
       <AlertDialog open={confirmSelfApproval} onOpenChange={setConfirmSelfApproval}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Lưu yêu cầu nhập kho?</AlertDialogTitle>
+            <AlertDialogTitle>Tạo yêu cầu nhập kho?</AlertDialogTitle>
             <AlertDialogDescription>
-              Phiên bản vừa chỉnh sửa sẽ được tự phê duyệt khi lưu.
+              Yêu cầu nháp sẽ được hoàn tất và tự phê duyệt để tổ chức nhận hàng.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Quay lại</AlertDialogCancel>
             <AlertDialogAction
               disabled={isPending || !canSaveAndSelfApprove}
-              onClick={() => void form.handleSubmit((values) => save(values, false))()}
+              onClick={() => void form.handleSubmit((values) => save(values, true))()}
             >
-              Lưu
+              Tạo
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
