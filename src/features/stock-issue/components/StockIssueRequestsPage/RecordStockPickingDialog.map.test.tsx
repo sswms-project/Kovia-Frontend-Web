@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useForm } from 'react-hook-form'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RecordStockPickingDialog } from './RecordStockPickingDialog'
 import type { RecordStockPickingFormValues } from '../../schemas/stock-issue.schema'
@@ -9,8 +10,10 @@ import { warehouseLayoutSceneService } from '@/features/warehouse/services/wareh
 import { locationScene } from '@/features/warehouse/utils/warehouse-stock-location.test-fixtures'
 
 vi.mock('next/dynamic', () => ({
-  default: () => (props: { selection: { id: string } }) => (
-    <div data-testid="map-canvas">{props.selection.id}</div>
+  default: () => (props: { selection: { id: string; kind: string } }) => (
+    <div data-testid="map-canvas" data-selection-kind={props.selection.kind}>
+      {props.selection.id}
+    </div>
   ),
 }))
 vi.mock('@/features/warehouse/services/warehouse-layout-scene.service', () => ({
@@ -69,14 +72,33 @@ function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const wrap = (props = {}) => (
     <QueryClientProvider client={client}>
-      <Harness {...props} />
+      <TooltipProvider>
+        <Harness {...props} />
+      </TooltipProvider>
     </QueryClientProvider>
   )
   return { ...render(wrap()), wrap }
 }
+beforeEach(() => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    }))
+  )
+})
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.unstubAllGlobals()
 })
 function mockScene() {
   const scene = locationScene()
@@ -95,13 +117,15 @@ describe('picking source map integration', () => {
     mockScene()
     mount()
     fireEvent.click(screen.getByRole('button', { name: /Xem sơ đồ vị trí Z1 \/ R1/ }))
-    expect(await screen.findByTestId('map-canvas')).toHaveTextContent('rack-a')
+    expect(await screen.findByTestId('map-canvas')).toHaveTextContent('slot-a')
+    expect(screen.getByTestId('map-canvas')).toHaveAttribute('data-selection-kind', 'slot')
     const map = screen.getByRole('dialog', { name: 'Vị trí hàng trên sơ đồ' })
     fireEvent.click(within(map).getByRole('button', { name: 'Close' }))
     await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(1))
     fireEvent.click(screen.getAllByRole('button', { name: 'Lấy hàng' })[1]!)
     fireEvent.click(screen.getByRole('button', { name: /Xem sơ đồ vị trí Z1 \/ R2/ }))
-    expect(await screen.findByTestId('map-canvas')).toHaveTextContent('rack-b')
+    expect(await screen.findByTestId('map-canvas')).toHaveTextContent('slot-b')
+    expect(screen.getByTestId('map-canvas')).toHaveAttribute('data-selection-kind', 'slot')
     expect(screen.getByText('Scan entry preserved')).toBeInTheDocument()
   })
   it('closes geometry when the order version advances', async () => {
