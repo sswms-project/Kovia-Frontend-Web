@@ -144,6 +144,11 @@ export function useLowStockAlerts() {
     for (const [key, value] of Object.entries(current)) {
       if (!next.has(key)) next.set(key, value)
     }
+    // Preserve the effective filters of the entry we are leaving, including values
+    // inherited from the shared tab state that are not yet present in its URL.
+    if (!replace && next.toString() !== params.toString()) {
+      window.history.replaceState(window.history.state, '', `${pathname}?${next}`)
+    }
     if (resetPage) next.set('pageNumber', '1')
     for (const [key, value] of Object.entries(values)) {
       if (value === undefined && key === 'alertId') next.delete(key)

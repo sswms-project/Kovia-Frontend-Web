@@ -206,5 +206,59 @@ it('preserves pending input across an explicit filter selection without popstate
   expect(result.current.filters.searchTerm).toBe('Bia')
   expect(result.current.filters.statusFilter).toBe('All')
   expect(window.history.pushState).toHaveBeenCalledTimes(1)
-  expect(window.history.replaceState).toHaveBeenCalledTimes(1)
+  // One replacement snapshots the partial entry; the other commits the draft.
+  expect(window.history.replaceState).toHaveBeenCalledTimes(2)
+})
+
+it('snapshots a queryless entry before push so Back restores original defaults', () => {
+  vi.useFakeTimers()
+  const { result, rerender } = renderHook(() => useLowStockAlerts(), { wrapper })
+  expect(result.current.filters.statusFilter).toBe('Active')
+  act(() => result.current.update({ statusFilter: 'Open' }))
+  const originalUrl = String(vi.mocked(window.history.replaceState).mock.calls[0]?.[2])
+  expect(new URLSearchParams(originalUrl.split('?')[1]).get('statusFilter')).toBe('Active')
+  rerender()
+  act(() => result.current.setSearchInput('Bia'))
+  act(() => vi.advanceTimersByTime(300))
+  rerender()
+  const nextUrl = mocks.search
+  expect(result.current.filters.searchTerm).toBe('Bia')
+  act(() => {
+    mocks.search = originalUrl.split('?')[1] ?? ''
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+  rerender()
+  expect(result.current.filters.statusFilter).toBe('Active')
+  expect(result.current.filters.searchTerm).toBeUndefined()
+  expect(result.current.filters.pageNumber).toBe(1)
+  act(() => {
+    mocks.search = nextUrl
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+  rerender()
+  expect(result.current.filters.statusFilter).toBe('Open')
+  expect(result.current.filters.searchTerm).toBe('Bia')
+})
+it('snapshots retained filters instead of replacing them with defaults', () => {
+  const warehouseId = '11111111-1111-4111-8111-111111111111'
+  mocks.search = `warehouseId=${warehouseId}&searchTerm=Pin&statusFilter=All&pageSize=30&dateFrom=2026-11-01`
+  const { result, rerender } = renderHook(() => useLowStockAlerts(), { wrapper })
+  act(() => {
+    mocks.search = ''
+  })
+  rerender()
+  act(() => result.current.update({ statusFilter: 'Open', warehouseId: '' }))
+  const previous =
+    String(vi.mocked(window.history.replaceState).mock.calls[0]?.[2]).split('?')[1] ?? ''
+  rerender()
+  act(() => {
+    mocks.search = previous
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+  rerender()
+  expect(result.current.filters.warehouseId).toBe(warehouseId)
+  expect(result.current.filters.searchTerm).toBe('Pin')
+  expect(result.current.filters.statusFilter).toBe('All')
+  expect(result.current.filters.pageSize).toBe(30)
+  expect(result.current.filters.dateFrom).toBe('2026-11-01')
 })

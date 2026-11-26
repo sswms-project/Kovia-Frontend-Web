@@ -3252,3 +3252,17 @@ Role: Codex implementer/focused self-review. Final-review M1 fixed for the repro
 - Two permanent regression cases failed before the fix (same-term traversal changing status/page or warehouse) and passed afterward. A third case confirms explicit filter selection keeps pending text and applies it under the newly selected filter. Back then Forward does not resurrect discarded text.
 - Final targeted suite:27/27 in6 files; scoped ESLint and git diff --check passed. No remaining issue confirmed in focused code-path review. No claim of live browser/IME coverage or full typecheck/build: C: remains about1GiB free and resource constraints from the prior round still apply.
 - GitNexus impact could not resolve this new hook; manually verified its only production consumer is LowStockAlertsPage. Change limited to hook/tests/review record in this round; earlier uncommitted PR fixes preserved. No BE, permission, database, shared search component or stock arithmetic changes. No commit/push/merge.
+
+## MAIN-PR-367-323-REVIEW-20261126
+
+Role: Codex review-only/self-review. M1 Medium open: queryless Back restores stored latest filters instead of the original entry. Probe9 passed/1 failed confirms; fix recommended before FE release. Full report: workspace outputs/review-main-pr367-pr323-20261126.md. No source edits, commit/push/merge/deploy or DB commands. Prior test counts are not new reruns. Full typecheck/build/IME not rerun due C: about1GiB.
+
+## PR-323-QUERYLESS-HISTORY-FIX-20261126
+
+Role: Codex implementer/focused self-review. Release-review M1 fixed. User authorized safe sync, commit/push and merge to dev only.
+
+- Fast-forwarded screen/huytv to origin/dev9b29696b with local changes preserved; includes unrelated already-merged AI assistant PR324, not edited or reviewed as part of this fix.
+- Before pushState, materialize any missing filter keys in the current entry from the actual effective filters, using replaceState and preserving history.state. Then push the requested new filters. Back no longer falls back to the latest shared store for the original queryless/partial entry. Retained filters are snapshotted instead of being reset to defaults.
+- Added2 regressions covering initial queryless Back/Forward and retained warehouse/search/status/pageSize/dateFrom. Both failed before fix and passed after. Existing explicit-filter typing test now expects a separate replacement for the snapshot, in addition to debounce replacement.
+- 29/29 targeted tests in6 files, scoped ESLint and diff-check passed. No full local build/typecheck rerun due C: about1GiB; CI/Vercel must verify before merging. No database commands, BE/shared component/schema or permission changes.
+- GitNexus did not resolve new hook; caller manually checked (LowStockAlertsPage). No zero-impact claim. Fix scoped to hook/tests/docs; preexisting AGENTS/CLAUDE/outputs edits excluded from commit.
