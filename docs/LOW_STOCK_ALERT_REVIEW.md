@@ -88,3 +88,13 @@ Raw `tsc` theo cấu hình mặc định có thể quét các fixture cũ không
 - Đổi ngưỡng/ngừng chính sách làm mới đúng các cache; không sửa công thức tồn trên FE.
 - GitNexus FE **MEDIUM**. Liên kết dự báo và khởi tạo bộ lọc là vùng cần hồi quy.
 - **Merge/triển khai BE trước FE** để có API đầy đủ. Không migration. PR chưa được agent merge.
+
+## 6. Cập nhật sau review bên ngoài — 26/11/2026
+
+- Đã sửa A2: ô tìm kiếm giữ draft cục bộ, debounce300ms rồi replaceState; lựa chọn bộ lọc/trang vẫn pushState. Back/Forward hủy draft qua popstate kể cả khi searchTerm không đổi. Đổi bộ lọc trực tiếp vẫn giữ nội dung đang gõ.
+- Đã sửa B1: chặn khóa prototype constructor/**proto**/toString ở validation và nhãn chip.
+- Đã sửa B4: khi thiếu quantityPrecision, dùng tối đa20 chữ số phần thập phân để không làm 0,005 thành0,01; precision được cấu hình vẫn được tôn trọng.
+- Đã sửa phần kiến trúc A1: page truyền canAcknowledge/canViewInventory/canViewForecast cho component. Quyền Inventory View ở BE không thay đổi; không tự thêm quyền hoặc hạn chế role.
+- Finding M1 trong final self-review về Back cùng từ khóa đã có2 test fail trước sửa và pass sau sửa; thêm test giữ draft khi chọn bộ lọc bình thường. Tổng cuối27/27 trong6 file; scoped ESLint và diff-check đạt.
+- Full production typecheck từng đạt trước guard điều hướng cuối; lượt lặp lại bị dừng khi C: còn khoảng1GiB, không được tính là passed. Không chạy lại build/typecheck nặng cho commit này. Chưa test trực tiếp Telex/VNI trên thiết bị. Reviewer/CI cần hoàn tất kiểm tra build/typecheck trước khi kết luận release-ready.
+- Không sửa BE, schema, DB hoặc công thức tồn kho. Các đề xuất B2/B3 và refactor follow-up chưa nằm trong lượt sửa này.

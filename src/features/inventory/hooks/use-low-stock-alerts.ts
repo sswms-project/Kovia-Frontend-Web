@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -43,6 +43,27 @@ export function useLowStockAlerts() {
     if (warehouseId !== sharedWarehouse) setSharedWarehouse(warehouseId)
   }, [warehouseId, sharedWarehouse, setSharedWarehouse])
   const searchTerm = useLowStockUrlFilter('searchTerm', '', params)
+  // Keep typing local; a Back/Forward URL change takes precedence over a pending draft.
+  const [searchDraft, setSearchDraft] = useState({ source: searchTerm, value: searchTerm })
+  if (searchDraft.source !== searchTerm) {
+    setSearchDraft({ source: searchTerm, value: searchTerm })
+  }
+  useEffect(() => {
+    // Back/Forward can change only the other filters, leaving searchTerm unchanged.
+    const cancelPendingSearch = () => {
+      setSearchDraft((draft) => ({ source: draft.source, value: draft.source }))
+    }
+    window.addEventListener('popstate', cancelPendingSearch)
+    return () => window.removeEventListener('popstate', cancelPendingSearch)
+  }, [])
+  const searchInput = searchDraft.source === searchTerm ? searchDraft.value : searchTerm
+  const debouncedInput = useDebouncedValue(searchInput, 300)
+  const commitSearch = useEffectEvent((value: string) => {
+    update({ searchTerm: value }, true, true)
+  })
+  useEffect(() => {
+    if (debouncedInput === searchInput && searchInput !== searchTerm) commitSearch(searchInput)
+  }, [debouncedInput, searchInput, searchTerm])
   const productId = useLowStockUrlFilter('productId', '', params)
   const statusFilter = useLowStockUrlFilter('statusFilter', 'Active', params)
   const dateFrom = useLowStockUrlFilter('dateFrom', '', params)
@@ -61,8 +82,7 @@ export function useLowStockAlerts() {
   }
   const alertId = params.get('alertId') ?? ''
   const validationError = validateLowStockFilters(filters, alertId)
-  const debouncedSearch = useDebouncedValue(filters.searchTerm, 300)
-  const listFilters = { ...filters, searchTerm: debouncedSearch }
+  const listFilters = filters
   const enabled = Boolean(user && canView && !validationError)
   const list = useQuery({
     queryKey: queryKeys.inventory.lowStockAlerts(scope, 'list', listFilters),
@@ -105,7 +125,11 @@ export function useLowStockAlerts() {
       await queryClient.invalidateQueries({ queryKey: ['inventory', 'low-stock-alerts', scope] })
     },
   })
-  function update(values: Record<string, string | number | undefined>, resetPage = true) {
+  function update(
+    values: Record<string, string | number | undefined>,
+    resetPage = true,
+    replace = false
+  ) {
     const next = new URLSearchParams(params.toString())
     const current = {
       warehouseId,
@@ -126,9 +150,10 @@ export function useLowStockAlerts() {
       else if (value === undefined) next.set(key, '')
       else next.set(key, String(value))
     }
-    window.history.pushState(null, '', `${pathname}?${next}`)
+    window.history[replace ? 'replaceState' : 'pushState'](null, '', `${pathname}?${next}`)
   }
   function reset() {
+    setSearchDraft({ source: '', value: '' })
     update({
       searchTerm: undefined,
       productId: undefined,
@@ -144,6 +169,8 @@ export function useLowStockAlerts() {
     permissions,
     canView,
     filters,
+    searchInput,
+    setSearchInput: (value: string) => setSearchDraft({ source: searchTerm, value }),
     alertId,
     validationError,
     list,

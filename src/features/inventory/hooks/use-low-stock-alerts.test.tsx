@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InventoryFiltersProvider } from './use-inventory-filter'
 import { useLowStockAlerts } from './use-low-stock-alerts'
 const mocks = vi.hoisted(() => ({
@@ -108,4 +108,103 @@ it('waits for refetch before clamping and returns to page1 for an empty result',
   rerender()
   rerender()
   expect(result.current.filters.pageNumber).toBe(1)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
+it('debounces typing into replaceState while explicit selections use pushState', () => {
+  vi.useFakeTimers()
+  mocks.search = 'searchTerm=Pin&pageNumber=2'
+  const { result, rerender } = renderHook(() => useLowStockAlerts(), { wrapper })
+  for (const value of ['B', 'Bi', 'Bia']) act(() => result.current.setSearchInput(value))
+  expect(result.current.searchInput).toBe('Bia')
+  expect(result.current.filters.searchTerm).toBe('Pin')
+  expect(window.history.pushState).not.toHaveBeenCalled()
+  act(() => vi.advanceTimersByTime(300))
+  rerender()
+  expect(result.current.filters.searchTerm).toBe('Bia')
+  expect(result.current.filters.pageNumber).toBe(1)
+  expect(window.history.replaceState).toHaveBeenCalledTimes(1)
+  act(() => result.current.update({ statusFilter: 'Open' }))
+  expect(window.history.pushState).toHaveBeenCalledTimes(1)
+  act(() => {
+    mocks.search = 'searchTerm=Pin&pageNumber=2'
+  })
+  rerender()
+  expect(result.current.searchInput).toBe('Pin')
+  act(() => vi.advanceTimersByTime(300))
+  expect(new URLSearchParams(mocks.search).get('searchTerm')).toBe('Pin')
+})
+it('does not overwrite navigation or reset with a pending draft', () => {
+  vi.useFakeTimers()
+  mocks.search = 'searchTerm=Pin'
+  const { result, rerender } = renderHook(() => useLowStockAlerts(), { wrapper })
+  act(() => result.current.setSearchInput('Bia'))
+  act(() => {
+    mocks.search = 'searchTerm=Kem'
+  })
+  rerender()
+  act(() => vi.advanceTimersByTime(300))
+  expect(result.current.searchInput).toBe('Kem')
+  expect(window.history.replaceState).not.toHaveBeenCalled()
+  act(() => {
+    mocks.search = 'searchTerm=Pin'
+  })
+  rerender()
+  act(() => vi.advanceTimersByTime(300))
+  expect(result.current.searchInput).toBe('Pin')
+  expect(window.history.replaceState).not.toHaveBeenCalled()
+  act(() => result.current.setSearchInput('Bia'))
+  act(() => result.current.reset())
+  rerender()
+  act(() => vi.advanceTimersByTime(300))
+  expect(result.current.searchInput).toBe('')
+  expect(result.current.filters.searchTerm).toBeUndefined()
+})
+
+it.each([
+  'searchTerm=Pin&statusFilter=All&pageNumber=1',
+  'searchTerm=Pin&statusFilter=Open&pageNumber=1&warehouseId=11111111-1111-4111-8111-111111111111',
+])('cancels pending typing on popstate with unchanged search term: %s', (target) => {
+  vi.useFakeTimers()
+  mocks.search = 'searchTerm=Pin&statusFilter=Open&pageNumber=2'
+  const { result, rerender } = renderHook(() => useLowStockAlerts(), { wrapper })
+  act(() => result.current.setSearchInput('Bia'))
+  act(() => {
+    mocks.search = target
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+  rerender()
+  act(() => vi.advanceTimersByTime(300))
+  rerender()
+  expect(result.current.filters.searchTerm).toBe('Pin')
+  expect(result.current.searchInput).toBe('Pin')
+  expect(mocks.search).toBe(target)
+  expect(window.history.replaceState).not.toHaveBeenCalled()
+  // A subsequent traversal and more time must not resurrect the discarded text.
+  act(() => {
+    mocks.search = 'searchTerm=Pin&statusFilter=Open&pageNumber=2'
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+  rerender()
+  act(() => vi.advanceTimersByTime(500))
+  expect(result.current.searchInput).toBe('Pin')
+  expect(window.history.replaceState).not.toHaveBeenCalled()
+})
+it('preserves pending input across an explicit filter selection without popstate', () => {
+  vi.useFakeTimers()
+  mocks.search = 'searchTerm=Pin&statusFilter=Open'
+  const { result, rerender } = renderHook(() => useLowStockAlerts(), { wrapper })
+  act(() => result.current.setSearchInput('Bia'))
+  act(() => result.current.update({ statusFilter: 'All' }))
+  rerender()
+  expect(result.current.searchInput).toBe('Bia')
+  act(() => vi.advanceTimersByTime(300))
+  rerender()
+  expect(result.current.filters.searchTerm).toBe('Bia')
+  expect(result.current.filters.statusFilter).toBe('All')
+  expect(window.history.pushState).toHaveBeenCalledTimes(1)
+  expect(window.history.replaceState).toHaveBeenCalledTimes(1)
 })

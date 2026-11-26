@@ -6,6 +6,8 @@ vi.mock('../hooks/use-low-stock-alerts', async () => {
   const { P } = await import('@/config/permissionCodes')
   return {
     useLowStockAlerts: () => ({
+      searchInput: '',
+      setSearchInput: vi.fn(),
       filters: { statusFilter: 'Active', pageNumber: 1, pageSize: 20 },
       list: {
         isSuccess: false,

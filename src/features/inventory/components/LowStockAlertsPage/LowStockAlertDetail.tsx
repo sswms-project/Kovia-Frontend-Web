@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { X, CheckCheck } from 'lucide-react'
 import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table'
 import type { UseQueryResult } from '@tanstack/react-query'
-import { P } from '@/config/permissionCodes'
 import { APP_ROUTES } from '@/routes/app-routes'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,14 +21,18 @@ import { LowStockAlertProduct, LowStockAlertStatus } from './LowStockAlertSummar
 export function LowStockAlertDetail({
   id,
   query,
-  permissions,
+  canAcknowledge,
+  canViewInventory,
+  canViewForecast,
   onClose,
   onAcknowledge,
   isAcknowledging = false,
 }: {
   readonly id: string
   readonly query: UseQueryResult<LowStockAlert, Error>
-  readonly permissions: readonly string[]
+  readonly canAcknowledge: boolean
+  readonly canViewInventory: boolean
+  readonly canViewForecast: boolean
   readonly onClose: () => void
   readonly onAcknowledge?: () => void
   readonly isAcknowledging?: boolean
@@ -75,9 +78,7 @@ export function LowStockAlertDetail({
               <LowStockAlertProduct item={item} />
               <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
                 <LowStockAlertStatus status={item.status} />
-                {item.status === 'Open' &&
-                permissions.includes(P.INVENTORY_VIEW) &&
-                onAcknowledge ? (
+                {item.status === 'Open' && canAcknowledge && onAcknowledge ? (
                   <Button
                     type="button"
                     size="sm"
@@ -210,7 +211,7 @@ export function LowStockAlertDetail({
         </div>
         {item && !query.isError && !query.isPending ? (
           <SheetFooter>
-            {permissions.includes(P.INVENTORY_VIEW) ? (
+            {canViewInventory ? (
               <Button asChild={Boolean(active)} variant="outline" disabled={!active}>
                 {active ? (
                   <Link
@@ -226,7 +227,7 @@ export function LowStockAlertDetail({
                 )}
               </Button>
             ) : null}
-            {permissions.includes(P.INVENTORY_FORECAST_VIEW) ? (
+            {canViewForecast ? (
               <Button asChild={Boolean(active)} disabled={!active}>
                 {active ? (
                   <Link

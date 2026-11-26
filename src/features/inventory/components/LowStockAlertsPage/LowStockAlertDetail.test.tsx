@@ -1,7 +1,6 @@
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import type { UseQueryResult } from '@tanstack/react-query'
-import { P } from '@/config/permissionCodes'
 import type { LowStockAlert } from '../../types/low-stock-alert.types'
 import { LowStockAlertDetail } from './LowStockAlertDetail'
 afterEach(cleanup)
@@ -34,7 +33,9 @@ describe('alert detail', () => {
       <LowStockAlertDetail
         id="a"
         query={query(item)}
-        permissions={[P.INVENTORY_VIEW, P.INVENTORY_FORECAST_VIEW]}
+        canAcknowledge
+        canViewInventory
+        canViewForecast
         onClose={() => {}}
       />
     )
@@ -54,7 +55,9 @@ describe('alert detail', () => {
       <LowStockAlertDetail
         id="a"
         query={query({ ...item, productStatus: 'Inactive', status: 'Open' })}
-        permissions={[P.INVENTORY_VIEW, P.INVENTORY_FORECAST_VIEW]}
+        canAcknowledge
+        canViewInventory
+        canViewForecast
         onClose={() => {}}
       />
     )
@@ -67,7 +70,9 @@ describe('alert detail', () => {
       <LowStockAlertDetail
         id="a"
         query={query(item)}
-        permissions={[P.INVENTORY_VIEW]}
+        canAcknowledge
+        canViewInventory
+        canViewForecast={false}
         onClose={() => {}}
       />
     )
@@ -85,7 +90,9 @@ it('hides cached navigation actions when detail refresh fails', () => {
     <LowStockAlertDetail
       id="a"
       query={failed}
-      permissions={[P.INVENTORY_VIEW, P.INVENTORY_FORECAST_VIEW]}
+      canAcknowledge
+      canViewInventory
+      canViewForecast
       onClose={() => {}}
     />
   )
@@ -99,7 +106,9 @@ it('acknowledges an open alert without exposing editable audit fields and disabl
     <LowStockAlertDetail
       id="a"
       query={query({ ...item, status: 'Open' })}
-      permissions={[P.INVENTORY_VIEW]}
+      canAcknowledge
+      canViewInventory
+      canViewForecast={false}
       onClose={() => {}}
       onAcknowledge={acknowledge}
     />
@@ -111,7 +120,9 @@ it('acknowledges an open alert without exposing editable audit fields and disabl
     <LowStockAlertDetail
       id="a"
       query={query({ ...item, status: 'Open' })}
-      permissions={[P.INVENTORY_VIEW]}
+      canAcknowledge
+      canViewInventory
+      canViewForecast={false}
       onClose={() => {}}
       onAcknowledge={acknowledge}
       isAcknowledging
@@ -122,10 +133,28 @@ it('acknowledges an open alert without exposing editable audit fields and disabl
     <LowStockAlertDetail
       id="a"
       query={query({ ...item, status: 'Acknowledged' })}
-      permissions={[P.INVENTORY_VIEW]}
+      canAcknowledge
+      canViewInventory
+      canViewForecast={false}
       onClose={() => {}}
       onAcknowledge={acknowledge}
     />
   )
   expect(screen.queryByRole('button', { name: 'Tiếp nhận cảnh báo' })).not.toBeInTheDocument()
+})
+
+it('hides actions when capabilities are denied', () => {
+  render(
+    <LowStockAlertDetail
+      id="a"
+      query={query({ ...item, status: 'Open' })}
+      canAcknowledge={false}
+      canViewInventory={false}
+      canViewForecast={false}
+      onClose={() => {}}
+      onAcknowledge={vi.fn()}
+    />
+  )
+  expect(screen.queryByRole('button', { name: 'Tiếp nhận cảnh báo' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link')).not.toBeInTheDocument()
 })

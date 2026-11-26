@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { validateLowStockFilters, lowStockDate, LOW_STOCK_FILTER_LABELS } from './low-stock-alert'
+import {
+  validateLowStockFilters,
+  lowStockDate,
+  lowStockQuantity,
+  LOW_STOCK_FILTER_LABELS,
+} from './low-stock-alert'
 const base = { statusFilter: 'Active', pageNumber: 1, pageSize: 20 }
 describe('low stock filters', () => {
   it('accepts default and validates query values without widening scope', () => {
@@ -8,6 +13,7 @@ describe('low stock filters', () => {
       { warehouseId: 'bad' },
       { productId: '00000000-0000-0000-0000-000000000000' },
       { statusFilter: 'Unknown' },
+      ...['constructor', '__proto__', 'toString'].map((statusFilter) => ({ statusFilter })),
       { pageNumber: -1 },
       { pageNumber: 2147483647 },
       { pageSize: 1000 },
@@ -23,4 +29,11 @@ describe('low stock filters', () => {
     expect(lowStockDate(null)).toBe('Chưa có thông tin')
     expect(LOW_STOCK_FILTER_LABELS.Acknowledged).toBe('Đã tiếp nhận')
   })
+})
+
+it('preserves small quantities without precision and respects configured precision', () => {
+  expect(lowStockQuantity(0.005, null)).toBe('0,005')
+  expect(lowStockQuantity(0.000001, null)).toBe('0,000001')
+  expect(lowStockQuantity(1.25, 1)).toBe('1,3')
+  expect(lowStockQuantity(2, 0)).toBe('2')
 })

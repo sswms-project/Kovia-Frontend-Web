@@ -3222,3 +3222,33 @@ Only feature source/tests/review records are staged; GitNexus-generated AGENTS.m
 ## LOW-STOCK-REVIEWER-DOCUMENTATION-20261126
 
 Added docs/LOW_STOCK_ALERT_REVIEW.md as the final scope/acceptance/reviewer guide, including later policy/evaluator/acknowledgement scope expansions, code map, manual expected outcomes, reproducible checks and known limitations. Supersedes conflicting initial read-only-plan assumptions for these PRs. Documentation-only follow-up; no runtime/config/test change, no new DB operations; prior verification remains applicable. User authorized commit/push and PR description updates, not merge.
+
+## PR-322-EXTERNAL-REVIEW-FIX-20261126
+
+Role: Codex implementer/self-review responding to Downloads/PR-322-review.md. No BE policy/permission changes.
+
+- A2: local search draft, 300ms debounce before replaceState; explicit filter/page navigation still pushState. URL navigation discards pending drafts; reset cancels pending text. Shared InventorySearch unchanged.
+- B1: own-property validation rejects constructor/**proto**/toString; chip also guards inherited keys even while showing validation errors.
+- B4: missing unit precision uses Intl max20 fractional digits instead of2; configured precision still respected. No underlying quantities or stock writes changed.
+- A1 architecture: detail receives canAcknowledge/canViewInventory/canViewForecast from page; no raw permission checks inside detail. Existing Inventory View acceptance semantics unchanged; deciding a new BE permission remains separate product scope.
+- Validation: 24/24 targeted tests in6 files; includes navigation/reset races, missing-precision values, prototype input and capability denial. Scoped ESLint passed. Production TypeScript passed before the final draft-navigation guard; a repeat against the final guard was stopped for resource safety when C: reached about1GiB free. No diagnostics had been emitted; do not claim this interrupted repeat passed. No live Telex/VNI device input test or full production build in this round. No DB/service startup, commit or push.
+- GitNexus did not resolve new feature symbols in index; source callers checked manually. Do not interpret missing graph symbols as zero impact. Follow-up B2/B3/structural refactors not included.
+
+## PR-322-FINAL-SELF-REVIEW-20261126
+
+Role: Codex review-only/self-review; no production source edits. Medium finding M1 remains open; no new confirmed High/Blocker in the reviewed incremental diff. Do not describe this as an unqualified clean review.
+
+- M1 Medium: use-low-stock-alerts.ts tracks searchDraft.source only by searchTerm. While draft Bia is pending over URL searchTerm=Pin/statusFilter=Open/pageNumber=2, Back to searchTerm=Pin/statusFilter=All/pageNumber=1 does not invalidate the draft. After300ms commitSearch overwrites the restored URL with Bia. Existing navigation tests cover a changed searchTerm and miss this same-term case. Impact is incorrect search/navigation, no DB write.
+- Reproduced via temporary colocated hook probe;6 existing hook cases passed and1 additional case failed (expected Pin, got Bia). Temporary probe removed afterward; existing source/tests preserved. Evidence retained at workspace outputs/pr322-final-review-probe-20261126.log.
+- Suggested correction: track navigation identity/cancellation separately from search text, discard pending drafts on Back/Forward even when searchTerm is unchanged; distinguish normal debounce replaceState and explicit in-page filter choices. Add same-term navigation regression test. Avoid resetting input on every unrelated render.
+- Prototype validation/chip guard, small quantity formatting and capability-prop refactor match the intended fixes on inspection. Existing acceptance24/24 and scoped lint from implementation remain valid but do not cover M1.
+- No full tsc/build repeated: C: about1GiB free. Last full production typecheck rerun was interrupted; live IME/Telex/VNI device behavior remains unverified. GitNexus has incomplete new-feature symbols; no zero-impact claim. No commit/push/merge or database operations in this review.
+
+## PR-322-POPSTATE-FIX-20261126
+
+Role: Codex implementer/focused self-review. Final-review M1 fixed for the reproduced navigation case.
+
+- Added a popstate listener in useLowStockAlerts to discard pending draft text even if URL searchTerm stays identical. Existing searchTerm reconciliation handles changed terms; normal filter pushState/debounce replaceState do not emit popstate. Listener is removed on hook unmount.
+- Two permanent regression cases failed before the fix (same-term traversal changing status/page or warehouse) and passed afterward. A third case confirms explicit filter selection keeps pending text and applies it under the newly selected filter. Back then Forward does not resurrect discarded text.
+- Final targeted suite:27/27 in6 files; scoped ESLint and git diff --check passed. No remaining issue confirmed in focused code-path review. No claim of live browser/IME coverage or full typecheck/build: C: remains about1GiB free and resource constraints from the prior round still apply.
+- GitNexus impact could not resolve this new hook; manually verified its only production consumer is LowStockAlertsPage. Change limited to hook/tests/review record in this round; earlier uncommitted PR fixes preserved. No BE, permission, database, shared search component or stock arithmetic changes. No commit/push/merge.

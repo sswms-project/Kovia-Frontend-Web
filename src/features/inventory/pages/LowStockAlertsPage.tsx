@@ -85,8 +85,8 @@ export default function LowStockAlertsPage() {
         <InventoryFilterToolbar
           search={
             <InventorySearch
-              value={filters.searchTerm ?? ''}
-              onChange={(searchTerm) => update({ searchTerm })}
+              value={workspace.searchInput}
+              onChange={workspace.setSearchInput}
               placeholder="Tìm SKU hoặc tên sản phẩm…"
             />
           }
@@ -119,7 +119,7 @@ export default function LowStockAlertsPage() {
           onReset={workspace.reset}
           appliedFilters={[
             filters.statusFilter !== 'All' && {
-              label: `Trạng thái: ${LOW_STOCK_FILTER_LABELS[filters.statusFilter] ?? 'Không hợp lệ'}`,
+              label: `Trạng thái: ${Object.hasOwn(LOW_STOCK_FILTER_LABELS, filters.statusFilter) ? LOW_STOCK_FILTER_LABELS[filters.statusFilter] : 'Không hợp lệ'}`,
               clear: () => update({ statusFilter: 'All' }),
             },
             Boolean(filters.warehouseId) && {
@@ -343,7 +343,9 @@ export default function LowStockAlertsPage() {
           query={workspace.detail}
           onAcknowledge={() => workspace.acknowledge.mutate(workspace.alertId)}
           isAcknowledging={workspace.acknowledge.isPending}
-          permissions={permissions}
+          canAcknowledge={permissions.includes(P.INVENTORY_VIEW)}
+          canViewInventory={permissions.includes(P.INVENTORY_VIEW)}
+          canViewForecast={permissions.includes(P.INVENTORY_FORECAST_VIEW)}
           onClose={() => update({ alertId: undefined }, false)}
         />
       ) : null}

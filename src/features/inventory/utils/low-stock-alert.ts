@@ -19,7 +19,8 @@ export function validateLowStockFilters(
 ): string | null {
   if ([filters.warehouseId, filters.productId, alertId].some((id) => id && !isLowStockGuid(id)))
     return 'Mã kho, sản phẩm hoặc cảnh báo không hợp lệ. Hãy sửa hoặc chủ động bỏ bộ lọc.'
-  if (!LOW_STOCK_FILTER_LABELS[filters.statusFilter]) return 'Bộ lọc trạng thái không hợp lệ.'
+  if (!Object.hasOwn(LOW_STOCK_FILTER_LABELS, filters.statusFilter))
+    return 'Bộ lọc trạng thái không hợp lệ.'
   if (
     !Number.isSafeInteger(filters.pageNumber) ||
     filters.pageNumber < 1 ||
@@ -55,5 +56,5 @@ export function lowStockDate(value: string | null, fallback = 'Chưa có thông 
       }).format(date)
 }
 export function lowStockQuantity(value: number, precision: number | null) {
-  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: precision ?? 2 }).format(value)
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: precision ?? 20 }).format(value)
 }
