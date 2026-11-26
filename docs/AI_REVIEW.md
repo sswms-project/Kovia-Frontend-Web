@@ -3116,3 +3116,38 @@ BE: validate complete proposed put-away plan under existing capacity lock using 
 Verification: 503 inbound tests passed; focused capacity/receipt/audit subset 96 passed. FE inbound 44 tests passed, touched-file ESLint passed. Full FE typecheck fails outside changed inbound files (outputs/tmp and legal/auth/subscription route typing); see outputs/inbound-test-run-20261119/runtime/fix-typecheck.log in workspace. No post-fix browser E2E or real SQL race rerun. Original live Fail evidence preserved; not relabeled as live Pass. No commit/push requested.
 Details: workspace outputs/inbound-test-run-20261119/khac-phuc-fail-20261119.md. Existing FE AGENTS.md/CLAUDE.md modifications were present before this task and preserved.
 Final verification addendum: after validating unchanged plans against current capacity, the final combined Inbound + StorageCapacityPolicyTests run passed 542/542 (0 skipped). FE inbound remains 44/44. Details/log: workspace outputs/inbound-test-run-20261119/runtime/fix-be-final-tests.log. No post-fix live DB/browser verification claimed.
+
+## LOW-STOCK-ALERT-HISTORY-20261126
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer (Codex), self-review only; no independent review claimed.
+
+- Tab cảnh báo, bộ lọc/lookup/pagination/Sheet chung, URL và context, Dashboard link, deep link dự báo giữ sản phẩm qua phiên. Production build, typecheck src và ESLint liên quan đạt. Full suite FE cuối:206/206 test trong61 file đạt;16 test BE liên quan đạt. Chrome fixture và giới hạn môi trường được ghi riêng trong biên bản.
+- Chrome kiểm component/service thật với auth/navigation/API fixture cục bộ chỉ GET; desktop1440/tablet768/mobile390, dark/light, phân trang/Back, kho lịch sử ngoài trang đầu, reset, denied/invalid/error, detail và liên kết dự báo. Không dùng DB deploy.
+- Không thay schema/evaluator/notification hoặc nghiệp vụ stock mutation. Chưa commit/push/deploy; triển khai BE trước FE.
+- GitNexus: navigation shared CRITICAL/9 caller, hook dự báo LOW/1 caller. Symbol mới/untracked chưa được graph nhận diện nên không diễn giải kết quả0 là không có ảnh hưởng.
+- Xem biên bản đầy đủ: `outputs/nghiem-thu-canh-bao-ton-thap-20261126.md` tính từ root workspace; còn hạn chế về API/DB deploy, execution plan và native Android ngoài phạm vi web.
+
+- Final verification: BE16/16, FE206/206 (61 files), production build after final empty-state wording, scoped ESLint and source typecheck passed. Chrome fixture server stopped.
+
+## LOW-STOCK-ALERT-HISTORY-LIVE-QA-20261126
+
+State: READY_FOR_CODEX_REVIEW. Role: implementer/self-review (Codex); not independent review.
+
+- Live Chrome/Next/ASP.NET against verified db71143; migrations and background jobs false. Login and GET flows only; no seed, stock/document writes or destructive cleanup.
+- Found/fixed real SQL Server500: sorting after record DTO projection was not translatable. Sort now uses entity columns before select; PageRows is shared with the SQL translation regression test. Other inventory mutation paths/evaluator unchanged.
+- Fixed error UX:401 login with returnUrl;403/404 no pointless retries; warehouse errors outside toolbar; no fake zero total on loading/failure; cached detail actions hidden on failure.
+- BE16/16, FE214/214 (63 files), production build/scoped ESLint/typecheck passed after fixes. Full suite/build were rerun sequentially after an initial resource exhaustion; failed resource runs are not counted as passing.
+- Real cases: Active3/All5/Resolved2, search, API pagination, detail,401/400/404, exact stock/forecast links, saved-run product retention, unchanged5 alert records across reads, client session-loss recovery UI. Other roles tested automatically rather than live.
+- GitNexus did not index the new/untracked symbols; UNKNOWN/zero is not proof of no impact. Source caller checks, SQL translation, real SQL execution and regression tests supplement it.
+- Detailed report: outputs/kiem-thu-truc-tiep-canh-bao-ton-thap-20261126.md relative to workspace root. No commit/push/deploy. QA servers stopped.
+
+## LOW-STOCK-ALERT-UI-REFINEMENT-20261126
+
+- Role: Codex implementer/self-review. State: READY_FOR_CODEX_REVIEW.
+- User requested inline status/date filters, X close control, tabular alert details, and a dashboard navigation icon with hover information.
+- Reused InventoryFilterToolbar via optional inlineFilters; existing consumers retain their filter sheets. LowStockAlertDetail uses the existing Table with semantic row headings, 8 rows, wrapping and a scrollable sheet body. The table container does not shrink/clip the final row.
+- Moved the history link from the dashboard footer to the expiry panel toolbar using the existing settings slot, ArrowUpRight and shared Tooltip; kept inventory permission and warehouse query scope. No BE, stock calculation or API changes.
+- GitNexus: WarehouseOverviewPage LOW; new low-stock symbols and InventoryFilterToolbar not present in index (UNKNOWN). Source callers reviewed; no claim of zero impact based on missing graph symbols.
+- Verification: 12/12 targeted tests in 4 files; scoped ESLint passed. Source TypeScript passed with 1536MB heap; the initial 768MB run exhausted its configured heap and is not counted as passing.
+- Real Chrome: status Resolved returned total 2; X closes details; 390px detail renders all 8 rows without horizontal overflow; dashboard icon has no visible label, hover shows Vietnamese tooltip, click navigates to the alert page. Desktop 1440px has no horizontal overflow.
+- BE/FE local remain running for user review. No commit/push/deployment or inventory/document writes.
