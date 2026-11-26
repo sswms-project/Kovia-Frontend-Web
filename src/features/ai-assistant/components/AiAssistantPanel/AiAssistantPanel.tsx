@@ -1,9 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
+import { StockShortageDialog } from './StockShortageDialog'
+import { getStockShortageMessages } from '@/lib/api-error'
 import { useAiAssistantPanelStore } from '@/stores/ai-assistant-panel.store'
 import { useAiDraftViewStore } from '@/stores/ai-draft-view.store'
 import {
@@ -82,11 +84,26 @@ export function AiAssistantPanel({ onNavigate }: AiAssistantPanelProps) {
   const releaseDraftAction = useCallback(() => {
     isDraftActionRunning.current = false
   }, [])
+  // A stock issue or transfer draft beyond what can be allocated now: the user reduces it in the editor or keeps
+  // a planned request. Nothing is confirmed until they choose.
+  const [shortage, setShortage] = useState<{
+    readonly draftId: string
+    readonly messages: readonly string[]
+  } | null>(null)
   const handleConfirmAction = useCallback(
-    (draftId: string) => {
+    (draftId: string, allowShortage = false) => {
       if (isDraftActionRunning.current) return
       isDraftActionRunning.current = true
-      confirmAction({ draftId, conversationId }, { onSettled: releaseDraftAction })
+      confirmAction(
+        { draftId, conversationId, allowShortage },
+        {
+          onSettled: releaseDraftAction,
+          onError: (error) => {
+            const messages = getStockShortageMessages(error)
+            if (messages) setShortage({ draftId, messages })
+          },
+        }
+      )
     },
     [confirmAction, conversationId, releaseDraftAction]
   )
@@ -181,6 +198,17 @@ export function AiAssistantPanel({ onNavigate }: AiAssistantPanelProps) {
           {showHistoryOnly ? history : chat}
         </div>
       )}
+      <StockShortageDialog
+        messages={shortage?.messages ?? null}
+        isPending={confirmMutation.isPending}
+        onClose={() => setShortage(null)}
+        onKeepPlanned={() => {
+          if (!shortage) return
+          const { draftId } = shortage
+          setShortage(null)
+          handleConfirmAction(draftId, true)
+        }}
+      />
     </div>
   )
 }
