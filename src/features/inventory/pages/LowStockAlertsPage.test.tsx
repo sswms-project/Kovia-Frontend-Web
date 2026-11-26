@@ -24,6 +24,7 @@ vi.mock('../hooks/use-low-stock-alerts', async () => {
       update: vi.fn(),
       reset: vi.fn(),
       detail: {},
+      acknowledge: { mutate: vi.fn(), isPending: false },
     }),
   }
 })

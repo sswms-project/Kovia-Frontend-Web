@@ -1,5 +1,5 @@
-import { render, screen, cleanup } from '@testing-library/react'
-import { afterEach, describe, it, expect } from 'vitest'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { P } from '@/config/permissionCodes'
 import type { LowStockAlert } from '../../types/low-stock-alert.types'
@@ -91,4 +91,41 @@ it('hides cached navigation actions when detail refresh fails', () => {
   )
   expect(screen.queryByRole('link', { name: 'Xem tồn kho' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Đi tới dự báo & bổ sung' })).not.toBeInTheDocument()
+})
+
+it('acknowledges an open alert without exposing editable audit fields and disables duplicate clicks', () => {
+  const acknowledge = vi.fn()
+  const { rerender } = render(
+    <LowStockAlertDetail
+      id="a"
+      query={query({ ...item, status: 'Open' })}
+      permissions={[P.INVENTORY_VIEW]}
+      onClose={() => {}}
+      onAcknowledge={acknowledge}
+    />
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Tiếp nhận cảnh báo' }))
+  expect(acknowledge).toHaveBeenCalledOnce()
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  rerender(
+    <LowStockAlertDetail
+      id="a"
+      query={query({ ...item, status: 'Open' })}
+      permissions={[P.INVENTORY_VIEW]}
+      onClose={() => {}}
+      onAcknowledge={acknowledge}
+      isAcknowledging
+    />
+  )
+  expect(screen.getByRole('button', { name: 'Đang tiếp nhận…' })).toBeDisabled()
+  rerender(
+    <LowStockAlertDetail
+      id="a"
+      query={query({ ...item, status: 'Acknowledged' })}
+      permissions={[P.INVENTORY_VIEW]}
+      onClose={() => {}}
+      onAcknowledge={acknowledge}
+    />
+  )
+  expect(screen.queryByRole('button', { name: 'Tiếp nhận cảnh báo' })).not.toBeInTheDocument()
 })

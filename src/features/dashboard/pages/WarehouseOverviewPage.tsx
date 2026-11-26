@@ -284,29 +284,29 @@ export default function WarehouseOverviewPage() {
     counts: speechCounts,
     warehouseName: speechWarehouseName,
   })
+  const lowStockHistoryAction = canViewInventory ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button asChild variant="outline" size="icon-sm">
+          <Link
+            href={{
+              pathname: APP_ROUTES.inventoryLowStockAlerts,
+              query: {
+                ...(location.warehouseId ? { warehouseId: location.warehouseId } : {}),
+                statusFilter: 'Active',
+              },
+            }}
+            aria-label="Xem lịch sử cảnh báo tồn thấp"
+          >
+            <ArrowUpRight aria-hidden="true" />
+          </Link>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Xem lịch sử cảnh báo tồn thấp</TooltipContent>
+    </Tooltip>
+  ) : null
   const settings = (
     <>
-      {canViewInventory ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button asChild variant="outline" size="icon-sm">
-              <Link
-                href={{
-                  pathname: APP_ROUTES.inventoryLowStockAlerts,
-                  query: {
-                    ...(location.warehouseId ? { warehouseId: location.warehouseId } : {}),
-                    statusFilter: 'Active',
-                  },
-                }}
-                aria-label="Xem lịch sử cảnh báo tồn thấp"
-              >
-                <ArrowUpRight aria-hidden="true" />
-              </Link>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Xem lịch sử cảnh báo tồn thấp</TooltipContent>
-        </Tooltip>
-      ) : null}
       <AlertSpeechControl counts={speechCounts} warehouseName={speechWarehouseName} />
       <ExpiryDaysSettings
         open={settingsOpen}
@@ -372,6 +372,7 @@ export default function WarehouseOverviewPage() {
         canShowData={canShowData}
         canViewInventory={canViewInventory && canShowData}
         settings={settings}
+        lowStockHistoryAction={lowStockHistoryAction}
         charts={
           <AlertOverviewCharts
             belowMinimum={{

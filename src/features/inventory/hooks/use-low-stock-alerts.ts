@@ -1,7 +1,10 @@
 'use client'
 import { useEffect } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { useMeQuery } from '@/features/auth/hooks/use-auth'
 import { useAuthStore } from '@/stores/auth.store'
 import { P } from '@/config/permissionCodes'
@@ -27,6 +30,7 @@ export function useLowStockAlerts() {
   const params = useSearchParams()
   const pathname = usePathname()
   const me = useMeQuery()
+  const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
   const scope = `${user?.tenantId ?? ''}:${user?.id ?? ''}`
   const permissions = me.data?.permissions ?? []
@@ -66,11 +70,40 @@ export function useLowStockAlerts() {
     enabled,
     retry: false,
   })
+  useEffect(() => {
+    if (!enabled || !list.isSuccess || list.isFetching || !list.data) return
+    const lastPage = Math.max(1, Math.ceil(list.data.totalCount / filters.pageSize))
+    if (filters.pageNumber <= lastPage) return
+    const next = new URLSearchParams(params.toString())
+    next.set('pageNumber', String(lastPage))
+    window.history.replaceState(null, '', `${pathname}?${next}`)
+  }, [
+    enabled,
+    list.isSuccess,
+    list.isFetching,
+    list.data,
+    filters.pageSize,
+    filters.pageNumber,
+    params,
+    pathname,
+  ])
   const detail = useQuery({
     queryKey: queryKeys.inventory.lowStockAlerts(scope, 'detail', alertId),
     queryFn: ({ signal }) => lowStockAlertService.detail(alertId, signal),
     enabled: enabled && isLowStockGuid(alertId),
     retry: false,
+  })
+  const acknowledge = useMutation({
+    mutationFn: (id: string) => lowStockAlertService.acknowledge(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['inventory', 'low-stock-alerts', scope] })
+      toast.success('Đã tiếp nhận cảnh báo tồn thấp.')
+    },
+    onError: async (error) => {
+      logger.error(error)
+      toast.error(getApiErrorMessage(error))
+      await queryClient.invalidateQueries({ queryKey: ['inventory', 'low-stock-alerts', scope] })
+    },
   })
   function update(values: Record<string, string | number | undefined>, resetPage = true) {
     const next = new URLSearchParams(params.toString())
@@ -115,6 +148,7 @@ export function useLowStockAlerts() {
     validationError,
     list,
     detail,
+    acknowledge,
     update,
     reset,
     enabled,

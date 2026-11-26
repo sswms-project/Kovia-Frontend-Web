@@ -9,6 +9,13 @@ import type {
 } from '../types/low-stock-alert.types'
 const endpoint = API_ENDPOINTS.inventory.lowStockAlerts
 export const lowStockAlertService = {
+  async acknowledge(id: string) {
+    return (
+      await axiosClient.post<ApiResponse<string>>(
+        `${endpoint}/${encodeURIComponent(id)}/acknowledge`
+      )
+    ).data.data
+  },
   async list(params: LowStockAlertFilters, signal?: AbortSignal) {
     return (
       await axiosClient.get<ApiResponse<LowStockPage<LowStockAlert>>>(endpoint, { params, signal })

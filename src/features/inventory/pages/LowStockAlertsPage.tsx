@@ -341,6 +341,8 @@ export default function LowStockAlertsPage() {
         <LowStockAlertDetail
           id={workspace.alertId}
           query={workspace.detail}
+          onAcknowledge={() => workspace.acknowledge.mutate(workspace.alertId)}
+          isAcknowledging={workspace.acknowledge.isPending}
           permissions={permissions}
           onClose={() => update({ alertId: undefined }, false)}
         />

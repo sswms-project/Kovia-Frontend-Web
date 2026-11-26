@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { X } from 'lucide-react'
+import { X, CheckCheck } from 'lucide-react'
 import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { P } from '@/config/permissionCodes'
@@ -24,11 +24,15 @@ export function LowStockAlertDetail({
   query,
   permissions,
   onClose,
+  onAcknowledge,
+  isAcknowledging = false,
 }: {
   readonly id: string
   readonly query: UseQueryResult<LowStockAlert, Error>
   readonly permissions: readonly string[]
   readonly onClose: () => void
+  readonly onAcknowledge?: () => void
+  readonly isAcknowledging?: boolean
 }) {
   const item = query.data
   const active = item?.warehouseStatus === 'Active' && item.productStatus === 'Active'
@@ -69,7 +73,23 @@ export function LowStockAlertDetail({
           ) : item ? (
             <>
               <LowStockAlertProduct item={item} />
-              <LowStockAlertStatus status={item.status} />
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+                <LowStockAlertStatus status={item.status} />
+                {item.status === 'Open' &&
+                permissions.includes(P.INVENTORY_VIEW) &&
+                onAcknowledge ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={onAcknowledge}
+                    disabled={isAcknowledging}
+                  >
+                    <CheckCheck aria-hidden="true" />
+                    {isAcknowledging ? 'Đang tiếp nhận…' : 'Tiếp nhận cảnh báo'}
+                  </Button>
+                ) : null}
+              </div>
               <div className="shrink-0 overflow-hidden rounded-md border">
                 <Table
                   className="table-fixed text-sm"
@@ -130,7 +150,7 @@ export function LowStockAlertDetail({
                         Ngày tiếp nhận
                       </th>
                       <TableCell className="break-words whitespace-normal">
-                        {lowStockDate(item.acknowledgedAt)}
+                        {lowStockDate(item.acknowledgedAt, 'Chưa tiếp nhận')}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -141,7 +161,8 @@ export function LowStockAlertDetail({
                         Người tiếp nhận
                       </th>
                       <TableCell className="break-words whitespace-normal">
-                        {item.acknowledgedByName ?? 'Chưa có thông tin tiếp nhận'}
+                        {item.acknowledgedByName ??
+                          (item.acknowledgedAt ? 'Chưa có thông tin người dùng' : 'Chưa tiếp nhận')}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -173,6 +194,7 @@ export function LowStockAlertDetail({
                 </Table>
               </div>
               <p className="text-muted-foreground text-xs">
+                Đợt có thể kết thúc do tồn hồi phục, thay đổi ngưỡng hoặc ngừng áp dụng chính sách.
                 Ngưỡng lưu có thể khác ngưỡng dùng khi kết thúc nếu chính sách đã thay đổi. Người
                 ghi nhận kết thúc là người thực hiện nghiệp vụ khiến hệ thống đánh giá lại, không
                 phải thao tác đóng thủ công.

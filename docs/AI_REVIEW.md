@@ -3151,3 +3151,70 @@ State: READY_FOR_CODEX_REVIEW. Role: implementer/self-review (Codex); not indepe
 - Verification: 12/12 targeted tests in 4 files; scoped ESLint passed. Source TypeScript passed with 1536MB heap; the initial 768MB run exhausted its configured heap and is not counted as passing.
 - Real Chrome: status Resolved returned total 2; X closes details; 390px detail renders all 8 rows without horizontal overflow; dashboard icon has no visible label, hover shows Vietnamese tooltip, click navigates to the alert page. Desktop 1440px has no horizontal overflow.
 - BE/FE local remain running for user review. No commit/push/deployment or inventory/document writes.
+
+## LOW-STOCK-HISTORY-ICON-PLACEMENT-20261126
+
+- Codex implementation/self-review; READY_FOR_CODEX_REVIEW.
+- Moved the existing low-stock history icon from the expiry panel to the below-minimum panel via an optional lowStockHistoryAction view slot. Tooltip, effective permission check, selected warehouse and target URL are preserved. Speech and expiry-day settings remain on the expiry panel.
+- GitNexus impact LOW: WarehouseOverviewView has one caller, WarehouseOverviewPage. No API/business calculation changes.
+- Scoped ESLint and git diff --check passed. This turn did not perform another authenticated browser test (fresh browser redirected to login). Prior checks cover the unchanged icon/tooltip/link; placement verified from the view composition.
+- Not committed/pushed.
+
+- UI follow-up: history navigation now renders after Xem tất cả and before refresh using optional navigationAction; expiry settings keep their original order. Scoped ESLint and diff check passed. Not committed.
+
+## LOW-STOCK-POLICY-RECONCILIATION-ACKNOWLEDGEMENT-20261126
+
+- Role: Codex implementer/self-review. State: READY_FOR_CODEX_REVIEW.
+- Root causes: ConfigureStockPolicy saved ProductWarehousePolicy without evaluating LowStockAlerts; policy queries before save see old values. The read-only history UI exposed acknowledgement fields without any acknowledgement operation.
+- BE: keep EvaluateAsync signature/behavior for existing stock operations; add EvaluatePoliciesAsync for trusted staged policies using the same core. ConfigureStockPolicy evaluates only selected accessible warehouse/product policies and persists policies, alerts, audit and staged notifications in one SaveChanges; notifications publish after save. Identical-policy submissions also reconcile stale alert episodes and permit zero affected rows. No background job required.
+- POST /api/inventory/low-stock-alerts/{id}/acknowledge inherits InventoryPermissions.View; tenant from IUserContext, warehouse existence in the same tenant and accessible warehouse IDs are checked in handler. This allows users who can view an alert in their scope to acknowledge responsibility for it; does not grant stock mutation rights.
+- Acknowledgement uses a conditional SQL UPDATE WHERE Status=Open, not read-then-unconditional-write. It and the audit entry share one transaction. Duplicate requests preserve first actor/time; a resolved alert returns409. No new concurrency column, migration, seed or schema change.
+- FE: detail displays Tiếp nhận cảnh báo only for Open alerts with view permission; pending disables button. Date/actor remain system-generated, not text inputs. Mutation refreshes list/detail and reports errors. Policy save invalidates inventory, stock-alerts and warehouse-overview caches.
+- GitNexus: ILowStockAlertEvaluator interface impact HIGH (shared test double and inbound/cycle-count consumers); warning communicated before edits. Existing stock callers unchanged; test double implements new method. Final detect_changes BE LOW / FE MEDIUM, but new symbols are not indexed and results do not prove zero impact. FTS lookup degraded; source callers reviewed.
+- Final verification: BE189/189 across low-stock lifecycle/history/batch, product policy scopes, platform integration, inbound, cycle-count adjustment and stock-issue cancellation. FE18/18 in6 targeted files; scoped ESLint and source TypeScript passed. Earlier compiler/test-mock mismatch was corrected before the final passing run. No production build rerun for this incremental change; Next dev compiled and served updated screens.
+- Runtime DB proof before writes: provider Microsoft.EntityFrameworkCore.SqlServer; server db71143.public.databaseasp.net; database db71143; migrations=False; backgroundJobs=False. Normal application flows only; no destructive commands or direct production SQL.
+- Live local FE/BE against approved db71143: Tiger product1e85a777-6efd-4bdf-97b0-ebc5088299de, warehouse757b5d63-38a8-4d3c-363d-08df1fc89199 policy already58. Form disables unchanged saves, so same-value reconciliation used the normal authenticated PATCH stock-policy endpoint from browser, preserving every policy value. Returned200. Existing alert81352d44-9afa-4e8f-b5a6-3d9eadef5bd3 changed Open->Resolved at2026-11-26T09:50:32Z, ResolvedBy Tenant Owner. Re-read availability was79, while the old alert snapshot had59. Stored historical threshold80 was intentionally preserved by existing closing semantics; current policy remains58. No stock balance/document writes.
+- Live UI: clicked Tiếp nhận cảnh báo on existing QA-CAP-12 alertc7c1900c-730d-45aa-9558-4ff8a428b6b0. Returned200, statusAcknowledged, actorTenant Owner, displayed16:51 26/11/26. Repeat POST200 and re-read confirmed same first recipient/time. This intentionally leaves the QA alert acknowledged.
+- Remaining scope: no Manager/Staff live login this round (tenant/warehouse protection tested automatically). No broad alert backfill: old stale episodes are reconciled by a normal policy save or an existing inventory evaluation, not by a GET side effect.
+- BE7070 and FE3000 are running with updated source. Not committed/pushed/deployed; earlier local dashboard icon placement edits preserved.
+
+## LOW-STOCK-POLICY-ACK-REVIEW-ROUND1-20261126
+
+Role: Codex review-only/self-review (not independent). State: NEEDS_CLAUDE_FIX for joint feature, blocked by BE H1. No application source fixes in this round.
+
+- H1 High, open, BE: concurrent policy increase and pending stock evaluation can persist stock90/policy100/alertResolved; deterministic two-context probe fails. Coordinate policy/evaluation serialization and recalculate after conflicts.
+- M1 Medium, open, BE preexisting dependency: inactive policy still opens alerts; policy status handler does not reconcile, unlike active-only Dashboard. Probe fails; handle inactive lifecycle explicitly.
+- M2 Medium, open, FE: acknowledgement removes final Open row on page2, total shrinks21->20, UI remains2/1. React render probe fails; clamp URL page on successful refetch.
+- Regression BE306/306; existing targeted FE19/19 in7 files. New probes BE2 failed + FE1 failed independently confirm findings, not a passing acceptance. All isolated, no deploy DB writes. Restored regular test binary after external probe build.
+- Detailed findings, origin, reproduction, limitations and proposed fixes: ../outputs/review-canh-bao-ton-thap-20261126.md (workspace sibling outputs, not repo-local outputs).
+
+## LOW-STOCK-POLICY-ACK-FIX-FINAL-20261126
+
+Role: Codex implementer and final self-review of prior findings/direct regressions; not independent. State: READY_FOR_FINAL_REVIEW -> APPROVED_FINAL at code level, with SQL integration limitations below.
+
+- H1 FIXED: existing transaction-owned tenant capacity lock acquired before critical reads in policy/lifecycle and all relevant stock handlers; evaluator reads policies under same lock. Deterministic two-context lock-aware test confirms pending policy edit waits for stock commit and evaluates current90 against100 asOpen. No stock arithmetic/UnitOfWork/schema changes.
+- M1 FIXED: inactive policy closes tracking with an explicit audit reason and cannot open an alert; status changes reconcile in the same save, idempotent repeat preserves closure metadata, activation re-evaluates. FE cache refresh and closure explanation updated.
+- M2 FIXED: successful refetch clamps URL page preserving filters/detail; covers21->20 and total0; Chrome page2->1 confirmed.
+- BE582 passed/6 skipped/0 failed; FE21/21; lint/typecheck/diff-check passed. Two lifecycle/concurrency tests re-passed after adding repeat-deactivate assertion.6 SQL Server opt-in integration tests remain skipped: no local connection configured. No deployment DB race/load writes.
+- GitNexus combined BE CRITICAL scope/FE MEDIUM; risk communicated, source ordering checked and inbound/adjustment/transfer contexts inspected. New symbols incomplete in graph; no zero-impact claim. Tenant-wide write contention is a tradeoff of the existing serialization protocol, not benchmarked here.
+- No new confirmed High/Blocker in final limited review. Do not describe code approval as production SQL concurrency acceptance. Full fix details appended to workspace outputs/review-canh-bao-ton-thap-20261126.md.
+- No commit/push/deploy. No database migration/seed/cleanup or inventory/document mutations.
+
+## LOW-STOCK-LOCALDB-VERIFICATION-20261126
+
+Role: Codex implementer/test verification, self-review. Prior SQL limitation resolved for the selected suite: 591 passed, 0 failed, 0 skipped, including 9 real SQL cases. No new production source edits in this LocalDB round.
+
+- Verified local SQL provider/server/catalog before writes; isolated instance KoviaQA20261126 with CapacityLockQA/TransferRaceQA catalogs dated20261126_174757. No deploy writes, migration, DROP/reset/deletion.
+- Real SQL proves pending-stock/policy serialization, conditional acknowledgement/idempotency/audit, inactive/reactivated policy/history, transaction lock lifetime, transfer dispatch/receive/putaway races and duplicate shipment receipt exactly once.
+- Updated distinct-shipment test to accept both serialized valid receipts (4+4=8), removed incompatible save barrier for that case, added duplicate-same-shipment check. Fixed new acknowledgement test request-scope lifetime.
+- Initial cross-collection SQL run hit a setup deadlock; final suite uses xUnit.ParallelizeTestCollections=false for shared-schema fixture setup. In-test concurrent requests remain enabled. No deadlock graph collected; no blanket production deadlock-free claim.
+- Existing fixture disables FKs due incomplete parent fixtures; real CHECK/unique indexes/rowversions/app locks remain. Not a full browser/demo or load validation. GitNexus aggregate BE scope remains CRITICAL from earlier shared-handler edits.
+- Evidence: workspace outputs/localdb-qa-20261126/ket-qua-localdb.md and local-regression-final.trx. QA MDF/LDF total40MiB on D:, retained. BE/FE stopped, QA SQL stopped after verification; no commit/push.
+
+## LOW-STOCK-DEV-PR-PREFLIGHT-20261126
+
+User authorized commit/push and PR into dev. Both working branches contain fetched origin/dev; no integration merge required. Final staged diff-check passed; GitNexus BE CRITICAL / FE MEDIUM, consistent with previously reviewed shared locking scope. No schema migration. Deploy BE before FE.
+
+FE preflight: 20/20 targeted tests across6 files re-passed, scoped ESLint passed, next typegen and tsc --project tsconfig.production.json --noEmit --incremental false passed. Default tsconfig still includes untracked historical outputs/tmp fixtures; raw default tsc errors are not a clean-checkout acceptance result. Production source/config check passed after refreshing generated route types. No full Next production build repeated in this resource-constrained preflight. BE acceptance remains591/591 including9 SQL tests.
+
+Only feature source/tests/review records are staged; GitNexus-generated AGENTS.md/CLAUDE.md updates and outputs QA artifacts are excluded. No merge or deployment performed.
