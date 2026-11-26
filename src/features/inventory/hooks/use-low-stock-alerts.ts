@@ -1,0 +1,188 @@
+'use client'
+import { useEffect, useEffectEvent, useState } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
+import { getApiErrorMessage } from '@/lib/api-error'
+import { useMeQuery } from '@/features/auth/hooks/use-auth'
+import { useAuthStore } from '@/stores/auth.store'
+import { P } from '@/config/permissionCodes'
+import { queryKeys } from '@/lib/query-keys'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useInventoryFilter } from './use-inventory-filter'
+import { lowStockAlertService } from '../services/low-stock-alert.service'
+import { isLowStockGuid, validateLowStockFilters } from '../utils/low-stock-alert'
+import type { LowStockAlertFilters } from '../types/low-stock-alert.types'
+function useLowStockUrlFilter(
+  key: string,
+  initial: string,
+  params: Pick<URLSearchParams, 'get' | 'has'>
+) {
+  const [stored, setStored] = useInventoryFilter<string>(`LowStockAlertsPage.${key}`, initial)
+  const value = params.has(key) ? (params.get(key) ?? '') : stored
+  useEffect(() => {
+    if (value !== stored) setStored(value)
+  }, [value, stored, setStored])
+  return value
+}
+export function useLowStockAlerts() {
+  const params = useSearchParams()
+  const pathname = usePathname()
+  const me = useMeQuery()
+  const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.user)
+  const scope = `${user?.tenantId ?? ''}:${user?.id ?? ''}`
+  const permissions = me.data?.permissions ?? []
+  const canView = permissions.includes(P.INVENTORY_VIEW)
+  const [sharedWarehouse, setSharedWarehouse] = useInventoryFilter<string>('warehouse', '')
+  const warehouseId = params.has('warehouseId')
+    ? (params.get('warehouseId') ?? '')
+    : sharedWarehouse
+  useEffect(() => {
+    if (warehouseId !== sharedWarehouse) setSharedWarehouse(warehouseId)
+  }, [warehouseId, sharedWarehouse, setSharedWarehouse])
+  const searchTerm = useLowStockUrlFilter('searchTerm', '', params)
+  // Keep typing local; a Back/Forward URL change takes precedence over a pending draft.
+  const [searchDraft, setSearchDraft] = useState({ source: searchTerm, value: searchTerm })
+  if (searchDraft.source !== searchTerm) {
+    setSearchDraft({ source: searchTerm, value: searchTerm })
+  }
+  useEffect(() => {
+    // Back/Forward can change only the other filters, leaving searchTerm unchanged.
+    const cancelPendingSearch = () => {
+      setSearchDraft((draft) => ({ source: draft.source, value: draft.source }))
+    }
+    window.addEventListener('popstate', cancelPendingSearch)
+    return () => window.removeEventListener('popstate', cancelPendingSearch)
+  }, [])
+  const searchInput = searchDraft.source === searchTerm ? searchDraft.value : searchTerm
+  const debouncedInput = useDebouncedValue(searchInput, 300)
+  const commitSearch = useEffectEvent((value: string) => {
+    update({ searchTerm: value }, true, true)
+  })
+  useEffect(() => {
+    if (debouncedInput === searchInput && searchInput !== searchTerm) commitSearch(searchInput)
+  }, [debouncedInput, searchInput, searchTerm])
+  const productId = useLowStockUrlFilter('productId', '', params)
+  const statusFilter = useLowStockUrlFilter('statusFilter', 'Active', params)
+  const dateFrom = useLowStockUrlFilter('dateFrom', '', params)
+  const dateTo = useLowStockUrlFilter('dateTo', '', params)
+  const pageNumber = useLowStockUrlFilter('pageNumber', '1', params)
+  const pageSize = useLowStockUrlFilter('pageSize', '20', params)
+  const filters: LowStockAlertFilters = {
+    warehouseId: warehouseId || undefined,
+    productId: productId || undefined,
+    searchTerm: searchTerm || undefined,
+    statusFilter,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    pageNumber: Number(pageNumber),
+    pageSize: Number(pageSize),
+  }
+  const alertId = params.get('alertId') ?? ''
+  const validationError = validateLowStockFilters(filters, alertId)
+  const listFilters = filters
+  const enabled = Boolean(user && canView && !validationError)
+  const list = useQuery({
+    queryKey: queryKeys.inventory.lowStockAlerts(scope, 'list', listFilters),
+    queryFn: ({ signal }) => lowStockAlertService.list(listFilters, signal),
+    enabled,
+    retry: false,
+  })
+  useEffect(() => {
+    if (!enabled || !list.isSuccess || list.isFetching || !list.data) return
+    const lastPage = Math.max(1, Math.ceil(list.data.totalCount / filters.pageSize))
+    if (filters.pageNumber <= lastPage) return
+    const next = new URLSearchParams(params.toString())
+    next.set('pageNumber', String(lastPage))
+    window.history.replaceState(null, '', `${pathname}?${next}`)
+  }, [
+    enabled,
+    list.isSuccess,
+    list.isFetching,
+    list.data,
+    filters.pageSize,
+    filters.pageNumber,
+    params,
+    pathname,
+  ])
+  const detail = useQuery({
+    queryKey: queryKeys.inventory.lowStockAlerts(scope, 'detail', alertId),
+    queryFn: ({ signal }) => lowStockAlertService.detail(alertId, signal),
+    enabled: enabled && isLowStockGuid(alertId),
+    retry: false,
+  })
+  const acknowledge = useMutation({
+    mutationFn: (id: string) => lowStockAlertService.acknowledge(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['inventory', 'low-stock-alerts', scope] })
+      toast.success('Đã tiếp nhận cảnh báo tồn thấp.')
+    },
+    onError: async (error) => {
+      logger.error(error)
+      toast.error(getApiErrorMessage(error))
+      await queryClient.invalidateQueries({ queryKey: ['inventory', 'low-stock-alerts', scope] })
+    },
+  })
+  function update(
+    values: Record<string, string | number | undefined>,
+    resetPage = true,
+    replace = false
+  ) {
+    const next = new URLSearchParams(params.toString())
+    const current = {
+      warehouseId,
+      searchTerm,
+      productId,
+      statusFilter,
+      dateFrom,
+      dateTo,
+      pageNumber,
+      pageSize,
+    }
+    for (const [key, value] of Object.entries(current)) {
+      if (!next.has(key)) next.set(key, value)
+    }
+    // Preserve the effective filters of the entry we are leaving, including values
+    // inherited from the shared tab state that are not yet present in its URL.
+    if (!replace && next.toString() !== params.toString()) {
+      window.history.replaceState(window.history.state, '', `${pathname}?${next}`)
+    }
+    if (resetPage) next.set('pageNumber', '1')
+    for (const [key, value] of Object.entries(values)) {
+      if (value === undefined && key === 'alertId') next.delete(key)
+      else if (value === undefined) next.set(key, '')
+      else next.set(key, String(value))
+    }
+    window.history[replace ? 'replaceState' : 'pushState'](null, '', `${pathname}?${next}`)
+  }
+  function reset() {
+    setSearchDraft({ source: '', value: '' })
+    update({
+      searchTerm: undefined,
+      productId: undefined,
+      dateFrom: undefined,
+      dateTo: undefined,
+      statusFilter: 'Active',
+      alertId: undefined,
+    })
+  }
+  return {
+    scope,
+    me,
+    permissions,
+    canView,
+    filters,
+    searchInput,
+    setSearchInput: (value: string) => setSearchDraft({ source: searchTerm, value }),
+    alertId,
+    validationError,
+    list,
+    detail,
+    acknowledge,
+    update,
+    reset,
+    enabled,
+  }
+}

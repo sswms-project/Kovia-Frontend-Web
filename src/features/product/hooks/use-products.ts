@@ -172,6 +172,9 @@ export function useConfigureStockPolicyMutation(id: string) {
     mutationFn: (request) => productService.configureStockPolicy(id, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.products.stockPolicies(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })
+      queryClient.invalidateQueries({ queryKey: ['stock-alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['warehouse-overview'] })
     },
     onError: (error) => logger.error(formatApiError(error)),
   })
@@ -194,8 +197,12 @@ export function useChangeStockPolicyStatusMutation(id: string) {
   >({
     mutationFn: ({ policyId, status }) =>
       productService.changeStockPolicyStatus(id, policyId, status),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.products.stockPolicies(id) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.stockPolicies(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.inventory.all })
+      queryClient.invalidateQueries({ queryKey: ['stock-alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['warehouse-overview'] })
+    },
     onError: (error) => logger.error(formatApiError(error)),
   })
 }

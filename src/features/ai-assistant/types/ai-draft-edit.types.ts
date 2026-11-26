@@ -81,7 +81,9 @@ export type AiDraftUpdateRequest =
 
 /** Body of `POST api/ai/actions/{id}/confirm`; required by the BE for editable draft types. */
 export interface AiDraftConfirmRequest {
-  readonly expectedRevision: string
+  readonly expectedRevision?: string
+  /** Stock issue or transfer: keep it as a planned request although stock that can be allocated now is short. */
+  readonly allowShortage?: boolean
 }
 
 /** `lines.{index}.product|unit|quantity` messages, by line index of the request. */

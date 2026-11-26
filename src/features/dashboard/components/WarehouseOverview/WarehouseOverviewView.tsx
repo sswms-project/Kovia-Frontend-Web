@@ -37,6 +37,7 @@ interface WarehouseOverviewViewProps {
   readonly canShowData: boolean
   readonly canViewInventory: boolean
   readonly settings: ReactNode
+  readonly lowStockHistoryAction?: ReactNode
   readonly operations: ReactNode
 }
 
@@ -62,6 +63,7 @@ export function WarehouseOverviewView({
   canShowData,
   canViewInventory,
   settings,
+  lowStockHistoryAction,
   operations,
   charts,
 }: WarehouseOverviewViewProps) {
@@ -197,6 +199,7 @@ export function WarehouseOverviewView({
                 onPageSizeChange={(size) => onPageSizeChange(kind, size)}
                 onExpand={(opener) => onExpand(kind, opener)}
                 settings={kind === 'expiring' ? settings : undefined}
+                navigationAction={kind === 'below-minimum' ? lowStockHistoryAction : undefined}
               />
             ))}
           </div>

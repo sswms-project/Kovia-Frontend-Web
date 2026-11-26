@@ -43,6 +43,7 @@ export interface StockAlertPanelProps extends StockAlertPanelState {
   readonly onExpand?: (opener: HTMLButtonElement) => void
   readonly expanded?: boolean
   readonly settings?: ReactNode
+  readonly navigationAction?: ReactNode
   readonly searchControl?: ReactNode
 }
 
@@ -70,6 +71,7 @@ export function StockAlertPanel({
   onExpand,
   expanded = false,
   settings,
+  navigationAction,
   searchControl,
 }: StockAlertPanelProps) {
   const expiry = kind === 'expiring' || kind === 'expired'
@@ -138,6 +140,7 @@ export function StockAlertPanel({
               Xem tất cả
             </Button>
           ) : null}
+          {navigationAction}
           <Button
             type="button"
             size="icon-sm"
