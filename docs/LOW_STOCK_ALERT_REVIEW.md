@@ -98,3 +98,8 @@ Raw `tsc` theo cấu hình mặc định có thể quét các fixture cũ không
 - Finding M1 trong final self-review về Back cùng từ khóa đã có2 test fail trước sửa và pass sau sửa; thêm test giữ draft khi chọn bộ lọc bình thường. Tổng cuối27/27 trong6 file; scoped ESLint và diff-check đạt.
 - Full production typecheck từng đạt trước guard điều hướng cuối; lượt lặp lại bị dừng khi C: còn khoảng1GiB, không được tính là passed. Không chạy lại build/typecheck nặng cho commit này. Chưa test trực tiếp Telex/VNI trên thiết bị. Reviewer/CI cần hoàn tất kiểm tra build/typecheck trước khi kết luận release-ready.
 - Không sửa BE, schema, DB hoặc công thức tồn kho. Các đề xuất B2/B3 và refactor follow-up chưa nằm trong lượt sửa này.
+
+### Sửa release-review M1: Back về entry thiếu query
+
+Trước pushState, chuẩn hóa entry hiện tại thành snapshot đủ bộ lọc đang hiệu lực (replaceState giữ history.state). Khi Back/Forward, UI đọc được đúng trạng thái ban đầu kể cả lúc URL trước đó thiếu query và đang kế thừa bộ lọc đã nhớ. Không xóa các bộ lọc đã nhớ khi quay lại tab; không đổi shared InventorySearch.
+Hai test hồi quy queryless/retained-filter failed trước fix và passed sau fix. Tổng29/29, scoped lint/diff-check đạt; không chạy lại full local build/typecheck do C: khoảng1GiB. Không thay BE/DB/phân quyền.
