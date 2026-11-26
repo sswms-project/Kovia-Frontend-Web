@@ -16,6 +16,7 @@ type InventoryWorkspaceView =
   | 'opening-stocks'
   | 'discrepancies'
   | 'anomalies'
+  | 'low-stock-alerts'
 
 interface InventoryWorkspaceNavigationProps {
   readonly currentView: InventoryWorkspaceView
@@ -122,6 +123,15 @@ export function InventoryWorkspaceNavigation({
               Chênh lệch
             </Link>
           </>
+        ) : null}
+        {permissions.includes(P.INVENTORY_VIEW) ? (
+          <Link
+            href={APP_ROUTES.inventoryLowStockAlerts}
+            aria-current={currentView === 'low-stock-alerts' ? 'page' : undefined}
+            className={linkClassName}
+          >
+            Cảnh báo tồn thấp
+          </Link>
         ) : null}
         {permissions.includes(P.INVENTORY_ANOMALIES_VIEW) ? (
           <Link

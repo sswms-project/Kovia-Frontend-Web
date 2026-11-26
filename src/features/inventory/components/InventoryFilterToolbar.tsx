@@ -96,6 +96,7 @@ export function InventoryFilterToolbar({
   search,
   warehouse,
   actions,
+  inlineFilters,
   children,
   appliedFilters = [],
   onReset,
@@ -103,7 +104,8 @@ export function InventoryFilterToolbar({
   readonly search?: ReactNode
   readonly warehouse: ReactNode
   readonly actions?: ReactNode
-  readonly children: ReactNode
+  readonly inlineFilters?: ReactNode
+  readonly children?: ReactNode
   readonly appliedFilters?: readonly (
     | { readonly label: string; readonly clear: () => void }
     | false
@@ -121,33 +123,36 @@ export function InventoryFilterToolbar({
       <div className="min-w-0 flex-1 sm:max-w-64 [&_[data-slot=native-select-wrapper]]:w-full">
         {warehouse}
       </div>
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button type="button" variant="outline" className="h-11 sm:h-8">
-            <ListFilter aria-hidden="true" />
-            Bộ lọc{filters.length ? ` (${filters.length})` : ''}
-          </Button>
-        </SheetTrigger>
-        <SheetContent className="w-full sm:max-w-sm">
-          <SheetHeader>
-            <SheetTitle>Bộ lọc</SheetTitle>
-            <SheetDescription>Danh sách cập nhật theo các lựa chọn bên dưới.</SheetDescription>
-          </SheetHeader>
-          <div className="min-h-0 space-y-3 overflow-y-auto px-4 pb-2" data-scrollbar="slim">
-            {children}
-          </div>
-          <SheetFooter>
-            {onReset && (
-              <Button type="button" variant="outline" onClick={onReset}>
-                Đặt lại bộ lọc
-              </Button>
-            )}
-            <SheetClose asChild>
-              <Button type="button">Xem kết quả</Button>
-            </SheetClose>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      {inlineFilters}
+      {children ? (
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button type="button" variant="outline" className="h-11 sm:h-8">
+              <ListFilter aria-hidden="true" />
+              Bộ lọc{filters.length ? ` (${filters.length})` : ''}
+            </Button>
+          </SheetTrigger>
+          <SheetContent className="w-full sm:max-w-sm">
+            <SheetHeader>
+              <SheetTitle>Bộ lọc</SheetTitle>
+              <SheetDescription>Danh sách cập nhật theo các lựa chọn bên dưới.</SheetDescription>
+            </SheetHeader>
+            <div className="min-h-0 space-y-3 overflow-y-auto px-4 pb-2" data-scrollbar="slim">
+              {children}
+            </div>
+            <SheetFooter>
+              {onReset && (
+                <Button type="button" variant="outline" onClick={onReset}>
+                  Đặt lại bộ lọc
+                </Button>
+              )}
+              <SheetClose asChild>
+                <Button type="button">Xem kết quả</Button>
+              </SheetClose>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : null}
       {actions && (
         <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
       )}
