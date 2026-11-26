@@ -73,6 +73,7 @@ export const APP_ROUTES = {
   inventoryOpeningStockImport: '/inventory/opening-stocks/import',
   inventoryAbcClassification: '/inventory/abc-classification',
   inventoryDiscrepancies: '/inventory/discrepancies',
+  inventoryLowStockAlerts: '/inventory/low-stock-alerts',
   inventoryAnomalies: '/inventory/anomalies',
   inventoryForecast: '/inventory/forecast', // Legacy URL redirects to reports/forecast.
   cycleCounts: '/inventory/cycle-counts',

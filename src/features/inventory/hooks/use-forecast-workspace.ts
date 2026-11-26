@@ -39,7 +39,8 @@ import {
   useWaitForForecastRun,
 } from './use-inventory'
 
-export function useForecastWorkspace() {
+export function useForecastWorkspace(initial: { warehouseId?: string; productId?: string } = {}) {
+  const [targetProductId, setTargetProductId] = useState(initial.productId ?? '')
   const queryClient = useQueryClient()
   const [runId, setRunId] = useState('')
   const [reviewId, setReviewId] = useState('')
@@ -52,7 +53,11 @@ export function useForecastWorkspace() {
   const [overviewPageSize, setOverviewPageSize] = useState(20)
   const createForm = useForm<CreateForecastRunFormValues>({
     resolver: zodResolver(createForecastRunSchema),
-    defaultValues: { warehouseId: '', historicalPeriodDays: 90, horizonDays: 14 },
+    defaultValues: {
+      warehouseId: initial.warehouseId ?? '',
+      historicalPeriodDays: 90,
+      horizonDays: 14,
+    },
   })
   const reviewForm = useForm<ReviewReplenishmentFormValues>({
     resolver: zodResolver(reviewReplenishmentSchema),
@@ -76,8 +81,15 @@ export function useForecastWorkspace() {
   const overviewRows = useMemo(() => (run ? buildForecastOverview(run) : []), [run])
   const overviewRiskCounts = useMemo(() => countForecastRisks(overviewRows), [overviewRows])
   const filteredOverview = useMemo(
-    () => filterForecastOverview(overviewRows, overviewSearch, overviewRisk),
-    [overviewRows, overviewSearch, overviewRisk]
+    () =>
+      filterForecastOverview(
+        targetProductId
+          ? overviewRows.filter((row) => row.productId === targetProductId)
+          : overviewRows,
+        overviewSearch,
+        overviewRisk
+      ),
+    [overviewRows, overviewSearch, overviewRisk, targetProductId]
   )
   const suppliersQuery = useProductSuppliersQuery(selected?.productId ?? '')
   const slotsQuery = useWarehouseLocationsQuery(transferSuggestion?.destinationWarehouseId ?? '', {
@@ -113,6 +125,7 @@ export function useForecastWorkspace() {
     downloadBulkImportFile(blob, `du-bao-${run.forecastStartDate}.csv`)
   }
   function changeWarehouse(id: string) {
+    if (id !== warehouseId) setTargetProductId('')
     createForm.setValue('warehouseId', id)
     selectRun('')
   }
@@ -223,6 +236,11 @@ export function useForecastWorkspace() {
     }
   }
   return {
+    targetProductId,
+    clearTargetProduct: () => {
+      setTargetProductId('')
+      setOverviewPage(1)
+    },
     createForm,
     reviewForm,
     warehouseId,

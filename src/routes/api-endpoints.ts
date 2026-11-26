@@ -169,6 +169,7 @@ export const API_ENDPOINTS = {
     review: (id: string) => `/inventory-anomalies/${id}/review`,
   },
   inventory: {
+    lowStockAlerts: '/inventory/low-stock-alerts',
     list: '/inventory',
     exportExcel: '/inventory/export',
     warehouseOptions: '/inventory/filter-options/warehouses',

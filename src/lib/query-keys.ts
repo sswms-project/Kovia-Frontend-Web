@@ -153,6 +153,8 @@ export const queryKeys = {
       ['warehouses', 'detail', id, 'barcode', type, locationId] as const,
   },
   inventory: {
+    lowStockAlerts: (scope: string, kind: string, params: object | string) =>
+      ['inventory', 'low-stock-alerts', scope, kind, params] as const,
     all: ['inventory'] as const,
     list: (params: InventoryListQuery) => ['inventory', 'list', params] as const,
     warehouseOptions: () => ['inventory', 'filter-options', 'warehouses'] as const,

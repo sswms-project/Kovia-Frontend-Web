@@ -1,6 +1,10 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { P } from '@/config/permissionCodes'
@@ -280,6 +284,27 @@ export default function WarehouseOverviewPage() {
     counts: speechCounts,
     warehouseName: speechWarehouseName,
   })
+  const lowStockHistoryAction = canViewInventory ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button asChild variant="outline" size="icon-sm">
+          <Link
+            href={{
+              pathname: APP_ROUTES.inventoryLowStockAlerts,
+              query: {
+                ...(location.warehouseId ? { warehouseId: location.warehouseId } : {}),
+                statusFilter: 'Active',
+              },
+            }}
+            aria-label="Xem lịch sử cảnh báo tồn thấp"
+          >
+            <ArrowUpRight aria-hidden="true" />
+          </Link>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Xem lịch sử cảnh báo tồn thấp</TooltipContent>
+    </Tooltip>
+  ) : null
   const settings = (
     <>
       <AlertSpeechControl counts={speechCounts} warehouseName={speechWarehouseName} />
@@ -347,6 +372,7 @@ export default function WarehouseOverviewPage() {
         canShowData={canShowData}
         canViewInventory={canViewInventory && canShowData}
         settings={settings}
+        lowStockHistoryAction={lowStockHistoryAction}
         charts={
           <AlertOverviewCharts
             belowMinimum={{
