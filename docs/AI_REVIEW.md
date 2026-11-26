@@ -3218,3 +3218,7 @@ User authorized commit/push and PR into dev. Both working branches contain fetch
 FE preflight: 20/20 targeted tests across6 files re-passed, scoped ESLint passed, next typegen and tsc --project tsconfig.production.json --noEmit --incremental false passed. Default tsconfig still includes untracked historical outputs/tmp fixtures; raw default tsc errors are not a clean-checkout acceptance result. Production source/config check passed after refreshing generated route types. No full Next production build repeated in this resource-constrained preflight. BE acceptance remains591/591 including9 SQL tests.
 
 Only feature source/tests/review records are staged; GitNexus-generated AGENTS.md/CLAUDE.md updates and outputs QA artifacts are excluded. No merge or deployment performed.
+
+## LOW-STOCK-REVIEWER-DOCUMENTATION-20261126
+
+Added docs/LOW_STOCK_ALERT_REVIEW.md as the final scope/acceptance/reviewer guide, including later policy/evaluator/acknowledgement scope expansions, code map, manual expected outcomes, reproducible checks and known limitations. Supersedes conflicting initial read-only-plan assumptions for these PRs. Documentation-only follow-up; no runtime/config/test change, no new DB operations; prior verification remains applicable. User authorized commit/push and PR description updates, not merge.
