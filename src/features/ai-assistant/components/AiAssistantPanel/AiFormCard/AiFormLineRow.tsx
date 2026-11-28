@@ -157,7 +157,7 @@ export function AiFormLineRow({
       ) : null}
       {showsStock && product && hasQuantity && exceedsAiFormLineAvailable(line) ? (
         <p className="text-warning text-xs">
-          Cảnh báo thiếu tồn: có thể không đủ hàng khi xuất; kiểm tra lại ở bước xử lý phiếu.
+          Vượt tồn khả dụng: bản nháp sẽ không được lưu với số lượng này. Hãy giảm số lượng.
         </p>
       ) : null}
     </div>

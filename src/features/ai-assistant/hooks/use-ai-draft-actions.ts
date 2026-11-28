@@ -19,8 +19,6 @@ import { useAiDraftConflictHandler } from './use-ai-draft-edit'
 export interface AiDraftActionVariables {
   readonly draftId: string
   readonly conversationId: string | null
-  /** Confirm a stock issue or transfer as a planned request although it is short (the user chose so). */
-  readonly allowShortage?: boolean
 }
 
 // Lists that change once a confirmed draft has been executed.
@@ -37,7 +35,7 @@ export function useConfirmAiActionMutation() {
   const handleConflict = useAiDraftConflictHandler()
   return useMutation<AiActionExecution, ApiErrorResponse, AiDraftActionVariables>({
     // The revision the card shows is read from the cache here, so every caller confirms the same way.
-    mutationFn: ({ draftId, conversationId, allowShortage }) =>
+    mutationFn: ({ draftId, conversationId }) =>
       aiAssistantService.confirmAction(
         draftId,
         findAiDraftRevision(
@@ -47,8 +45,7 @@ export function useConfirmAiActionMutation() {
               )
             : undefined,
           draftId
-        ),
-        allowShortage
+        )
       ),
     onSuccess: (execution, { conversationId }) => {
       toast.success('Đã thực hiện thao tác.')
@@ -62,7 +59,7 @@ export function useConfirmAiActionMutation() {
       if (resultQueryKey) void queryClient.invalidateQueries({ queryKey: resultQueryKey })
     },
     onError: (error, { draftId, conversationId }) => {
-      // Short stock is answered by the caller (reduce the draft or keep a planned request), not with a toast.
+      // Short stock is shown by the caller as a dialog listing each short line, not with a toast.
       if (getStockShortageMessages(error)) {
         logApiError(error)
         return
