@@ -172,14 +172,10 @@ export const aiAssistantService = {
       .get<ApiResponse<AiConversationMessages>>(API_ENDPOINTS.aiAssistant.messages(conversationId))
       .then((response) => response.data.data),
   // `expectedRevision` is sent only for a draft that has one (editable types); others confirm as before.
-  confirmAction: (draftId: string, expectedRevision?: string | null, allowShortage = false) => {
-    const body: AiDraftConfirmRequest | undefined =
-      expectedRevision || allowShortage
-        ? {
-            ...(expectedRevision ? { expectedRevision } : {}),
-            ...(allowShortage ? { allowShortage } : {}),
-          }
-        : undefined
+  confirmAction: (draftId: string, expectedRevision?: string | null) => {
+    const body: AiDraftConfirmRequest | undefined = expectedRevision
+      ? { expectedRevision }
+      : undefined
     return axiosClient
       .post<ApiResponse<AiActionExecution>>(API_ENDPOINTS.aiAssistant.confirmAction(draftId), body)
       .then((response) => response.data.data)

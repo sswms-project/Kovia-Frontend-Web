@@ -84,23 +84,20 @@ export function AiAssistantPanel({ onNavigate }: AiAssistantPanelProps) {
   const releaseDraftAction = useCallback(() => {
     isDraftActionRunning.current = false
   }, [])
-  // A stock issue or transfer draft beyond what can be allocated now: the user reduces it in the editor or keeps
-  // a planned request. Nothing is confirmed until they choose.
-  const [shortage, setShortage] = useState<{
-    readonly draftId: string
-    readonly messages: readonly string[]
-  } | null>(null)
+  // Stock changed after the draft was made and it can no longer be issued: the server refuses it (nothing is created)
+  // and the user fixes the quantity; there is no way to confirm beyond available stock.
+  const [shortageMessages, setShortageMessages] = useState<readonly string[] | null>(null)
   const handleConfirmAction = useCallback(
-    (draftId: string, allowShortage = false) => {
+    (draftId: string) => {
       if (isDraftActionRunning.current) return
       isDraftActionRunning.current = true
       confirmAction(
-        { draftId, conversationId, allowShortage },
+        { draftId, conversationId },
         {
           onSettled: releaseDraftAction,
           onError: (error) => {
             const messages = getStockShortageMessages(error)
-            if (messages) setShortage({ draftId, messages })
+            if (messages) setShortageMessages(messages)
           },
         }
       )
@@ -198,17 +195,7 @@ export function AiAssistantPanel({ onNavigate }: AiAssistantPanelProps) {
           {showHistoryOnly ? history : chat}
         </div>
       )}
-      <StockShortageDialog
-        messages={shortage?.messages ?? null}
-        isPending={confirmMutation.isPending}
-        onClose={() => setShortage(null)}
-        onKeepPlanned={() => {
-          if (!shortage) return
-          const { draftId } = shortage
-          setShortage(null)
-          handleConfirmAction(draftId, true)
-        }}
-      />
+      <StockShortageDialog messages={shortageMessages} onClose={() => setShortageMessages(null)} />
     </div>
   )
 }

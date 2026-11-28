@@ -34,7 +34,7 @@ export function AiDraftWarnings({ warnings, recheckNote }: AiDraftWarningsProps)
                 <Icon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
                 <span className="min-w-0 break-words">
                   {isAiDraftShortageWarning(warning) ? (
-                    <strong className="font-medium">Cảnh báo thiếu tồn: </strong>
+                    <strong className="font-medium">Vượt tồn khả dụng, chưa xác nhận được: </strong>
                   ) : null}
                   {getAiDraftWarningText(warning)}
                 </span>

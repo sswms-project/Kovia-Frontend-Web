@@ -43,12 +43,13 @@ export function getApiErrorCode(error: unknown): string | undefined {
 }
 
 /**
- * The short lines of a 409 `INSUFFICIENT_STOCK` (confirming an AI stock issue draft beyond what can be
- * issued now), one message per line in line order; null for any other error. The user then reduces the quantities
- * or resends with `allowShortage` to keep a planned request.
+ * The short lines of a 409 `INSUFFICIENT_AVAILABLE_STOCK` (an AI stock issue or transfer draft that can no longer be
+ * issued when confirmed), one message per line in line order; null for any other error. Nothing was created; the user
+ * reduces the quantities. There is no way to confirm beyond available stock.
  */
 export function getStockShortageMessages(error: unknown): string[] | null {
-  if (getApiErrorCode(error) !== 'INSUFFICIENT_STOCK' || !isApiErrorResponse(error)) return null
+  if (getApiErrorCode(error) !== 'INSUFFICIENT_AVAILABLE_STOCK' || !isApiErrorResponse(error))
+    return null
   return Object.entries(error.errors ?? {})
     .filter(([field]) => field !== 'code')
     .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
